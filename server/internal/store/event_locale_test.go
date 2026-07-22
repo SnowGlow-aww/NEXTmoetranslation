@@ -61,6 +61,45 @@ func TestEnglishStoryEditsSurviveLegacyChineseReimport(t *testing.T) {
 	}
 }
 
+func TestFirstStableReimportPreservesUniquelyMatchingLegacyTalkLocalization(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-legacy-position.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	first := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{{JPKey: "同一原文", Text: "旧中文", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"}},
+	}}
+	if err := events.ImportOrdered(11, model.EventStoryMeta{Source: "official_cn"}, first); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(11, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segment := detail.Episodes["1"].Segments[1]
+	if err := events.UpdateLineLocale(11, "1", "同一原文", segment.ID, segment.SourceHash,
+		"Preserved English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	second := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{{JPKey: "同一原文", Text: "新中文", Source: model.SourceCN, ScenarioPosition: 2, Field: "body"}},
+	}}
+	if err := events.ImportOrdered(11, model.EventStoryMeta{Source: "official_cn"}, second); err != nil {
+		t.Fatal(err)
+	}
+	localized, err := events.DetailLocale(11, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := localized.Episodes["1"].Segments[1].Text; got != "Preserved English" {
+		t.Fatalf("first stable reimport localization = %q", got)
+	}
+}
+
 func TestChangedSourceHashDoesNotKeepStaleLocalization(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "event-drift.db"))
 	if err != nil {

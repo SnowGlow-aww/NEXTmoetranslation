@@ -34,7 +34,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 5 || migrationCount != 5 || checksum != migrations[4].checksum() {
+	if version != 6 || migrationCount != 6 || checksum != migrations[5].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -282,5 +282,46 @@ func TestTitleIdentityMigrationMovesExistingLocalizations(t *testing.T) {
 	}
 	if newID != oldID+":-1" || text != "Existing English title" {
 		t.Fatalf("migrated title id=%q text=%q old=%q", newID, text, oldID)
+	}
+}
+
+func TestTalkIdentityMigrationMovesMatchingLocalizationsAndHash(t *testing.T) {
+	path := legacyFixtureCopy(t, "talk-identity.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:5]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	var oldID, oldHash string
+	if err := raw.QueryRow(`SELECT segment_id, source_hash FROM event_story_segments WHERE kind='talk'`).Scan(&oldID, &oldHash); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		VALUES (?, 'en-US', 'Existing English talk', 'human', 1, 'editor', 2)`, oldID); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var newID, newHash, text string
+	if err := migrated.QueryRow(`SELECT seg.segment_id, seg.source_hash, loc.text
+		FROM event_story_segments seg JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id
+		WHERE seg.kind='talk' AND loc.locale='en-US'`).Scan(&newID, &newHash, &text); err != nil {
+		t.Fatal(err)
+	}
+	if newID != oldID+":body" || newHash != oldHash || text != "Existing English talk" {
+		t.Fatalf("migrated talk id=%q hash=%q text=%q oldID=%q oldHash=%q", newID, newHash, text, oldID, oldHash)
 	}
 }

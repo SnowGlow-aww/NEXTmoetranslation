@@ -59,16 +59,16 @@ func (s *EventStore) ImportOrdered(eventID int, meta model.EventStoryMeta, episo
 
 func importOrderedTx(tx *sql.Tx, eventID int, meta model.EventStoryMeta, episodes []OrderedEpisode, preserveLocales bool) error {
 	// Older binaries replace the legacy story rows wholesale. Preserve manual
-	// non-Chinese localizations that are still attached to the same stable
-	// scenario/episode/position segment before the legacy delete cascades.
+	// non-Chinese localizations that are still attached to the same source
+	// identity before the legacy delete cascades.
 	type preservedLocalization struct {
-		segmentID, sourceHash, locale, text, source, updatedBy string
-		updatedAt                                              int64
-		revision                                               int
+		segmentID, episodeNo, kind, sourceHash, locale, text, source, updatedBy string
+		updatedAt                                                               int64
+		revision                                                                int
 	}
 	var preserved []preservedLocalization
 	if preserveLocales {
-		rows, err := tx.Query(`SELECT loc.segment_id, seg.source_hash, loc.locale, loc.text, loc.source,
+		rows, err := tx.Query(`SELECT loc.segment_id, seg.episode_no, seg.kind, seg.source_hash, loc.locale, loc.text, loc.source,
 			loc.updated_at, loc.updated_by, loc.revision
 			FROM event_story_segment_localizations loc
 			JOIN event_story_segments seg ON seg.segment_id=loc.segment_id
@@ -78,7 +78,7 @@ func importOrderedTx(tx *sql.Tx, eventID int, meta model.EventStoryMeta, episode
 		}
 		for rows.Next() {
 			var item preservedLocalization
-			if err := rows.Scan(&item.segmentID, &item.sourceHash, &item.locale, &item.text, &item.source,
+			if err := rows.Scan(&item.segmentID, &item.episodeNo, &item.kind, &item.sourceHash, &item.locale, &item.text, &item.source,
 				&item.updatedAt, &item.updatedBy, &item.revision); err != nil {
 				rows.Close()
 				return err
@@ -228,12 +228,48 @@ func importOrderedTx(tx *sql.Tx, eventID int, meta model.EventStoryMeta, episode
 		}
 	}
 	for _, item := range preserved {
+		targetSegmentID := item.segmentID
+		var currentHash string
+		err := tx.QueryRow(`SELECT source_hash FROM event_story_segments WHERE segment_id=?`, targetSegmentID).Scan(&currentHash)
+		if err == sql.ErrNoRows {
+			candidateRows, queryErr := tx.Query(`SELECT segment_id FROM event_story_segments
+				WHERE event_id=? AND episode_no=? AND kind=? AND source_hash=?`,
+				eventID, item.episodeNo, item.kind, item.sourceHash)
+			if queryErr != nil {
+				return queryErr
+			}
+			var candidates []string
+			for candidateRows.Next() {
+				var candidate string
+				if err := candidateRows.Scan(&candidate); err != nil {
+					candidateRows.Close()
+					return err
+				}
+				candidates = append(candidates, candidate)
+			}
+			if err := candidateRows.Err(); err != nil {
+				candidateRows.Close()
+				return err
+			}
+			if err := candidateRows.Close(); err != nil {
+				return err
+			}
+			if len(candidates) != 1 {
+				continue
+			}
+			targetSegmentID = candidates[0]
+			currentHash = item.sourceHash
+		} else if err != nil {
+			return err
+		}
+		if currentHash != item.sourceHash {
+			continue
+		}
 		if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
 			(segment_id, locale, text, source, updated_at, updated_by, revision)
-			SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS
-			(SELECT 1 FROM event_story_segments WHERE segment_id=? AND source_hash=?)`,
-			item.segmentID, item.locale, item.text, item.source, item.updatedAt,
-			item.updatedBy, item.revision, item.segmentID, item.sourceHash); err != nil {
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			targetSegmentID, item.locale, item.text, item.source, item.updatedAt,
+			item.updatedBy, item.revision); err != nil {
 			return err
 		}
 	}

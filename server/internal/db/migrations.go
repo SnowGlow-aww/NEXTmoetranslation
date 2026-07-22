@@ -286,6 +286,58 @@ ALTER TABLE event_story_segments_next RENAME TO event_story_segments;
 ALTER TABLE event_story_segment_localizations_next RENAME TO event_story_segment_localizations;
 CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, episode_no, kind, jp_key);
 `,
+}, {
+	version: 6,
+	name:    "stable_event_talk_field_identity",
+	sql: `
+CREATE TABLE event_story_segments_next (
+	segment_id  TEXT PRIMARY KEY,
+	event_id    INTEGER NOT NULL,
+	episode_no  TEXT NOT NULL,
+	scenario_id TEXT NOT NULL DEFAULT '',
+	kind        TEXT NOT NULL,
+	position    INTEGER NOT NULL,
+	jp_key      TEXT NOT NULL DEFAULT '',
+	source_text TEXT NOT NULL DEFAULT '',
+	source_hash TEXT NOT NULL DEFAULT '',
+	UNIQUE (event_id, episode_no, kind, position)
+);
+INSERT INTO event_story_segments_next
+	(segment_id, event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash)
+SELECT CASE
+	WHEN kind='talk' AND segment_id NOT LIKE '%:body' AND segment_id NOT LIKE '%:speaker'
+	THEN segment_id || CASE WHEN position % 2 = 0 THEN ':body' ELSE ':speaker' END
+	ELSE segment_id END,
+	event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash
+FROM event_story_segments;
+
+CREATE TABLE event_story_segment_localizations_next (
+	segment_id  TEXT NOT NULL,
+	locale      TEXT NOT NULL,
+	text        TEXT NOT NULL DEFAULT '',
+	source      TEXT NOT NULL DEFAULT 'unknown',
+	updated_at  INTEGER NOT NULL DEFAULT 0,
+	updated_by  TEXT NOT NULL DEFAULT '',
+	revision    INTEGER NOT NULL DEFAULT 1,
+	PRIMARY KEY (segment_id, locale),
+	FOREIGN KEY (segment_id) REFERENCES event_story_segments_next(segment_id) ON DELETE CASCADE
+);
+INSERT INTO event_story_segment_localizations_next
+	(segment_id, locale, text, source, updated_at, updated_by, revision)
+SELECT CASE
+	WHEN seg.kind='talk' AND loc.segment_id NOT LIKE '%:body' AND loc.segment_id NOT LIKE '%:speaker'
+	THEN loc.segment_id || CASE WHEN seg.position % 2 = 0 THEN ':body' ELSE ':speaker' END
+	ELSE loc.segment_id END,
+	loc.locale, loc.text, loc.source, loc.updated_at, loc.updated_by, loc.revision
+FROM event_story_segment_localizations loc
+JOIN event_story_segments seg ON seg.segment_id=loc.segment_id;
+
+DROP TABLE event_story_segment_localizations;
+DROP TABLE event_story_segments;
+ALTER TABLE event_story_segments_next RENAME TO event_story_segments;
+ALTER TABLE event_story_segment_localizations_next RENAME TO event_story_segment_localizations;
+CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, episode_no, kind, jp_key);
+`,
 }}
 
 func (d *DB) pendingMigrations() ([]migration, error) {
