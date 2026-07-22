@@ -187,14 +187,41 @@ func (s *Store) CategoryDataLocale(category, locale string) (model.Category, err
 
 func (s *Store) UpdateEntryLocale(category, field, key, text, source, user, locale string) (string, error) {
 	if locale == model.LocaleChinese {
-		status, err := s.UpdateEntry(category, field, key, text, source, user)
-		if err != nil || status != "ok" {
-			return status, err
-		}
-		if err := s.RecordAudit(user, "entry.locale.update", fmt.Sprintf("locale=%s category=%s field=%s", locale, category, field)); err != nil {
+		tx, err := s.db.Begin()
+		if err != nil {
 			return "", err
 		}
-		return status, nil
+		defer tx.Rollback()
+		var currentText, currentSource string
+		err = tx.QueryRow(`SELECT cn_text, source FROM entries
+			WHERE category=? AND field=? AND jp_key=?`, category, field, key).Scan(&currentText, &currentSource)
+		if err == nil && currentText == text && currentSource == source {
+			return "noop", nil
+		}
+		if err != nil && err != sql.ErrNoRows {
+			return "", err
+		}
+		now := time.Now().Unix()
+		if err == sql.ErrNoRows {
+			_, err = tx.Exec(`INSERT INTO entries
+				(category, field, jp_key, cn_text, source, ids_json, updated_at, updated_by)
+				VALUES (?, ?, ?, ?, ?, '', ?, ?)`, category, field, key, text, source, now, user)
+		} else {
+			_, err = tx.Exec(`UPDATE entries SET cn_text=?, source=?, updated_at=?, updated_by=?
+				WHERE category=? AND field=? AND jp_key=?`, text, source, now, user, category, field, key)
+		}
+		if err != nil {
+			return "", err
+		}
+		if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'entry.locale.update', ?)`,
+			now, user, fmt.Sprintf("locale=%s category=%s field=%s", locale, category, field)); err != nil {
+			return "", err
+		}
+		if err := tx.Commit(); err != nil {
+			return "", err
+		}
+		s.NotifyChange()
+		return "ok", nil
 	}
 	if locale == model.LocaleJapanese {
 		return "", ErrReadOnlyLocale

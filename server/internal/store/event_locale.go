@@ -129,12 +129,6 @@ func (s *EventStore) ListLocale(locale string) ([]model.EventStorySummary, error
 }
 
 func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user string) error {
-	if locale == model.LocaleChinese {
-		if err := s.UpdateLine(eventID, episodeNo, jpKey, text, source, entryType); err != nil {
-			return err
-		}
-		return s.recordEventLocaleAudit(user, locale, eventID, entryType)
-	}
 	if locale == model.LocaleJapanese {
 		return ErrReadOnlyLocale
 	}
@@ -166,6 +160,27 @@ func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, 
 		return ErrEventSourceConflict
 	}
 	now := time.Now().Unix()
+	if locale == model.LocaleChinese {
+		var result sql.Result
+		if entryType == "title" {
+			result, err = tx.Exec(`UPDATE event_story_episodes SET title=?, title_source=?
+				WHERE event_id=? AND episode_no=?`, text, source, eventID, episodeNo)
+		} else {
+			result, err = tx.Exec(`UPDATE event_story_lines SET cn_text=?, source=?
+				WHERE event_id=? AND episode_no=? AND jp_key=?`, text, source, eventID, episodeNo, jpKey)
+		}
+		if err != nil {
+			return err
+		}
+		if affected, err := result.RowsAffected(); err != nil {
+			return err
+		} else if affected == 0 {
+			return sql.ErrNoRows
+		}
+		if _, err := tx.Exec(`UPDATE event_stories SET last_updated=? WHERE event_id=?`, now, eventID); err != nil {
+			return err
+		}
+	}
 	if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
 		(segment_id, locale, text, source, updated_at, updated_by, revision)
 		VALUES (?, ?, ?, ?, ?, ?, 1)
@@ -175,21 +190,17 @@ func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, 
 		segmentID, locale, text, source, now, user); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(`INSERT INTO event_story_locale_meta(event_id, locale, last_updated) VALUES (?, ?, ?)
-		ON CONFLICT(event_id, locale) DO UPDATE SET last_updated=excluded.last_updated`, eventID, locale, now); err != nil {
-		return err
+	if locale != model.LocaleChinese {
+		if _, err := tx.Exec(`INSERT INTO event_story_locale_meta(event_id, locale, last_updated) VALUES (?, ?, ?)
+			ON CONFLICT(event_id, locale) DO UPDATE SET last_updated=excluded.last_updated`, eventID, locale, now); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'event.locale.update', ?)`,
 		now, user, eventLocaleAuditDetail(locale, eventID, entryType)); err != nil {
 		return err
 	}
 	return tx.Commit()
-}
-
-func (s *EventStore) recordEventLocaleAudit(user, locale string, eventID int, entryType string) error {
-	_, err := s.db.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'event.locale.update', ?)`,
-		time.Now().Unix(), user, eventLocaleAuditDetail(locale, eventID, entryType))
-	return err
 }
 
 func eventLocaleAuditDetail(locale string, eventID int, entryType string) string {

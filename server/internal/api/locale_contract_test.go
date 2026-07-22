@@ -147,6 +147,124 @@ func TestLocaleEventStoryUsesStableSegmentsAndKeepsLegacyProjection(t *testing.T
 	}
 }
 
+func TestExplicitChineseEventWriteRequiresIdentityWhileOmittedLocaleStaysLegacy(t *testing.T) {
+	h := setupLegacyAPI(t)
+	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	defer initial.Body.Close()
+	var detail model.EventStoryDetail
+	if err := json.NewDecoder(initial.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	var segmentID, sourceHash string
+	for _, segment := range detail.Episodes["1"].Segments {
+		if segment.Kind == "talk" && segment.Japanese == "二" {
+			segmentID, sourceHash = segment.ID, segment.SourceHash
+		}
+	}
+	if segmentID == "" {
+		t.Fatal("talk segment identity not found")
+	}
+	base := map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "segmentId": segmentID,
+		"sourceHash": sourceHash, "cnText": "显式中文", "source": "human",
+		"entryType": "talk", "locale": model.LocaleChinese,
+	}
+	for _, field := range []string{"episodeNo", "jpKey", "segmentId", "sourceHash", "entryType"} {
+		request := make(map[string]any, len(base))
+		for key, value := range base {
+			request[key] = value
+		}
+		delete(request, field)
+		response := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", request)
+		response.Body.Close()
+		if response.StatusCode != http.StatusBadRequest {
+			t.Fatalf("explicit zh-CN missing %s status = %d", field, response.StatusCode)
+		}
+	}
+	stale := make(map[string]any, len(base))
+	for key, value := range base {
+		stale[key] = value
+	}
+	stale["sourceHash"] = "stale"
+	response := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", stale)
+	response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("explicit zh-CN stale identity status = %d", response.StatusCode)
+	}
+	response = authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", base)
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("explicit zh-CN update status = %d", response.StatusCode)
+	}
+	legacy := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "cnText": "省略语言",
+		"source": "human", "entryType": "talk",
+	})
+	legacy.Body.Close()
+	if legacy.StatusCode != http.StatusOK {
+		t.Fatalf("omitted-locale legacy update status = %d", legacy.StatusCode)
+	}
+}
+
+func TestExplicitChineseEntryAuditFailureRollsBackMutation(t *testing.T) {
+	h := setupLegacyAPI(t)
+	if _, err := h.db.Exec(`CREATE TRIGGER fail_entry_locale_audit BEFORE INSERT ON audit_log
+		WHEN NEW.action='entry.locale.update' BEGIN SELECT RAISE(ABORT, 'audit failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+	response := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "human-key", "text": "不应保存",
+		"source": "human", "locale": model.LocaleChinese,
+	})
+	response.Body.Close()
+	if response.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("audit failure status = %d", response.StatusCode)
+	}
+	var text string
+	if err := h.db.QueryRow(`SELECT cn_text FROM entries WHERE category='cards' AND field='prefix' AND jp_key='human-key'`).Scan(&text); err != nil {
+		t.Fatal(err)
+	}
+	if text != "人工" {
+		t.Fatalf("entry mutation survived failed audit: %q", text)
+	}
+}
+
+func TestExplicitChineseEventAuditFailureRollsBackMutation(t *testing.T) {
+	h := setupLegacyAPI(t)
+	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	defer initial.Body.Close()
+	var detail model.EventStoryDetail
+	if err := json.NewDecoder(initial.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	var segmentID, sourceHash string
+	for _, segment := range detail.Episodes["1"].Segments {
+		if segment.Kind == "talk" && segment.Japanese == "二" {
+			segmentID, sourceHash = segment.ID, segment.SourceHash
+		}
+	}
+	if _, err := h.db.Exec(`CREATE TRIGGER fail_event_locale_audit BEFORE INSERT ON audit_log
+		WHEN NEW.action='event.locale.update' BEGIN SELECT RAISE(ABORT, 'audit failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+	response := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "segmentId": segmentID,
+		"sourceHash": sourceHash, "cnText": "不应保存", "source": "human",
+		"entryType": "talk", "locale": model.LocaleChinese,
+	})
+	response.Body.Close()
+	if response.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("audit failure status = %d", response.StatusCode)
+	}
+	var text string
+	if err := h.db.QueryRow(`SELECT cn_text FROM event_story_lines WHERE event_id=42 AND episode_no='1' AND jp_key='二'`).Scan(&text); err != nil {
+		t.Fatal(err)
+	}
+	if text != "第二句" {
+		t.Fatalf("event mutation survived failed audit: %q", text)
+	}
+}
+
 func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
 	h := setupLegacyAPI(t)
 	req, _ := http.NewRequest(http.MethodGet, h.server.URL+"/sse?token="+h.token, nil)
@@ -222,9 +340,22 @@ func TestExplicitChineseMutationsAuditWithoutChangingOmittedLegacyPath(t *testin
 		t.Fatalf("explicit Chinese entry audit count=%d err=%v", count, err)
 	}
 
+	detailResponse := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	defer detailResponse.Body.Close()
+	var detail model.EventStoryDetail
+	if err := json.NewDecoder(detailResponse.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	var segmentID, sourceHash string
+	for _, segment := range detail.Episodes["1"].Segments {
+		if segment.Kind == "talk" && segment.Japanese == "二" {
+			segmentID, sourceHash = segment.ID, segment.SourceHash
+		}
+	}
 	event := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
 		"eventId": 42, "episodeNo": "1", "jpKey": "二", "cnText": "显式中文剧情",
-		"source": "human", "entryType": "talk", "locale": model.LocaleChinese,
+		"segmentId": segmentID, "sourceHash": sourceHash, "source": "human",
+		"entryType": "talk", "locale": model.LocaleChinese,
 	})
 	event.Body.Close()
 	if event.StatusCode != http.StatusOK {

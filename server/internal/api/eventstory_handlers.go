@@ -108,12 +108,16 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "locale is read-only")
 		return
 	}
-	if explicit && locale != model.LocaleChinese && (req.SegmentID == "" || req.SourceHash == nil) {
-		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"segmentId and sourceHash are required"}, nil)
+	if explicit && (req.SegmentID == "" || req.SourceHash == nil || strings.TrimSpace(req.EpisodeNo) == "") {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"segmentId, sourceHash, and episodeNo are required"}, nil)
 		return
 	}
-	if explicit && locale != model.LocaleChinese && req.EntryType != "title" && req.EntryType != "talk" {
+	if explicit && req.EntryType != "title" && req.EntryType != "talk" {
 		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"entryType must be title or talk"}, nil)
+		return
+	}
+	if explicit && ((req.EntryType == "talk" && req.JpKey == "") || (req.EntryType == "title" && req.JpKey != "")) {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"jpKey is required for talk entries and must be empty for titles"}, nil)
 		return
 	}
 	var err error
