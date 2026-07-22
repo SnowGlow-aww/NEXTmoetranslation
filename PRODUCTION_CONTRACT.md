@@ -12,6 +12,7 @@ Migrations are applied in version order inside individual SQLite transactions. E
 4. `rolling_event_side_tables_no_legacy_cascade` removes cascades from legacy story parents so a previous binary's replace-import cannot erase multilingual content. Current imports explicitly reconcile stable segment rows.
 5. `stable_event_title_segment_identity` upgrades migrated title IDs to the same positional `:title:-1` identity used by current imports without losing existing localizations.
 6. `mark_legacy_event_talk_identity` retains migrated talk positions as opaque `:legacy` IDs because filtered legacy output cannot truthfully identify `body` versus `speaker`; localization rows and source hashes move with those IDs. A current-format reimport reserves matching stable IDs first, then carries a localization to a different ID only when its source occurrence was unique before reimport and identifies exactly one unclaimed episode/kind/hash destination afterward.
+7. `public_lyrics_attribution_and_token_generation` adds operator-authored public lyrics attribution and per-user token generations. Existing lyrics publication snapshots are cleared because private notes cannot be substituted for public attribution; drafts remain intact and require attribution before an administrator republishes them.
 
 Before the first pending migration, file-backed databases receive a verified `*.pre-migration-vN.bak` SQLite backup. Migration tests cover idempotent reopen, checksum refusal, injected rollback, backup recovery, legacy writer compatibility, and old event replacement.
 
@@ -30,6 +31,8 @@ Lyrics and catalog routes are authenticated:
 
 Lyrics use numeric `musicId`, stable ordered line IDs, Japanese/Chinese/English text, ordered text segments, required unique catalog performer IDs for publication, optimistic revisions, immutable Japanese source hashes and source provenance, draft/publication separation, and idempotent save/publish/unpublish behavior. Source lookup pins page and revision identity, rejects cross-origin redirects and explicit no-reprint markers/categories, and records source access in the audit log; contract errors use sanitized codes including `revision_conflict` (409), `source_drift`, `segment_mismatch`, `invalid_performer`, and `incomplete_publication` (422).
 
+Public lyrics publication also requires non-empty operator-authored `attribution`. It is the only public provenance field: source notes, license notes, source URL, page/revision/SHA identity, fetch timestamps, editor identity, and draft status remain confined to authenticated APIs and backups. Canonical JSON Schemas and consumer fixtures for Moesekai are committed under `contracts/public-lyrics/v1/`; NEXT paths and field names remain authoritative and no duplicate compatibility editing endpoints are exposed.
+
 JSON request bodies are capped at 8 MiB and the HTTP server bounds both header and whole-request read time. External lyrics-source requests use response caps, rate limiting, cache bounds, origin-locked redirects, and timeouts. HTTP responses carry a sanitized `X-Request-ID`; `/readyz` verifies SQLite readiness, admin-protected `/healthz/details` reports lightweight request/client-error/server-error counters, and `/healthz` retains its existing response. Locale, lyrics, source, and restore mutations/accesses write content-minimized audit rows.
 
 ## Public Files
@@ -47,6 +50,14 @@ Lyrics assets rebuild as one set. A malformed publication preserves the complete
 ## Backup And Restore
 
 Git and S3 backups retain the legacy public `translations` projection and add `translation-content/manifest.json`. Both projections are materialized from one SQLite snapshot; manifest schema version 1 checksums and counts multilingual entries, stable event content, catalog/lyrics drafts, source provenance, and publication snapshots. Legacy and additive restore data commit in one transaction, failure rolls everything back, and backups without the additive directory explicitly clear multilingual/lyrics-only state while retaining the old public restore projection. User tables, password hashes, settings, tokens, and secrets are not exported.
+
+## Authentication And Operations
+
+JWTs carry a persisted per-user token generation and are accepted only while the user still exists and the current database role and generation match. Password changes and role changes advance the generation, deletion removes the validation row, and all three operations immediately reject previously issued tokens. Public setup and login attempts are bounded in memory by both the normalized account and the socket `RemoteAddr`; forwarding headers are intentionally ignored. First-admin creation performs the empty-user check and insert in one immediate SQLite transaction.
+
+Editors may proofread individual entries, event lines, and lyrics drafts. CN sync, every AI trigger, event retry/reorder/promote, backup push/restore, user/settings/upstream administration, and lyrics publication are admin-only; read-only status and catalog endpoints remain available to authenticated editors.
+
+Production rollback is defined in `ROLLBACK_RUNBOOK.md`, including immutable artifact/image selection, database migration compatibility, credential/key handling, and post-rollback verification.
 
 ## Web Console
 
