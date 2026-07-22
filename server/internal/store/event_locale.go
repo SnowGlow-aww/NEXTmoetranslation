@@ -12,9 +12,6 @@ import (
 var ErrEventSourceConflict = errors.New("event source identity conflict")
 
 func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryDetail, error) {
-	if locale == model.LocaleChinese {
-		return s.Detail(eventID)
-	}
 	ordered, err := s.OrderedDetail(eventID)
 	if err != nil {
 		return model.EventStoryDetail{}, err
@@ -55,6 +52,13 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 		} else if localizedText.Valid {
 			text = localizedText.String
 			source = localizedSource.String
+		} else if locale == model.LocaleChinese {
+			base := baseByEpisode[episodeNo]
+			if kind == "title" {
+				text, source = base.Title, base.TitleSource
+			} else {
+				text, source = base.TalkData[jpKey], base.TalkSources[jpKey]
+			}
 		}
 		segment := model.EventStorySegment{
 			ID: id, Kind: kind, Position: position, Japanese: sourceText, SourceHash: sourceHash, Text: text, Source: source,
@@ -83,6 +87,14 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 				for _, key := range base.TalkKeys {
 					episode.TalkData[key] = key
 					episode.TalkSources[key] = model.SourceUnknown
+					episode.TalkOrder = append(episode.TalkOrder, key)
+				}
+			} else if locale == model.LocaleChinese {
+				episode.Title = base.Title
+				episode.TitleSource = base.TitleSource
+				for _, key := range base.TalkKeys {
+					episode.TalkData[key] = base.TalkData[key]
+					episode.TalkSources[key] = base.TalkSources[key]
 					episode.TalkOrder = append(episode.TalkOrder, key)
 				}
 			} else {

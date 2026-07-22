@@ -149,7 +149,7 @@ func TestLocaleEventStoryUsesStableSegmentsAndKeepsLegacyProjection(t *testing.T
 
 func TestExplicitChineseEventWriteRequiresIdentityWhileOmittedLocaleStaysLegacy(t *testing.T) {
 	h := setupLegacyAPI(t)
-	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=zh-CN", nil)
 	defer initial.Body.Close()
 	var detail model.EventStoryDetail
 	if err := json.NewDecoder(initial.Body).Decode(&detail); err != nil {
@@ -159,6 +159,9 @@ func TestExplicitChineseEventWriteRequiresIdentityWhileOmittedLocaleStaysLegacy(
 	for _, segment := range detail.Episodes["1"].Segments {
 		if segment.Kind == "talk" && segment.Japanese == "二" {
 			segmentID, sourceHash = segment.ID, segment.SourceHash
+			if segment.Text != "第二句" || segment.Source != model.SourceHuman {
+				t.Fatalf("explicit zh-CN segment = %+v", segment)
+			}
 		}
 	}
 	if segmentID == "" {
@@ -196,6 +199,29 @@ func TestExplicitChineseEventWriteRequiresIdentityWhileOmittedLocaleStaysLegacy(
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("explicit zh-CN update status = %d", response.StatusCode)
 	}
+	roundTrip := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=zh-CN", nil)
+	defer roundTrip.Body.Close()
+	if err := json.NewDecoder(roundTrip.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	foundUpdatedSegment := false
+	for _, segment := range detail.Episodes["1"].Segments {
+		if segment.ID == segmentID && segment.SourceHash == sourceHash && segment.Text == "显式中文" {
+			foundUpdatedSegment = true
+		}
+	}
+	if !foundUpdatedSegment {
+		t.Fatalf("explicit zh-CN GET/PUT round trip = %+v", detail.Episodes["1"].Segments)
+	}
+	omittedRead := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42", nil)
+	defer omittedRead.Body.Close()
+	var omittedDetail model.EventStoryDetail
+	if err := json.NewDecoder(omittedRead.Body).Decode(&omittedDetail); err != nil {
+		t.Fatal(err)
+	}
+	if len(omittedDetail.Episodes["1"].Segments) != 0 || omittedDetail.Episodes["1"].TalkData["二"] != "显式中文" {
+		t.Fatalf("omitted-locale legacy GET shape = %+v", omittedDetail.Episodes["1"])
+	}
 	legacy := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
 		"eventId": 42, "episodeNo": "1", "jpKey": "二", "cnText": "省略语言",
 		"source": "human", "entryType": "talk",
@@ -231,7 +257,7 @@ func TestExplicitChineseEntryAuditFailureRollsBackMutation(t *testing.T) {
 
 func TestExplicitChineseEventAuditFailureRollsBackMutation(t *testing.T) {
 	h := setupLegacyAPI(t)
-	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=zh-CN", nil)
 	defer initial.Body.Close()
 	var detail model.EventStoryDetail
 	if err := json.NewDecoder(initial.Body).Decode(&detail); err != nil {
@@ -340,7 +366,7 @@ func TestExplicitChineseMutationsAuditWithoutChangingOmittedLegacyPath(t *testin
 		t.Fatalf("explicit Chinese entry audit count=%d err=%v", count, err)
 	}
 
-	detailResponse := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	detailResponse := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=zh-CN", nil)
 	defer detailResponse.Body.Close()
 	var detail model.EventStoryDetail
 	if err := json.NewDecoder(detailResponse.Body).Decode(&detail); err != nil {
