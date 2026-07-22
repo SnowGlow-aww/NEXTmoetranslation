@@ -125,13 +125,12 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	u, err := s.auth.GetUser(claims.Username)
+	token, expiresAt, err := s.auth.RefreshToken(claims)
 	if err != nil {
-		writeErr(w, http.StatusUnauthorized, "user no longer exists")
-		return
-	}
-	token, expiresAt, err := s.auth.IssueToken(u)
-	if err != nil {
+		if err == auth.ErrInvalidCreds {
+			writeErr(w, http.StatusUnauthorized, "session was revoked")
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, "failed to issue token")
 		return
 	}

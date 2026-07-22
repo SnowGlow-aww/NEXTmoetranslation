@@ -41,6 +41,8 @@ var (
 	ErrSetupComplete = errors.New("setup already completed")
 )
 
+var refreshTokenValidatedHook func()
+
 // Auth manages users and tokens.
 type Auth struct {
 	db        *db.DB
@@ -166,40 +168,51 @@ func (a *Auth) SetRole(username, role string) error {
 	if !ValidRole(role) {
 		return fmt.Errorf("invalid role: %s", role)
 	}
+	tx, err := a.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	if role != RoleAdmin {
-		if err := a.guardLastAdmin(username); err != nil {
+		if err := guardLastAdmin(tx, username); err != nil {
 			return err
 		}
 	}
-	res, err := a.db.Exec(`UPDATE users SET role = ?, token_version = token_version + 1 WHERE username = ?`, role, username)
+	res, err := tx.Exec(`UPDATE users SET role = ?, token_version = token_version + 1 WHERE username = ?`, role, username)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrUserNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
 // DeleteUser removes a user, refusing to remove the last admin.
 func (a *Auth) DeleteUser(username string) error {
-	if err := a.guardLastAdmin(username); err != nil {
+	tx, err := a.db.Begin()
+	if err != nil {
 		return err
 	}
-	res, err := a.db.Exec(`DELETE FROM users WHERE username = ?`, username)
+	defer tx.Rollback()
+	if err := guardLastAdmin(tx, username); err != nil {
+		return err
+	}
+	res, err := tx.Exec(`DELETE FROM users WHERE username = ?`, username)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrUserNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
 // guardLastAdmin returns ErrLastAdmin if username is currently the only admin.
-func (a *Auth) guardLastAdmin(username string) error {
+// The caller holds the same immediate transaction used for the mutation.
+func guardLastAdmin(tx *sql.Tx, username string) error {
 	var role string
-	err := a.db.QueryRow(`SELECT role FROM users WHERE username = ?`, username).Scan(&role)
+	err := tx.QueryRow(`SELECT role FROM users WHERE username = ?`, username).Scan(&role)
 	if err == sql.ErrNoRows {
 		return nil // not a user; nothing to guard
 	}
@@ -210,7 +223,7 @@ func (a *Auth) guardLastAdmin(username string) error {
 		return nil
 	}
 	var adminCount int
-	if err := a.db.QueryRow(`SELECT COUNT(*) FROM users WHERE role = ?`, RoleAdmin).Scan(&adminCount); err != nil {
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE role = ?`, RoleAdmin).Scan(&adminCount); err != nil {
 		return err
 	}
 	if adminCount <= 1 {
@@ -273,13 +286,17 @@ type Claims struct {
 
 // IssueToken creates a signed JWT for the user.
 func (a *Auth) IssueToken(u *User) (string, time.Time, error) {
+	return a.issueToken(u.Username, u.Role, u.TokenVersion)
+}
+
+func (a *Auth) issueToken(username, role string, tokenVersion int) (string, time.Time, error) {
 	expiresAt := time.Now().Add(a.tokenTTL)
 	claims := Claims{
-		Username:     u.Username,
-		Role:         u.Role,
-		TokenVersion: u.TokenVersion,
+		Username:     username,
+		Role:         role,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   u.Username,
+			Subject:   username,
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
@@ -287,6 +304,34 @@ func (a *Auth) IssueToken(u *User) (string, time.Time, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString(a.jwtSecret)
 	return signed, expiresAt, err
+}
+
+// RefreshToken revalidates and signs the already-authenticated generation while
+// holding one immediate transaction. A concurrent revocation either happens
+// first and rejects refresh, or happens after refresh and invalidates its token.
+func (a *Auth) RefreshToken(claims *Claims) (string, time.Time, error) {
+	tx, err := a.db.Begin()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	defer tx.Rollback()
+	var role string
+	var version int
+	if err := tx.QueryRow(`SELECT role, token_version FROM users WHERE username=?`, claims.Username).
+		Scan(&role, &version); err != nil || role != claims.Role || version != claims.TokenVersion {
+		return "", time.Time{}, ErrInvalidCreds
+	}
+	if refreshTokenValidatedHook != nil {
+		refreshTokenValidatedHook()
+	}
+	token, expiresAt, err := a.issueToken(claims.Username, claims.Role, claims.TokenVersion)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", time.Time{}, err
+	}
+	return token, expiresAt, nil
 }
 
 // VerifyToken parses and validates a JWT, returning its claims.

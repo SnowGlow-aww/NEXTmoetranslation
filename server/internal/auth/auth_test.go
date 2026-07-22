@@ -197,3 +197,128 @@ func TestRolePasswordAndDeleteRevokeIssuedTokens(t *testing.T) {
 		t.Fatalf("deleted admin token error = %v", err)
 	}
 }
+
+func TestRefreshTokenIsAtomicWithRevocation(t *testing.T) {
+	a := openTestAuth(t)
+	admin, err := a.CreateUser("admin", "password", RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.CreateUser("backup-admin", "password", RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := a.IssueToken(admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := a.VerifyToken(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validated := make(chan struct{})
+	release := make(chan struct{})
+	refreshTokenValidatedHook = func() {
+		close(validated)
+		<-release
+	}
+	t.Cleanup(func() { refreshTokenValidatedHook = nil })
+	type refreshResult struct {
+		token string
+		err   error
+	}
+	refreshed := make(chan refreshResult, 1)
+	go func() {
+		newToken, _, err := a.RefreshToken(claims)
+		refreshed <- refreshResult{token: newToken, err: err}
+	}()
+	<-validated
+	revoked := make(chan error, 1)
+	go func() { revoked <- a.SetRole("admin", RoleEditor) }()
+	select {
+	case err := <-revoked:
+		t.Fatalf("revocation crossed active refresh transaction: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(release)
+	result := <-refreshed
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	if err := <-revoked; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(result.token); err != ErrInvalidCreds {
+		t.Fatalf("refreshed pre-revocation generation error = %v", err)
+	}
+
+	current, err := a.Authenticate("admin", "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentToken, _, err := a.IssueToken(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleClaims, err := a.VerifyToken(currentToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SetPassword("admin", "new-password"); err != nil {
+		t.Fatal(err)
+	}
+	refreshTokenValidatedHook = nil
+	if _, _, err := a.RefreshToken(staleClaims); err != ErrInvalidCreds {
+		t.Fatalf("refresh after prior revocation error = %v", err)
+	}
+}
+
+func TestConcurrentAdminMutationsCannotRemoveEveryAdmin(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*Auth, string) error
+	}{
+		{name: "demote", mutate: func(a *Auth, username string) error { return a.SetRole(username, RoleEditor) }},
+		{name: "delete", mutate: func(a *Auth, username string) error { return a.DeleteUser(username) }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			a := openTestAuth(t)
+			for _, username := range []string{"admin-a", "admin-b"} {
+				if _, err := a.CreateUser(username, "password", RoleAdmin); err != nil {
+					t.Fatal(err)
+				}
+			}
+			start := make(chan struct{})
+			results := make(chan error, 2)
+			var wait sync.WaitGroup
+			for _, username := range []string{"admin-a", "admin-b"} {
+				wait.Add(1)
+				go func(username string) {
+					defer wait.Done()
+					<-start
+					results <- test.mutate(a, username)
+				}(username)
+			}
+			close(start)
+			wait.Wait()
+			close(results)
+			succeeded, protected := 0, 0
+			for err := range results {
+				switch err {
+				case nil:
+					succeeded++
+				case ErrLastAdmin:
+					protected++
+				default:
+					t.Fatalf("concurrent %s error = %v", test.name, err)
+				}
+			}
+			var adminCount int
+			if err := a.db.QueryRow(`SELECT COUNT(*) FROM users WHERE role=?`, RoleAdmin).Scan(&adminCount); err != nil {
+				t.Fatal(err)
+			}
+			if succeeded != 1 || protected != 1 || adminCount != 1 {
+				t.Fatalf("%s success=%d protected=%d admins=%d", test.name, succeeded, protected, adminCount)
+			}
+		})
+	}
+}

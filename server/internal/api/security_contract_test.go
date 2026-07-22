@@ -2,10 +2,12 @@ package api
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,12 +124,55 @@ func TestPublicAuthAttemptLimitsUseRemoteAddrAndAccount(t *testing.T) {
 func TestPublicAuthAttemptLimiterBoundsTrackedKeys(t *testing.T) {
 	limiter := newAuthAttemptLimiter(100, time.Hour, 4)
 	for attempt := 0; attempt < 20; attempt++ {
-		if !limiter.allow("login", "203.0.113."+strconv.Itoa(attempt)+":1234", "user-"+strconv.Itoa(attempt)) {
-			t.Fatalf("unique attempt %d unexpectedly blocked", attempt)
-		}
+		limiter.allow("login", "203.0.113."+strconv.Itoa(attempt)+":1234", "user-"+strconv.Itoa(attempt))
 	}
 	if len(limiter.attempts) > limiter.maxEntries {
 		t.Fatalf("tracked keys = %d, max = %d", len(limiter.attempts), limiter.maxEntries)
+	}
+}
+
+func TestPublicAuthAttemptLimiterDoesNotEvictActiveDenialsUnderChurn(t *testing.T) {
+	now := time.Unix(100, 0)
+	limiter := newAuthAttemptLimiter(2, time.Minute, 4)
+	limiter.now = func() time.Time { return now }
+	if !limiter.allow("login", "203.0.113.1:1234", "target") ||
+		!limiter.allow("login", "203.0.113.1:1234", "target") {
+		t.Fatal("target attempts were unexpectedly blocked before the limit")
+	}
+	if !limiter.allow("login", "203.0.113.2:1234", "filler") {
+		t.Fatal("filler attempt was unexpectedly blocked")
+	}
+	for attempt := 0; attempt < 1000; attempt++ {
+		limiter.allow("login", "198.51.100."+strconv.Itoa(attempt)+":4321", "churn-"+strconv.Itoa(attempt))
+	}
+	if limiter.allow("login", "203.0.113.1:9999", "target") {
+		t.Fatal("capacity churn reset the denied target account")
+	}
+	if limiter.allow("login", "203.0.113.1:9999", "different-account") {
+		t.Fatal("capacity churn reset the denied target IP")
+	}
+	if len(limiter.attempts) != limiter.maxEntries {
+		t.Fatalf("tracked keys = %d, want %d", len(limiter.attempts), limiter.maxEntries)
+	}
+	now = now.Add(time.Minute)
+	if !limiter.allow("login", "192.0.2.1:1234", "fresh") {
+		t.Fatal("expired heap entries did not release capacity")
+	}
+}
+
+func TestPublicAuthAttemptLimiterHashesLargeAccounts(t *testing.T) {
+	limiter := newAuthAttemptLimiter(2, time.Minute, 4)
+	largeAccount := strings.Repeat("a", maxJSONBodyBytes)
+	if !limiter.allow("login", "203.0.113.1:1234", largeAccount) {
+		t.Fatal("first large-account attempt was blocked")
+	}
+	if len(limiter.attempts) != 2 {
+		t.Fatalf("large account created %d keys", len(limiter.attempts))
+	}
+	for key := range limiter.attempts {
+		if len(key) != sha256.Size {
+			t.Fatalf("attempt key size = %d", len(key))
+		}
 	}
 }
 

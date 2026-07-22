@@ -23,13 +23,13 @@ Use this procedure for a bad application artifact or container image, a failed r
 1. Read `schema_migrations` from the affected database and compare its highest version, name, and checksum with the rollback binary.
 2. If the rollback binary recognizes the current migration history and its documented behavior is compatible, retain the current database. Never edit `schema_migrations` to make an old binary start.
 3. If the rollback binary is older than the database history, restore the verified pre-migration backup created immediately before the first unsupported migration. Do not downgrade tables in place.
-4. Restoring a database also restores user token generations, drafts, publications, and audit state to that point. Record this security and data-loss window, and require affected users to reauthenticate.
+4. Restoring a database also restores user token generations, drafts, publications, and audit state to that point. Before restarting, invalidate every token that the restore could revive: either rotate `JWT_SECRET` to fresh signing material or, in one audited transaction against the stopped database, increment `users.token_version` for every user. Record this security and data-loss window and require all users to reauthenticate. Do not return traffic until one of these invalidation steps is verified.
 5. After database restore, regenerate public assets from that database; do not combine public files from one revision with SQLite state from another.
 
 ## Keys And Credentials
 
 1. Keep `MOESEKAI_MASTER_KEY` stable when retaining or restoring encrypted settings; changing it makes existing encrypted values unreadable.
-2. Keep `JWT_SECRET` stable only for an ordinary artifact rollback. If token signing material may have leaked, rotate it deliberately and require all users to log in again.
+2. Keep `JWT_SECRET` stable only for an ordinary artifact rollback that retains the current database. A database restore requires the JWT rotation or global `users.token_version` increment above; suspected signing-material exposure always requires rotation. Require all users to log in again after either event.
 3. Do not restore revoked Git, S3, upstream, or LLM credentials from an old environment snapshot. Reapply the current secret-manager values and least-privilege policies after rollback.
 4. Verify Git backup branch protections and S3 bucket/versioning policy before re-enabling backup push.
 
