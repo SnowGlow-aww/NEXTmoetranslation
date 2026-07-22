@@ -4,8 +4,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useToast } from "@/app/providers";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AdminModal } from "@/components/AdminModal";
+import { LyricsEditor } from "@/components/LyricsEditor";
+import { Modal } from "@/components/Modal";
 import {
-  CategoryInfo, EventStorySummary, TranslationEntry,
+  CategoryInfo, EventStorySummary, Locale, TranslationEntry,
   clearSession, getCategories, getEntries, getEventStories, getEventStory,
   getRole, getUsername, runCNSync, triggerAIStory,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
@@ -74,6 +76,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   // Modal states
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [locale, setLocale] = useState<Locale>("zh-CN");
+  const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
 
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
@@ -102,22 +106,30 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const isEventStory = category === "eventStory";
+  const isLyrics = category === "lyrics";
+  const isReadOnly = locale === "ja-JP";
 
   // ---- Load categories + event stories ----
   const reloadSidebar = useCallback(() => {
-    getCategories().then(setCategories).catch((e) => show(e.message, "err"));
-    getEventStories().then(setEventStories).catch(() => setEventStories([]));
-  }, [show]);
+    getCategories(locale).then(setCategories).catch((e) => show(e.message, "err"));
+    getEventStories(locale).then(setEventStories).catch(() => setEventStories([]));
+  }, [locale, show]);
 
   useEffect(() => { reloadSidebar(); }, [reloadSidebar]);
 
   // ---- Load entries on selection change ----
   const loadEntries = useCallback(() => {
     if (!category || !field) return;
+    if (isLyrics) {
+      setEntries([]);
+      setSelectedKey(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setSelectedKey(null);
     if (isEventStory) {
-      getEventStory(Number(field))
+      getEventStory(Number(field), locale)
         .then((detail) => {
           const list = buildEventStoryEntries(detail);
           setEntries(list);
@@ -127,7 +139,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         .finally(() => setLoading(false));
       return;
     }
-    getEntries(category, field)
+    getEntries(category, field, undefined, locale)
       .then((data) => {
         data.sort((a, b) => {
           const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
@@ -138,7 +150,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       })
       .catch((e) => show(e.message, "err"))
       .finally(() => setLoading(false));
-  }, [category, field, isEventStory, show]);
+  }, [category, field, isEventStory, isLyrics, locale, show]);
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
 
@@ -149,12 +161,14 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
       if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
     } else if (event === "entry.updated") {
-      if (d.category === category && d.field === field && d.user !== username) {
+      const updateLocale = String(d.locale || "zh-CN");
+      if (updateLocale === locale && d.category === category && d.field === field && d.user !== username) {
         setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: String(d.text), source: String(d.source) } : e)));
         show(`${d.user} 修改了一条翻译`, "ok");
       }
     } else if (event === "eventstory.updated") {
-      if (isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
+      const updateLocale = String(d.locale || "zh-CN");
+      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
         loadEntries();
       }
     }
@@ -166,7 +180,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const q = query.toLowerCase();
     return entries.filter((e) =>
       isEventStory
-        ? `${eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
+        ? `${e.japanese || eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
         : e.key.toLowerCase().includes(q) || e.text.toLowerCase().includes(q),
     );
   }, [entries, query, isEventStory]);
@@ -198,6 +212,24 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const applyLocale = (next: Locale) => {
+    setLocale(next);
+    setPendingLocale(null);
+    setEntries([]);
+    setSelectedKey(null);
+    setEditValue("");
+  };
+
+  const requestLocaleChange = (next: Locale) => {
+    if (next === locale) return;
+    const dirty = selectedEntry != null && editValue !== selectedEntry.text;
+    if (dirty && !isReadOnly && !isLyrics) {
+      setPendingLocale(next);
+      return;
+    }
+    applyLocale(next);
+  };
+
   const navigate = useCallback((dir: 1 | -1) => {
     if (selectedIndex < 0) return;
     const idx = selectedIndex + dir;
@@ -208,38 +240,46 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [selectedIndex, filtered]);
 
-  const save = useCallback(async (overrideSource?: string) => {
-    if (savingRef.current || !selectedKey || !category || !field) return;
+  const save = useCallback(async (overrideSource?: string, advance = true) => {
+    if (savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
     savingRef.current = true;
     const src = overrideSource || "human";
     try {
       if (isEventStory) {
         const p = parseEventStoryEntryKey(selectedKey);
-        await updateEventStoryLine(Number(field), p.episodeNo, p.entryType === "title" ? "" : p.originalText, editValue, src, p.entryType);
+        const episodeNo = selectedEntry?.episodeNo || p.episodeNo;
+        const entryType = selectedEntry?.entryType || p.entryType;
+        const japanese = selectedEntry?.japanese || p.originalText;
+        await updateEventStoryLine(Number(field), episodeNo, entryType === "title" ? "" : japanese,
+          editValue, src, entryType, locale, selectedEntry?.segmentId);
         setEntries((prev) => prev.map((e) =>
           e.key === selectedKey
-            ? { ...e, key: p.entryType === "title" ? `${p.episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}` : e.key, text: editValue, source: src }
+            ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}` : e.key, text: editValue, source: src }
             : e));
-        if (p.entryType === "title") setSelectedKey(`${p.episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}`);
+        if (entryType === "title" && !selectedEntry?.segmentId) setSelectedKey(`${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}`);
       } else {
-        await updateEntry(category, field, selectedKey, editValue, src);
+        await updateEntry(category, field, selectedKey, editValue, src, locale);
         setEntries((prev) => prev.map((e) => (e.key === selectedKey ? { ...e, text: editValue, source: src } : e)));
       }
       // Advance to next.
-      const idx = filtered.findIndex((e) => e.key === selectedKey);
-      if (idx >= 0 && idx < filtered.length - 1) {
-        const next = filtered[idx + 1];
-        setSelectedKey(next.key); setEditValue(next.text);
-        setTimeout(() => document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
-      } else {
-        show("已到最后一条", "ok");
+      if (advance) {
+        const idx = filtered.findIndex((e) => e.key === selectedKey);
+        if (idx >= 0 && idx < filtered.length - 1) {
+          const next = filtered[idx + 1];
+          setSelectedKey(next.key); setEditValue(next.text);
+          setTimeout(() => document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
+        } else {
+          show("已到最后一条", "ok");
+        }
       }
+      return true;
     } catch (e) {
       show(e instanceof Error ? e.message : "保存失败", "err");
+      return false;
     } finally {
       savingRef.current = false;
     }
-  }, [selectedKey, category, field, editValue, filtered, isEventStory, show]);
+  }, [selectedKey, selectedEntry, category, field, editValue, filtered, isEventStory, isReadOnly, locale, show]);
 
   const onTextareaKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (enterSaves) {
@@ -268,20 +308,22 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     try {
       if (isEventStory) {
         const parsed = parseEventStoryEntryKey(key);
+        const episodeNo = entry.episodeNo || parsed.episodeNo;
+        const entryType = entry.entryType || parsed.entryType;
         await updateEventStoryLine(
-          Number(field), parsed.episodeNo,
-          parsed.entryType === "title" ? "" : parsed.originalText,
-          entry.text, newSource, parsed.entryType,
+          Number(field), episodeNo,
+          entryType === "title" ? "" : (entry.japanese || parsed.originalText),
+          entry.text, newSource, entryType, locale, entry.segmentId,
         );
       } else {
-        await updateEntry(category, field, key, entry.text, newSource);
+        await updateEntry(category, field, key, entry.text, newSource, locale);
       }
       setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, source: newSource } : e)));
       show(`来源已改为「${SOURCE_LABELS[newSource] || newSource}」`, "ok");
     } catch (err) {
       show(err instanceof Error ? err.message : "修改失败", "err");
     }
-  }, [category, field, entries, isEventStory, show]);
+  }, [category, field, entries, isEventStory, locale, show]);
 
   // Per-story AI gap-fill: translate only the currently open event story.
   const doAIStory = () => withBusy(async () => {
@@ -322,6 +364,14 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               <button className="icon-btn" onClick={() => setSidebarOpen(false)} aria-label="收起侧边栏" title="收起侧边栏"><IconChevronLeft /></button>
             </div>
           </div>
+          <label className="locale-selector">
+            <span>编辑语言</span>
+            <select value={locale} onChange={(event) => requestLocaleChange(event.target.value as Locale)}>
+              <option value="zh-CN">简体中文</option>
+              <option value="en-US">English</option>
+              <option value="ja-JP">日本語（只读）</option>
+            </select>
+          </label>
         </div>
 
         <div className="sidebar-scroll">
@@ -367,6 +417,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               })}
             </div>
           )}
+
+          <div className="field-group">
+            <div className="field-group-title">音乐内容</div>
+            <div className={`field-item ${isLyrics ? "active" : ""}`} onClick={() => selectField("lyrics", "catalog")}>
+              <span>歌词编辑与发布</span>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -380,7 +437,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
-        {!category || !field ? (
+        {isLyrics ? (
+          <LyricsEditor role={role} />
+        ) : !category || !field ? (
           <div className="center-state">
             <p>从左侧选择一个翻译类别</p>
           </div>
@@ -395,7 +454,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             </div>
 
             {/* Per-story toolbar */}
-            {isEventStory && (
+            {isEventStory && locale === "zh-CN" && (
               <div className="story-toolbar">
                 <span className="story-status">
                   {currentStory && currentStory.untranslatedCount > 0
@@ -412,7 +471,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             )}
 
             <div className="search-bar">
-              <input placeholder="搜索日文或中文…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
 
             <div className="content">
@@ -421,8 +480,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                   <div className="proof-jp">
                     <span className="label">日文原文</span>
                     {selectedEntry.speakerName && <div className="speaker">{selectedEntry.speakerName}</div>}
-                    <div className="jp-body">{isEventStory ? eventStoryEntryLabel(selectedEntry.key) : selectedEntry.key}</div>
-                    {isEventStory && <div className="episode">第 {parseEventStoryEntryKey(selectedEntry.key).episodeNo} 章</div>}
+                    <div className="jp-body">{isEventStory ? (selectedEntry.japanese || eventStoryEntryLabel(selectedEntry.key)) : selectedEntry.key}</div>
+                    {isEventStory && <div className="episode">第 {selectedEntry.episodeNo || parseEventStoryEntryKey(selectedEntry.key).episodeNo} 章</div>}
                     {moesekaiUrl && (
                       <a className="moesekai-link" href={moesekaiUrl} target="_blank" rel="noopener noreferrer" title="在 Moesekai 上查看详情">
                         <IconExternalLink /> Moesekai 页面
@@ -445,10 +504,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       onKeyDown={onTextareaKey}
                       placeholder="输入翻译…"
                       rows={3}
+                      readOnly={isReadOnly}
                     />
                     <div className="proof-actions">
-                      <button className="btn btn-primary" onClick={() => save()}>保存并下一条</button>
-                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")}>锁定保存</button>}
+                      <button className="btn btn-primary" onClick={() => save()} disabled={isReadOnly}>保存并下一条</button>
+                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")} disabled={isReadOnly}>锁定保存</button>}
                       <button className="btn btn-ghost btn-sm" onClick={() => setEnterSaves(!enterSaves)} title="切换保存快捷键">
                         快捷键: {saveKeyLabel}
                       </button>
@@ -483,6 +543,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                             value={entry.source}
                             onChange={(e) => handleSourceChange(entry.key, e.target.value)}
                             className={`source-tag ${entry.source}`}
+                            disabled={isReadOnly}
                           >
                             {Object.entries(SOURCE_LABELS).map(([k, v]) => (
                               <option key={k} value={k}>{v}</option>
@@ -492,7 +553,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         <td>
                           <div className="jp">
                             {entry.speakerName && <div className="speaker">{entry.speakerName}</div>}
-                            {isEventStory ? eventStoryEntryLabel(entry.key) : entry.key}
+                            {isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key}
                           </div>
                         </td>
                         <td><div className="cn">{entry.text}</div></td>
@@ -509,6 +570,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       {/* Settings & Admin modals */}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} />}
+      <Modal open={pendingLocale != null} onClose={() => setPendingLocale(null)} title="切换编辑语言" maxWidth={460}>
+        <p className="dirty-guard-copy">当前条目有未保存修改。切换语言前请选择如何处理。</p>
+        <div className="dirty-guard-actions">
+          <button className="btn btn-primary" onClick={async () => {
+            const next = pendingLocale;
+            if (next && await save(undefined, false)) applyLocale(next);
+          }}>保存并切换</button>
+          <button className="btn btn-secondary" onClick={() => pendingLocale && applyLocale(pendingLocale)}>放弃修改</button>
+          <button className="btn btn-ghost" onClick={() => setPendingLocale(null)}>取消</button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -88,6 +88,20 @@ export function buildEventStoryEntries(detail: EventStoryDetail): TranslationEnt
   Object.entries(detail.episodes)
     .sort((a, b) => Number(a[0]) - Number(b[0]))
     .forEach(([episodeNo, ep]) => {
+      if (ep.segments && ep.segments.length > 0) {
+        [...ep.segments]
+          .sort((a, b) => a.position - b.position)
+          .forEach((segment) => entries.push({
+            key: segment.id,
+            text: segment.text,
+            source: segment.source,
+            japanese: segment.japanese,
+            segmentId: segment.id,
+            episodeNo,
+            entryType: segment.kind,
+          }));
+        return;
+      }
       if ((ep.title || "").trim() !== "") {
         entries.push({
           key: `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${ep.title}`,

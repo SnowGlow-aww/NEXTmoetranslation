@@ -26,6 +26,10 @@ export interface TranslationEntry {
   source: string;
   ids?: string[];
   speakerName?: string;
+  japanese?: string;
+  segmentId?: string;
+  episodeNo?: string;
+  entryType?: "title" | "talk";
 }
 
 export interface EventStorySummary {
@@ -44,6 +48,16 @@ export interface EventStoryEpisode {
   talkSources?: Record<string, string>;
   talkOrder?: string[];
   speakerNames?: Record<string, string>;
+  segments?: EventStorySegment[];
+}
+
+export interface EventStorySegment {
+  id: string;
+  kind: "title" | "talk";
+  position: number;
+  japanese: string;
+  text: string;
+  source: string;
 }
 
 export interface EventStoryDetail {
@@ -113,6 +127,92 @@ export interface BackupStatus {
   dailyHourUtc: number;
 }
 
+export type Locale = "ja-JP" | "zh-CN" | "en-US";
+
+export interface LocalizedTitle {
+  "ja-JP": string;
+  "zh-CN"?: string;
+  "en-US"?: string;
+}
+
+export interface CatalogMusicItem {
+  musicId: number;
+  title: LocalizedTitle;
+  jacketUrl?: string;
+  isNewlyWrittenMusic: boolean;
+  lyricsStatus?: "draft" | "published";
+}
+
+export interface CatalogPerformerItem {
+  performerId: number;
+  name: LocalizedTitle;
+}
+
+export interface LyricSegment {
+  text: string;
+  performerIds: number[];
+}
+
+export interface LyricLine {
+  id: string;
+  order: number;
+  japanese: string;
+  "zh-CN": string;
+  "en-US": string;
+  stanzaBreakBefore?: boolean;
+  segments: LyricSegment[];
+}
+
+export interface SongLyrics {
+  musicId: number;
+  status: "draft" | "published";
+  revision: number;
+  updatedAt: string;
+  sourceNote?: string;
+  sourceUrl?: string;
+  licenseNote?: string;
+  sourcePageId?: number;
+  sourceRevisionId?: number;
+  sourceSha1?: string;
+  sourceFetchedAt?: string;
+  lines: LyricLine[];
+}
+
+export interface LyricsSourceCandidate {
+  pageId: number;
+  title: string;
+  canonicalUrl: string;
+  revisionId: number;
+  sha1: string;
+  categories: string[];
+}
+
+export interface LyricsSourcePreview {
+  canonicalUrl: string;
+  pageId: number;
+  revisionId: number;
+  sha1: string;
+  categories: string[];
+  fetchedAt: string;
+  lines: Array<{ japanese: string; stanzaBreakBefore?: boolean }>;
+}
+
+export class APIError extends Error {
+  status: number;
+  code: string;
+  details: string[];
+  current?: SongLyrics;
+
+  constructor(status: number, body: { error?: string; details?: string[]; current?: SongLyrics }) {
+    super(body.error || `HTTP ${status}`);
+    this.name = "APIError";
+    this.status = status;
+    this.code = body.error || "request_failed";
+    this.details = body.details || [];
+    this.current = body.current;
+  }
+}
+
 // ---- Auth token storage ----
 
 const TOKEN_KEY = "moesekai-token";
@@ -163,7 +263,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
+    throw new APIError(res.status, err);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -182,29 +282,47 @@ export const setupAdmin = (username: string, password: string) =>
 
 // ---- Translations ----
 
-export const getCategories = () => apiFetch<CategoryInfo[]>("/categories");
-export const getEntries = (category: string, field: string, source?: string) => {
+function addLocale(params: URLSearchParams, locale?: Locale) {
+  if (locale && locale !== "zh-CN") params.set("locale", locale);
+}
+
+export const getCategories = (locale?: Locale) => {
+  const p = new URLSearchParams();
+  addLocale(p, locale);
+  return apiFetch<CategoryInfo[]>(`/categories${p.size ? `?${p}` : ""}`);
+};
+export const getEntries = (category: string, field: string, source?: string, locale?: Locale) => {
   const p = new URLSearchParams({ category, field });
   if (source) p.set("source", source);
+  addLocale(p, locale);
   return apiFetch<TranslationEntry[]>(`/entries?${p}`);
 };
-export const updateEntry = (category: string, field: string, key: string, text: string, source: string) =>
+export const updateEntry = (category: string, field: string, key: string, text: string, source: string, locale?: Locale) =>
   apiFetch<{ status: string }>("/entry", {
     method: "PUT",
-    body: JSON.stringify({ category, field, key, text, source }),
+    body: JSON.stringify({ category, field, key, text, source, ...(locale && locale !== "zh-CN" ? { locale } : {}) }),
   });
 
 // ---- Event stories ----
 
-export const getEventStories = () => apiFetch<EventStorySummary[]>("/event-stories");
-export const getEventStory = (eventId: number) => apiFetch<EventStoryDetail>(`/event-story?eventId=${eventId}`);
+export const getEventStories = (locale?: Locale) => {
+  const p = new URLSearchParams();
+  addLocale(p, locale);
+  return apiFetch<EventStorySummary[]>(`/event-stories${p.size ? `?${p}` : ""}`);
+};
+export const getEventStory = (eventId: number, locale?: Locale) => {
+  const p = new URLSearchParams({ eventId: String(eventId) });
+  addLocale(p, locale);
+  return apiFetch<EventStoryDetail>(`/event-story?${p}`);
+};
 export const updateEventStoryLine = (
   eventId: number, episodeNo: string, jpKey: string, cnText: string,
-  source = "human", entryType: "talk" | "title" = "talk",
+  source = "human", entryType: "talk" | "title" = "talk", locale?: Locale, segmentId?: string,
 ) =>
   apiFetch<{ status: string }>("/event-story/update", {
     method: "PUT",
-    body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType }),
+    body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType,
+      ...(locale && locale !== "zh-CN" ? { locale } : {}), ...(segmentId ? { segmentId } : {}) }),
   });
 export const promoteEventStoryHuman = (eventId: number) =>
   apiFetch<{ status: string }>("/event-story/promote-human", { method: "POST", body: JSON.stringify({ eventId }) });
@@ -249,3 +367,27 @@ export const getBackupStatus = () => apiFetch<BackupStatus>("/backup/status");
 export const pushBackup = () => apiFetch<{ status: string; results: Record<string, string> }>("/backup/push", { method: "POST" });
 export const restoreBackup = (target: "s3" | "git") =>
   apiFetch<Record<string, unknown>>("/backup/restore", { method: "POST", body: JSON.stringify({ target }) });
+
+// ---- Lyrics ----
+
+export const getCatalogMusic = (query = "", newlyWritten = true) => {
+  const p = new URLSearchParams({ newlyWritten: String(newlyWritten), limit: "100" });
+  if (query.trim()) p.set("q", query.trim());
+  return apiFetch<{ items: CatalogMusicItem[]; nextCursor?: string }>(`/catalog/music?${p}`);
+};
+export const getCatalogPerformers = () =>
+  apiFetch<{ items: CatalogPerformerItem[] }>("/catalog/characters");
+export const getLyrics = (musicId: number) =>
+  apiFetch<SongLyrics>(`/lyrics/detail?musicId=${musicId}`);
+export const saveLyrics = (lyrics: SongLyrics) =>
+  apiFetch<SongLyrics>("/lyrics/save", { method: "PUT", body: JSON.stringify(lyrics) });
+export const publishLyrics = (musicId: number, revision: number) =>
+  apiFetch<SongLyrics>("/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision }) });
+export const unpublishLyrics = (musicId: number, revision: number) =>
+  apiFetch<SongLyrics>("/lyrics/unpublish", { method: "POST", body: JSON.stringify({ musicId, revision }) });
+export const searchLyricsSource = (musicId: number) =>
+  apiFetch<{ items: LyricsSourceCandidate[] }>(`/lyrics/source/search?musicId=${musicId}`);
+export const previewLyricsSource = (musicId: number, pageId: number, revisionId: number) =>
+  apiFetch<LyricsSourcePreview>("/lyrics/source/preview", {
+    method: "POST", body: JSON.stringify({ musicId, pageId, revisionId }),
+  });
