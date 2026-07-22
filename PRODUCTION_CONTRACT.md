@@ -11,12 +11,13 @@ Migrations are applied in version order inside individual SQLite transactions. E
 3. `lyrics_catalog_source_identity` adds catalog producer metadata used to reject ambiguous external source matches.
 4. `rolling_event_side_tables_no_legacy_cascade` removes cascades from legacy story parents so a previous binary's replace-import cannot erase multilingual content. Current imports explicitly reconcile stable segment rows.
 5. `stable_event_title_segment_identity` upgrades migrated title IDs to the same positional `:title:-1` identity used by current imports without losing existing localizations.
+6. `stable_event_talk_field_identity` upgrades migrated talk IDs to positional `:body`/`:speaker` identities while retaining localization rows and source hashes. The first current-format reimport also carries a localization across a changed legacy position only when episode, kind, and source hash identify exactly one new segment.
 
 Before the first pending migration, file-backed databases receive a verified `*.pre-migration-vN.bak` SQLite backup. Migration tests cover idempotent reopen, checksum refusal, injected rollback, backup recovery, legacy writer compatibility, and old event replacement.
 
 ## Console APIs
 
-The optional `locale` on `GET /api/categories`, `GET /api/entries`, `PUT /api/entry`, `GET /api/event-stories`, `GET /api/event-story`, and `PUT /api/event-story/update` accepts only `ja-JP`, `zh-CN`, and `en-US`. Omitted locale delegates to the exact legacy Chinese code path; explicit `zh-CN` mutations add audit records without changing omitted-locale behavior; `ja-JP` is source-only and rejects writes; `en-US` is stored independently and is never changed by CN sync or AI translation. Localized event rows expose stable IDs and source hashes, and writes must echo the full episode/type/key/ID/hash identity or receive a conflict.
+The optional `locale` on `GET /api/categories`, `GET /api/entries`, `PUT /api/entry`, `GET /api/event-stories`, `GET /api/event-story`, and `PUT /api/event-story/update` accepts only `ja-JP`, `zh-CN`, and `en-US`. Omitted locale delegates to the exact legacy Chinese code path; explicit `zh-CN` mutations and their audit rows commit atomically without changing omitted-locale behavior; `ja-JP` is source-only and rejects writes; `en-US` is stored independently and is never changed by CN sync or AI translation. Localized event rows expose stable IDs and source hashes, and every explicit-locale write, including `zh-CN`, must echo and validate the full episode/type/key/ID/hash identity or receive a contract error or conflict.
 
 Lyrics and catalog routes are authenticated:
 
@@ -49,11 +50,11 @@ Git and S3 backups retain the legacy public `translations` projection and add `t
 
 ## Web Console
 
-The existing setup/login/settings/AdminModal/CN sync/AI/backup/entry save/save-next/shortcuts surfaces remain mounted. Event segment identity is derived from event/scenario/episode plus invariant original scenario position and field (`body` or `speaker`), never from filtered JP/CN output order; Japanese rows remain addressable when Chinese is missing or source-equal. The console adds a locale selector and filter-independent shared dirty guard for locale, field/category/mode, row, arrow, Escape, logout, AI/retry/reorder reloads, and browser-unload transitions; localized updates use locale-specific SSE event names that old Chinese clients ignore. The responsive lyrics workspace adds catalog search with stale-response suppression, source preview, performer selection, multilingual preview, optimistic conflict recovery, guarded song/publication transitions, draft save, and admin publication controls.
+The existing setup/login/settings/AdminModal/CN sync/AI/backup/entry save/save-next/shortcuts surfaces remain mounted. Event segment identity is derived from event/scenario/episode plus invariant original scenario position and field (`body` or `speaker`), never from filtered JP/CN output order; Japanese rows remain addressable when Chinese is missing or source-equal. The console adds a locale selector and filter-independent shared dirty guard for locale, field/category/mode, row, arrow, Escape, logout, AI/retry/reorder reloads, collaborator event reloads from both event SSE names, and browser-unload transitions; localized updates use locale-specific SSE event names that old Chinese clients ignore. The responsive lyrics workspace adds catalog search with stale-response suppression, source preview, performer selection, multilingual preview, optimistic conflict recovery, guarded song/publication transitions, draft save, and admin publication controls.
 
 ## Verification Record
 
-Run on 2026-07-22 from this worktree:
+Run on 2026-07-23 from this worktree:
 
 | Command | Exit | Result |
 | --- | ---: | --- |
