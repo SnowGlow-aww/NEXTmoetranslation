@@ -187,6 +187,9 @@ func TestLyricsSourcePreviewContract(t *testing.T) {
 	}}); err != nil {
 		t.Fatal(err)
 	}
+	if err := h.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
 	h.api.lyricsSrc = fakeLyricsSource{
 		candidates: []lyricssource.Candidate{{PageID: 12, Title: "新曲", RevisionID: 34, SHA1: "sha"}},
 		preview: lyricssource.Preview{
@@ -221,6 +224,25 @@ func TestLyricsSourcePreviewContract(t *testing.T) {
 	}
 	if result.RevisionID != 34 || len(result.Lines) != 1 || result.Lines[0].Japanese != "歌詞" {
 		t.Fatalf("source preview = %+v", result)
+	}
+	draft := apiLyrics()
+	draft.SourceURL = result.CanonicalURL
+	draft.SourcePageID = result.PageID
+	draft.SourceRevisionID = result.RevisionID
+	draft.SourceSHA1 = result.SHA1
+	draft.SourceFetchedAt = result.FetchedAt
+	save := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", draft)
+	defer save.Body.Close()
+	if save.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(save.Body)
+		t.Fatalf("source-preview draft save status=%d body=%s", save.StatusCode, body)
+	}
+	var saved model.SongLyrics
+	if err := json.NewDecoder(save.Body).Decode(&saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.SourceURL != result.CanonicalURL || saved.SourceRevisionID != result.RevisionID {
+		t.Fatalf("saved source provenance = %+v", saved)
 	}
 	var auditCount int
 	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE user='alice' AND action IN ('lyrics.source.search', 'lyrics.source.preview')`).Scan(&auditCount); err != nil {

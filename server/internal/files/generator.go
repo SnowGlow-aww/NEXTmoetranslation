@@ -166,12 +166,14 @@ func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	indexJSON = append(indexJSON, '\n')
 	assets["translation/lyrics/index.json"] = indexJSON
 	for musicID, detail := range details {
 		body, err := MarshalIndentCompat(detail)
 		if err != nil {
 			return nil, err
 		}
+		body = append(body, '\n')
 		assets[fmt.Sprintf("translation/lyrics/music_%d.json", musicID)] = body
 	}
 	return assets, nil

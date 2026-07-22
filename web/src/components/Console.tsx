@@ -9,7 +9,7 @@ import { Modal } from "@/components/Modal";
 import {
   CategoryInfo, EventStorySummary, Locale, TranslationEntry,
   clearSession, getCategories, getEntries, getEventStories, getEventStory,
-  getRole, getUsername, runCNSync, triggerAIStory,
+  getRole, getUsername, triggerAIStory,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
 } from "@/lib/api";
 import {
@@ -514,12 +514,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     ? <><span className="story-dot pending" /> {currentStory.untranslatedCount} 条未翻译</>
                     : <><span className="story-dot done" /> 已全部翻译</>}
                 </span>
-                <div className="story-toolbar-actions">
+                {role === "admin" && <div className="story-toolbar-actions">
                   <button className="btn btn-primary btn-sm" onClick={() => runOrGuard("运行 AI 剧情翻译", () => void doAIStory())} disabled={busy}>AI 补充剧情翻译</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await promoteEventStoryHuman(Number(field)); setEntries((p) => p.map((e) => ({ ...e, source: "human" }))); reloadSidebar(); show("已整篇标记人工", "ok"); })} disabled={busy}>整篇标记人工</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重新获取剧情", () => void withBusy(async () => { await retryEventStory(Number(field)); loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok"); }))} disabled={busy}>重新获取剧情</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重排序对话", () => void withBusy(async () => { await reorderEventStory(Number(field)); loadEntries(); show("已重排序对话", "ok"); }))} disabled={busy}>重排序对话</button>
-                </div>
+                </div>}
               </div>
             )}
 

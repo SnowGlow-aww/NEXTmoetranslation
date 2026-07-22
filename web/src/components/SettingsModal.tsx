@@ -16,6 +16,7 @@ type ShowFn = (msg: string, type?: "ok" | "err") => void;
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { show } = useToast();
+  const [role] = useState(getRole());
   const [upstreamRefreshKey, setUpstreamRefreshKey] = useState(0);
 
   return (
@@ -25,7 +26,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         <AppearanceCard />
         <ShortcutCard />
         <BadgeFilterCard show={show} />
-        <DataManagementCard show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
+        {role === "admin" && <DataManagementCard show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />}
         <UpstreamStatusCard show={show} refreshKey={upstreamRefreshKey} />
       </div>
     </Modal>

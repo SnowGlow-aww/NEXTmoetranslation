@@ -45,6 +45,19 @@ test("lyrics workspace covers catalog, draft, source preview, and publication", 
   for (const contract of ["getCatalogMusic", "保存草稿", "候选来源", "使用此版本", "载入服务器版本", "取消发布", "公开署名", "attribution"]) {
     assert.ok(editor.includes(contract), `missing lyrics console contract: ${contract}`);
   }
+  assert.match(editor, /sourceUrl: sourcePreview\.canonicalUrl/);
+  assert.doesNotMatch(editor, /sourceURL/);
+});
+
+test("editor UI hides administrative data and event controls", async () => {
+  const [consoleSource, settings] = await Promise.all([
+    read("src/components/Console.tsx"),
+    read("src/components/SettingsModal.tsx"),
+  ]);
+  assert.match(consoleSource, /role === "admin" && <div className="story-toolbar-actions">/);
+  assert.match(settings, /role === "admin" && <DataManagementCard/);
+  assert.match(settings, /数据更新（CN 同步）/);
+  assert.match(settings, /手动备份/);
 });
 
 test("lyrics transitions guard dirty publication and ignore stale song loads", async () => {
