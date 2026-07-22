@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"moesekai/server/internal/auth"
 	"moesekai/server/internal/backup"
@@ -28,19 +29,24 @@ type lyricsSourceClient interface {
 
 // Server holds the dependencies shared by all console handlers.
 type Server struct {
-	store      *store.Store
-	eventStore *store.EventStore
-	auth       *auth.Auth
-	cfg        *config.Config
-	hub        *sse.Hub
-	translator *translator.Translator
-	upstream   *upstream.Watcher
-	backup     *backup.Manager
-	lyricsSrc  lyricsSourceClient
+	store        *store.Store
+	eventStore   *store.EventStore
+	auth         *auth.Auth
+	cfg          *config.Config
+	hub          *sse.Hub
+	translator   *translator.Translator
+	upstream     *upstream.Watcher
+	backup       *backup.Manager
+	lyricsSrc    lyricsSourceClient
+	authAttempts *authAttemptLimiter
 }
 
 func NewServer(s *store.Store, es *store.EventStore, a *auth.Auth, cfg *config.Config, hub *sse.Hub, tr *translator.Translator, up *upstream.Watcher, bk *backup.Manager) *Server {
-	return &Server{store: s, eventStore: es, auth: a, cfg: cfg, hub: hub, translator: tr, upstream: up, backup: bk, lyricsSrc: lyricssource.New()}
+	return &Server{
+		store: s, eventStore: es, auth: a, cfg: cfg, hub: hub, translator: tr,
+		upstream: up, backup: bk, lyricsSrc: lyricssource.New(),
+		authAttempts: newAuthAttemptLimiter(10, 5*time.Minute, 8192),
+	}
 }
 
 // broadcast sends an SSE event if a hub is configured (it may be nil in tests).

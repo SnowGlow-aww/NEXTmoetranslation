@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -100,5 +101,99 @@ func TestWrongSecretRejected(t *testing.T) {
 	other := New(a.db, "different-secret", time.Hour)
 	if _, err := other.VerifyToken(token); err == nil {
 		t.Error("token signed with one secret must not verify under another")
+	}
+}
+
+func TestCreateFirstAdminIsAtomicUnderConcurrency(t *testing.T) {
+	a := openTestAuth(t)
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var wait sync.WaitGroup
+	for _, username := range []string{"first", "second"} {
+		wait.Add(1)
+		go func(username string) {
+			defer wait.Done()
+			<-start
+			_, err := a.CreateFirstAdmin(username, "password")
+			results <- err
+		}(username)
+	}
+	close(start)
+	wait.Wait()
+	close(results)
+	succeeded, completed := 0, 0
+	for err := range results {
+		switch err {
+		case nil:
+			succeeded++
+		case ErrSetupComplete:
+			completed++
+		default:
+			t.Fatalf("concurrent setup error = %v", err)
+		}
+	}
+	count, err := a.CountUsers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if succeeded != 1 || completed != 1 || count != 1 {
+		t.Fatalf("setup success=%d complete=%d users=%d", succeeded, completed, count)
+	}
+}
+
+func TestRolePasswordAndDeleteRevokeIssuedTokens(t *testing.T) {
+	a := openTestAuth(t)
+	admin, err := a.CreateUser("admin", "old-password", RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.CreateUser("backup-admin", "password", RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	roleToken, _, err := a.IssueToken(admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SetRole("admin", RoleEditor); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(roleToken); err != ErrInvalidCreds {
+		t.Fatalf("demoted admin token error = %v", err)
+	}
+
+	current, err := a.Authenticate("admin", "old-password")
+	if err != nil || current.Role != RoleEditor {
+		t.Fatalf("current demoted user = %+v err=%v", current, err)
+	}
+	passwordToken, _, err := a.IssueToken(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.SetPassword("admin", "new-password"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(passwordToken); err != ErrInvalidCreds {
+		t.Fatalf("password-reset token error = %v", err)
+	}
+	if _, err := a.Authenticate("admin", "old-password"); err != ErrInvalidCreds {
+		t.Fatalf("old password error = %v", err)
+	}
+
+	if err := a.SetRole("admin", RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	current, err = a.Authenticate("admin", "new-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleteToken, _, err := a.IssueToken(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DeleteUser("admin"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(deleteToken); err != ErrInvalidCreds {
+		t.Fatalf("deleted admin token error = %v", err)
 	}
 }

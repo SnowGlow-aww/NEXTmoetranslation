@@ -33,16 +33,16 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/event-stories", s.auth.RequireAuth(s.handleEventStories))
 	mux.HandleFunc("/api/event-story", s.auth.RequireAuth(s.handleEventStory))
 	mux.HandleFunc("/api/event-story/update", s.auth.RequireAuth(s.handleUpdateEventStory))
-	mux.HandleFunc("/api/event-story/promote-human", s.auth.RequireAuth(s.handlePromoteEventStoryHuman))
-	mux.HandleFunc("/api/event-story/retry", s.auth.RequireAuth(s.handleRetryEventStory))
-	mux.HandleFunc("/api/event-story/reorder", s.auth.RequireAuth(s.handleReorderEventStory))
+	mux.HandleFunc("/api/event-story/promote-human", s.auth.RequireAdmin(s.handlePromoteEventStoryHuman))
+	mux.HandleFunc("/api/event-story/retry", s.auth.RequireAdmin(s.handleRetryEventStory))
+	mux.HandleFunc("/api/event-story/reorder", s.auth.RequireAdmin(s.handleReorderEventStory))
 
 	// Translation engine
 	mux.HandleFunc("/api/translate/status", s.auth.RequireAuth(s.handleTranslateStatus))
-	mux.HandleFunc("/api/translate/cn-sync", s.auth.RequireAuth(s.handleCNSync))
-	mux.HandleFunc("/api/translate/ai", s.auth.RequireAuth(s.handleTranslateAI))
-	mux.HandleFunc("/api/translate/ai-all", s.auth.RequireAuth(s.handleTranslateAIAll))
-	mux.HandleFunc("/api/translate/ai-story", s.auth.RequireAuth(s.handleTranslateAIStory))
+	mux.HandleFunc("/api/translate/cn-sync", s.auth.RequireAdmin(s.handleCNSync))
+	mux.HandleFunc("/api/translate/ai", s.auth.RequireAdmin(s.handleTranslateAI))
+	mux.HandleFunc("/api/translate/ai-all", s.auth.RequireAdmin(s.handleTranslateAIAll))
+	mux.HandleFunc("/api/translate/ai-story", s.auth.RequireAdmin(s.handleTranslateAIStory))
 
 	// Read-only upstream status for any authenticated user (user settings page).
 	mux.HandleFunc("/api/upstream/status", s.auth.RequireAuth(s.handleUpstreamStatus))
@@ -53,10 +53,9 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/admin/upstream", s.auth.RequireAdmin(s.handleUpstreamStatus))
 	mux.HandleFunc("/api/admin/upstream/check", s.auth.RequireAdmin(s.handleUpstreamCheck))
 
-	// Backup / restore: status and push available to any authenticated user,
-	// restore restricted to admin (destructive operation).
+	// Backup status is readable by editors; push and restore are admin operations.
 	mux.HandleFunc("/api/backup/status", s.auth.RequireAuth(s.handleBackupStatus))
-	mux.HandleFunc("/api/backup/push", s.auth.RequireAuth(s.handleBackupPush))
+	mux.HandleFunc("/api/backup/push", s.auth.RequireAdmin(s.handleBackupPush))
 	mux.HandleFunc("/api/backup/restore", s.auth.RequireAdmin(s.handleBackupRestore))
 
 	// Realtime: SSE stream (JWT via Authorization header or ?token= query param).

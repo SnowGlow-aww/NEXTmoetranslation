@@ -33,15 +33,6 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	n, err := s.auth.CountUsers()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to count users")
-		return
-	}
-	if n > 0 {
-		writeErr(w, http.StatusConflict, "setup already completed")
-		return
-	}
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -49,10 +40,13 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	u, err := s.auth.CreateUser(req.Username, req.Password, auth.RoleAdmin)
+	if !s.allowPublicAuthAttempt(w, r, "setup", req.Username) {
+		return
+	}
+	u, err := s.auth.CreateFirstAdmin(req.Username, req.Password)
 	if err != nil {
-		if err == auth.ErrUserExists {
-			writeErr(w, http.StatusConflict, "user already exists")
+		if err == auth.ErrSetupComplete || err == auth.ErrUserExists {
+			writeErr(w, http.StatusConflict, "setup already completed")
 			return
 		}
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -84,6 +78,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if !decodeBody(w, r, &req) {
+		return
+	}
+	if !s.allowPublicAuthAttempt(w, r, "login", req.Username) {
 		return
 	}
 	u, err := s.auth.Authenticate(req.Username, req.Password)

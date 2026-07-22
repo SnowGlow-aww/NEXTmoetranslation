@@ -26,17 +26,19 @@ func ValidRole(r string) bool { return r == RoleAdmin || r == RoleEditor }
 
 // User is a console account.
 type User struct {
-	ID        int64  `json:"id"`
-	Username  string `json:"username"`
-	Role      string `json:"role"`
-	CreatedAt int64  `json:"createdAt"`
+	ID           int64  `json:"id"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	CreatedAt    int64  `json:"createdAt"`
+	TokenVersion int    `json:"-"`
 }
 
 var (
-	ErrUserExists   = errors.New("user already exists")
-	ErrUserNotFound = errors.New("user not found")
-	ErrInvalidCreds = errors.New("invalid credentials")
-	ErrLastAdmin    = errors.New("cannot remove the last admin")
+	ErrUserExists    = errors.New("user already exists")
+	ErrUserNotFound  = errors.New("user not found")
+	ErrInvalidCreds  = errors.New("invalid credentials")
+	ErrLastAdmin     = errors.New("cannot remove the last admin")
+	ErrSetupComplete = errors.New("setup already completed")
 )
 
 // Auth manages users and tokens.
@@ -79,12 +81,52 @@ func (a *Auth) CreateUser(username, password, role string) (*User, error) {
 		return nil, err
 	}
 	id, _ := res.LastInsertId()
-	return &User{ID: id, Username: username, Role: role, CreatedAt: now}, nil
+	return &User{ID: id, Username: username, Role: role, CreatedAt: now, TokenVersion: 1}, nil
+}
+
+// CreateFirstAdmin atomically verifies that no account exists and creates the
+// initial administrator. The immediate SQLite transaction serializes concurrent
+// setup attempts from different processes or requests.
+func (a *Auth) CreateFirstAdmin(username, password string) (*User, error) {
+	username = strings.TrimSpace(username)
+	if username == "" || password == "" {
+		return nil, errors.New("username and password required")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := a.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var count int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+		return nil, err
+	}
+	if count != 0 {
+		return nil, ErrSetupComplete
+	}
+	now := time.Now().Unix()
+	result, err := tx.Exec(`INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)`,
+		username, string(hash), RoleAdmin, now)
+	if err != nil {
+		return nil, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &User{ID: id, Username: username, Role: RoleAdmin, CreatedAt: now, TokenVersion: 1}, nil
 }
 
 // ListUsers returns all users ordered by id (no password hashes).
 func (a *Auth) ListUsers() ([]User, error) {
-	rows, err := a.db.Query(`SELECT id, username, role, created_at FROM users ORDER BY id`)
+	rows, err := a.db.Query(`SELECT id, username, role, created_at, token_version FROM users ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +134,7 @@ func (a *Auth) ListUsers() ([]User, error) {
 	var out []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt, &u.TokenVersion); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -109,7 +151,7 @@ func (a *Auth) SetPassword(username, password string) error {
 	if err != nil {
 		return err
 	}
-	res, err := a.db.Exec(`UPDATE users SET password_hash = ? WHERE username = ?`, string(hash), username)
+	res, err := a.db.Exec(`UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE username = ?`, string(hash), username)
 	if err != nil {
 		return err
 	}
@@ -129,7 +171,7 @@ func (a *Auth) SetRole(username, role string) error {
 			return err
 		}
 	}
-	res, err := a.db.Exec(`UPDATE users SET role = ? WHERE username = ?`, role, username)
+	res, err := a.db.Exec(`UPDATE users SET role = ?, token_version = token_version + 1 WHERE username = ?`, role, username)
 	if err != nil {
 		return err
 	}
@@ -191,8 +233,8 @@ func (a *Auth) Authenticate(username, password string) (*User, error) {
 	var u User
 	var hash string
 	err := a.db.QueryRow(
-		`SELECT id, username, password_hash, role, created_at FROM users WHERE username = ?`,
-		strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &hash, &u.Role, &u.CreatedAt)
+		`SELECT id, username, password_hash, role, created_at, token_version FROM users WHERE username = ?`,
+		strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &hash, &u.Role, &u.CreatedAt, &u.TokenVersion)
 	if err == sql.ErrNoRows {
 		return nil, ErrInvalidCreds
 	}
@@ -209,8 +251,8 @@ func (a *Auth) Authenticate(username, password string) (*User, error) {
 func (a *Auth) GetUser(username string) (*User, error) {
 	var u User
 	err := a.db.QueryRow(
-		`SELECT id, username, role, created_at FROM users WHERE username = ?`,
-		username).Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt)
+		`SELECT id, username, role, created_at, token_version FROM users WHERE username = ?`,
+		username).Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt, &u.TokenVersion)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
@@ -223,8 +265,9 @@ func (a *Auth) GetUser(username string) (*User, error) {
 // ---- JWT ----
 
 type Claims struct {
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	TokenVersion int    `json:"ver"`
 	jwt.RegisteredClaims
 }
 
@@ -232,8 +275,9 @@ type Claims struct {
 func (a *Auth) IssueToken(u *User) (string, time.Time, error) {
 	expiresAt := time.Now().Add(a.tokenTTL)
 	claims := Claims{
-		Username: u.Username,
-		Role:     u.Role,
+		Username:     u.Username,
+		Role:         u.Role,
+		TokenVersion: u.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   u.Username,
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
@@ -255,6 +299,12 @@ func (a *Auth) VerifyToken(tokenStr string) (*Claims, error) {
 		return a.jwtSecret, nil
 	})
 	if err != nil || !token.Valid {
+		return nil, ErrInvalidCreds
+	}
+	var currentRole string
+	var currentVersion int
+	if err := a.db.QueryRow(`SELECT role, token_version FROM users WHERE username=?`, claims.Username).
+		Scan(&currentRole, &currentVersion); err != nil || currentRole != claims.Role || currentVersion != claims.TokenVersion {
 		return nil, ErrInvalidCreds
 	}
 	return claims, nil
