@@ -285,7 +285,7 @@ func TestTitleIdentityMigrationMovesExistingLocalizations(t *testing.T) {
 	}
 }
 
-func TestTalkIdentityMigrationMovesMatchingLocalizationsAndHash(t *testing.T) {
+func TestTalkIdentityMigrationKeepsFilteredFieldOpaqueAndPreservesLocalization(t *testing.T) {
 	path := legacyFixtureCopy(t, "talk-identity.db")
 	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
 	if err != nil {
@@ -321,7 +321,7 @@ func TestTalkIdentityMigrationMovesMatchingLocalizationsAndHash(t *testing.T) {
 		WHERE seg.kind='talk' AND loc.locale='en-US'`).Scan(&newID, &newHash, &text); err != nil {
 		t.Fatal(err)
 	}
-	if newID != oldID+":body" || newHash != oldHash || text != "Existing English talk" {
+	if newID != oldID+":legacy" || newHash != oldHash || text != "Existing English talk" {
 		t.Fatalf("migrated talk id=%q hash=%q text=%q oldID=%q oldHash=%q", newID, newHash, text, oldID, oldHash)
 	}
 }

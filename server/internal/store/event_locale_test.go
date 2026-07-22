@@ -70,7 +70,9 @@ func TestFirstStableReimportPreservesUniquelyMatchingLegacyTalkLocalization(t *t
 	events := NewEventStore(database)
 	first := []OrderedEpisode{{
 		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
-		Lines: []OrderedLine{{JPKey: "同一原文", Text: "旧中文", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"}},
+		// This is the legacy filtered position for a translated speaker whose
+		// missing/equal Chinese body never appeared in the old output.
+		Lines: []OrderedLine{{JPKey: "初音ミク", Text: "初音未来", Source: model.SourceCN, ScenarioPosition: 0, Field: "legacy"}},
 	}}
 	if err := events.ImportOrdered(11, model.EventStoryMeta{Source: "official_cn"}, first); err != nil {
 		t.Fatal(err)
@@ -80,13 +82,16 @@ func TestFirstStableReimportPreservesUniquelyMatchingLegacyTalkLocalization(t *t
 		t.Fatal(err)
 	}
 	segment := detail.Episodes["1"].Segments[1]
-	if err := events.UpdateLineLocale(11, "1", "同一原文", segment.ID, segment.SourceHash,
+	if err := events.UpdateLineLocale(11, "1", "初音ミク", segment.ID, segment.SourceHash,
 		"Preserved English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
 	second := []OrderedEpisode{{
 		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
-		Lines: []OrderedLine{{JPKey: "同一原文", Text: "新中文", Source: model.SourceCN, ScenarioPosition: 2, Field: "body"}},
+		Lines: []OrderedLine{
+			{JPKey: "本文", Text: "", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"},
+			{JPKey: "初音ミク", Text: "初音未来", Source: model.SourceCN, ScenarioPosition: 1, Field: "speaker"},
+		},
 	}}
 	if err := events.ImportOrdered(11, model.EventStoryMeta{Source: "official_cn"}, second); err != nil {
 		t.Fatal(err)
@@ -95,8 +100,147 @@ func TestFirstStableReimportPreservesUniquelyMatchingLegacyTalkLocalization(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := localized.Episodes["1"].Segments[1].Text; got != "Preserved English" {
-		t.Fatalf("first stable reimport localization = %q", got)
+	segments := localized.Episodes["1"].Segments
+	if len(segments) != 3 || segments[1].Japanese != "本文" || segments[1].Text != "" ||
+		segments[2].Japanese != "初音ミク" || segments[2].Text != "Preserved English" {
+		t.Fatalf("first stable reimport segments = %+v", segments)
+	}
+}
+
+func TestReimportFallsBackWhenGuessedExactIDHasDifferentSource(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-guessed-position.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	first := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{{JPKey: "初音ミク", Text: "初音未来", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"}},
+	}}
+	if err := events.ImportOrdered(13, model.EventStoryMeta{Source: "official_cn"}, first); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(13, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guessed := detail.Episodes["1"].Segments[1]
+	if err := events.UpdateLineLocale(13, "1", "初音ミク", guessed.ID, guessed.SourceHash,
+		"Speaker English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	second := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{
+			{JPKey: "本文", Text: "正文", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"},
+			{JPKey: "初音ミク", Text: "初音未来", Source: model.SourceCN, ScenarioPosition: 1, Field: "speaker"},
+		},
+	}}
+	if err := events.ImportOrdered(13, model.EventStoryMeta{Source: "official_cn"}, second); err != nil {
+		t.Fatal(err)
+	}
+	localized, err := events.DetailLocale(13, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments := localized.Episodes["1"].Segments
+	if len(segments) != 3 || segments[1].Japanese != "本文" || segments[1].Text != "" ||
+		segments[2].Japanese != "初音ミク" || segments[2].Text != "Speaker English" {
+		t.Fatalf("hash fallback segments = %+v", segments)
+	}
+}
+
+func TestDuplicateSourceContractionPreservesOnlyExactUnambiguousLocalization(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-source-contraction.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	first := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{
+			{JPKey: "同じ", Text: "正文", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"},
+			{JPKey: "同じ", Text: "说话人", Source: model.SourceCN, ScenarioPosition: 1, Field: "speaker"},
+		},
+	}}
+	if err := events.ImportOrdered(14, model.EventStoryMeta{Source: "official_cn"}, first); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(14, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments := detail.Episodes["1"].Segments
+	if err := events.UpdateLineLocale(14, "1", "同じ", segments[1].ID, segments[1].SourceHash,
+		"Body English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	if err := events.UpdateLineLocale(14, "1", "同じ", segments[2].ID, segments[2].SourceHash,
+		"Speaker English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	contracted := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{{JPKey: "同じ", Text: "正文", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"}},
+	}}
+	if err := events.ImportOrdered(14, model.EventStoryMeta{Source: "official_cn"}, contracted); err != nil {
+		t.Fatalf("duplicate contraction rolled back reimport: %v", err)
+	}
+	localized, err := events.DetailLocale(14, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments = localized.Episodes["1"].Segments
+	if len(segments) != 2 || segments[1].Text != "Body English" {
+		t.Fatalf("contracted localization = %+v", segments)
+	}
+}
+
+func TestDuplicateSourceContractionSkipsTwoAmbiguousFallbacks(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-ambiguous-contraction.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	first := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{
+			{JPKey: "同じ", Text: "第一处", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"},
+			{JPKey: "同じ", Text: "第二处", Source: model.SourceCN, ScenarioPosition: 1, Field: "speaker"},
+		},
+	}}
+	if err := events.ImportOrdered(15, model.EventStoryMeta{Source: "official_cn"}, first); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(15, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments := detail.Episodes["1"].Segments
+	for i, text := range []string{"First English", "Second English"} {
+		segment := segments[i+1]
+		if err := events.UpdateLineLocale(15, "1", "同じ", segment.ID, segment.SourceHash,
+			text, model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	contracted := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "stable", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{{JPKey: "同じ", Text: "唯一处", Source: model.SourceCN, ScenarioPosition: 2, Field: "body"}},
+	}}
+	if err := events.ImportOrdered(15, model.EventStoryMeta{Source: "official_cn"}, contracted); err != nil {
+		t.Fatalf("ambiguous fallback rolled back reimport: %v", err)
+	}
+	localized, err := events.DetailLocale(15, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments = localized.Episodes["1"].Segments
+	if len(segments) != 2 || segments[1].Text != "" {
+		t.Fatalf("ambiguous localization was attached: %+v", segments)
 	}
 }
 

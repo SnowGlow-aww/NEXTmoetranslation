@@ -288,7 +288,7 @@ CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, e
 `,
 }, {
 	version: 6,
-	name:    "stable_event_talk_field_identity",
+	name:    "mark_legacy_event_talk_identity",
 	sql: `
 CREATE TABLE event_story_segments_next (
 	segment_id  TEXT PRIMARY KEY,
@@ -305,8 +305,8 @@ CREATE TABLE event_story_segments_next (
 INSERT INTO event_story_segments_next
 	(segment_id, event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash)
 SELECT CASE
-	WHEN kind='talk' AND segment_id NOT LIKE '%:body' AND segment_id NOT LIKE '%:speaker'
-	THEN segment_id || CASE WHEN position % 2 = 0 THEN ':body' ELSE ':speaker' END
+	WHEN kind='talk' AND segment_id NOT LIKE '%:body' AND segment_id NOT LIKE '%:speaker' AND segment_id NOT LIKE '%:legacy'
+	THEN segment_id || ':legacy'
 	ELSE segment_id END,
 	event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash
 FROM event_story_segments;
@@ -325,8 +325,8 @@ CREATE TABLE event_story_segment_localizations_next (
 INSERT INTO event_story_segment_localizations_next
 	(segment_id, locale, text, source, updated_at, updated_by, revision)
 SELECT CASE
-	WHEN seg.kind='talk' AND loc.segment_id NOT LIKE '%:body' AND loc.segment_id NOT LIKE '%:speaker'
-	THEN loc.segment_id || CASE WHEN seg.position % 2 = 0 THEN ':body' ELSE ':speaker' END
+	WHEN seg.kind='talk' AND loc.segment_id NOT LIKE '%:body' AND loc.segment_id NOT LIKE '%:speaker' AND loc.segment_id NOT LIKE '%:legacy'
+	THEN loc.segment_id || ':legacy'
 	ELSE loc.segment_id END,
 	loc.locale, loc.text, loc.source, loc.updated_at, loc.updated_by, loc.revision
 FROM event_story_segment_localizations loc

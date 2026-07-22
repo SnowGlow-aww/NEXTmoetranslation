@@ -61,31 +61,73 @@ func importOrderedTx(tx *sql.Tx, eventID int, meta model.EventStoryMeta, episode
 	// Older binaries replace the legacy story rows wholesale. Preserve manual
 	// non-Chinese localizations that are still attached to the same source
 	// identity before the legacy delete cascades.
-	type preservedLocalization struct {
-		segmentID, episodeNo, kind, sourceHash, locale, text, source, updatedBy string
-		updatedAt                                                               int64
-		revision                                                                int
+	type localization struct {
+		locale, text, source, updatedBy string
+		updatedAt                       int64
+		revision                        int
 	}
-	var preserved []preservedLocalization
+	type preservedLocalization struct {
+		segmentID, episodeNo, kind, sourceHash string
+		localizations                          []localization
+	}
+	type sourceIdentity struct {
+		episodeNo, kind, sourceHash string
+	}
+	var preserved []*preservedLocalization
+	oldSourceCounts := map[sourceIdentity]int{}
 	if preserveLocales {
 		rows, err := tx.Query(`SELECT loc.segment_id, seg.episode_no, seg.kind, seg.source_hash, loc.locale, loc.text, loc.source,
 			loc.updated_at, loc.updated_by, loc.revision
 			FROM event_story_segment_localizations loc
 			JOIN event_story_segments seg ON seg.segment_id=loc.segment_id
-			WHERE seg.event_id=? AND loc.locale<>?`, eventID, model.LocaleChinese)
+			WHERE seg.event_id=? AND loc.locale<>?
+			ORDER BY loc.segment_id, loc.locale`, eventID, model.LocaleChinese)
 		if err != nil {
 			return err
 		}
+		preservedByID := map[string]*preservedLocalization{}
 		for rows.Next() {
-			var item preservedLocalization
-			if err := rows.Scan(&item.segmentID, &item.episodeNo, &item.kind, &item.sourceHash, &item.locale, &item.text, &item.source,
+			var segmentID, episodeNo, kind, sourceHash string
+			var item localization
+			if err := rows.Scan(&segmentID, &episodeNo, &kind, &sourceHash, &item.locale, &item.text, &item.source,
 				&item.updatedAt, &item.updatedBy, &item.revision); err != nil {
 				rows.Close()
 				return err
 			}
-			preserved = append(preserved, item)
+			segment := preservedByID[segmentID]
+			if segment == nil {
+				segment = &preservedLocalization{segmentID: segmentID, episodeNo: episodeNo, kind: kind, sourceHash: sourceHash}
+				preservedByID[segmentID] = segment
+				preserved = append(preserved, segment)
+			}
+			segment.localizations = append(segment.localizations, item)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
 		}
 		if err := rows.Close(); err != nil {
+			return err
+		}
+		countRows, err := tx.Query(`SELECT episode_no, kind, source_hash, COUNT(*)
+			FROM event_story_segments WHERE event_id=? GROUP BY episode_no, kind, source_hash`, eventID)
+		if err != nil {
+			return err
+		}
+		for countRows.Next() {
+			var identity sourceIdentity
+			var count int
+			if err := countRows.Scan(&identity.episodeNo, &identity.kind, &identity.sourceHash, &count); err != nil {
+				countRows.Close()
+				return err
+			}
+			oldSourceCounts[identity] = count
+		}
+		if err := countRows.Err(); err != nil {
+			countRows.Close()
+			return err
+		}
+		if err := countRows.Close(); err != nil {
 			return err
 		}
 	}
@@ -227,50 +269,70 @@ func importOrderedTx(tx *sql.Tx, eventID int, meta model.EventStoryMeta, episode
 			}
 		}
 	}
+	assignments := map[string]string{}
+	claimedDestinations := map[string]bool{}
+	// Reserve stable exact matches before considering any positional migration
+	// fallback, so a fallback can never steal another segment's destination.
 	for _, item := range preserved {
-		targetSegmentID := item.segmentID
 		var currentHash string
-		err := tx.QueryRow(`SELECT source_hash FROM event_story_segments WHERE segment_id=?`, targetSegmentID).Scan(&currentHash)
-		if err == sql.ErrNoRows {
-			candidateRows, queryErr := tx.Query(`SELECT segment_id FROM event_story_segments
-				WHERE event_id=? AND episode_no=? AND kind=? AND source_hash=?`,
-				eventID, item.episodeNo, item.kind, item.sourceHash)
-			if queryErr != nil {
-				return queryErr
-			}
-			var candidates []string
-			for candidateRows.Next() {
-				var candidate string
-				if err := candidateRows.Scan(&candidate); err != nil {
-					candidateRows.Close()
-					return err
-				}
-				candidates = append(candidates, candidate)
-			}
-			if err := candidateRows.Err(); err != nil {
+		err := tx.QueryRow(`SELECT source_hash FROM event_story_segments WHERE segment_id=?`, item.segmentID).Scan(&currentHash)
+		if err == nil && currentHash == item.sourceHash {
+			assignments[item.segmentID] = item.segmentID
+			claimedDestinations[item.segmentID] = true
+		} else if err != nil && err != sql.ErrNoRows {
+			return err
+		}
+	}
+	for _, item := range preserved {
+		if assignments[item.segmentID] != "" {
+			continue
+		}
+		identity := sourceIdentity{episodeNo: item.episodeNo, kind: item.kind, sourceHash: item.sourceHash}
+		if oldSourceCounts[identity] != 1 {
+			continue
+		}
+		candidateRows, err := tx.Query(`SELECT segment_id FROM event_story_segments
+			WHERE event_id=? AND episode_no=? AND kind=? AND source_hash=?`,
+			eventID, item.episodeNo, item.kind, item.sourceHash)
+		if err != nil {
+			return err
+		}
+		var candidates []string
+		for candidateRows.Next() {
+			var candidate string
+			if err := candidateRows.Scan(&candidate); err != nil {
 				candidateRows.Close()
 				return err
 			}
-			if err := candidateRows.Close(); err != nil {
-				return err
+			if !claimedDestinations[candidate] {
+				candidates = append(candidates, candidate)
 			}
-			if len(candidates) != 1 {
-				continue
-			}
-			targetSegmentID = candidates[0]
-			currentHash = item.sourceHash
-		} else if err != nil {
+		}
+		if err := candidateRows.Err(); err != nil {
+			candidateRows.Close()
 			return err
 		}
-		if currentHash != item.sourceHash {
+		if err := candidateRows.Close(); err != nil {
+			return err
+		}
+		if len(candidates) == 1 {
+			assignments[item.segmentID] = candidates[0]
+			claimedDestinations[candidates[0]] = true
+		}
+	}
+	for _, item := range preserved {
+		targetSegmentID := assignments[item.segmentID]
+		if targetSegmentID == "" {
 			continue
 		}
-		if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
-			(segment_id, locale, text, source, updated_at, updated_by, revision)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			targetSegmentID, item.locale, item.text, item.source, item.updatedAt,
-			item.updatedBy, item.revision); err != nil {
-			return err
+		for _, localization := range item.localizations {
+			if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
+				(segment_id, locale, text, source, updated_at, updated_by, revision)
+				VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				targetSegmentID, localization.locale, localization.text, localization.source, localization.updatedAt,
+				localization.updatedBy, localization.revision); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
