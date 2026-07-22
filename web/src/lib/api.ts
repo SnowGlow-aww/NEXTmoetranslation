@@ -170,6 +170,7 @@ export interface SongLyrics {
   status: "draft" | "published";
   revision: number;
   updatedAt: string;
+  attribution?: string;
   sourceNote?: string;
   sourceUrl?: string;
   licenseNote?: string;

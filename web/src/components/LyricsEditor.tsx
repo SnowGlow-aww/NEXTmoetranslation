@@ -19,7 +19,7 @@ function sourceLabel(error: APIError): string {
     revision_conflict: "其他编辑者已保存新版本",
     segment_mismatch: "分段文字与日文原文不一致",
     invalid_performer: "包含无效的演唱者",
-    incomplete_publication: "发布前必须补齐中英翻译",
+    incomplete_publication: "发布前必须补齐公开署名、中英翻译及演唱者",
     source_drift: "歌词来源或日文原文已变化",
     source_restricted: "来源页面禁止转载",
     source_unsupported: "无法安全解析来源页面",
@@ -352,8 +352,9 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             )}
 
             <div className="lyrics-metadata">
-              <label>来源备注<input value={lyrics.sourceNote || ""} onChange={(event) => updateLyrics({ sourceNote: event.target.value })} /></label>
-              <label>授权备注<input value={lyrics.licenseNote || ""} onChange={(event) => updateLyrics({ licenseNote: event.target.value })} /></label>
+              <label>公开署名<input value={lyrics.attribution || ""} onChange={(event) => updateLyrics({ attribution: event.target.value })} placeholder="将随公开歌词分发" /></label>
+              <label>内部来源备注<input value={lyrics.sourceNote || ""} onChange={(event) => updateLyrics({ sourceNote: event.target.value })} /></label>
+              <label>内部授权备注<input value={lyrics.licenseNote || ""} onChange={(event) => updateLyrics({ licenseNote: event.target.value })} /></label>
               {lyrics.sourceURL && <a href={lyrics.sourceURL} target="_blank" rel="noreferrer">已锁定来源 revision {lyrics.sourceRevisionId}</a>}
             </div>
 

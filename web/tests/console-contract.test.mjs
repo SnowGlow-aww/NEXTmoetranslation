@@ -42,7 +42,7 @@ test("dirty state survives filtering and event reload tools are guarded", async 
 
 test("lyrics workspace covers catalog, draft, source preview, and publication", async () => {
   const editor = await read("src/components/LyricsEditor.tsx");
-  for (const contract of ["getCatalogMusic", "保存草稿", "候选来源", "使用此版本", "载入服务器版本", "取消发布"]) {
+  for (const contract of ["getCatalogMusic", "保存草稿", "候选来源", "使用此版本", "载入服务器版本", "取消发布", "公开署名", "attribution"]) {
     assert.ok(editor.includes(contract), `missing lyrics console contract: ${contract}`);
   }
 });

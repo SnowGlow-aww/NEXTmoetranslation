@@ -48,6 +48,7 @@ type SongLyrics struct {
 	Status           string      `json:"status"`
 	Revision         int         `json:"revision"`
 	UpdatedAt        string      `json:"updatedAt"`
+	Attribution      string      `json:"attribution,omitempty"`
 	SourceNote       string      `json:"sourceNote,omitempty"`
 	SourceURL        string      `json:"sourceUrl,omitempty"`
 	LicenseNote      string      `json:"licenseNote,omitempty"`
@@ -83,9 +84,10 @@ type PublicLyricsIndexItem struct {
 }
 
 type PublicSongLyrics struct {
-	Version   int         `json:"version"`
-	MusicID   int         `json:"musicId"`
-	Revision  int         `json:"revision"`
-	UpdatedAt string      `json:"updatedAt"`
-	Lines     []LyricLine `json:"lines"`
+	Version     int         `json:"version"`
+	MusicID     int         `json:"musicId"`
+	Revision    int         `json:"revision"`
+	UpdatedAt   string      `json:"updatedAt"`
+	Attribution string      `json:"attribution"`
+	Lines       []LyricLine `json:"lines"`
 }

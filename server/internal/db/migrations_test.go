@@ -34,7 +34,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 6 || migrationCount != 6 || checksum != migrations[5].checksum() {
+	if version != 7 || migrationCount != 7 || checksum != migrations[6].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -323,5 +323,53 @@ func TestTalkIdentityMigrationKeepsFilteredFieldOpaqueAndPreservesLocalization(t
 	}
 	if newID != oldID+":legacy" || newHash != oldHash || text != "Existing English talk" {
 		t.Fatalf("migrated talk id=%q hash=%q text=%q oldID=%q oldHash=%q", newID, newHash, text, oldID, oldHash)
+	}
+}
+
+func TestAttributionAndTokenGenerationMigrationRequiresRepublish(t *testing.T) {
+	path := legacyFixtureCopy(t, "attribution-token-version.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:6]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO catalog_music(music_id, title_ja, producer_metadata) VALUES (10, 'song', 'producer')`); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO song_lyrics(music_id, revision, updated_at, source_hash) VALUES (10, 1, 1, 'hash')`); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO song_lyrics_publications(music_id, revision, updated_at, payload_json)
+		VALUES (10, 1, 1, '{"version":1,"musicId":10,"revision":1,"updatedAt":"1970-01-01T00:00:01Z","lines":[]}')`); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var attribution string
+	if err := migrated.QueryRow(`SELECT attribution FROM song_lyrics WHERE music_id=10`).Scan(&attribution); err != nil {
+		t.Fatal(err)
+	}
+	var tokenVersion, publications int
+	if err := migrated.QueryRow(`SELECT token_version FROM users LIMIT 1`).Scan(&tokenVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrated.QueryRow(`SELECT COUNT(*) FROM song_lyrics_publications`).Scan(&publications); err != nil {
+		t.Fatal(err)
+	}
+	if attribution != "" || tokenVersion != 1 || publications != 0 {
+		t.Fatalf("migration attribution=%q tokenVersion=%d publications=%d", attribution, tokenVersion, publications)
 	}
 }

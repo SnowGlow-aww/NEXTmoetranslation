@@ -35,7 +35,8 @@ func setupLyricsStore(t *testing.T) *Store {
 func validLyrics() model.SongLyrics {
 	return model.SongLyrics{
 		MusicID: 10, Revision: 0, Status: "draft",
-		SourceNote: "manual transcription", SourceURL: "https://example.invalid/source", LicenseNote: "internal",
+		Attribution: "Lyrics transcription and translation by the MoeSeka team",
+		SourceNote:  "manual transcription", SourceURL: "https://example.invalid/source", LicenseNote: "internal",
 		Lines: []model.LyricLine{{
 			ID: "line-1", Order: 0, Japanese: "初音歌う", Chinese: "初音歌唱", English: "Miku sings",
 			Segments: []model.LyricSegment{
@@ -96,7 +97,7 @@ func TestLyricsCRUDRevisionDriftAndPublication(t *testing.T) {
 		t.Fatalf("public index = %+v", index)
 	}
 	public := details[10]
-	if public.Version != 1 || public.Revision != 1 || len(public.Lines) != 1 {
+	if public.Version != 1 || public.Revision != 1 || public.Attribution != saved.Attribution || len(public.Lines) != 1 {
 		t.Fatalf("public detail = %+v", public)
 	}
 
@@ -161,6 +162,18 @@ func TestLyricsValidationCodes(t *testing.T) {
 	_, err = s.PublishLyrics(10, saved.Revision)
 	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" {
 		t.Fatalf("publication error = %#v", err)
+	}
+
+	missingAttribution := validLyrics()
+	missingAttribution.MusicID = 20
+	missingAttribution.Attribution = ""
+	saved, err = s.SaveLyrics(missingAttribution, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.PublishLyrics(missingAttribution.MusicID, saved.Revision)
+	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" {
+		t.Fatalf("missing attribution publication error = %#v", err)
 	}
 }
 
@@ -262,6 +275,31 @@ func TestLyricsMutationsWriteAuditRows(t *testing.T) {
 	}
 	if count != 3 {
 		t.Fatalf("lyrics audit count = %d", count)
+	}
+}
+
+func TestLegacyBackupWithoutPublicAttributionRestoresLyricsAsDraft(t *testing.T) {
+	s := setupLyricsStore(t)
+	lyrics := LyricsContentExport{
+		Music:      []CatalogMusicBackupRecord{{MusicID: 10, TitleJA: "新曲", NewlyWritten: 1}},
+		Performers: []CatalogPerformerBackupRecord{{PerformerID: 1, NameJA: "初音ミク"}},
+		Documents:  []LyricsDocumentBackupRecord{{MusicID: 10, Revision: 1, UpdatedAt: 1, SourceHash: "hash"}},
+		Lines:      []LyricsLineBackupRecord{{MusicID: 10, LineID: "line-1", Japanese: "歌う", Chinese: "歌唱", English: "Sings"}},
+		Segments:   []LyricsSegmentBackupRecord{{MusicID: 10, LineID: "line-1", Text: "歌う", PerformerIDsJSON: "[1]"}},
+		Publications: []LyricsPublicationBackupRecord{{
+			MusicID: 10, Revision: 1, UpdatedAt: 1,
+			PayloadJSON: `{"version":1,"musicId":10,"revision":1,"updatedAt":"1970-01-01T00:00:01Z","lines":[]}`,
+		}},
+	}
+	if err := s.ImportTranslationContent(nil, EventContentExport{}, lyrics); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := s.GetLyrics(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.Status != "draft" || restored.Attribution != "" {
+		t.Fatalf("legacy restored lyrics = %+v", restored)
 	}
 }
 

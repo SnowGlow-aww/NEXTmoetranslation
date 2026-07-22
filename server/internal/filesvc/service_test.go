@@ -137,7 +137,10 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	saved, err := s.SaveLyrics(model.SongLyrics{
-		MusicID: 10, Revision: 0, SourceNote: "must stay private", LicenseNote: "private",
+		MusicID: 10, Revision: 0, Attribution: "MoeSeka translation team",
+		SourceNote: "must stay private", SourceURL: "https://private.invalid/wiki", LicenseNote: "private",
+		SourcePageID: 123, SourceRevisionID: 456, SourceSHA1: "private-sha",
+		SourceFetchedAt: "2026-07-23T00:00:00Z",
 		Lines: []model.LyricLine{{
 			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
 			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
@@ -167,13 +170,16 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 	if status != http.StatusOK || !bytes.Contains(detail, []byte(`"version": 1`)) {
 		t.Fatalf("lyrics detail status=%d body=%s", status, detail)
 	}
+	if !bytes.Contains(detail, []byte(`"attribution": "MoeSeka translation team"`)) {
+		t.Fatalf("public lyrics omitted attribution: %s", detail)
+	}
 	for _, locale := range model.SupportedLocales {
 		localized, localizedETag, localizedStatus := readAsset("/files/v2/" + locale + "/translation/lyrics/music_10.json")
 		if localizedStatus != http.StatusOK || !bytes.Equal(localized, detail) || localizedETag != etag {
 			t.Fatalf("localized lyrics %s status=%d etag=%q body=%s", locale, localizedStatus, localizedETag, localized)
 		}
 	}
-	for _, privateField := range []string{"status", "updatedBy", "sourceNote", "licenseNote", "must stay private"} {
+	for _, privateField := range []string{"status", "updatedBy", "sourceNote", "sourceUrl", "licenseNote", "sourcePageId", "sourceRevisionId", "sourceSha1", "sourceFetchedAt", "must stay private", "private.invalid", "private-sha"} {
 		if bytes.Contains(detail, []byte(privateField)) {
 			t.Fatalf("public lyrics leaked %q: %s", privateField, detail)
 		}

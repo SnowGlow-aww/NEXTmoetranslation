@@ -46,7 +46,7 @@ func seedLyricsCatalog(t *testing.T, h *legacyAPIHarness) {
 
 func apiLyrics() model.SongLyrics {
 	return model.SongLyrics{
-		MusicID: 10, Revision: 0, Status: "draft", SourceNote: "manual",
+		MusicID: 10, Revision: 0, Status: "draft", Attribution: "MoeSeka translation team", SourceNote: "manual",
 		Lines: []model.LyricLine{{
 			ID: "line-1", Order: 0, Japanese: "初音歌う", Chinese: "初音歌唱", English: "Miku sings",
 			Segments: []model.LyricSegment{{Text: "初音", PerformerIDs: []int{1}}, {Text: "歌う", PerformerIDs: []int{1}}},

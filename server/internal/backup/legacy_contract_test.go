@@ -271,7 +271,7 @@ func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	saved, err := source.store.SaveLyrics(model.SongLyrics{
-		MusicID: 10, Revision: 0,
+		MusicID: 10, Revision: 0, Attribution: "MoeSeka translation team",
 		Lines: []model.LyricLine{{
 			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
 			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
@@ -327,7 +327,7 @@ func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
 		t.Fatalf("restored English entries = %+v", english)
 	}
 	restoredLyrics, err := destStore.GetLyrics(10)
-	if err != nil || restoredLyrics.Status != "published" {
+	if err != nil || restoredLyrics.Status != "published" || restoredLyrics.Attribution != "MoeSeka translation team" {
 		t.Fatalf("restored lyrics = %+v err=%v", restoredLyrics, err)
 	}
 

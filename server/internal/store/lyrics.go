@@ -132,15 +132,15 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 	}
 	now := time.Now().Unix()
 	if _, err := tx.Exec(`INSERT INTO song_lyrics
-		(music_id, revision, updated_at, updated_by, source_note, source_url, license_note, source_hash,
+		(music_id, revision, updated_at, updated_by, attribution, source_note, source_url, license_note, source_hash,
 		 source_page_id, source_revision_id, source_sha1, source_fetched_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(music_id) DO UPDATE SET revision=excluded.revision, updated_at=excluded.updated_at,
-		updated_by=excluded.updated_by, source_note=excluded.source_note, source_url=excluded.source_url,
+		updated_by=excluded.updated_by, attribution=excluded.attribution, source_note=excluded.source_note, source_url=excluded.source_url,
 		license_note=excluded.license_note, source_hash=excluded.source_hash,
 		source_page_id=excluded.source_page_id, source_revision_id=excluded.source_revision_id,
 		source_sha1=excluded.source_sha1, source_fetched_at=excluded.source_fetched_at`,
-		normalized.MusicID, nextRevision, now, user, normalized.SourceNote, normalized.SourceURL,
+		normalized.MusicID, nextRevision, now, user, normalized.Attribution, normalized.SourceNote, normalized.SourceURL,
 		normalized.LicenseNote, sourceHash, normalized.SourcePageID, normalized.SourceRevisionID,
 		normalized.SourceSHA1, sourceFetchedAt); err != nil {
 		return model.SongLyrics{}, err
@@ -217,7 +217,7 @@ func (s *Store) PublishLyrics(musicID, revision int, users ...string) (model.Son
 	}
 	public := model.PublicSongLyrics{
 		Version: 1, MusicID: musicID, Revision: revision,
-		UpdatedAt: current.lyrics.UpdatedAt, Lines: current.lyrics.Lines,
+		UpdatedAt: current.lyrics.UpdatedAt, Attribution: current.lyrics.Attribution, Lines: current.lyrics.Lines,
 	}
 	payload, err := json.Marshal(public)
 	if err != nil {
@@ -316,12 +316,12 @@ func (s *Store) loadLyrics(q queryRower, musicID int) (storedLyrics, error) {
 	var updatedAt int64
 	var publishedRevision sql.NullInt64
 	var sourceFetchedAt int64
-	err := q.QueryRow(`SELECT l.music_id, l.revision, l.updated_at, l.source_note, l.source_url,
+	err := q.QueryRow(`SELECT l.music_id, l.revision, l.updated_at, l.attribution, l.source_note, l.source_url,
 		l.license_note, l.source_hash, l.source_page_id, l.source_revision_id, l.source_sha1,
 		l.source_fetched_at, p.revision
 		FROM song_lyrics l LEFT JOIN song_lyrics_publications p ON p.music_id=l.music_id
 		WHERE l.music_id=?`, musicID).Scan(
-		&result.lyrics.MusicID, &result.lyrics.Revision, &updatedAt, &result.lyrics.SourceNote,
+		&result.lyrics.MusicID, &result.lyrics.Revision, &updatedAt, &result.lyrics.Attribution, &result.lyrics.SourceNote,
 		&result.lyrics.SourceURL, &result.lyrics.LicenseNote, &result.sourceHash,
 		&result.lyrics.SourcePageID, &result.lyrics.SourceRevisionID, &result.lyrics.SourceSHA1,
 		&sourceFetchedAt, &publishedRevision)
@@ -393,9 +393,12 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 	if len(lyrics.Lines) == 0 || len(lyrics.Lines) > 5000 {
 		return "segment_mismatch", []string{"lines must contain between 1 and 5000 items"}, ""
 	}
+	var segmentDetails, performerDetails, publicationDetails []string
+	if publishing && strings.TrimSpace(lyrics.Attribution) == "" {
+		publicationDetails = append(publicationDetails, "attribution is required for publication")
+	}
 	lineIDs := map[string]bool{}
 	orders := map[int]bool{}
-	var segmentDetails, performerDetails, publicationDetails []string
 	for lineIndex, line := range lyrics.Lines {
 		path := fmt.Sprintf("lines[%d]", lineIndex)
 		if strings.TrimSpace(line.ID) == "" || len(line.ID) > 128 || lineIDs[line.ID] {

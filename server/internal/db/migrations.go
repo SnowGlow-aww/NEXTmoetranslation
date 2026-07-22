@@ -338,6 +338,14 @@ ALTER TABLE event_story_segments_next RENAME TO event_story_segments;
 ALTER TABLE event_story_segment_localizations_next RENAME TO event_story_segment_localizations;
 CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, episode_no, kind, jp_key);
 `,
+}, {
+	version: 7,
+	name:    "public_lyrics_attribution_and_token_generation",
+	sql: `
+ALTER TABLE song_lyrics ADD COLUMN attribution TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1;
+DELETE FROM song_lyrics_publications;
+`,
 }}
 
 func (d *DB) pendingMigrations() ([]migration, error) {

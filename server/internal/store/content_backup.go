@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"moesekai/server/internal/model"
@@ -79,6 +80,7 @@ type LyricsDocumentBackupRecord struct {
 	Revision         int    `json:"revision"`
 	UpdatedAt        int64  `json:"updatedAt"`
 	UpdatedBy        string `json:"updatedBy"`
+	Attribution      string `json:"attribution"`
 	SourceNote       string `json:"sourceNote"`
 	SourceURL        string `json:"sourceUrl"`
 	LicenseNote      string `json:"licenseNote"`
@@ -225,10 +227,10 @@ func (s *Store) ExportLyricsContent() (LyricsContentExport, error) {
 			result.Performers = append(result.Performers, record)
 			return nil
 		}},
-		{`SELECT music_id, revision, updated_at, updated_by, source_note, source_url, license_note, source_hash,
+		{`SELECT music_id, revision, updated_at, updated_by, attribution, source_note, source_url, license_note, source_hash,
 			source_page_id, source_revision_id, source_sha1, source_fetched_at FROM song_lyrics ORDER BY music_id`, func(rows *sql.Rows) error {
 			var record LyricsDocumentBackupRecord
-			if err := rows.Scan(&record.MusicID, &record.Revision, &record.UpdatedAt, &record.UpdatedBy, &record.SourceNote, &record.SourceURL, &record.LicenseNote, &record.SourceHash,
+			if err := rows.Scan(&record.MusicID, &record.Revision, &record.UpdatedAt, &record.UpdatedBy, &record.Attribution, &record.SourceNote, &record.SourceURL, &record.LicenseNote, &record.SourceHash,
 				&record.SourcePageID, &record.SourceRevisionID, &record.SourceSHA1, &record.SourceFetchedAt); err != nil {
 				return err
 			}
@@ -373,11 +375,13 @@ func importTranslationContentTx(tx *sql.Tx, entries []EntryLocalizationRecord, e
 			return err
 		}
 	}
+	lyricsAttribution := map[int]string{}
 	for _, record := range lyrics.Documents {
-		if _, err := tx.Exec(`INSERT INTO song_lyrics(music_id, revision, updated_at, updated_by, source_note, source_url, license_note, source_hash,
+		lyricsAttribution[record.MusicID] = record.Attribution
+		if _, err := tx.Exec(`INSERT INTO song_lyrics(music_id, revision, updated_at, updated_by, attribution, source_note, source_url, license_note, source_hash,
 			source_page_id, source_revision_id, source_sha1, source_fetched_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, record.MusicID, record.Revision, record.UpdatedAt, record.UpdatedBy,
-			record.SourceNote, record.SourceURL, record.LicenseNote, record.SourceHash,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, record.MusicID, record.Revision, record.UpdatedAt, record.UpdatedBy,
+			record.Attribution, record.SourceNote, record.SourceURL, record.LicenseNote, record.SourceHash,
 			record.SourcePageID, record.SourceRevisionID, record.SourceSHA1, record.SourceFetchedAt); err != nil {
 			return err
 		}
@@ -396,6 +400,17 @@ func importTranslationContentTx(tx *sql.Tx, entries []EntryLocalizationRecord, e
 		}
 	}
 	for _, record := range lyrics.Publications {
+		attribution := strings.TrimSpace(lyricsAttribution[record.MusicID])
+		if attribution == "" {
+			continue
+		}
+		var public model.PublicSongLyrics
+		if err := json.Unmarshal([]byte(record.PayloadJSON), &public); err != nil {
+			return fmt.Errorf("lyrics publication %d: %w", record.MusicID, err)
+		}
+		if public.Attribution != lyricsAttribution[record.MusicID] {
+			return fmt.Errorf("lyrics publication %d attribution does not match its draft", record.MusicID)
+		}
 		if _, err := tx.Exec(`INSERT INTO song_lyrics_publications(music_id, revision, updated_at, payload_json)
 			VALUES (?, ?, ?, ?)`, record.MusicID, record.Revision, record.UpdatedAt, record.PayloadJSON); err != nil {
 			return err
