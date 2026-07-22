@@ -131,6 +131,25 @@ func TestPublicAuthAttemptLimiterBoundsTrackedKeys(t *testing.T) {
 	}
 }
 
+func TestPublicAuthAttemptLimiterPreservesCaseSensitiveAccountIdentity(t *testing.T) {
+	limiter := newAuthAttemptLimiter(1, time.Minute, 8)
+	if !limiter.allow("login", "203.0.113.1:1234", "Alice") {
+		t.Fatal("first Alice attempt was blocked")
+	}
+	if !limiter.allow("login", "203.0.113.2:1234", "alice") {
+		t.Fatal("distinct case-sensitive alice account shared Alice's bucket")
+	}
+	if limiter.allow("login", "203.0.113.3:1234", " Alice ") {
+		t.Fatal("trim-equivalent Alice spelling bypassed its account limit")
+	}
+	if limiter.allow("login", "203.0.113.4:1234", "alice") {
+		t.Fatal("alice account limit was not retained")
+	}
+	if len(limiter.attempts) != 4 {
+		t.Fatalf("tracked keys = %d, want two IP and two account buckets", len(limiter.attempts))
+	}
+}
+
 func TestPublicAuthAttemptLimiterDoesNotEvictActiveDenialsUnderChurn(t *testing.T) {
 	now := time.Unix(100, 0)
 	limiter := newAuthAttemptLimiter(2, time.Minute, 4)

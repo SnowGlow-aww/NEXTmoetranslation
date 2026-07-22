@@ -306,25 +306,30 @@ func (a *Auth) issueToken(username, role string, tokenVersion int) (string, time
 	return signed, expiresAt, err
 }
 
-// RefreshToken revalidates and signs the already-authenticated generation while
-// holding one immediate transaction. A concurrent revocation either happens
-// first and rejects refresh, or happens after refresh and invalidates its token.
+// RefreshToken atomically consumes the authenticated generation and signs its
+// successor. A replay or concurrent refresh cannot reuse the consumed version,
+// and a concurrent revocation either rejects refresh or invalidates its result.
 func (a *Auth) RefreshToken(claims *Claims) (string, time.Time, error) {
 	tx, err := a.db.Begin()
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	defer tx.Rollback()
-	var role string
-	var version int
-	if err := tx.QueryRow(`SELECT role, token_version FROM users WHERE username=?`, claims.Username).
-		Scan(&role, &version); err != nil || role != claims.Role || version != claims.TokenVersion {
+	result, err := tx.Exec(`UPDATE users SET token_version = token_version + 1
+		WHERE username = ? AND role = ? AND token_version = ?`,
+		claims.Username, claims.Role, claims.TokenVersion)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	if changed, err := result.RowsAffected(); err != nil {
+		return "", time.Time{}, err
+	} else if changed != 1 {
 		return "", time.Time{}, ErrInvalidCreds
 	}
 	if refreshTokenValidatedHook != nil {
 		refreshTokenValidatedHook()
 	}
-	token, expiresAt, err := a.issueToken(claims.Username, claims.Role, claims.TokenVersion)
+	token, expiresAt, err := a.issueToken(claims.Username, claims.Role, claims.TokenVersion+1)
 	if err != nil {
 		return "", time.Time{}, err
 	}

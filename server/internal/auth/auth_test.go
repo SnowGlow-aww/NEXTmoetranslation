@@ -198,6 +198,97 @@ func TestRolePasswordAndDeleteRevokeIssuedTokens(t *testing.T) {
 	}
 }
 
+func TestRefreshTokenCannotBeReplayed(t *testing.T) {
+	a := openTestAuth(t)
+	user, err := a.CreateUser("editor", "password", RoleEditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := a.IssueToken(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := a.VerifyToken(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, _, err := a.RefreshToken(claims)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(token); err != ErrInvalidCreds {
+		t.Fatalf("consumed token verification error = %v", err)
+	}
+	if _, _, err := a.RefreshToken(claims); err != ErrInvalidCreds {
+		t.Fatalf("sequential refresh replay error = %v", err)
+	}
+	replacementClaims, err := a.VerifyToken(replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacementClaims.TokenVersion != claims.TokenVersion+1 {
+		t.Fatalf("replacement version = %d, want %d", replacementClaims.TokenVersion, claims.TokenVersion+1)
+	}
+}
+
+func TestConcurrentRefreshTokenDoubleSpendAllowsOneReplacement(t *testing.T) {
+	a := openTestAuth(t)
+	user, err := a.CreateUser("editor", "password", RoleEditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := a.IssueToken(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := a.VerifyToken(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type result struct {
+		token string
+		err   error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	var wait sync.WaitGroup
+	for range 2 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			<-start
+			replacement, _, err := a.RefreshToken(claims)
+			results <- result{token: replacement, err: err}
+		}()
+	}
+	close(start)
+	wait.Wait()
+	close(results)
+	succeeded, rejected := 0, 0
+	var replacement string
+	for result := range results {
+		switch result.err {
+		case nil:
+			succeeded++
+			replacement = result.token
+		case ErrInvalidCreds:
+			rejected++
+		default:
+			t.Fatalf("concurrent refresh error = %v", result.err)
+		}
+	}
+	if succeeded != 1 || rejected != 1 {
+		t.Fatalf("concurrent refresh success=%d rejected=%d", succeeded, rejected)
+	}
+	replacementClaims, err := a.VerifyToken(replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacementClaims.TokenVersion != claims.TokenVersion+1 {
+		t.Fatalf("replacement version = %d, want %d", replacementClaims.TokenVersion, claims.TokenVersion+1)
+	}
+}
+
 func TestRefreshTokenIsAtomicWithRevocation(t *testing.T) {
 	a := openTestAuth(t)
 	admin, err := a.CreateUser("admin", "password", RoleAdmin)

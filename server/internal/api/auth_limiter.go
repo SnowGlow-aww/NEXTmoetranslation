@@ -56,7 +56,7 @@ func (l *authAttemptLimiter) allow(action, remoteAddr, account string) bool {
 	now := l.now()
 	keys := []attemptKey{
 		hashAttemptKey(action, "ip", remoteIP(remoteAddr)),
-		hashAttemptKey(action, "account", strings.ToLower(strings.TrimSpace(account))),
+		hashAttemptKey(action, "account", strings.TrimSpace(account)),
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
