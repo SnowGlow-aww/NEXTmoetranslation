@@ -6,7 +6,9 @@ import { getToken } from "./api";
 // SSE event names (mirror the Go sse package constants).
 export type SSEEvent =
   | "entry.updated"
+  | "entry.locale.updated"
   | "eventstory.updated"
+  | "eventstory.locale.updated"
   | "sync.progress"
   | "translate.progress"
   | "backup.status"
@@ -38,7 +40,7 @@ export function useSSE(handler: SSEHandler, enabled: boolean) {
     const es = new EventSource(url);
 
     const events: SSEEvent[] = [
-      "entry.updated", "eventstory.updated", "sync.progress",
+      "entry.updated", "entry.locale.updated", "eventstory.updated", "eventstory.locale.updated", "sync.progress",
       "translate.progress", "backup.status", "upstream.status", "ping",
     ];
     const listeners: Array<[string, (e: MessageEvent) => void]> = [];

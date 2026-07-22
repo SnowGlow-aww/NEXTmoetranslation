@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useToast } from "@/app/providers";
+import { Modal } from "@/components/Modal";
 import {
   APIError, CatalogMusicItem, CatalogPerformerItem, LyricsSourceCandidate,
   LyricsSourcePreview, SongLyrics, getCatalogMusic, getCatalogPerformers,
@@ -29,7 +30,21 @@ function sourceLabel(error: APIError): string {
   return labels[error.code] || error.message;
 }
 
-export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
+export interface LyricsEditorHandle {
+  save: () => Promise<boolean>;
+  discard: () => void;
+}
+
+interface LyricsEditorProps {
+  role: "admin" | "editor" | "";
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+type PendingTransition =
+  | { kind: "choose"; item: CatalogMusicItem }
+  | { kind: "publish"; nextPublished: boolean };
+
+export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(function LyricsEditor({ role, onDirtyChange }, ref) {
   const { show } = useToast();
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<CatalogMusicItem[]>([]);
@@ -44,8 +59,22 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
   const [sourcePreview, setSourcePreview] = useState<LyricsSourcePreview | null>(null);
   const [previewLocale, setPreviewLocale] = useState<"ja-JP" | "zh-CN" | "en-US">("zh-CN");
   const requestSequence = useRef(0);
+  const lyricsLoadSequence = useRef(0);
+  const [pendingTransition, setPendingTransition] = useState<PendingTransition | null>(null);
 
   const dirty = lyrics != null && JSON.stringify(lyrics) !== baseline;
+
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -62,8 +91,8 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
       .catch((reason) => show(reason instanceof Error ? reason.message : "演唱者目录加载失败", "err"));
   }, [show]);
 
-  const chooseMusic = async (item: CatalogMusicItem) => {
-    if (dirty && !window.confirm("当前歌词有未保存修改，放弃并切换曲目？")) return;
+  const performChooseMusic = async (item: CatalogMusicItem) => {
+    const sequence = ++lyricsLoadSequence.current;
     setSelectedMusic(item);
     setLoading(true);
     setError(null);
@@ -71,9 +100,11 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
     setSourcePreview(null);
     try {
       const loaded = await getLyrics(item.musicId);
+      if (lyricsLoadSequence.current !== sequence) return;
       setLyrics(loaded);
       setBaseline(JSON.stringify(loaded));
     } catch (reason) {
+      if (lyricsLoadSequence.current !== sequence) return;
       if (reason instanceof APIError && reason.status === 404) {
         const blank = emptyLyrics(item.musicId);
         setLyrics(blank);
@@ -83,8 +114,17 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
         setError(reason instanceof APIError ? reason : new APIError(500, { error: "load_failed" }));
       }
     } finally {
-      setLoading(false);
+      if (lyricsLoadSequence.current === sequence) setLoading(false);
     }
+  };
+
+  const chooseMusic = (item: CatalogMusicItem) => {
+    if (item.musicId === selectedMusic?.musicId) return;
+    if (dirty) {
+      setPendingTransition({ kind: "choose", item });
+      return;
+    }
+    void performChooseMusic(item);
   };
 
   const updateLyrics = (patch: Partial<SongLyrics>) => {
@@ -116,8 +156,8 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
     }] });
   };
 
-  const save = async () => {
-    if (!lyrics || busy) return;
+  const saveDocument = async (): Promise<SongLyrics | null> => {
+    if (!lyrics || busy) return null;
     setBusy(true);
     setError(null);
     try {
@@ -125,23 +165,35 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
       setLyrics(saved);
       setBaseline(JSON.stringify(saved));
       show("歌词草稿已保存", "ok");
+      return saved;
     } catch (reason) {
       const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "save_failed" });
       setError(apiError);
       show(sourceLabel(apiError), "err");
+      return null;
     } finally {
       setBusy(false);
     }
   };
 
-  const publish = async (nextPublished: boolean) => {
-    if (!lyrics || busy) return;
+  const save = async () => (await saveDocument()) != null;
+
+  const discard = () => {
+    if (!baseline) return;
+    setLyrics(JSON.parse(baseline) as SongLyrics);
+    setError(null);
+  };
+
+  useImperativeHandle(ref, () => ({ save, discard }));
+
+  const performPublication = async (nextPublished: boolean, document: SongLyrics) => {
+	if (busy) return;
     setBusy(true);
     setError(null);
     try {
       const result = nextPublished
-        ? await publishLyrics(lyrics.musicId, lyrics.revision)
-        : await unpublishLyrics(lyrics.musicId, lyrics.revision);
+		? await publishLyrics(document.musicId, document.revision)
+		: await unpublishLyrics(document.musicId, document.revision);
       setLyrics(result);
       setBaseline(JSON.stringify(result));
       show(nextPublished ? "歌词已发布" : "歌词已取消发布", "ok");
@@ -152,6 +204,15 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const publish = (nextPublished: boolean) => {
+    if (!lyrics) return;
+    if (dirty) {
+      setPendingTransition({ kind: "publish", nextPublished });
+      return;
+    }
+    void performPublication(nextPublished, lyrics);
   };
 
   const findSource = async () => {
@@ -205,6 +266,26 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
   const performerName = (id: number) => {
     const performer = performers.find((item) => item.performerId === id);
     return performer?.name["zh-CN"] || performer?.name["ja-JP"] || String(id);
+  };
+
+  const continuePendingTransition = async (saveFirst: boolean) => {
+    const pending = pendingTransition;
+    if (!pending) return;
+    let document = lyrics;
+    if (saveFirst) {
+      document = await saveDocument();
+      if (!document) return;
+    } else if (baseline) {
+      document = JSON.parse(baseline) as SongLyrics;
+      setLyrics(document);
+      setError(null);
+    }
+    setPendingTransition(null);
+    if (pending.kind === "choose") {
+      await performChooseMusic(pending.item);
+    } else if (document) {
+      await performPublication(pending.nextPublished, document);
+    }
   };
 
   return (
@@ -310,6 +391,14 @@ export function LyricsEditor({ role }: { role: "admin" | "editor" | "" }) {
           </>
         ) : <div className="center-state"><p>歌词加载失败</p></div>}
       </section>
+      <Modal open={pendingTransition != null} onClose={() => setPendingTransition(null)} title="处理未保存歌词" maxWidth={460}>
+        <p className="dirty-guard-copy">当前歌词有未保存修改。继续前请选择如何处理。</p>
+        <div className="dirty-guard-actions">
+          <button className="btn btn-primary" onClick={() => void continuePendingTransition(true)}>保存并继续</button>
+          <button className="btn btn-secondary" onClick={() => void continuePendingTransition(false)}>放弃修改</button>
+          <button className="btn btn-ghost" onClick={() => setPendingTransition(null)}>取消</button>
+        </div>
+      </Modal>
     </div>
   );
-}
+});

@@ -10,6 +10,7 @@ Migrations are applied in version order inside individual SQLite transactions. E
 2. `lyrics_source_provenance_and_stanzas` adds immutable source revision identity and stanza boundaries.
 3. `lyrics_catalog_source_identity` adds catalog producer metadata used to reject ambiguous external source matches.
 4. `rolling_event_side_tables_no_legacy_cascade` removes cascades from legacy story parents so a previous binary's replace-import cannot erase multilingual content. Current imports explicitly reconcile stable segment rows.
+5. `stable_event_title_segment_identity` upgrades migrated title IDs to the same positional `:title:-1` identity used by current imports without losing existing localizations.
 
 Before the first pending migration, file-backed databases receive a verified `*.pre-migration-vN.bak` SQLite backup. Migration tests cover idempotent reopen, checksum refusal, injected rollback, backup recovery, legacy writer compatibility, and old event replacement.
 
@@ -26,9 +27,9 @@ Lyrics and catalog routes are authenticated:
 - `POST /api/lyrics/publish` and `POST /api/lyrics/unpublish` for admins
 - `GET /api/lyrics/source/search` and `POST /api/lyrics/source/preview`
 
-Lyrics use numeric `musicId`, stable ordered line IDs, Japanese/Chinese/English text, ordered text segments, catalog performer IDs, optimistic revisions, immutable Japanese source hashes, draft/publication separation, and idempotent save/publish/unpublish behavior. Contract errors use sanitized codes including `revision_conflict` (409), `source_drift`, `segment_mismatch`, `invalid_performer`, and `incomplete_publication` (422).
+Lyrics use numeric `musicId`, stable ordered line IDs, Japanese/Chinese/English text, ordered text segments, required unique catalog performer IDs for publication, optimistic revisions, immutable Japanese source hashes and source provenance, draft/publication separation, and idempotent save/publish/unpublish behavior. Source lookup pins page and revision identity, rejects cross-origin redirects and explicit no-reprint markers/categories, and records source access in the audit log; contract errors use sanitized codes including `revision_conflict` (409), `source_drift`, `segment_mismatch`, `invalid_performer`, and `incomplete_publication` (422).
 
-JSON request bodies are capped at 8 MiB. External lyrics-source requests use response caps, rate limiting, cache bounds, and timeouts. HTTP responses carry a sanitized `X-Request-ID`; `/readyz` verifies SQLite readiness and `/healthz/details` reports lightweight request/client-error/server-error counters while `/healthz` retains its existing response.
+JSON request bodies are capped at 8 MiB and the HTTP server bounds both header and whole-request read time. External lyrics-source requests use response caps, rate limiting, cache bounds, origin-locked redirects, and timeouts. HTTP responses carry a sanitized `X-Request-ID`; `/readyz` verifies SQLite readiness, admin-protected `/healthz/details` reports lightweight request/client-error/server-error counters, and `/healthz` retains its existing response. Locale, lyrics, source, and restore mutations/accesses write content-minimized audit rows.
 
 ## Public Files
 
@@ -44,11 +45,11 @@ Lyrics assets rebuild as one set. A malformed publication preserves the complete
 
 ## Backup And Restore
 
-Git and S3 backups retain the legacy public `translations` projection and add `translation-content/manifest.json`. Manifest schema version 1 checksums and counts multilingual entries, stable event content, catalog/lyrics drafts, source provenance, and publication snapshots. Restore validates the complete manifest before import; backups without the additive directory still follow the old restore path. User tables, password hashes, settings, tokens, and secrets are not exported.
+Git and S3 backups retain the legacy public `translations` projection and add `translation-content/manifest.json`. Both projections are materialized from one SQLite snapshot; manifest schema version 1 checksums and counts multilingual entries, stable event content, catalog/lyrics drafts, source provenance, and publication snapshots. Legacy and additive restore data commit in one transaction, failure rolls everything back, and backups without the additive directory explicitly clear multilingual/lyrics-only state while retaining the old public restore projection. User tables, password hashes, settings, tokens, and secrets are not exported.
 
 ## Web Console
 
-The existing setup/login/settings/AdminModal/CN sync/AI/backup/entry save/save-next/shortcuts surfaces remain mounted. The console adds a locale selector whose dirty transition offers save, discard, and cancel; locale-scoped entry/event loading and SSE reconciliation; Japanese read-only rendering; and a responsive lyrics workspace with catalog search, source preview, performer selection, multilingual preview, optimistic conflict recovery, draft save, and admin publication controls.
+The existing setup/login/settings/AdminModal/CN sync/AI/backup/entry save/save-next/shortcuts surfaces remain mounted. The console adds a locale selector and shared dirty guard for locale, field/category/mode, row, arrow, Escape, logout, and browser-unload transitions; localized updates use locale-specific SSE event names that old Chinese clients ignore. The responsive lyrics workspace adds catalog search with stale-response suppression, source preview, performer selection, multilingual preview, optimistic conflict recovery, guarded song/publication transitions, draft save, and admin publication controls.
 
 ## Verification Record
 
@@ -59,7 +60,7 @@ Run on 2026-07-22 from this worktree:
 | `cd server && gofmt -w $(git ls-files '*.go') $(git ls-files --others --exclude-standard '*.go') && go test ./...` | 0 | All Go packages passed |
 | `cd server && go test -race ./...` | 0 | All Go packages passed under the race detector |
 | `cd server && go vet ./...` | 0 | No diagnostics |
-| `cd web && npm test` | 0 | Four Web Console contract regressions passed |
+| `cd web && npm test` | 0 | Six Web Console contract regressions passed |
 | `cd web && npm ci` | 1 | Environment policy rejected remote `npmmirror.com` tarballs with `EALLOWREMOTE` |
 | `cd web && npm ci --offline` | 1 | Same policy rejection; the required tarball was not available locally |
 | `cd web && npm run lint` | 127 | `next` unavailable because dependency installation was blocked |

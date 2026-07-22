@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useToast } from "@/app/providers";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AdminModal } from "@/components/AdminModal";
-import { LyricsEditor } from "@/components/LyricsEditor";
+import { LyricsEditor, LyricsEditorHandle } from "@/components/LyricsEditor";
 import { Modal } from "@/components/Modal";
 import {
   CategoryInfo, EventStorySummary, Locale, TranslationEntry,
@@ -77,7 +77,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [locale, setLocale] = useState<Locale>("zh-CN");
-  const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
+  const [lyricsDirty, setLyricsDirty] = useState(false);
+  const [pendingActionLabel, setPendingActionLabel] = useState("");
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const lyricsEditorRef = useRef<LyricsEditorHandle>(null);
 
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
@@ -160,13 +163,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (event === "sync.progress" || event === "translate.progress") {
       setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
       if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
-    } else if (event === "entry.updated") {
+    } else if (event === "entry.updated" || event === "entry.locale.updated") {
       const updateLocale = String(d.locale || "zh-CN");
       if (updateLocale === locale && d.category === category && d.field === field && d.user !== username) {
         setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: String(d.text), source: String(d.source) } : e)));
         show(`${d.user} 修改了一条翻译`, "ok");
       }
-    } else if (event === "eventstory.updated") {
+    } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
       const updateLocale = String(d.locale || "zh-CN");
       if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
         loadEntries();
@@ -190,6 +193,27 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     [selectedKey, filtered],
   );
   const selectedEntry = filtered[selectedIndex] ?? null;
+  const entryDirty = selectedEntry != null && editValue !== selectedEntry.text;
+  const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const runOrGuard = (label: string, action: () => void) => {
+    if (!hasUnsavedChanges) {
+      action();
+      return;
+    }
+    pendingActionRef.current = action;
+    setPendingActionLabel(label);
+  };
 
   useEffect(() => {
     if (selectedKey && editRef.current) {
@@ -205,16 +229,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }, [selectedEntry, category, field]);
 
   // ---- Actions ----
-  const selectField = (cat: string, f: string) => {
+  const performSelectField = (cat: string, f: string) => {
     setCategory(cat); setField(f); setQuery(""); setSelectedKey(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       setSidebarOpen(false);
     }
   };
 
+  const selectField = (cat: string, f: string) => {
+    if (cat === category && f === field) return;
+    runOrGuard("切换内容", () => performSelectField(cat, f));
+  };
+
   const applyLocale = (next: Locale) => {
     setLocale(next);
-    setPendingLocale(null);
     setEntries([]);
     setSelectedKey(null);
     setEditValue("");
@@ -222,15 +250,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const requestLocaleChange = (next: Locale) => {
     if (next === locale) return;
-    const dirty = selectedEntry != null && editValue !== selectedEntry.text;
-    if (dirty && !isReadOnly && !isLyrics) {
-      setPendingLocale(next);
-      return;
-    }
-    applyLocale(next);
+    runOrGuard("切换编辑语言", () => applyLocale(next));
   };
 
-  const navigate = useCallback((dir: 1 | -1) => {
+  const performNavigate = useCallback((dir: 1 | -1) => {
     if (selectedIndex < 0) return;
     const idx = selectedIndex + dir;
     if (idx < 0 || idx >= filtered.length) return;
@@ -239,6 +262,16 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     setEditValue(next.text);
     document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [selectedIndex, filtered]);
+
+  const navigate = (dir: 1 | -1) => runOrGuard("切换条目", () => performNavigate(dir));
+
+  const selectEntry = (entry: TranslationEntry) => {
+    if (entry.key === selectedKey) return;
+    runOrGuard("切换条目", () => {
+      setSelectedKey(entry.key);
+      setEditValue(entry.text);
+    });
+  };
 
   const save = useCallback(async (overrideSource?: string, advance = true) => {
     if (savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
@@ -281,6 +314,26 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     }
   }, [selectedKey, selectedEntry, category, field, editValue, filtered, isEventStory, isReadOnly, locale, show]);
 
+  const closePendingAction = () => {
+    pendingActionRef.current = null;
+    setPendingActionLabel("");
+  };
+
+  const continuePendingAction = async (saveFirst: boolean) => {
+    const action = pendingActionRef.current;
+    if (!action) return;
+    if (saveFirst) {
+      const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);
+      if (!saved) return;
+    } else if (isLyrics) {
+      lyricsEditorRef.current?.discard();
+    } else if (selectedEntry) {
+      setEditValue(selectedEntry.text);
+    }
+    closePendingAction();
+    action();
+  };
+
   const onTextareaKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (enterSaves) {
       // Enter = save (Shift+Enter = newline)
@@ -289,7 +342,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       // Shift+Enter = save (Enter = newline, default)
       if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); save(); }
     }
-    if (e.key === "Escape") { setSelectedKey(null); }
+    if (e.key === "Escape") { runOrGuard("关闭当前条目", () => setSelectedKey(null)); }
     else if ((e.ctrlKey || e.metaKey) && e.key === "ArrowUp") { e.preventDefault(); navigate(-1); }
     else if ((e.ctrlKey || e.metaKey) && e.key === "ArrowDown") { e.preventDefault(); navigate(1); }
   };
@@ -360,7 +413,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             <div className="sidebar-icon-row">
               <button className="icon-btn" onClick={() => setShowSettings(true)} title="用户设置"><IconSettings /></button>
               {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} title="管理设置"><IconShield /></button>}
-              <button className="icon-btn" onClick={() => { clearSession(); onLogout(); }} title="退出登录"><IconLogout /></button>
+              <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => { clearSession(); onLogout(); })} title="退出登录"><IconLogout /></button>
               <button className="icon-btn" onClick={() => setSidebarOpen(false)} aria-label="收起侧边栏" title="收起侧边栏"><IconChevronLeft /></button>
             </div>
           </div>
@@ -438,7 +491,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         )}
 
         {isLyrics ? (
-          <LyricsEditor role={role} />
+          <LyricsEditor ref={lyricsEditorRef} role={role} onDirtyChange={setLyricsDirty} />
         ) : !category || !field ? (
           <div className="center-state">
             <p>从左侧选择一个翻译类别</p>
@@ -536,7 +589,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         key={entry.key}
                         data-key={entry.key}
                         className={`entry-row ${selectedKey === entry.key ? "active" : ""}`}
-                        onClick={() => { setSelectedKey(entry.key); setEditValue(entry.text); }}
+                        onClick={() => selectEntry(entry)}
                       >
                         <td className="col-source" onClick={(e) => e.stopPropagation()}>
                           <select
@@ -570,15 +623,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       {/* Settings & Admin modals */}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} />}
-      <Modal open={pendingLocale != null} onClose={() => setPendingLocale(null)} title="切换编辑语言" maxWidth={460}>
-        <p className="dirty-guard-copy">当前条目有未保存修改。切换语言前请选择如何处理。</p>
+      <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460}>
+        <p className="dirty-guard-copy">当前内容有未保存修改。继续前请选择如何处理。</p>
         <div className="dirty-guard-actions">
-          <button className="btn btn-primary" onClick={async () => {
-            const next = pendingLocale;
-            if (next && await save(undefined, false)) applyLocale(next);
-          }}>保存并切换</button>
-          <button className="btn btn-secondary" onClick={() => pendingLocale && applyLocale(pendingLocale)}>放弃修改</button>
-          <button className="btn btn-ghost" onClick={() => setPendingLocale(null)}>取消</button>
+          <button className="btn btn-primary" onClick={() => void continuePendingAction(true)}>保存并继续</button>
+          <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)}>放弃修改</button>
+          <button className="btn btn-ghost" onClick={closePendingAction}>取消</button>
         </div>
       </Modal>
     </div>
