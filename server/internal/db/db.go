@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "modernc.org/sqlite"
 )
@@ -10,11 +11,14 @@ import (
 // DB wraps a SQLite connection with the application schema applied.
 type DB struct {
 	*sql.DB
+	path string
 }
 
 // Open opens (or creates) the SQLite database at path and applies the schema.
 // modernc.org/sqlite is a pure-Go driver, so no CGO is required.
 func Open(path string) (*DB, error) {
+	_, statErr := os.Stat(path)
+	preexisting := statErr == nil
 	// WAL lets many readers run concurrently with a single writer, which is the
 	// whole point of using it here: background jobs (cn-sync, AI translate,
 	// backup) hold long write transactions while editors keep reading. For that
@@ -40,12 +44,31 @@ func Open(path string) (*DB, error) {
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
-	d := &DB{sqlDB}
+	d := &DB{DB: sqlDB, path: path}
+	pending, err := d.pendingMigrations()
+	if err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("inspect migrations: %w", err)
+	}
+	if preexisting && len(pending) > 0 {
+		if _, err := d.createPreMigrationBackup(pending[0].version); err != nil {
+			sqlDB.Close()
+			return nil, fmt.Errorf("pre-migration backup: %w", err)
+		}
+	}
 	if err := d.applySchema(); err != nil {
+		sqlDB.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
+	}
+	if err := d.applyMigrations(pending); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("apply migrations: %w", err)
 	}
 	return d, nil
 }
+
+// Path returns the SQLite database path used by Open.
+func (d *DB) Path() string { return d.path }
 
 func (d *DB) applySchema() error {
 	_, err := d.Exec(schema)

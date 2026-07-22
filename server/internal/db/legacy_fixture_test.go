@@ -2,6 +2,7 @@ package db
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"io"
 	"os"
@@ -27,6 +28,25 @@ func TestLegacyV2SQLiteFixture(t *testing.T) {
 	if err := copyFixture(fixture, copyPath); err != nil {
 		t.Fatal(err)
 	}
+	rawDB, err := sql.Open("sqlite", "file:"+copyPath+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, absent := range []string{"schema_migrations", "entry_localizations", "event_story_segments", "lyrics_documents"} {
+		var count int
+		if err := rawDB.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, absent).Scan(&count); err != nil {
+			rawDB.Close()
+			t.Fatal(err)
+		}
+		if count != 0 {
+			rawDB.Close()
+			t.Fatalf("legacy fixture unexpectedly contains %s", absent)
+		}
+	}
+	if err := rawDB.Close(); err != nil {
+		t.Fatal(err)
+	}
+
 	database, err := Open(copyPath)
 	if err != nil {
 		t.Fatalf("open legacy fixture: %v", err)
@@ -38,13 +58,13 @@ func TestLegacyV2SQLiteFixture(t *testing.T) {
 	if strings.Join(columns, ",") != wantColumns {
 		t.Fatalf("legacy entries columns = %v", columns)
 	}
-	for _, absent := range []string{"schema_migrations", "entry_localizations", "event_story_segments", "lyrics_documents"} {
+	for _, present := range []string{"schema_migrations", "entry_localizations", "event_story_segments", "song_lyrics"} {
 		var count int
-		if err := database.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, absent).Scan(&count); err != nil {
+		if err := database.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, present).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
-		if count != 0 {
-			t.Fatalf("legacy fixture unexpectedly contains %s", absent)
+		if count != 1 {
+			t.Fatalf("migrated fixture is missing %s", present)
 		}
 	}
 
