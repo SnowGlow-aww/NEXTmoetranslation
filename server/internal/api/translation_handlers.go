@@ -12,9 +12,19 @@ import (
 //
 // GET /api/categories
 func (s *Server) handleCategories(w http.ResponseWriter, r *http.Request) {
-	cats, err := s.store.GetCategories()
+	locale, explicit, ok := requestLocale(w, r, "")
+	if !ok {
+		return
+	}
+	var cats []model.CategoryInfo
+	var err error
+	if explicit {
+		cats, err = s.store.GetCategoriesLocale(locale)
+	} else {
+		cats, err = s.store.GetCategories()
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if cats == nil {
@@ -38,9 +48,19 @@ func (s *Server) handleEntries(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("unsupported category: %s", category))
 		return
 	}
-	entries, err := s.store.GetEntries(category, field, source)
+	locale, explicit, ok := requestLocale(w, r, "")
+	if !ok {
+		return
+	}
+	var entries []model.EntryWithKey
+	var err error
+	if explicit {
+		entries, err = s.store.GetEntriesLocale(category, field, source, locale)
+	} else {
+		entries, err = s.store.GetEntries(category, field, source)
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if entries == nil {
@@ -63,6 +83,7 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		Key      string `json:"key"`
 		Text     string `json:"text"`
 		Source   string `json:"source"`
+		Locale   string `json:"locale"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -75,20 +96,38 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "field and key required")
 		return
 	}
-	status, err := s.store.UpdateEntry(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r))
+	locale, explicit, ok := requestLocale(w, r, req.Locale)
+	if !ok {
+		return
+	}
+	if locale == model.LocaleJapanese {
+		writeErr(w, http.StatusBadRequest, "locale is read-only")
+		return
+	}
+	var status string
+	var err error
+	if explicit {
+		status, err = s.store.UpdateEntryLocale(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r), locale)
+	} else {
+		status, err = s.store.UpdateEntry(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r))
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if status == "ok" {
-		s.broadcast(sse.EventEntryUpdated, map[string]any{
+		payload := map[string]any{
 			"category": req.Category,
 			"field":    req.Field,
 			"key":      req.Key,
 			"text":     req.Text,
 			"source":   req.Source,
 			"user":     currentUser(r),
-		})
+		}
+		if explicit {
+			payload["locale"] = locale
+		}
+		s.broadcast(sse.EventEntryUpdated, payload)
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": status})
 }

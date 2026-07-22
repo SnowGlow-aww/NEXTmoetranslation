@@ -1,6 +1,10 @@
 package translator
 
-import "moesekai/server/internal/store"
+import (
+	"strings"
+
+	"moesekai/server/internal/store"
+)
 
 const jpInformationURL = "https://baijing.exmeaning.com/jp/information"
 
@@ -163,11 +167,17 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
 	vocals, _ := t.fetchMasterdata("musicVocals.json", "jp")
 	out := newExtractResult("title", "artist", "vocalCaption")
 	tm := newTraceMap("title", "artist", "vocalCaption")
+	catalog := make([]store.MusicCatalogRecord, 0, len(musics))
 	for _, m := range musics {
 		musicID := getInt(m, "id")
 		if title := getString(m, "title"); title != "" {
 			out["title"].Pairs[title] = ""
 			tm.add("title", title, musicID)
+			newlyWritten, _ := m["isNewlyWrittenMusic"].(bool)
+			catalog = append(catalog, store.MusicCatalogRecord{
+				MusicID: musicID, JapaneseTitle: title, IsNewlyWrittenMusic: newlyWritten,
+				ProducerMetadata: musicProducerMetadata(m),
+			})
 		}
 		for _, key := range []string{"lyricist", "composer", "arranger"} {
 			if v := getString(m, key); v != "" && v != "-" {
@@ -175,6 +185,9 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
 				tm.add("artist", v, musicID)
 			}
 		}
+	}
+	if t.store != nil {
+		_ = t.store.UpsertMusicCatalog(catalog)
 	}
 	for _, v := range vocals {
 		vocalID := getInt(v, "id")
@@ -187,6 +200,16 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
 		}
 	}
 	return out.withTrace(tm), nil
+}
+
+func musicProducerMetadata(music map[string]any) string {
+	values := make([]string, 0, 3)
+	for _, key := range []string{"lyricist", "composer", "arranger"} {
+		if value := strings.TrimSpace(getString(music, key)); value != "" && value != "-" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, " | ")
 }
 
 func (t *Translator) extractMysekai() (map[string]store.CNApplyField, error) {
@@ -308,7 +331,34 @@ func (t *Translator) extractCharacters() (map[string]store.CNApplyField, error) 
 			collectPair(out[field].Pairs, jpText, safeText(getString(cnProfile, field)))
 		}
 	}
+	// Catalog refresh is additive and best-effort: failure never changes the
+	// established character-profile sync result.
+	jpCharacters, jpCharactersErr := t.fetchMasterdata("gameCharacters.json", "jp")
+	cnCharacters, cnCharactersErr := t.fetchMasterdata("gameCharacters.json", "cn")
+	if jpCharactersErr == nil && t.store != nil {
+		cnCharactersByID := map[int]map[string]any{}
+		if cnCharactersErr == nil {
+			cnCharactersByID = byIntID(cnCharacters, "id")
+		}
+		records := make([]store.PerformerCatalogRecord, 0, len(jpCharacters))
+		for _, character := range jpCharacters {
+			id := getInt(character, "id")
+			records = append(records, store.PerformerCatalogRecord{
+				PerformerID:  id,
+				JapaneseName: characterName(character),
+				ChineseName:  characterName(cnCharactersByID[id]),
+			})
+		}
+		_ = t.store.UpsertPerformerCatalog(records)
+	}
 	return out.withTrace(tm), nil
+}
+
+func characterName(character map[string]any) string {
+	if name := strings.TrimSpace(getString(character, "name")); name != "" {
+		return name
+	}
+	return strings.TrimSpace(strings.Join([]string{getString(character, "firstName"), getString(character, "givenName")}, " "))
 }
 
 func (t *Translator) extractUnits() (map[string]store.CNApplyField, error) {

@@ -176,6 +176,69 @@ JOIN event_stories s ON s.event_id = seg.event_id
 WHERE seg.kind = 'talk';
 `,
 	after: backfillSegmentHashes,
+}, {
+	version: 2,
+	name:    "lyrics_source_provenance_and_stanzas",
+	sql: `
+ALTER TABLE song_lyrics ADD COLUMN source_page_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE song_lyrics ADD COLUMN source_revision_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE song_lyrics ADD COLUMN source_sha1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE song_lyrics ADD COLUMN source_fetched_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE song_lyric_lines ADD COLUMN stanza_break_before INTEGER NOT NULL DEFAULT 0;
+`,
+}, {
+	version: 3,
+	name:    "lyrics_catalog_source_identity",
+	sql: `
+ALTER TABLE catalog_music ADD COLUMN producer_metadata TEXT NOT NULL DEFAULT '';
+`,
+}, {
+	version: 4,
+	name:    "rolling_event_side_tables_no_legacy_cascade",
+	sql: `
+CREATE TABLE event_story_segments_next (
+	segment_id  TEXT PRIMARY KEY,
+	event_id    INTEGER NOT NULL,
+	episode_no  TEXT NOT NULL,
+	scenario_id TEXT NOT NULL DEFAULT '',
+	kind        TEXT NOT NULL,
+	position    INTEGER NOT NULL,
+	jp_key      TEXT NOT NULL DEFAULT '',
+	source_text TEXT NOT NULL DEFAULT '',
+	source_hash TEXT NOT NULL DEFAULT '',
+	UNIQUE (event_id, episode_no, kind, position)
+);
+INSERT INTO event_story_segments_next SELECT * FROM event_story_segments;
+
+CREATE TABLE event_story_segment_localizations_next (
+	segment_id  TEXT NOT NULL,
+	locale      TEXT NOT NULL,
+	text        TEXT NOT NULL DEFAULT '',
+	source      TEXT NOT NULL DEFAULT 'unknown',
+	updated_at  INTEGER NOT NULL DEFAULT 0,
+	updated_by  TEXT NOT NULL DEFAULT '',
+	revision    INTEGER NOT NULL DEFAULT 1,
+	PRIMARY KEY (segment_id, locale),
+	FOREIGN KEY (segment_id) REFERENCES event_story_segments_next(segment_id) ON DELETE CASCADE
+);
+INSERT INTO event_story_segment_localizations_next SELECT * FROM event_story_segment_localizations;
+
+DROP TABLE event_story_segment_localizations;
+DROP TABLE event_story_segments;
+ALTER TABLE event_story_segments_next RENAME TO event_story_segments;
+ALTER TABLE event_story_segment_localizations_next RENAME TO event_story_segment_localizations;
+CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, episode_no, kind, jp_key);
+
+CREATE TABLE event_story_locale_meta_next (
+	event_id     INTEGER NOT NULL,
+	locale       TEXT NOT NULL,
+	last_updated INTEGER NOT NULL DEFAULT 0,
+	PRIMARY KEY (event_id, locale)
+);
+INSERT INTO event_story_locale_meta_next SELECT * FROM event_story_locale_meta;
+DROP TABLE event_story_locale_meta;
+ALTER TABLE event_story_locale_meta_next RENAME TO event_story_locale_meta;
+`,
 }}
 
 func (d *DB) pendingMigrations() ([]migration, error) {

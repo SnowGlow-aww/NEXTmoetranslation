@@ -1,7 +1,10 @@
 package store
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"time"
 
 	"moesekai/server/internal/db"
@@ -38,6 +41,39 @@ func (s *EventStore) ImportOrdered(eventID int, meta model.EventStoryMeta, episo
 	}
 	defer tx.Rollback()
 
+	// Older binaries replace the legacy story rows wholesale. Preserve manual
+	// non-Chinese localizations that are still attached to the same stable
+	// scenario/episode/position segment before the legacy delete cascades.
+	type preservedLocalization struct {
+		segmentID, locale, text, source, updatedBy string
+		updatedAt                                  int64
+		revision                                   int
+	}
+	var preserved []preservedLocalization
+	rows, err := tx.Query(`SELECT loc.segment_id, loc.locale, loc.text, loc.source,
+		loc.updated_at, loc.updated_by, loc.revision
+		FROM event_story_segment_localizations loc
+		JOIN event_story_segments seg ON seg.segment_id=loc.segment_id
+		WHERE seg.event_id=? AND loc.locale<>?`, eventID, model.LocaleChinese)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var item preservedLocalization
+		if err := rows.Scan(&item.segmentID, &item.locale, &item.text, &item.source,
+			&item.updatedAt, &item.updatedBy, &item.revision); err != nil {
+			rows.Close()
+			return err
+		}
+		preserved = append(preserved, item)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM event_story_segments WHERE event_id = ?`, eventID); err != nil {
+		return err
+	}
+
 	if _, err := tx.Exec(`DELETE FROM event_stories WHERE event_id = ?`, eventID); err != nil {
 		return err
 	}
@@ -67,12 +103,39 @@ func (s *EventStore) ImportOrdered(eventID int, meta model.EventStoryMeta, episo
 		return err
 	}
 	defer lineStmt.Close()
+	segmentStmt, err := tx.Prepare(`INSERT INTO event_story_segments
+		(segment_id, event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer segmentStmt.Close()
+	localizedStmt, err := tx.Prepare(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		VALUES (?, ?, ?, ?, ?, ?, 1)`)
+	if err != nil {
+		return err
+	}
+	defer localizedStmt.Close()
 
 	for epPos, ep := range episodes {
 		// talk_order_json is stored only when it adds information beyond the
 		// natural line position order (kept empty here; positions drive order).
 		if _, err := epStmt.Exec(eventID, ep.EpisodeNo, ep.ScenarioID, ep.Title, ep.TitleSource, "", epPos); err != nil {
 			return err
+		}
+		titleID := eventSegmentID(eventID, ep.ScenarioID, ep.EpisodeNo, "title", -1)
+		titleSource := ""
+		if meta.Source == "jp_pending" || ep.TitleSource == "jp_pending" {
+			titleSource = ep.Title
+		}
+		if _, err := segmentStmt.Exec(titleID, eventID, ep.EpisodeNo, ep.ScenarioID, "title", -1, "", titleSource, hashText(titleSource)); err != nil {
+			return err
+		}
+		if titleSource == "" {
+			if _, err := localizedStmt.Exec(titleID, model.LocaleChinese, ep.Title, ep.TitleSource, meta.LastUpdated, "import"); err != nil {
+				return err
+			}
 		}
 		for linePos, jp := range ep.TalkKeys {
 			cn, ok := ep.TalkData[jp]
@@ -93,6 +156,23 @@ func (s *EventStore) ImportOrdered(eventID int, meta model.EventStoryMeta, episo
 			if _, err := lineStmt.Exec(eventID, ep.EpisodeNo, jp, cn, src, speaker, linePos); err != nil {
 				return err
 			}
+			segmentID := eventSegmentID(eventID, ep.ScenarioID, ep.EpisodeNo, "talk", linePos)
+			if _, err := segmentStmt.Exec(segmentID, eventID, ep.EpisodeNo, ep.ScenarioID, "talk", linePos, jp, jp, hashText(jp)); err != nil {
+				return err
+			}
+			if _, err := localizedStmt.Exec(segmentID, model.LocaleChinese, cn, src, meta.LastUpdated, "import"); err != nil {
+				return err
+			}
+		}
+	}
+	for _, item := range preserved {
+		if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
+			(segment_id, locale, text, source, updated_at, updated_by, revision)
+			SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS
+			(SELECT 1 FROM event_story_segments WHERE segment_id=?)`,
+			item.segmentID, item.locale, item.text, item.source, item.updatedAt,
+			item.updatedBy, item.revision, item.segmentID); err != nil {
+			return err
 		}
 	}
 	return tx.Commit()
@@ -254,6 +334,20 @@ func (s *EventStore) UpdateLine(eventID int, episodeNo, jpKey, cnText, source, e
 	}
 	_, _ = s.db.Exec(`UPDATE event_stories SET last_updated = ? WHERE event_id = ?`,
 		time.Now().Unix(), eventID)
+	// Keep the additive zh-CN projection synchronized without changing the
+	// legacy write's error/status behavior.
+	kind := "talk"
+	if entryType == "title" {
+		kind = "title"
+	}
+	_, _ = s.db.Exec(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		SELECT segment_id, ?, ?, ?, ?, 'legacy-api', 1 FROM event_story_segments
+		WHERE event_id=? AND episode_no=? AND kind=? AND (?='' OR jp_key=?)
+		ON CONFLICT(segment_id, locale) DO UPDATE SET text=excluded.text, source=excluded.source,
+		updated_at=excluded.updated_at, updated_by=excluded.updated_by,
+		revision=event_story_segment_localizations.revision+1`,
+		model.LocaleChinese, cnText, source, time.Now().Unix(), eventID, episodeNo, kind, jpKey, jpKey)
 	return nil
 }
 
@@ -285,4 +379,16 @@ func (s *EventStore) Exists(eventID int) (bool, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM event_stories WHERE event_id = ?`, eventID).Scan(&n)
 	return n > 0, err
+}
+
+func eventSegmentID(eventID int, scenarioID, episodeNo, kind string, position int) string {
+	return fmt.Sprintf("event:%d:%s:%s:%s:%d", eventID, scenarioID, episodeNo, kind, position)
+}
+
+func hashText(text string) string {
+	if text == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(sum[:])
 }

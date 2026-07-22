@@ -18,6 +18,17 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/entries", s.auth.RequireAuth(s.handleEntries))
 	mux.HandleFunc("/api/entry", s.auth.RequireAuth(s.handleUpdateEntry))
 
+	// Stable masterdata catalog and manual lyrics workflow.
+	mux.HandleFunc("/api/catalog/music", s.auth.RequireAuth(s.handleCatalogMusic))
+	mux.HandleFunc("/api/catalog/characters", s.auth.RequireAuth(s.handleCatalogCharacters))
+	mux.HandleFunc("/api/lyrics", s.auth.RequireAuth(s.handleLyricsList))
+	mux.HandleFunc("/api/lyrics/detail", s.auth.RequireAuth(s.handleLyricsDetail))
+	mux.HandleFunc("/api/lyrics/save", s.auth.RequireAuth(s.handleLyricsSave))
+	mux.HandleFunc("/api/lyrics/publish", s.auth.RequireAdmin(s.handleLyricsPublish))
+	mux.HandleFunc("/api/lyrics/unpublish", s.auth.RequireAdmin(s.handleLyricsUnpublish))
+	mux.HandleFunc("/api/lyrics/source/search", s.auth.RequireAuth(s.handleLyricsSourceSearch))
+	mux.HandleFunc("/api/lyrics/source/preview", s.auth.RequireAuth(s.handleLyricsSourcePreview))
+
 	// Event stories
 	mux.HandleFunc("/api/event-stories", s.auth.RequireAuth(s.handleEventStories))
 	mux.HandleFunc("/api/event-story", s.auth.RequireAuth(s.handleEventStory))

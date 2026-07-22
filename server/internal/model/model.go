@@ -9,6 +9,23 @@ const (
 	SourceUnknown = "unknown"
 )
 
+const (
+	LocaleJapanese = "ja-JP"
+	LocaleChinese  = "zh-CN"
+	LocaleEnglish  = "en-US"
+)
+
+var SupportedLocales = []string{LocaleJapanese, LocaleChinese, LocaleEnglish}
+
+func IsValidLocale(locale string) bool {
+	for _, supported := range SupportedLocales {
+		if locale == supported {
+			return true
+		}
+	}
+	return false
+}
+
 // SupportedCategories are the flat translation categories (event stories
 // are handled separately). Order is preserved for stable category listing.
 var SupportedCategories = []string{
@@ -70,13 +87,23 @@ type EventStoryMeta struct {
 }
 
 type EventStoryEpisode struct {
-	ScenarioID   string            `json:"scenarioId"`
-	Title        string            `json:"title"`
-	TitleSource  string            `json:"titleSource,omitempty"`
-	TalkData     map[string]string `json:"talkData"`
-	TalkSources  map[string]string `json:"talkSources,omitempty"`
-	TalkOrder    []string          `json:"talkOrder,omitempty"`
-	SpeakerNames map[string]string `json:"speakerNames,omitempty"`
+	ScenarioID   string              `json:"scenarioId"`
+	Title        string              `json:"title"`
+	TitleSource  string              `json:"titleSource,omitempty"`
+	TalkData     map[string]string   `json:"talkData"`
+	TalkSources  map[string]string   `json:"talkSources,omitempty"`
+	TalkOrder    []string            `json:"talkOrder,omitempty"`
+	SpeakerNames map[string]string   `json:"speakerNames,omitempty"`
+	Segments     []EventStorySegment `json:"segments,omitempty"`
+}
+
+type EventStorySegment struct {
+	ID       string `json:"id"`
+	Kind     string `json:"kind"`
+	Position int    `json:"position"`
+	Japanese string `json:"japanese"`
+	Text     string `json:"text"`
+	Source   string `json:"source"`
 }
 
 type EventStoryDetail struct {

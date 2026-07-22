@@ -23,6 +23,7 @@ import (
 
 type legacyAPIHarness struct {
 	server *httptest.Server
+	api    *Server
 	db     *db.DB
 	store  *store.Store
 	events *store.EventStore
@@ -103,7 +104,7 @@ func setupLegacyAPI(t *testing.T) *legacyAPIHarness {
 	if login.Token == "" {
 		t.Fatal("login returned an empty token")
 	}
-	return &legacyAPIHarness{server: ts, db: database, store: s, events: es, token: login.Token}
+	return &legacyAPIHarness{server: ts, api: srv, db: database, store: s, events: es, token: login.Token}
 }
 
 func TestLegacyReadAPIGolden(t *testing.T) {

@@ -256,6 +256,105 @@ func TestLegacyGitBackupCommitsOnlyChangedProjection(t *testing.T) {
 	}
 }
 
+func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
+	source := setupLegacyBackup(t)
+	if _, err := source.store.UpdateEntryLocale("cards", "prefix", "こんにちは", "Hello", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := source.store.SaveLyrics(model.SongLyrics{
+		MusicID: 10, Revision: 0,
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.store.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	translations, err := source.manager.materializeTranslations(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentDir, err := source.manager.materializeTranslationContent(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := os.ReadFile(filepath.Join(contentDir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"password_hash", "legacy-admin", "llm.openai.key"} {
+		if bytes.Contains(manifest, []byte(forbidden)) {
+			t.Fatalf("manifest contains forbidden user/secret field %q", forbidden)
+		}
+	}
+	content, present, err := readTranslationContent(contentDir)
+	if err != nil || !present {
+		t.Fatalf("read content present=%v err=%v", present, err)
+	}
+
+	destDB, err := db.Open(filepath.Join(t.TempDir(), "content-restore.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer destDB.Close()
+	destStore := store.New(destDB)
+	destEvents := store.NewEventStore(destDB)
+	if _, err := importer.ImportDir(translations, destStore, destEvents); err != nil {
+		t.Fatal(err)
+	}
+	if err := destStore.ImportTranslationContent(content.Entries, content.Events, content.Lyrics); err != nil {
+		t.Fatal(err)
+	}
+	english, err := destStore.GetEntriesLocale("cards", "prefix", "", model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(english) != 1 || english[0].Text != "Hello" {
+		t.Fatalf("restored English entries = %+v", english)
+	}
+	restoredLyrics, err := destStore.GetLyrics(10)
+	if err != nil || restoredLyrics.Status != "published" {
+		t.Fatalf("restored lyrics = %+v err=%v", restoredLyrics, err)
+	}
+
+	entriesPath := filepath.Join(contentDir, "entries.json")
+	entriesBody, err := os.ReadFile(entriesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(entriesPath, append(entriesBody, ' '), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readTranslationContent(contentDir); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("tampered manifest error = %v", err)
+	}
+
+	invalidContent := content
+	invalidContent.Events.Segments = append(invalidContent.Events.Segments, store.EventSegmentRecord{
+		SegmentID: "missing-parent", EventID: 999, EpisodeNo: "1", Kind: "talk", Position: 0,
+	})
+	if err := destStore.ImportTranslationContent(invalidContent.Entries, invalidContent.Events, invalidContent.Lyrics); err == nil {
+		t.Fatal("expected foreign-key failure for invalid content")
+	}
+	english, err = destStore.GetEntriesLocale("cards", "prefix", "", model.LocaleEnglish)
+	if err != nil || len(english) != 1 || english[0].Text != "Hello" {
+		t.Fatalf("failed import was not atomic: entries=%+v err=%v", english, err)
+	}
+}
+
 func gitOutput(t *testing.T, gitDir string, args ...string) string {
 	t.Helper()
 	allArgs := append([]string{"--git-dir", gitDir}, args...)

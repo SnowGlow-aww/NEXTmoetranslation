@@ -59,6 +59,12 @@ func TestLegacySearchIndexGolden(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if _, err := s.UpdateEntryLocale("events", "name", "Event JP", "Event EN", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateEntryLocale("cards", "prefix", "Card JP", "Card EN", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
+		t.Fatal(err)
+	}
 	cfg, err := config.New(database, "legacy-search-key")
 	if err != nil {
 		t.Fatal(err)
@@ -89,5 +95,12 @@ func TestLegacySearchIndexGolden(t *testing.T) {
 	}
 	if rec.Header().Get("Cache-Control") != "public, max-age=300, stale-while-revalidate=3600" {
 		t.Fatalf("Cache-Control = %q", rec.Header().Get("Cache-Control"))
+	}
+	v2Req := httptest.NewRequest(http.MethodGet, "/files/v2/data/search-index.json", nil)
+	v2Rec := httptest.NewRecorder()
+	fileService.Handler().ServeHTTP(v2Rec, v2Req)
+	if v2Rec.Code != http.StatusOK || !bytes.Contains(v2Rec.Body.Bytes(), []byte(`"n":"Event JP","g":"events","cn":"事件","en":"Event EN"`)) ||
+		!bytes.Contains(v2Rec.Body.Bytes(), []byte(`"n":"Card JP","g":"cards","c":7,"cn":"卡片","en":"Card EN"`)) {
+		t.Fatalf("multilingual search-index status=%d body=%s", v2Rec.Code, v2Rec.Body.String())
 	}
 }

@@ -57,7 +57,18 @@ func (m *Manager) backupS3() error {
 	if err != nil {
 		return err
 	}
-	tarball, err := tarGzDir(srcDir)
+	contentDir, err := m.materializeTranslationContent(work)
+	if err != nil {
+		return err
+	}
+	payloadDir := filepath.Join(work, "payload")
+	if err := copyDir(srcDir, payloadDir); err != nil {
+		return err
+	}
+	if err := copyDir(contentDir, filepath.Join(payloadDir, "translation-content")); err != nil {
+		return err
+	}
+	tarball, err := tarGzDir(payloadDir)
 	if err != nil {
 		return err
 	}
@@ -101,7 +112,18 @@ func (m *Manager) restoreS3() (importer.Result, error) {
 			return importer.Result{}, err
 		}
 	}
-	return importer.ImportDir(src, m.store, m.eventStr)
+	content, present, err := readTranslationContent(filepath.Join(src, "translation-content"))
+	if err != nil {
+		return importer.Result{}, err
+	}
+	result, err := importer.ImportDir(src, m.store, m.eventStr)
+	if err != nil {
+		return result, err
+	}
+	if err := m.importTranslationContent(content, present); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // ---- tar.gz helpers ----

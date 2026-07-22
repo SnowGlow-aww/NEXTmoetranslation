@@ -14,9 +14,19 @@ import (
 //
 // GET /api/event-stories
 func (s *Server) handleEventStories(w http.ResponseWriter, r *http.Request) {
-	stories, err := s.eventStore.List()
+	locale, explicit, ok := requestLocale(w, r, "")
+	if !ok {
+		return
+	}
+	var stories []model.EventStorySummary
+	var err error
+	if explicit {
+		stories, err = s.eventStore.ListLocale(locale)
+	} else {
+		stories, err = s.eventStore.List()
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if stories == nil {
@@ -33,13 +43,23 @@ func (s *Server) handleEventStory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	detail, err := s.eventStore.Detail(id)
+	locale, explicit, localeOK := requestLocale(w, r, "")
+	if !localeOK {
+		return
+	}
+	var detail model.EventStoryDetail
+	var err error
+	if explicit {
+		detail, err = s.eventStore.DetailLocale(id, locale)
+	} else {
+		detail, err = s.eventStore.Detail(id)
+	}
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "event story not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, detail)
@@ -60,6 +80,8 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		CnText    string `json:"cnText"`
 		Source    string `json:"source"`
 		EntryType string `json:"entryType"`
+		Locale    string `json:"locale"`
+		SegmentID string `json:"segmentId"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -75,17 +97,30 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 	if req.Source == "" {
 		req.Source = "human"
 	}
-	err := s.eventStore.UpdateLine(req.EventID, req.EpisodeNo, req.JpKey, req.CnText, req.Source, req.EntryType)
+	locale, explicit, ok := requestLocale(w, r, req.Locale)
+	if !ok {
+		return
+	}
+	if locale == model.LocaleJapanese {
+		writeErr(w, http.StatusBadRequest, "locale is read-only")
+		return
+	}
+	var err error
+	if explicit {
+		err = s.eventStore.UpdateLineLocale(req.EventID, req.EpisodeNo, req.JpKey, req.SegmentID, req.CnText, req.Source, req.EntryType, locale, currentUser(r))
+	} else {
+		err = s.eventStore.UpdateLine(req.EventID, req.EpisodeNo, req.JpKey, req.CnText, req.Source, req.EntryType)
+	}
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "target line not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	s.store.NotifyChange() // event story files are regenerated too
-	s.broadcast(sse.EventStoryUpdated, map[string]any{
+	payload := map[string]any{
 		"eventId":   req.EventID,
 		"episodeNo": req.EpisodeNo,
 		"jpKey":     req.JpKey,
@@ -93,7 +128,14 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		"source":    req.Source,
 		"entryType": req.EntryType,
 		"user":      currentUser(r),
-	})
+	}
+	if explicit {
+		payload["locale"] = locale
+	}
+	if req.SegmentID != "" {
+		payload["segmentId"] = req.SegmentID
+	}
+	s.broadcast(sse.EventStoryUpdated, payload)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

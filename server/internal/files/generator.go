@@ -84,6 +84,31 @@ func (g *Generator) CategoryFullJSON(category string) ([]byte, error) {
 	return MarshalIndentCompat(cat)
 }
 
+// CategoryLocaleFlatJSON returns the v2 flat projection for an explicit locale.
+func (g *Generator) CategoryLocaleFlatJSON(category, locale string) ([]byte, error) {
+	categoryData, err := g.store.CategoryDataLocale(category, locale)
+	if err != nil {
+		return nil, err
+	}
+	flat := make(map[string]map[string]string, len(categoryData))
+	for field, entries := range categoryData {
+		flat[field] = make(map[string]string, len(entries))
+		for key, entry := range entries {
+			flat[field][key] = entry.Text
+		}
+	}
+	return MarshalIndentCompat(flat)
+}
+
+// CategoryLocaleFullJSON returns the v2 full projection for an explicit locale.
+func (g *Generator) CategoryLocaleFullJSON(category, locale string) ([]byte, error) {
+	categoryData, err := g.store.CategoryDataLocale(category, locale)
+	if err != nil {
+		return nil, err
+	}
+	return MarshalIndentCompat(categoryData)
+}
+
 // EventStoryJSON returns the event_N.json bytes in the public, seed-compatible
 // shape: meta + episodes (in order), each episode = {scenarioId, title,
 // talkData} with talkData lines in story order. Source/speaker tracking lives
@@ -116,6 +141,40 @@ func (g *Generator) EventStoryJSON(eventID int) ([]byte, error) {
 	root.set("episodes", episodes)
 
 	return marshalIndentNoEscape(root)
+}
+
+// EventStoryLocaleJSON returns the additive full-fidelity locale projection.
+// Legacy event files continue to use EventStoryJSON unchanged.
+func (g *Generator) EventStoryLocaleJSON(eventID int, locale string) ([]byte, error) {
+	detail, err := g.eventStore.DetailLocale(eventID, locale)
+	if err != nil {
+		return nil, err
+	}
+	return marshalIndentNoEscape(detail)
+}
+
+// PublishedLyricsJSON builds the complete published lyrics asset set. Callers
+// swap the returned map atomically so a malformed publication cannot expose a
+// partially rebuilt index/detail set.
+func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
+	index, details, err := g.store.PublishedLyrics()
+	if err != nil {
+		return nil, err
+	}
+	assets := map[string][]byte{}
+	indexJSON, err := MarshalIndentCompat(index)
+	if err != nil {
+		return nil, err
+	}
+	assets["translation/lyrics/index.json"] = indexJSON
+	for musicID, detail := range details {
+		body, err := MarshalIndentCompat(detail)
+		if err != nil {
+			return nil, err
+		}
+		assets[fmt.Sprintf("translation/lyrics/music_%d.json", musicID)] = body
+	}
+	return assets, nil
 }
 
 // WriteAll regenerates the full translation/ tree under outDir. Returns the

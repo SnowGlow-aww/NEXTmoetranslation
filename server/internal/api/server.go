@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -11,11 +12,19 @@ import (
 	"moesekai/server/internal/auth"
 	"moesekai/server/internal/backup"
 	"moesekai/server/internal/config"
+	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/sse"
 	"moesekai/server/internal/store"
 	"moesekai/server/internal/translator"
 	"moesekai/server/internal/upstream"
 )
+
+const maxJSONBodyBytes = 8 << 20
+
+type lyricsSourceClient interface {
+	Search(context.Context, lyricssource.MusicIdentity) ([]lyricssource.Candidate, error)
+	Preview(context.Context, lyricssource.MusicIdentity, int, int) (lyricssource.Preview, error)
+}
 
 // Server holds the dependencies shared by all console handlers.
 type Server struct {
@@ -27,10 +36,11 @@ type Server struct {
 	translator *translator.Translator
 	upstream   *upstream.Watcher
 	backup     *backup.Manager
+	lyricsSrc  lyricsSourceClient
 }
 
 func NewServer(s *store.Store, es *store.EventStore, a *auth.Auth, cfg *config.Config, hub *sse.Hub, tr *translator.Translator, up *upstream.Watcher, bk *backup.Manager) *Server {
-	return &Server{store: s, eventStore: es, auth: a, cfg: cfg, hub: hub, translator: tr, upstream: up, backup: bk}
+	return &Server{store: s, eventStore: es, auth: a, cfg: cfg, hub: hub, translator: tr, upstream: up, backup: bk, lyricsSrc: lyricssource.New()}
 }
 
 // broadcast sends an SSE event if a hub is configured (it may be nil in tests).
@@ -56,6 +66,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 // decodeBody decodes a JSON request body into dst, returning false (and writing
 // a 400) on failure.
 func decodeBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid body")
 		return false

@@ -77,8 +77,17 @@ func (m *Manager) backupGit() error {
 	if err := copyDir(srcDir, target); err != nil {
 		return err
 	}
+	contentDir, err := m.materializeTranslationContent(work)
+	if err != nil {
+		return err
+	}
+	contentTarget := filepath.Join(repoDir, "translation-content")
+	_ = os.RemoveAll(contentTarget)
+	if err := copyDir(contentDir, contentTarget); err != nil {
+		return err
+	}
 
-	if err := git(repoDir, "add", "translations"); err != nil {
+	if err := git(repoDir, "add", "translations", "translation-content"); err != nil {
 		return err
 	}
 	msg := fmt.Sprintf("chore: backup translations %s", time.Now().UTC().Format("2006-01-02 15:04:05 UTC"))
@@ -126,7 +135,18 @@ func (m *Manager) restoreGit() (importer.Result, error) {
 	if err := importer.ValidateDir(src); err != nil {
 		return importer.Result{}, err
 	}
-	return importer.ImportDir(src, m.store, m.eventStr)
+	content, present, err := readTranslationContent(filepath.Join(repoDir, "translation-content"))
+	if err != nil {
+		return importer.Result{}, err
+	}
+	result, err := importer.ImportDir(src, m.store, m.eventStr)
+	if err != nil {
+		return result, err
+	}
+	if err := m.importTranslationContent(content, present); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // git runs a git command in dir with non-interactive credentials.

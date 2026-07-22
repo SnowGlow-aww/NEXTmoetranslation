@@ -34,6 +34,15 @@ type Entry struct {
 	CN string `json:"cn,omitempty"`
 }
 
+type MultilingualEntry struct {
+	ID int    `json:"id"`
+	N  string `json:"n"`
+	G  string `json:"g"`
+	C  int    `json:"c,omitempty"`
+	CN string `json:"cn,omitempty"`
+	EN string `json:"en,omitempty"`
+}
+
 // Builder produces search-index.json and publishes it to the file service.
 type Builder struct {
 	store    *store.Store
@@ -122,6 +131,7 @@ func (b *Builder) catText(cat model.Category, field, jp string) string {
 
 func (b *Builder) build(reason string) {
 	index := make([]Entry, 0, 4096)
+	multilingual := make([]MultilingualEntry, 0, 4096)
 	successes := 0
 
 	load := func(cat string) model.Category {
@@ -138,6 +148,18 @@ func (b *Builder) build(reason string) {
 	mysekaiT := load("mysekai")
 	costumesT := load("costumes")
 	vlT := load("virtualLive")
+	loadEN := func(cat string) model.Category {
+		c, err := b.store.CategoryDataLocale(cat, model.LocaleEnglish)
+		if err != nil {
+			return nil
+		}
+		return c
+	}
+	transEN := map[string]model.Category{
+		"events": loadEN("events"), "music": loadEN("music"), "cards": loadEN("cards"),
+		"gacha": loadEN("gacha"), "mysekai": loadEN("mysekai"), "live": loadEN("virtualLive"),
+		"costumes": loadEN("costumes"),
+	}
 
 	type src struct {
 		file, group, nameField, transField string
@@ -176,6 +198,11 @@ func (b *Builder) build(reason string) {
 				e.CN = cn
 			}
 			index = append(index, e)
+			multi := MultilingualEntry{ID: e.ID, N: e.N, G: e.G, C: e.C, CN: e.CN}
+			if en := b.catText(transEN[sdef.group], sdef.transField, name); en != "" {
+				multi.EN = en
+			}
+			multilingual = append(multilingual, multi)
 		}
 	}
 
@@ -194,6 +221,11 @@ func (b *Builder) build(reason string) {
 				e.CN = cn
 			}
 			index = append(index, e)
+			multi := MultilingualEntry{ID: e.ID, N: e.N, G: e.G, CN: e.CN}
+			if en := b.catText(transEN["costumes"], "name", name); en != "" {
+				multi.EN = en
+			}
+			multilingual = append(multilingual, multi)
 		}
 	}
 
@@ -208,6 +240,10 @@ func (b *Builder) build(reason string) {
 		return
 	}
 	b.files.SetAsset("data/search-index.json", buf, "application/json; charset=utf-8")
+	if multilingualJSON, err := json.Marshal(multilingual); err == nil {
+		b.files.SetAsset("v2/data/search-index.json", multilingualJSON, "application/json; charset=utf-8")
+		b.files.SetAsset("v2/en-US/data/search-index.json", multilingualJSON, "application/json; charset=utf-8")
+	}
 	b.mu.Lock()
 	b.lastBuilt = time.Now()
 	b.lastResult = fmt.Sprintf("%d entries (%s)", len(index), reason)

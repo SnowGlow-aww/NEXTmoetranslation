@@ -91,16 +91,51 @@ func (svc *Service) Rebuild() {
 			next["translation/"+cat+".full.json"] = makeAsset(b, "application/json; charset=utf-8", now)
 		}
 	}
+	for _, locale := range model.SupportedLocales {
+		for _, cat := range model.SupportedCategories {
+			if b, err := svc.gen.CategoryLocaleFlatJSON(cat, locale); err == nil {
+				key := fmt.Sprintf("v2/%s/translation/%s.json", locale, cat)
+				next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+			}
+			if b, err := svc.gen.CategoryLocaleFullJSON(cat, locale); err == nil {
+				key := fmt.Sprintf("v2/%s/translation/%s.full.json", locale, cat)
+				next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+			}
+		}
+	}
 	if summaries, err := svc.events.List(); err == nil {
 		for _, sum := range summaries {
 			if b, err := svc.gen.EventStoryJSON(sum.EventID); err == nil {
 				key := fmt.Sprintf("translation/eventStory/event_%d.json", sum.EventID)
 				next[key] = makeAsset(b, "application/json; charset=utf-8", now)
 			}
+			for _, locale := range model.SupportedLocales {
+				if b, err := svc.gen.EventStoryLocaleJSON(sum.EventID, locale); err == nil {
+					key := fmt.Sprintf("v2/%s/translation/eventStory/event_%d.json", locale, sum.EventID)
+					next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+				}
+			}
+		}
+	}
+	lyrics, lyricsErr := svc.gen.PublishedLyricsJSON()
+	if lyricsErr == nil {
+		for key, body := range lyrics {
+			next[key] = makeAsset(body, "application/json; charset=utf-8", now)
+			for _, locale := range model.SupportedLocales {
+				localizedKey := fmt.Sprintf("v2/%s/%s", locale, key)
+				next[localizedKey] = makeAsset(body, "application/json; charset=utf-8", now)
+			}
 		}
 	}
 
 	svc.mu.Lock()
+	if lyricsErr != nil {
+		for key, value := range svc.assets {
+			if strings.HasPrefix(key, "translation/lyrics/") || strings.Contains(key, "/translation/lyrics/") {
+				next[key] = value
+			}
+		}
+	}
 	// Preserve any externally-set assets (e.g. search index) not regenerated here.
 	for k, v := range svc.assets {
 		if _, ok := next[k]; !ok && !strings.HasPrefix(k, "translation/") {

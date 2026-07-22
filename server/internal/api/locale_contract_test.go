@@ -1,0 +1,175 @@
+package api
+
+import (
+	"bufio"
+	"encoding/json"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"moesekai/server/internal/model"
+)
+
+func TestLocaleEntryIsolationAndValidation(t *testing.T) {
+	h := setupLegacyAPI(t)
+
+	update := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "human-key",
+		"text": "English editorial", "source": "human", "locale": model.LocaleEnglish,
+	})
+	defer update.Body.Close()
+	if update.StatusCode != http.StatusOK {
+		t.Fatalf("English update status = %d", update.StatusCode)
+	}
+
+	english := authorizedRequest(t, h, http.MethodGet, "/api/entries?category=cards&field=prefix&locale=en-US", nil)
+	defer english.Body.Close()
+	var englishEntries []model.EntryWithKey
+	if err := json.NewDecoder(english.Body).Decode(&englishEntries); err != nil {
+		t.Fatal(err)
+	}
+	if got := findEntry(englishEntries, "human-key"); got.Text != "English editorial" || got.Source != model.SourceHuman {
+		t.Fatalf("English entry = %+v", got)
+	}
+	if got := findEntry(englishEntries, "cn-key"); got.Text != "" || got.Source != model.SourceUnknown {
+		t.Fatalf("missing English entry = %+v", got)
+	}
+
+	legacy := authorizedRequest(t, h, http.MethodGet, "/api/entries?category=cards&field=prefix&source=human", nil)
+	defer legacy.Body.Close()
+	var legacyEntries []model.EntryWithKey
+	if err := json.NewDecoder(legacy.Body).Decode(&legacyEntries); err != nil {
+		t.Fatal(err)
+	}
+	if got := findEntry(legacyEntries, "human-key"); got.Text != "人工" {
+		t.Fatalf("English edit changed legacy zh-CN text: %+v", got)
+	}
+
+	japanese := authorizedRequest(t, h, http.MethodGet, "/api/entries?category=cards&field=prefix&locale=ja-JP", nil)
+	defer japanese.Body.Close()
+	var japaneseEntries []model.EntryWithKey
+	if err := json.NewDecoder(japanese.Body).Decode(&japaneseEntries); err != nil {
+		t.Fatal(err)
+	}
+	if got := findEntry(japaneseEntries, "human-key"); got.Text != "human-key" || got.Source != model.SourceUnknown {
+		t.Fatalf("Japanese source entry = %+v", got)
+	}
+
+	readOnly := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "human-key",
+		"text": "拒绝", "source": "human", "locale": model.LocaleJapanese,
+	})
+	defer readOnly.Body.Close()
+	if readOnly.StatusCode != http.StatusBadRequest {
+		t.Fatalf("ja-JP write status = %d", readOnly.StatusCode)
+	}
+
+	invalid := authorizedRequest(t, h, http.MethodGet, "/api/categories?locale=fr-FR", nil)
+	defer invalid.Body.Close()
+	if invalid.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid locale status = %d", invalid.StatusCode)
+	}
+}
+
+func TestLocaleEventStoryUsesStableSegmentsAndKeepsLegacyProjection(t *testing.T) {
+	h := setupLegacyAPI(t)
+	initial := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	defer initial.Body.Close()
+	var detail model.EventStoryDetail
+	if err := json.NewDecoder(initial.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	episode := detail.Episodes["1"]
+	if len(episode.Segments) != 3 {
+		t.Fatalf("stable segments = %d, want title plus two talks", len(episode.Segments))
+	}
+	segmentID := ""
+	for _, segment := range episode.Segments {
+		if segment.Kind == "talk" && segment.Japanese == "二" {
+			segmentID = segment.ID
+		}
+	}
+	if segmentID == "" {
+		t.Fatal("talk segment ID not found")
+	}
+
+	update := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "segmentId": segmentID,
+		"cnText": "Second line", "source": "human", "entryType": "talk", "locale": model.LocaleEnglish,
+	})
+	defer update.Body.Close()
+	if update.StatusCode != http.StatusOK {
+		t.Fatalf("English event update status = %d", update.StatusCode)
+	}
+
+	localized := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
+	defer localized.Body.Close()
+	if err := json.NewDecoder(localized.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	if got := detail.Episodes["1"].TalkData["二"]; got != "Second line" {
+		t.Fatalf("English talk text = %q", got)
+	}
+	legacy := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42", nil)
+	defer legacy.Body.Close()
+	if err := json.NewDecoder(legacy.Body).Decode(&detail); err != nil {
+		t.Fatal(err)
+	}
+	if got := detail.Episodes["1"].TalkData["二"]; got != "第二句" {
+		t.Fatalf("English edit changed legacy talk text = %q", got)
+	}
+}
+
+func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
+	h := setupLegacyAPI(t)
+	req, _ := http.NewRequest(http.MethodGet, h.server.URL+"/sse?token="+h.token, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	eventData := make(chan map[string]any, 1)
+	go func() {
+		reader := bufio.NewReader(resp.Body)
+		var event string
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "event: ") {
+				event = strings.TrimPrefix(line, "event: ")
+			}
+			if event == "entry.updated" && strings.HasPrefix(line, "data: ") {
+				var data map[string]any
+				_ = json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &data)
+				eventData <- data
+				return
+			}
+		}
+	}()
+	update := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "cn-key",
+		"text": "English", "source": "human", "locale": model.LocaleEnglish,
+	})
+	update.Body.Close()
+	select {
+	case data := <-eventData:
+		if data["locale"] != model.LocaleEnglish || data["key"] != "cn-key" || data["text"] != "English" {
+			t.Fatalf("localized SSE payload = %#v", data)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for localized SSE")
+	}
+}
+
+func findEntry(entries []model.EntryWithKey, key string) model.EntryWithKey {
+	for _, entry := range entries {
+		if entry.Key == key {
+			return entry
+		}
+	}
+	return model.EntryWithKey{}
+}

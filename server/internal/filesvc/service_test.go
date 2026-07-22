@@ -119,3 +119,72 @@ func TestLegacyPublicFileHTTPContract(t *testing.T) {
 		})
 	}
 }
+
+func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "lyrics-files.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.SaveLyrics(model.SongLyrics{
+		MusicID: 10, Revision: 0, SourceNote: "must stay private", LicenseNote: "private",
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.Rebuild()
+
+	readAsset := func(path string) ([]byte, string, int) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		svc.Handler().ServeHTTP(rec, req)
+		return rec.Body.Bytes(), rec.Header().Get("ETag"), rec.Code
+	}
+	index, _, status := readAsset("/files/translation/lyrics/index.json")
+	if status != http.StatusOK || !bytes.Contains(index, []byte(`"musicId": 10`)) || !bytes.Contains(index, []byte(`"title"`)) {
+		t.Fatalf("lyrics index status=%d body=%s", status, index)
+	}
+	detail, etag, status := readAsset("/files/translation/lyrics/music_10.json")
+	if status != http.StatusOK || !bytes.Contains(detail, []byte(`"version": 1`)) {
+		t.Fatalf("lyrics detail status=%d body=%s", status, detail)
+	}
+	for _, locale := range model.SupportedLocales {
+		localized, localizedETag, localizedStatus := readAsset("/files/v2/" + locale + "/translation/lyrics/music_10.json")
+		if localizedStatus != http.StatusOK || !bytes.Equal(localized, detail) || localizedETag != etag {
+			t.Fatalf("localized lyrics %s status=%d etag=%q body=%s", locale, localizedStatus, localizedETag, localized)
+		}
+	}
+	for _, privateField := range []string{"status", "updatedBy", "sourceNote", "licenseNote", "must stay private"} {
+		if bytes.Contains(detail, []byte(privateField)) {
+			t.Fatalf("public lyrics leaked %q: %s", privateField, detail)
+		}
+	}
+
+	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json='not-json' WHERE music_id=10`); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	afterFailure, afterETag, status := readAsset("/files/translation/lyrics/music_10.json")
+	if status != http.StatusOK || !bytes.Equal(afterFailure, detail) || afterETag != etag {
+		t.Fatalf("failed all-or-nothing rebuild changed published asset: status=%d etag=%q body=%s", status, afterETag, afterFailure)
+	}
+}

@@ -24,15 +24,19 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var version int
+	var version, migrationCount int
 	var checksum string
-	if err := database.QueryRow(`SELECT version, checksum FROM schema_migrations`).Scan(&version, &checksum); err != nil {
+	if err := database.QueryRow(`SELECT version, checksum FROM schema_migrations ORDER BY version DESC LIMIT 1`).Scan(&version, &checksum); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 1 || checksum != migrations[0].checksum() {
+	if err := database.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&migrationCount); err != nil {
 		database.Close()
-		t.Fatalf("migration record version=%d checksum=%q", version, checksum)
+		t.Fatal(err)
+	}
+	if version != 4 || migrationCount != 4 || checksum != migrations[3].checksum() {
+		database.Close()
+		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
 	var segments, localized int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM event_story_segments`).Scan(&segments); err != nil {
@@ -159,5 +163,21 @@ func TestPreviousBinaryQueriesRemainCompatibleAfterMigration(t *testing.T) {
 	}
 	if got != "rolling-old-binary" {
 		t.Fatalf("legacy query got %q", got)
+	}
+	if _, err := legacy.Exec(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		SELECT segment_id, 'en-US', 'manual English', 'human', 1, 'editor', 1
+		FROM event_story_segments WHERE event_id=7 AND kind='talk'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.Exec(`DELETE FROM event_stories WHERE event_id=7`); err != nil {
+		t.Fatalf("legacy event replace delete failed: %v", err)
+	}
+	var localized int
+	if err := legacy.QueryRow(`SELECT COUNT(*) FROM event_story_segment_localizations WHERE locale='en-US' AND text='manual English'`).Scan(&localized); err != nil {
+		t.Fatal(err)
+	}
+	if localized != 1 {
+		t.Fatal("legacy event replace cascaded into additive locale content")
 	}
 }
