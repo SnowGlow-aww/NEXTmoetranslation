@@ -16,7 +16,7 @@ Before the first pending migration, file-backed databases receive a verified `*.
 
 ## Console APIs
 
-The optional `locale` on `GET /api/categories`, `GET /api/entries`, `PUT /api/entry`, `GET /api/event-stories`, `GET /api/event-story`, and `PUT /api/event-story/update` accepts only `ja-JP`, `zh-CN`, and `en-US`. Omitted locale delegates to the exact legacy Chinese code path; `ja-JP` is source-only and rejects writes; `en-US` is stored independently and is never changed by CN sync or AI translation.
+The optional `locale` on `GET /api/categories`, `GET /api/entries`, `PUT /api/entry`, `GET /api/event-stories`, `GET /api/event-story`, and `PUT /api/event-story/update` accepts only `ja-JP`, `zh-CN`, and `en-US`. Omitted locale delegates to the exact legacy Chinese code path; explicit `zh-CN` mutations add audit records without changing omitted-locale behavior; `ja-JP` is source-only and rejects writes; `en-US` is stored independently and is never changed by CN sync or AI translation. Localized event rows expose stable IDs and source hashes, and writes must echo the full episode/type/key/ID/hash identity or receive a conflict.
 
 Lyrics and catalog routes are authenticated:
 
@@ -49,7 +49,7 @@ Git and S3 backups retain the legacy public `translations` projection and add `t
 
 ## Web Console
 
-The existing setup/login/settings/AdminModal/CN sync/AI/backup/entry save/save-next/shortcuts surfaces remain mounted. The console adds a locale selector and shared dirty guard for locale, field/category/mode, row, arrow, Escape, logout, and browser-unload transitions; localized updates use locale-specific SSE event names that old Chinese clients ignore. The responsive lyrics workspace adds catalog search with stale-response suppression, source preview, performer selection, multilingual preview, optimistic conflict recovery, guarded song/publication transitions, draft save, and admin publication controls.
+The existing setup/login/settings/AdminModal/CN sync/AI/backup/entry save/save-next/shortcuts surfaces remain mounted. Event segment identity is derived from event/scenario/episode plus invariant original scenario position and field (`body` or `speaker`), never from filtered JP/CN output order; Japanese rows remain addressable when Chinese is missing or source-equal. The console adds a locale selector and filter-independent shared dirty guard for locale, field/category/mode, row, arrow, Escape, logout, AI/retry/reorder reloads, and browser-unload transitions; localized updates use locale-specific SSE event names that old Chinese clients ignore. The responsive lyrics workspace adds catalog search with stale-response suppression, source preview, performer selection, multilingual preview, optimistic conflict recovery, guarded song/publication transitions, draft save, and admin publication controls.
 
 ## Verification Record
 
@@ -60,7 +60,7 @@ Run on 2026-07-22 from this worktree:
 | `cd server && gofmt -w $(git ls-files '*.go') $(git ls-files --others --exclude-standard '*.go') && go test ./...` | 0 | All Go packages passed |
 | `cd server && go test -race ./...` | 0 | All Go packages passed under the race detector |
 | `cd server && go vet ./...` | 0 | No diagnostics |
-| `cd web && npm test` | 0 | Six Web Console contract regressions passed |
+| `cd web && npm test` | 0 | Seven Web Console contract regressions passed |
 | `cd web && npm ci` | 1 | Environment policy rejected remote `npmmirror.com` tarballs with `EALLOWREMOTE` |
 | `cd web && npm ci --offline` | 1 | Same policy rejection; the required tarball was not available locally |
 | `cd web && npm run lint` | 127 | `next` unavailable because dependency installation was blocked |

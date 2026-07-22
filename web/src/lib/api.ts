@@ -30,6 +30,7 @@ export interface TranslationEntry {
   segmentId?: string;
   episodeNo?: string;
   entryType?: "title" | "talk";
+  sourceHash?: string;
 }
 
 export interface EventStorySummary {
@@ -56,6 +57,7 @@ export interface EventStorySegment {
   kind: "title" | "talk";
   position: number;
   japanese: string;
+  sourceHash: string;
   text: string;
   source: string;
 }
@@ -317,12 +319,13 @@ export const getEventStory = (eventId: number, locale?: Locale) => {
 };
 export const updateEventStoryLine = (
   eventId: number, episodeNo: string, jpKey: string, cnText: string,
-  source = "human", entryType: "talk" | "title" = "talk", locale?: Locale, segmentId?: string,
+  source = "human", entryType: "talk" | "title" = "talk", locale?: Locale, segmentId?: string, sourceHash?: string,
 ) =>
   apiFetch<{ status: string }>("/event-story/update", {
     method: "PUT",
     body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType,
-      ...(locale && locale !== "zh-CN" ? { locale } : {}), ...(segmentId ? { segmentId } : {}) }),
+      ...(locale && locale !== "zh-CN" ? { locale } : {}), ...(segmentId ? { segmentId } : {}),
+      ...(sourceHash !== undefined ? { sourceHash } : {}) }),
   });
 export const promoteEventStoryHuman = (eventId: number) =>
   apiFetch<{ status: string }>("/event-story/promote-human", { method: "POST", body: JSON.stringify({ eventId }) });

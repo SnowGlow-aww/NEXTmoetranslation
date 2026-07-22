@@ -192,7 +192,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     () => (selectedKey ? filtered.findIndex((e) => e.key === selectedKey) : -1),
     [selectedKey, filtered],
   );
-  const selectedEntry = filtered[selectedIndex] ?? null;
+  const selectedEntry = selectedKey ? entries.find((entry) => entry.key === selectedKey) ?? null : null;
   const entryDirty = selectedEntry != null && editValue !== selectedEntry.text;
   const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty;
 
@@ -284,7 +284,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         const entryType = selectedEntry?.entryType || p.entryType;
         const japanese = selectedEntry?.japanese || p.originalText;
         await updateEventStoryLine(Number(field), episodeNo, entryType === "title" ? "" : japanese,
-          editValue, src, entryType, locale, selectedEntry?.segmentId);
+          editValue, src, entryType, locale, selectedEntry?.segmentId, selectedEntry?.sourceHash);
         setEntries((prev) => prev.map((e) =>
           e.key === selectedKey
             ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}` : e.key, text: editValue, source: src }
@@ -366,7 +366,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         await updateEventStoryLine(
           Number(field), episodeNo,
           entryType === "title" ? "" : (entry.japanese || parsed.originalText),
-          entry.text, newSource, entryType, locale, entry.segmentId,
+          entry.text, newSource, entryType, locale, entry.segmentId, entry.sourceHash,
         );
       } else {
         await updateEntry(category, field, key, entry.text, newSource, locale);
@@ -515,10 +515,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     : <><span className="story-dot done" /> 已全部翻译</>}
                 </span>
                 <div className="story-toolbar-actions">
-                  <button className="btn btn-primary btn-sm" onClick={doAIStory} disabled={busy}>AI 补充剧情翻译</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => runOrGuard("运行 AI 剧情翻译", () => void doAIStory())} disabled={busy}>AI 补充剧情翻译</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await promoteEventStoryHuman(Number(field)); setEntries((p) => p.map((e) => ({ ...e, source: "human" }))); reloadSidebar(); show("已整篇标记人工", "ok"); })} disabled={busy}>整篇标记人工</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await retryEventStory(Number(field)); loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok"); })} disabled={busy}>重新获取剧情</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await reorderEventStory(Number(field)); loadEntries(); show("已重排序对话", "ok"); })} disabled={busy}>重排序对话</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重新获取剧情", () => void withBusy(async () => { await retryEventStory(Number(field)); loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok"); }))} disabled={busy}>重新获取剧情</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重排序对话", () => void withBusy(async () => { await reorderEventStory(Number(field)); loadEntries(); show("已重排序对话", "ok"); }))} disabled={busy}>重排序对话</button>
                 </div>
               </div>
             )}

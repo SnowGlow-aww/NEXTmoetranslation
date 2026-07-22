@@ -29,6 +29,15 @@ test("all destructive console transitions share the dirty guard", async () => {
   }
 });
 
+test("dirty state survives filtering and event reload tools are guarded", async () => {
+  const consoleSource = await read("src/components/Console.tsx");
+  assert.match(consoleSource, /entries\.find\(\(entry\) => entry\.key === selectedKey\)/);
+  for (const label of ["运行 AI 剧情翻译", "重新获取剧情", "重排序对话"]) {
+    assert.ok(consoleSource.includes(`runOrGuard("${label}"`), `unguarded event action: ${label}`);
+  }
+  assert.match(consoleSource, /selectedEntry\?\.sourceHash/);
+});
+
 test("lyrics workspace covers catalog, draft, source preview, and publication", async () => {
   const editor = await read("src/components/LyricsEditor.tsx");
   for (const contract of ["getCatalogMusic", "保存草稿", "候选来源", "使用此版本", "载入服务器版本", "取消发布"]) {
