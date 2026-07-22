@@ -36,6 +36,8 @@ test("dirty state survives filtering and event reload tools are guarded", async 
     assert.ok(consoleSource.includes(`runOrGuard("${label}"`), `unguarded event action: ${label}`);
   }
   assert.match(consoleSource, /selectedEntry\?\.sourceHash/);
+  assert.match(consoleSource, /event === "eventstory\.updated" \|\| event === "eventstory\.locale\.updated"/);
+  assert.match(consoleSource, /runOrGuard\("同步协作者更新", loadEntries\)/);
 });
 
 test("lyrics workspace covers catalog, draft, source preview, and publication", async () => {

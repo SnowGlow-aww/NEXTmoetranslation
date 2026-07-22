@@ -157,26 +157,6 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
 
-  // ---- SSE realtime ----
-  useSSE((event, data) => {
-    const d = data as Record<string, unknown>;
-    if (event === "sync.progress" || event === "translate.progress") {
-      setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
-      if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
-    } else if (event === "entry.updated" || event === "entry.locale.updated") {
-      const updateLocale = String(d.locale || "zh-CN");
-      if (updateLocale === locale && d.category === category && d.field === field && d.user !== username) {
-        setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: String(d.text), source: String(d.source) } : e)));
-        show(`${d.user} 修改了一条翻译`, "ok");
-      }
-    } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
-      const updateLocale = String(d.locale || "zh-CN");
-      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
-        loadEntries();
-      }
-    }
-  }, true);
-
   // ---- Derived ----
   const filtered = useMemo(() => {
     if (!query) return entries;
@@ -214,6 +194,26 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     pendingActionRef.current = action;
     setPendingActionLabel(label);
   };
+
+  // ---- SSE realtime ----
+  useSSE((event, data) => {
+    const d = data as Record<string, unknown>;
+    if (event === "sync.progress" || event === "translate.progress") {
+      setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
+      if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
+    } else if (event === "entry.updated" || event === "entry.locale.updated") {
+      const updateLocale = String(d.locale || "zh-CN");
+      if (updateLocale === locale && d.category === category && d.field === field && d.user !== username) {
+        setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: String(d.text), source: String(d.source) } : e)));
+        show(`${d.user} 修改了一条翻译`, "ok");
+      }
+    } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
+      const updateLocale = String(d.locale || "zh-CN");
+      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
+        runOrGuard("同步协作者更新", loadEntries);
+      }
+    }
+  }, true);
 
   useEffect(() => {
     if (selectedKey && editRef.current) {
