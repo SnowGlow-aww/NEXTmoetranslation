@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -167,5 +168,59 @@ func TestRecordSyncSuccessClearsStaleError(t *testing.T) {
 	}
 	if status.LastSync == "" || status.LastSuccess == "" {
 		t.Fatalf("sync timestamps not recorded: %+v", status)
+	}
+}
+
+func TestCheckNowLegacyTriggerSemantics(t *testing.T) {
+	oldBuiltIns := builtInVersionFallbackURLs
+	builtInVersionFallbackURLs = nil
+	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
+
+	var version atomic.Value
+	version.Store("100")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"dataVersion":%q}`, version.Load().(string))
+	}))
+	defer server.Close()
+
+	cfg := openWatcherConfig(t)
+	if err := cfg.Set(config.KeyUpstreamVersionURL, server.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyUpstreamVersionFallbackURL, server.URL); err != nil {
+		t.Fatal(err)
+	}
+	var syncCalls atomic.Int32
+	w := New(cfg, func() error {
+		syncCalls.Add(1)
+		return nil
+	}, Options{})
+
+	if _, err := w.CheckNow(false); err != nil {
+		t.Fatal(err)
+	}
+	if syncCalls.Load() != 0 {
+		t.Fatalf("first observed version triggered %d syncs", syncCalls.Load())
+	}
+	if _, err := w.CheckNow(false); err != nil {
+		t.Fatal(err)
+	}
+	if syncCalls.Load() != 0 {
+		t.Fatalf("unchanged version triggered %d syncs", syncCalls.Load())
+	}
+	if _, err := w.CheckNow(true); err != nil {
+		t.Fatal(err)
+	}
+	if syncCalls.Load() != 1 {
+		t.Fatalf("forced check syncs = %d, want 1", syncCalls.Load())
+	}
+	version.Store("101")
+	status, err := w.CheckNow(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if syncCalls.Load() != 2 || status.LastDataVersion != "101" || status.ChangeDetectedAt == "" {
+		t.Fatalf("changed check status=%+v syncs=%d", status, syncCalls.Load())
 	}
 }

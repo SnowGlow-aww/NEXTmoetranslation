@@ -192,6 +192,61 @@ func TestMasterdataFallsBackToSecondarySource(t *testing.T) {
 	}
 }
 
+func TestCNMasterdataFallsBackToSecondarySource(t *testing.T) {
+	var primaryCalls atomic.Int32
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		primaryCalls.Add(1)
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	defer primary.Close()
+
+	var fallbackCalls atomic.Int32
+	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fallbackCalls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `[{"id":2,"name":"中文"}]`)
+	}))
+	defer fallback.Close()
+
+	cfg := openTranslatorConfig(t)
+	cfg.Set(config.KeyUpstreamCNMasterdataURL, primary.URL)
+	cfg.Set(config.KeyUpstreamCNMasterdataFallbackURL, fallback.URL)
+	tr := New(nil, nil, cfg)
+
+	items, err := tr.fetchMasterdata("events.json", "cn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || getInt(items[0], "id") != 2 || primaryCalls.Load() != 1 || fallbackCalls.Load() != 1 {
+		t.Fatalf("unexpected CN fallback: items=%v primary=%d fallback=%d", items, primaryCalls.Load(), fallbackCalls.Load())
+	}
+}
+
+func TestCNScenarioFallsBackToSecondarySource(t *testing.T) {
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unavailable", http.StatusBadGateway)
+	}))
+	defer primary.Close()
+	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"TalkData":[{"Body":"中文台词"}]}`)
+	}))
+	defer fallback.Close()
+
+	cfg := openTranslatorConfig(t)
+	cfg.Set(config.KeyUpstreamCNAssetsURL, primary.URL)
+	cfg.Set(config.KeyUpstreamCNAssetsFallbackURL, fallback.URL)
+	tr := New(nil, nil, cfg)
+
+	result, err := tr.fetchCNScenarioJSON("event_story/test/scenario/1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scenarioHasTalkData(result) {
+		t.Fatalf("CN fallback result missing TalkData: %#v", result)
+	}
+}
+
 func TestMasterdataHedgesSlowPrimary(t *testing.T) {
 	primaryStarted := make(chan struct{}, 1)
 	primary := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
