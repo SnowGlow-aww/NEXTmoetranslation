@@ -259,30 +259,51 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 		var talkOrder []string
 		var episodeLines []store.OrderedLine
 		seen := map[string]bool{}
-		for i := 0; i < len(jpTalk) && i < len(cnTalk); i++ {
+		for i := 0; i < len(jpTalk); i++ {
+			var cnLine map[string]any
+			if i < len(cnTalk) {
+				cnLine = cnTalk[i]
+			}
 			jpBody := strings.TrimSpace(getString(jpTalk[i], "Body"))
-			cnBody := strings.TrimSpace(getString(cnTalk[i], "Body"))
-			cnSpeaker := strings.TrimSpace(getString(cnTalk[i], "WindowDisplayName"))
-			if jpBody != "" && cnBody != "" && jpBody != cnBody {
-				line := store.OrderedLine{JPKey: jpBody, Text: cnBody, Source: "cn", SpeakerName: cnSpeaker}
-				episodeLines = append(episodeLines, line)
-				talkData[jpBody] = cnBody
-				if !seen[jpBody] {
-					talkOrder = append(talkOrder, jpBody)
-					seen[jpBody] = true
+			cnBody := strings.TrimSpace(getString(cnLine, "Body"))
+			cnSpeaker := strings.TrimSpace(getString(cnLine, "WindowDisplayName"))
+			if jpBody != "" {
+				text := ""
+				if cnBody != "" && jpBody != cnBody {
+					text = cnBody
 				}
-				if cnSpeaker != "" {
-					speakerNames[jpBody] = cnSpeaker
+				line := store.OrderedLine{
+					JPKey: jpBody, Text: text, Source: "cn", SpeakerName: cnSpeaker,
+					ScenarioPosition: i * 2, Field: "body",
+				}
+				episodeLines = append(episodeLines, line)
+				if text != "" {
+					talkData[jpBody] = text
+					if !seen[jpBody] {
+						talkOrder = append(talkOrder, jpBody)
+						seen[jpBody] = true
+					}
+					if cnSpeaker != "" {
+						speakerNames[jpBody] = cnSpeaker
+					}
 				}
 			}
 			jpName := strings.TrimSpace(getString(jpTalk[i], "WindowDisplayName"))
-			cnName := strings.TrimSpace(getString(cnTalk[i], "WindowDisplayName"))
-			if jpName != "" && cnName != "" && jpName != cnName {
-				episodeLines = append(episodeLines, store.OrderedLine{JPKey: jpName, Text: cnName, Source: "cn"})
-				talkData[jpName] = cnName
-				if !seen[jpName] {
-					talkOrder = append(talkOrder, jpName)
-					seen[jpName] = true
+			cnName := strings.TrimSpace(getString(cnLine, "WindowDisplayName"))
+			if jpName != "" {
+				text := ""
+				if cnName != "" && jpName != cnName {
+					text = cnName
+				}
+				episodeLines = append(episodeLines, store.OrderedLine{
+					JPKey: jpName, Text: text, Source: "cn", ScenarioPosition: i*2 + 1, Field: "speaker",
+				})
+				if text != "" {
+					talkData[jpName] = text
+					if !seen[jpName] {
+						talkOrder = append(talkOrder, jpName)
+						seen[jpName] = true
+					}
 				}
 			}
 		}
@@ -296,7 +317,7 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 		} else if cnTitle != "" {
 			hasTitleOnly = true
 		}
-		if len(talkData) == 0 && cnTitle == "" {
+		if len(episodeLines) == 0 && cnTitle == "" && strings.TrimSpace(getString(ep, "title")) == "" {
 			continue
 		}
 		episodes[strconv.Itoa(epNo)] = builtEpisode{
@@ -381,11 +402,14 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 		var talkOrder []string
 		var episodeLines []store.OrderedLine
 		seen := map[string]bool{}
-		for _, talk := range jpTalk {
+		for scenarioIndex, talk := range jpTalk {
 			jpBody := strings.TrimSpace(getString(talk, "Body"))
 			jpSpeaker := strings.TrimSpace(getString(talk, "WindowDisplayName"))
 			if jpBody != "" {
-				episodeLines = append(episodeLines, store.OrderedLine{JPKey: jpBody, Text: "", Source: "jp_pending", SpeakerName: jpSpeaker})
+				episodeLines = append(episodeLines, store.OrderedLine{
+					JPKey: jpBody, Text: "", Source: "jp_pending", SpeakerName: jpSpeaker,
+					ScenarioPosition: scenarioIndex * 2, Field: "body",
+				})
 				talkData[jpBody] = ""
 				if !seen[jpBody] {
 					talkOrder = append(talkOrder, jpBody)
@@ -396,7 +420,10 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 				}
 			}
 			if jpSpeaker != "" {
-				episodeLines = append(episodeLines, store.OrderedLine{JPKey: jpSpeaker, Text: "", Source: "jp_pending"})
+				episodeLines = append(episodeLines, store.OrderedLine{
+					JPKey: jpSpeaker, Text: "", Source: "jp_pending",
+					ScenarioPosition: scenarioIndex*2 + 1, Field: "speaker",
+				})
 				talkData[jpSpeaker] = ""
 				if !seen[jpSpeaker] {
 					talkOrder = append(talkOrder, jpSpeaker)

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -28,10 +29,10 @@ func TestEnglishStoryEditsSurviveLegacyChineseReimport(t *testing.T) {
 	}
 	segmentID := detail.Episodes["1"].Segments[1].ID
 	titleSegmentID := detail.Episodes["1"].Segments[0].ID
-	if err := events.UpdateLineLocale(9, "1", "", titleSegmentID, "Manual title", model.SourceHuman, "title", model.LocaleEnglish, "editor"); err != nil {
+	if err := events.UpdateLineLocale(9, "1", "", titleSegmentID, detail.Episodes["1"].Segments[0].SourceHash, "Manual title", model.SourceHuman, "title", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
-	if err := events.UpdateLineLocale(9, "1", "原文", segmentID, "Manual English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+	if err := events.UpdateLineLocale(9, "1", "原文", segmentID, detail.Episodes["1"].Segments[1].SourceHash, "Manual English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
 	second := []OrderedEpisode{{
@@ -79,10 +80,10 @@ func TestChangedSourceHashDoesNotKeepStaleLocalization(t *testing.T) {
 		t.Fatal(err)
 	}
 	segmentID := detail.Episodes["1"].Segments[1].ID
-	if err := events.UpdateLineLocale(10, "1", "", detail.Episodes["1"].Segments[0].ID, "Stale title", model.SourceHuman, "title", model.LocaleEnglish, "editor"); err != nil {
+	if err := events.UpdateLineLocale(10, "1", "", detail.Episodes["1"].Segments[0].ID, detail.Episodes["1"].Segments[0].SourceHash, "Stale title", model.SourceHuman, "title", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
-	if err := events.UpdateLineLocale(10, "1", "古い原文", segmentID, "Stale English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+	if err := events.UpdateLineLocale(10, "1", "古い原文", segmentID, detail.Episodes["1"].Segments[1].SourceHash, "Stale English", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
 	second := []OrderedEpisode{{
@@ -91,6 +92,10 @@ func TestChangedSourceHashDoesNotKeepStaleLocalization(t *testing.T) {
 	}}
 	if err := events.ImportOrdered(10, model.EventStoryMeta{Source: "official_cn"}, second); err != nil {
 		t.Fatal(err)
+	}
+	if err := events.UpdateLineLocale(10, "1", "古い原文", segmentID, detail.Episodes["1"].Segments[1].SourceHash,
+		"Stale browser write", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); !errors.Is(err, ErrEventSourceConflict) {
+		t.Fatalf("stale event write error = %v", err)
 	}
 	localized, err := events.DetailLocale(10, model.LocaleEnglish)
 	if err != nil {
@@ -136,10 +141,10 @@ func TestDuplicateSourceLinesKeepDistinctStableSegments(t *testing.T) {
 	if got := legacy.Episodes["1"].TalkData["同じ"]; got != "第二处" {
 		t.Fatalf("legacy duplicate projection = %q", got)
 	}
-	if err := events.UpdateLineLocale(11, "1", "同じ", segments[1].ID, "First", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+	if err := events.UpdateLineLocale(11, "1", "同じ", segments[1].ID, segments[1].SourceHash, "First", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
-	if err := events.UpdateLineLocale(11, "1", "同じ", segments[2].ID, "Second", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+	if err := events.UpdateLineLocale(11, "1", "同じ", segments[2].ID, segments[2].SourceHash, "Second", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
 		t.Fatal(err)
 	}
 	detail, err = events.DetailLocale(11, model.LocaleEnglish)
@@ -148,5 +153,51 @@ func TestDuplicateSourceLinesKeepDistinctStableSegments(t *testing.T) {
 	}
 	if detail.Episodes["1"].Segments[1].Text != "First" || detail.Episodes["1"].Segments[2].Text != "Second" {
 		t.Fatalf("localized duplicate segments = %+v", detail.Episodes["1"].Segments)
+	}
+}
+
+func TestScenarioPositionAndFieldKeepIdentityAcrossChineseAvailability(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-invariant-position.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	first := []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario", Title: "标题", TitleSource: model.SourceCN,
+		Lines: []OrderedLine{
+			{JPKey: "一行目", Text: "第一行", Source: model.SourceCN, ScenarioPosition: 0, Field: "body"},
+			{JPKey: "初音ミク", Text: "", Source: model.SourceCN, ScenarioPosition: 1, Field: "speaker"},
+			{JPKey: "二行目", Text: "", Source: model.SourceCN, ScenarioPosition: 2, Field: "body"},
+		},
+	}}
+	if err := events.ImportOrdered(12, model.EventStoryMeta{Source: "official_cn"}, first); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(12, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments := detail.Episodes["1"].Segments
+	if len(segments) != 4 || segments[2].Japanese != "初音ミク" || segments[3].Japanese != "二行目" {
+		t.Fatalf("JP fields missing from locale segments: %+v", segments)
+	}
+	secondLineID := segments[3].ID
+	if err := events.UpdateLineLocale(12, "1", "二行目", secondLineID, segments[3].SourceHash, "Second line", model.SourceHuman, "talk", model.LocaleEnglish, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	second := first
+	second[0].Lines = append([]OrderedLine(nil), first[0].Lines...)
+	second[0].Lines[1].Text = "初音未来"
+	if err := events.ImportOrdered(12, model.EventStoryMeta{Source: "official_cn"}, second); err != nil {
+		t.Fatal(err)
+	}
+	detail, err = events.DetailLocale(12, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments = detail.Episodes["1"].Segments
+	if segments[3].ID != secondLineID || segments[3].Text != "Second line" {
+		t.Fatalf("CN availability shifted stable identity: %+v", segments)
 	}
 }

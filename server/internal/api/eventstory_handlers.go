@@ -2,12 +2,14 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/sse"
+	"moesekai/server/internal/store"
 )
 
 // handleEventStories lists event story summaries.
@@ -74,14 +76,15 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req struct {
-		EventID   int    `json:"eventId"`
-		EpisodeNo string `json:"episodeNo"`
-		JpKey     string `json:"jpKey"`
-		CnText    string `json:"cnText"`
-		Source    string `json:"source"`
-		EntryType string `json:"entryType"`
-		Locale    string `json:"locale"`
-		SegmentID string `json:"segmentId"`
+		EventID    int     `json:"eventId"`
+		EpisodeNo  string  `json:"episodeNo"`
+		JpKey      string  `json:"jpKey"`
+		CnText     string  `json:"cnText"`
+		Source     string  `json:"source"`
+		EntryType  string  `json:"entryType"`
+		Locale     string  `json:"locale"`
+		SegmentID  string  `json:"segmentId"`
+		SourceHash *string `json:"sourceHash"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -105,14 +108,30 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "locale is read-only")
 		return
 	}
+	if explicit && locale != model.LocaleChinese && (req.SegmentID == "" || req.SourceHash == nil) {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"segmentId and sourceHash are required"}, nil)
+		return
+	}
+	if explicit && locale != model.LocaleChinese && req.EntryType != "title" && req.EntryType != "talk" {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"entryType must be title or talk"}, nil)
+		return
+	}
 	var err error
 	if explicit {
-		err = s.eventStore.UpdateLineLocale(req.EventID, req.EpisodeNo, req.JpKey, req.SegmentID, req.CnText, req.Source, req.EntryType, locale, currentUser(r))
+		sourceHash := ""
+		if req.SourceHash != nil {
+			sourceHash = *req.SourceHash
+		}
+		err = s.eventStore.UpdateLineLocale(req.EventID, req.EpisodeNo, req.JpKey, req.SegmentID, sourceHash, req.CnText, req.Source, req.EntryType, locale, currentUser(r))
 	} else {
 		err = s.eventStore.UpdateLine(req.EventID, req.EpisodeNo, req.JpKey, req.CnText, req.Source, req.EntryType)
 	}
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "target line not found")
+		return
+	}
+	if errors.Is(err, store.ErrEventSourceConflict) {
+		writeContractError(w, http.StatusConflict, "source_conflict", []string{"event source identity changed; reload before saving"}, nil)
 		return
 	}
 	if err != nil {

@@ -36,10 +36,12 @@ type OrderedEpisode struct {
 }
 
 type OrderedLine struct {
-	JPKey       string
-	Text        string
-	Source      string
-	SpeakerName string
+	JPKey            string
+	Text             string
+	Source           string
+	SpeakerName      string
+	ScenarioPosition int
+	Field            string
 }
 
 // ImportOrdered replaces one event story, preserving episode and line order.
@@ -212,8 +214,12 @@ func importOrderedTx(tx *sql.Tx, eventID int, meta model.EventStoryMeta, episode
 			if src == "" {
 				src = meta.Source
 			}
-			segmentID := eventSegmentID(eventID, ep.ScenarioID, ep.EpisodeNo, "talk", linePos)
-			if _, err := segmentStmt.Exec(segmentID, eventID, ep.EpisodeNo, ep.ScenarioID, "talk", linePos, line.JPKey, line.JPKey, hashText(line.JPKey)); err != nil {
+			position := linePos
+			if line.Field != "" {
+				position = line.ScenarioPosition
+			}
+			segmentID := eventSegmentID(eventID, ep.ScenarioID, ep.EpisodeNo, "talk", position, line.Field)
+			if _, err := segmentStmt.Exec(segmentID, eventID, ep.EpisodeNo, ep.ScenarioID, "talk", position, line.JPKey, line.JPKey, hashText(line.JPKey)); err != nil {
 				return err
 			}
 			if _, err := localizedStmt.Exec(segmentID, model.LocaleChinese, line.Text, src, meta.LastUpdated, "import"); err != nil {
@@ -437,8 +443,12 @@ func (s *EventStore) Exists(eventID int) (bool, error) {
 	return n > 0, err
 }
 
-func eventSegmentID(eventID int, scenarioID, episodeNo, kind string, position int) string {
-	return fmt.Sprintf("event:%d:%s:%s:%s:%d", eventID, scenarioID, episodeNo, kind, position)
+func eventSegmentID(eventID int, scenarioID, episodeNo, kind string, position int, field ...string) string {
+	id := fmt.Sprintf("event:%d:%s:%s:%s:%d", eventID, scenarioID, episodeNo, kind, position)
+	if len(field) > 0 && field[0] != "" {
+		id += ":" + field[0]
+	}
+	return id
 }
 
 func hashText(text string) string {

@@ -338,6 +338,53 @@ func TestBuildJPPendingEpisodesFetchesConcurrently(t *testing.T) {
 	if maxActive.Load() < 2 {
 		t.Fatalf("scenario requests were not concurrent; max=%d", maxActive.Load())
 	}
+	for _, episode := range episodes {
+		if len(episode.lines) != 2 || episode.lines[0].Field != "body" || episode.lines[0].ScenarioPosition != 0 ||
+			episode.lines[1].Field != "speaker" || episode.lines[1].ScenarioPosition != 1 {
+			t.Fatalf("JP positional fields = %+v", episode.lines)
+		}
+	}
+}
+
+func TestOfficialEpisodesKeepJPFieldsWhenChineseMissingOrEqual(t *testing.T) {
+	jp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"TalkData":[{"Body":"同文","WindowDisplayName":"初音ミク"},{"Body":"未翻译","WindowDisplayName":"鏡音リン"}]}`)
+	}))
+	defer jp.Close()
+	cn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"TalkData":[{"Body":"同文","WindowDisplayName":"初音ミク"}]}`)
+	}))
+	defer cn.Close()
+	cfg := openTranslatorConfig(t)
+	cfg.Set(config.KeyUpstreamJPAssetsURL, jp.URL)
+	cfg.Set(config.KeyUpstreamCNAssetsURL, cn.URL)
+	tr := New(nil, nil, cfg)
+	jpStory := map[string]any{
+		"assetbundleName":    "asset",
+		"eventStoryEpisodes": []any{map[string]any{"episodeNo": float64(1), "scenarioId": "scenario", "title": "原題"}},
+	}
+	cnStory := map[string]any{
+		"eventStoryEpisodes": []any{map[string]any{"episodeNo": float64(1), "title": "原題"}},
+	}
+	episodes, hasTalk, _, errs := tr.buildOfficialCNEpisodes(jpStory, cnStory)
+	if len(errs) != 0 || hasTalk {
+		t.Fatalf("official episode errors=%v hasTalk=%v", errs, hasTalk)
+	}
+	episode, ok := episodes["1"]
+	if !ok || len(episode.lines) != 4 {
+		t.Fatalf("missing JP-only positional fields: %+v", episodes)
+	}
+	want := []struct {
+		position int
+		field    string
+		key      string
+	}{{0, "body", "同文"}, {1, "speaker", "初音ミク"}, {2, "body", "未翻译"}, {3, "speaker", "鏡音リン"}}
+	for index, expected := range want {
+		line := episode.lines[index]
+		if line.ScenarioPosition != expected.position || line.Field != expected.field || line.JPKey != expected.key || line.Text != "" {
+			t.Fatalf("line %d = %+v, want %+v", index, line, expected)
+		}
+	}
 }
 
 func TestEventStoryTranslationPersistsBatchesAndResumes(t *testing.T) {

@@ -89,18 +89,36 @@ func TestLocaleEventStoryUsesStableSegmentsAndKeepsLegacyProjection(t *testing.T
 		t.Fatalf("stable segments = %d, want title plus two talks", len(episode.Segments))
 	}
 	segmentID := ""
+	sourceHash := ""
 	for _, segment := range episode.Segments {
 		if segment.Kind == "talk" && segment.Japanese == "二" {
 			segmentID = segment.ID
+			sourceHash = segment.SourceHash
 		}
 	}
 	if segmentID == "" {
 		t.Fatal("talk segment ID not found")
 	}
+	missingIdentity := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "segmentId": segmentID,
+		"cnText": "Missing hash", "source": "human", "entryType": "talk", "locale": model.LocaleEnglish,
+	})
+	missingIdentity.Body.Close()
+	if missingIdentity.StatusCode != http.StatusBadRequest {
+		t.Fatalf("missing source identity status = %d", missingIdentity.StatusCode)
+	}
+	staleIdentity := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "segmentId": segmentID, "sourceHash": "stale",
+		"cnText": "Stale write", "source": "human", "entryType": "talk", "locale": model.LocaleEnglish,
+	})
+	staleIdentity.Body.Close()
+	if staleIdentity.StatusCode != http.StatusConflict {
+		t.Fatalf("stale source identity status = %d", staleIdentity.StatusCode)
+	}
 
 	update := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
 		"eventId": 42, "episodeNo": "1", "jpKey": "二", "segmentId": segmentID,
-		"cnText": "Second line", "source": "human", "entryType": "talk", "locale": model.LocaleEnglish,
+		"sourceHash": sourceHash, "cnText": "Second line", "source": "human", "entryType": "talk", "locale": model.LocaleEnglish,
 	})
 	defer update.Body.Close()
 	if update.StatusCode != http.StatusOK {
@@ -177,6 +195,43 @@ func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for localized SSE")
+	}
+}
+
+func TestExplicitChineseMutationsAuditWithoutChangingOmittedLegacyPath(t *testing.T) {
+	h := setupLegacyAPI(t)
+	omitted := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "human-key", "text": "Omitted Chinese", "source": "human",
+	})
+	omitted.Body.Close()
+	var count int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='entry.locale.update'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("omitted locale entry audit count = %d", count)
+	}
+	explicit := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "human-key", "text": "Explicit Chinese", "source": "human", "locale": model.LocaleChinese,
+	})
+	explicit.Body.Close()
+	if explicit.StatusCode != http.StatusOK {
+		t.Fatalf("explicit Chinese entry status = %d", explicit.StatusCode)
+	}
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='entry.locale.update' AND detail LIKE 'locale=zh-CN %'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("explicit Chinese entry audit count=%d err=%v", count, err)
+	}
+
+	event := authorizedRequest(t, h, http.MethodPut, "/api/event-story/update", map[string]any{
+		"eventId": 42, "episodeNo": "1", "jpKey": "二", "cnText": "显式中文剧情",
+		"source": "human", "entryType": "talk", "locale": model.LocaleChinese,
+	})
+	event.Body.Close()
+	if event.StatusCode != http.StatusOK {
+		t.Fatalf("explicit Chinese event status = %d", event.StatusCode)
+	}
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='event.locale.update' AND detail LIKE 'locale=zh-CN %'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("explicit Chinese event audit count=%d err=%v", count, err)
 	}
 }
 

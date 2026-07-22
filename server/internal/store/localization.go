@@ -187,7 +187,14 @@ func (s *Store) CategoryDataLocale(category, locale string) (model.Category, err
 
 func (s *Store) UpdateEntryLocale(category, field, key, text, source, user, locale string) (string, error) {
 	if locale == model.LocaleChinese {
-		return s.UpdateEntry(category, field, key, text, source, user)
+		status, err := s.UpdateEntry(category, field, key, text, source, user)
+		if err != nil || status != "ok" {
+			return status, err
+		}
+		if err := s.RecordAudit(user, "entry.locale.update", fmt.Sprintf("locale=%s category=%s field=%s", locale, category, field)); err != nil {
+			return "", err
+		}
+		return status, nil
 	}
 	if locale == model.LocaleJapanese {
 		return "", ErrReadOnlyLocale

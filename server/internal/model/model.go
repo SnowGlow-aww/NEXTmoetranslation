@@ -98,12 +98,13 @@ type EventStoryEpisode struct {
 }
 
 type EventStorySegment struct {
-	ID       string `json:"id"`
-	Kind     string `json:"kind"`
-	Position int    `json:"position"`
-	Japanese string `json:"japanese"`
-	Text     string `json:"text"`
-	Source   string `json:"source"`
+	ID         string `json:"id"`
+	Kind       string `json:"kind"`
+	Position   int    `json:"position"`
+	Japanese   string `json:"japanese"`
+	SourceHash string `json:"sourceHash"`
+	Text       string `json:"text"`
+	Source     string `json:"source"`
 }
 
 type EventStoryDetail struct {

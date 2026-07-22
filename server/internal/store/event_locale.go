@@ -2,11 +2,14 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"moesekai/server/internal/model"
 )
+
+var ErrEventSourceConflict = errors.New("event source identity conflict")
 
 func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryDetail, error) {
 	if locale == model.LocaleChinese {
@@ -26,7 +29,7 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 		}
 	}
 	rows, err := s.db.Query(`SELECT seg.segment_id, seg.episode_no, seg.kind, seg.position,
-		seg.jp_key, seg.source_text, loc.text, loc.source
+		seg.jp_key, seg.source_text, seg.source_hash, loc.text, loc.source
 		FROM event_story_segments seg
 		LEFT JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id AND loc.locale=?
 		WHERE seg.event_id=? ORDER BY seg.episode_no, seg.position`, locale, eventID)
@@ -36,10 +39,10 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 	defer rows.Close()
 	seen := 0
 	for rows.Next() {
-		var id, episodeNo, kind, jpKey, sourceText string
+		var id, episodeNo, kind, jpKey, sourceText, sourceHash string
 		var position int
 		var localizedText, localizedSource sql.NullString
-		if err := rows.Scan(&id, &episodeNo, &kind, &position, &jpKey, &sourceText, &localizedText, &localizedSource); err != nil {
+		if err := rows.Scan(&id, &episodeNo, &kind, &position, &jpKey, &sourceText, &sourceHash, &localizedText, &localizedSource); err != nil {
 			return model.EventStoryDetail{}, err
 		}
 		episode, ok := detail.Episodes[episodeNo]
@@ -54,7 +57,7 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 			source = localizedSource.String
 		}
 		segment := model.EventStorySegment{
-			ID: id, Kind: kind, Position: position, Japanese: sourceText, Text: text, Source: source,
+			ID: id, Kind: kind, Position: position, Japanese: sourceText, SourceHash: sourceHash, Text: text, Source: source,
 		}
 		episode.Segments = append(episode.Segments, segment)
 		if kind == "title" {
@@ -125,12 +128,18 @@ func (s *EventStore) ListLocale(locale string) ([]model.EventStorySummary, error
 	return result, rows.Err()
 }
 
-func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, text, source, entryType, locale, user string) error {
+func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user string) error {
 	if locale == model.LocaleChinese {
-		return s.UpdateLine(eventID, episodeNo, jpKey, text, source, entryType)
+		if err := s.UpdateLine(eventID, episodeNo, jpKey, text, source, entryType); err != nil {
+			return err
+		}
+		return s.recordEventLocaleAudit(user, locale, eventID, entryType)
 	}
 	if locale == model.LocaleJapanese {
 		return ErrReadOnlyLocale
+	}
+	if entryType != "title" && entryType != "talk" {
+		return ErrEventSourceConflict
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -142,24 +151,19 @@ func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, 
 		kind = "title"
 	}
 	if segmentID == "" {
-		query := `SELECT segment_id FROM event_story_segments WHERE event_id=? AND episode_no=? AND kind=?`
-		args := []any{eventID, episodeNo, kind}
-		if kind == "talk" {
-			query += ` AND jp_key=?`
-			args = append(args, jpKey)
-		}
-		query += ` ORDER BY position LIMIT 1`
-		if err := tx.QueryRow(query, args...).Scan(&segmentID); err != nil {
-			return err
-		}
-	} else {
-		var found int
-		if err := tx.QueryRow(`SELECT COUNT(*) FROM event_story_segments WHERE segment_id=? AND event_id=?`, segmentID, eventID).Scan(&found); err != nil {
-			return err
-		}
-		if found == 0 {
-			return sql.ErrNoRows
-		}
+		return ErrEventSourceConflict
+	}
+	var storedEpisode, storedKind, storedJPKey, storedSourceHash string
+	if err := tx.QueryRow(`SELECT episode_no, kind, jp_key, source_hash FROM event_story_segments
+		WHERE segment_id=? AND event_id=?`, segmentID, eventID).
+		Scan(&storedEpisode, &storedKind, &storedJPKey, &storedSourceHash); err == sql.ErrNoRows {
+		return ErrEventSourceConflict
+	} else if err != nil {
+		return err
+	}
+	if storedEpisode != episodeNo || storedKind != kind || storedSourceHash != sourceHash ||
+		(kind == "talk" && storedJPKey != jpKey) || (kind == "title" && jpKey != "") {
+		return ErrEventSourceConflict
 	}
 	now := time.Now().Unix()
 	if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
@@ -176,8 +180,18 @@ func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, 
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'event.locale.update', ?)`,
-		now, user, fmt.Sprintf("locale=%s eventId=%d entryType=%s", locale, eventID, entryType)); err != nil {
+		now, user, eventLocaleAuditDetail(locale, eventID, entryType)); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *EventStore) recordEventLocaleAudit(user, locale string, eventID int, entryType string) error {
+	_, err := s.db.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'event.locale.update', ?)`,
+		time.Now().Unix(), user, eventLocaleAuditDetail(locale, eventID, entryType))
+	return err
+}
+
+func eventLocaleAuditDetail(locale string, eventID int, entryType string) string {
+	return fmt.Sprintf("locale=%s eventId=%d entryType=%s", locale, eventID, entryType)
 }
