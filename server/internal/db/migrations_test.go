@@ -34,7 +34,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 4 || migrationCount != 4 || checksum != migrations[3].checksum() {
+	if version != 5 || migrationCount != 5 || checksum != migrations[4].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -63,6 +63,15 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 	if talkHash == "" || titleSource != "" {
 		database.Close()
 		t.Fatalf("source backfill hash=%q titleSource=%q", talkHash, titleSource)
+	}
+	var titleSegmentID string
+	if err := database.QueryRow(`SELECT segment_id FROM event_story_segments WHERE kind='title'`).Scan(&titleSegmentID); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(titleSegmentID, ":title:-1") {
+		database.Close()
+		t.Fatalf("migrated title segment ID = %q", titleSegmentID)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
@@ -126,6 +135,58 @@ func TestMigrationFailureRollsBackAndLeavesRecoverableBackup(t *testing.T) {
 	}
 }
 
+func TestInterruptedOrCorruptMigrationBackupRecovers(t *testing.T) {
+	path := legacyFixtureCopy(t, "backup-recovery.db")
+	backupPath := path + ".pre-migration-v1.bak"
+	if err := os.WriteFile(backupPath, []byte("interrupted backup"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backupPath+".tmp", []byte("stale temporary backup"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	database.Close()
+	if err := verifySQLiteBackup(backupPath); err != nil {
+		t.Fatalf("replacement backup is not recoverable: %v", err)
+	}
+	if _, err := os.Stat(backupPath + ".tmp"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporary backup remains after recovery: %v", err)
+	}
+}
+
+func TestMigrationBackupRenameFailureKeepsExistingFinal(t *testing.T) {
+	path := legacyFixtureCopy(t, "backup-rename-failure.db")
+	backupPath := path + ".pre-migration-v1.bak"
+	corrupt := []byte("existing interrupted final")
+	if err := os.WriteFile(backupPath, corrupt, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	migrationBackupBeforeRenameHook = func(string) error { return errors.New("injected rename interruption") }
+	t.Cleanup(func() { migrationBackupBeforeRenameHook = nil })
+	if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "injected rename interruption") {
+		t.Fatalf("Open error = %v", err)
+	}
+	migrationBackupBeforeRenameHook = nil
+	got, err := os.ReadFile(backupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(corrupt) {
+		t.Fatalf("failed atomic replacement changed final backup to %q", got)
+	}
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	database.Close()
+	if err := verifySQLiteBackup(backupPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMigrationChecksumMismatchRefusesStartup(t *testing.T) {
 	path := legacyFixtureCopy(t, "checksum.db")
 	database, err := Open(path)
@@ -179,5 +240,47 @@ func TestPreviousBinaryQueriesRemainCompatibleAfterMigration(t *testing.T) {
 	}
 	if localized != 1 {
 		t.Fatal("legacy event replace cascaded into additive locale content")
+	}
+}
+
+func TestTitleIdentityMigrationMovesExistingLocalizations(t *testing.T) {
+	path := legacyFixtureCopy(t, "title-identity.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:4]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	var oldID string
+	if err := raw.QueryRow(`SELECT segment_id FROM event_story_segments WHERE kind='title'`).Scan(&oldID); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		VALUES (?, 'en-US', 'Existing English title', 'human', 1, 'editor', 2)`, oldID); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var newID, text string
+	if err := migrated.QueryRow(`SELECT seg.segment_id, loc.text
+		FROM event_story_segments seg JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id
+		WHERE seg.kind='title' AND loc.locale='en-US'`).Scan(&newID, &text); err != nil {
+		t.Fatal(err)
+	}
+	if newID != oldID+":-1" || text != "Existing English title" {
+		t.Fatalf("migrated title id=%q text=%q old=%q", newID, text, oldID)
 	}
 }

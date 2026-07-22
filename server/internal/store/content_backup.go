@@ -2,7 +2,11 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"time"
+
+	"moesekai/server/internal/model"
 )
 
 type EntryLocalizationRecord struct {
@@ -117,6 +121,12 @@ type LyricsContentExport struct {
 	Lines        []LyricsLineBackupRecord        `json:"lines"`
 	Segments     []LyricsSegmentBackupRecord     `json:"segments"`
 	Publications []LyricsPublicationBackupRecord `json:"publications"`
+}
+
+type LegacyEventRestore struct {
+	EventID  int
+	Meta     model.EventStoryMeta
+	Episodes []OrderedEpisode
 }
 
 func (s *Store) ExportEntryLocalizations() ([]EntryLocalizationRecord, error) {
@@ -274,6 +284,17 @@ func (s *Store) ImportTranslationContent(entries []EntryLocalizationRecord, even
 		return err
 	}
 	defer tx.Rollback()
+	if err := importTranslationContentTx(tx, entries, events, lyrics); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.NotifyChange()
+	return nil
+}
+
+func importTranslationContentTx(tx *sql.Tx, entries []EntryLocalizationRecord, events EventContentExport, lyrics LyricsContentExport) error {
 	// These side tables intentionally do not reference legacy event parents so
 	// previous binaries can keep doing replace-imports without cascading away
 	// new locale data. Restore still validates parent identity explicitly.
@@ -380,9 +401,92 @@ func (s *Store) ImportTranslationContent(entries []EntryLocalizationRecord, even
 			return err
 		}
 	}
+	return nil
+}
+
+// RestoreBackup commits the legacy public projection and optional additive
+// content in one transaction. A missing additive manifest is an old backup: it
+// deliberately clears multilingual and lyrics-only state instead of retaining
+// unrelated data from the database being replaced.
+func (s *Store) RestoreBackup(categories map[string]model.Category, events []LegacyEventRestore,
+	entries []EntryLocalizationRecord, eventContent EventContentExport, lyrics LyricsContentExport,
+	additivePresent bool, actor string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, category := range model.SupportedCategories {
+		content, ok := categories[category]
+		if !ok {
+			continue
+		}
+		if err := importCategoryTx(tx, category, content); err != nil {
+			return fmt.Errorf("import %s: %w", category, err)
+		}
+	}
+	for _, event := range events {
+		if err := importOrderedTx(tx, event.EventID, event.Meta, event.Episodes, false); err != nil {
+			return fmt.Errorf("import event %d: %w", event.EventID, err)
+		}
+	}
+	if additivePresent {
+		if err := importTranslationContentTx(tx, entries, eventContent, lyrics); err != nil {
+			return err
+		}
+	} else {
+		for _, statement := range []string{
+			`DELETE FROM entry_localizations`,
+			`DELETE FROM event_story_locale_meta`,
+			`DELETE FROM event_story_segment_localizations WHERE locale<>'zh-CN'`,
+			`DELETE FROM song_lyrics_publications`,
+			`DELETE FROM song_lyric_segments`,
+			`DELETE FROM song_lyric_lines`,
+			`DELETE FROM song_lyrics`,
+			`DELETE FROM catalog_performers`,
+			`DELETE FROM catalog_music`,
+		} {
+			if _, err := tx.Exec(statement); err != nil {
+				return err
+			}
+		}
+	}
+	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'backup.restore', ?)`,
+		time.Now().Unix(), actor, fmt.Sprintf("additive=%t categories=%d events=%d", additivePresent, len(categories), len(events))); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 	s.NotifyChange()
+	return nil
+}
+
+func importCategoryTx(tx *sql.Tx, category string, content model.Category) error {
+	if _, err := tx.Exec(`DELETE FROM entries WHERE category=?`, category); err != nil {
+		return err
+	}
+	now := time.Now().Unix()
+	for field, entries := range content {
+		for jpKey, entry := range entries {
+			idsJSON := ""
+			if len(entry.Ids) > 0 {
+				encoded, err := json.Marshal(entry.Ids)
+				if err != nil {
+					return err
+				}
+				idsJSON = string(encoded)
+			}
+			source := entry.Source
+			if source == "" {
+				source = model.SourceUnknown
+			}
+			if _, err := tx.Exec(`INSERT INTO entries
+				(category, field, jp_key, cn_text, source, ids_json, updated_at, updated_by)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'restore')`, category, field, jpKey, entry.Text, source, idsJSON, now); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

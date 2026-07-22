@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -214,6 +215,10 @@ func (s *Store) UpdateEntryLocale(category, field, key, text, source, user, loca
 		text=excluded.text, source=excluded.source, updated_at=excluded.updated_at,
 		updated_by=excluded.updated_by, revision=entry_localizations.revision+1`,
 		category, field, key, locale, text, source, now, user); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'entry.locale.update', ?)`,
+		now, user, fmt.Sprintf("locale=%s category=%s field=%s", locale, category, field)); err != nil {
 		return "", err
 	}
 	if err := tx.Commit(); err != nil {

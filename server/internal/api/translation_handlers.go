@@ -127,7 +127,11 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		if explicit {
 			payload["locale"] = locale
 		}
-		s.broadcast(sse.EventEntryUpdated, payload)
+		event := sse.EventEntryUpdated
+		if explicit && locale != model.LocaleChinese {
+			event = sse.EventEntryLocaleUpdated
+		}
+		s.broadcast(event, payload)
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": status})
 }

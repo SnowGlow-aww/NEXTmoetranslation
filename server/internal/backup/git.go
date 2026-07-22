@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"moesekai/server/internal/config"
+	"moesekai/server/internal/files"
 	"moesekai/server/internal/importer"
 )
 
@@ -17,12 +18,16 @@ import (
 // "translations" directory under parent, returning its path. This is the backup
 // payload (same layout the consumer site and legacy backups use).
 func (m *Manager) materializeTranslations(parent string) (string, error) {
+	return materializeTranslationsWithGenerator(parent, m.gen)
+}
+
+func materializeTranslationsWithGenerator(parent string, generator *files.Generator) (string, error) {
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return "", err
 	}
 	// Generator.WriteAll writes <outDir>/translation/...; backups historically
 	// used a top-level "translations" dir, so generate then point at it.
-	gen := m.gen.WithOutDir(parent)
+	gen := generator.WithOutDir(parent)
 	if _, err := gen.WriteAll(); err != nil {
 		return "", err
 	}
@@ -70,15 +75,11 @@ func (m *Manager) backupGit() error {
 	// Replace translations/ with freshly generated data.
 	target := filepath.Join(repoDir, "translations")
 	_ = os.RemoveAll(target)
-	srcDir, err := m.materializeTranslations(work)
+	srcDir, contentDir, err := m.materializeBackupPayload(work)
 	if err != nil {
 		return err
 	}
 	if err := copyDir(srcDir, target); err != nil {
-		return err
-	}
-	contentDir, err := m.materializeTranslationContent(work)
-	if err != nil {
 		return err
 	}
 	contentTarget := filepath.Join(repoDir, "translation-content")
@@ -114,7 +115,11 @@ func (m *Manager) initFreshBackupRepo(repoDir, repoURL, branch string) error {
 	return git(repoDir, "remote", "add", "origin", repoURL)
 }
 
-func (m *Manager) restoreGit() (importer.Result, error) {
+func (m *Manager) restoreGit(actors ...string) (importer.Result, error) {
+	actor := ""
+	if len(actors) > 0 {
+		actor = actors[0]
+	}
 	repoURL := m.cfg.Get(config.KeyBackupGitRepoURL)
 	branch := m.cfg.GetOr(config.KeyBackupGitBranch, "backup-translations")
 	if strings.TrimSpace(repoURL) == "" {
@@ -139,11 +144,11 @@ func (m *Manager) restoreGit() (importer.Result, error) {
 	if err != nil {
 		return importer.Result{}, err
 	}
-	result, err := importer.ImportDir(src, m.store, m.eventStr)
+	payload, result, err := importer.ReadDir(src)
 	if err != nil {
 		return result, err
 	}
-	if err := m.importTranslationContent(content, present); err != nil {
+	if err := m.store.RestoreBackup(payload.Categories, payload.Events, content.Entries, content.Events, content.Lyrics, present, actor); err != nil {
 		return result, err
 	}
 	return result, nil

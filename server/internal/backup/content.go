@@ -8,10 +8,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"moesekai/server/internal/db"
+	"moesekai/server/internal/files"
 	"moesekai/server/internal/store"
 )
 
 const translationContentSchemaVersion = 1
+
+var backupSnapshotCreatedHook func() error
 
 type contentManifest struct {
 	SchemaVersion int                   `json:"schemaVersion"`
@@ -31,6 +35,10 @@ type translationContent struct {
 }
 
 func (m *Manager) materializeTranslationContent(parent string) (string, error) {
+	return materializeTranslationContentFromStore(parent, m.store)
+}
+
+func materializeTranslationContentFromStore(parent string, source *store.Store) (string, error) {
 	dir := filepath.Join(parent, "translation-content")
 	if err := os.RemoveAll(dir); err != nil {
 		return "", err
@@ -38,15 +46,15 @@ func (m *Manager) materializeTranslationContent(parent string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	entries, err := m.store.ExportEntryLocalizations()
+	entries, err := source.ExportEntryLocalizations()
 	if err != nil {
 		return "", err
 	}
-	events, err := m.store.ExportEventContent()
+	events, err := source.ExportEventContent()
 	if err != nil {
 		return "", err
 	}
-	lyrics, err := m.store.ExportLyricsContent()
+	lyrics, err := source.ExportLyricsContent()
 	if err != nil {
 		return "", err
 	}
@@ -81,6 +89,44 @@ func (m *Manager) materializeTranslationContent(parent string) (string, error) {
 		return "", err
 	}
 	return dir, nil
+}
+
+func (m *Manager) materializeBackupPayload(parent string) (string, string, error) {
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return "", "", err
+	}
+	snapshotPath := filepath.Join(parent, "backup-snapshot.db")
+	_ = os.Remove(snapshotPath)
+	if err := m.store.Snapshot(snapshotPath); err != nil {
+		return "", "", err
+	}
+	defer func() {
+		_ = os.Remove(snapshotPath)
+		_ = os.Remove(snapshotPath + "-wal")
+		_ = os.Remove(snapshotPath + "-shm")
+	}()
+	if backupSnapshotCreatedHook != nil {
+		if err := backupSnapshotCreatedHook(); err != nil {
+			return "", "", err
+		}
+	}
+	snapshotDB, err := db.Open(snapshotPath)
+	if err != nil {
+		return "", "", err
+	}
+	defer snapshotDB.Close()
+	snapshotStore := store.New(snapshotDB)
+	snapshotEvents := store.NewEventStore(snapshotDB)
+	snapshotGenerator := files.NewGenerator(snapshotStore, snapshotEvents, parent)
+	translations, err := materializeTranslationsWithGenerator(parent, snapshotGenerator)
+	if err != nil {
+		return "", "", err
+	}
+	content, err := materializeTranslationContentFromStore(parent, snapshotStore)
+	if err != nil {
+		return "", "", err
+	}
+	return translations, content, nil
 }
 
 func readTranslationContent(dir string) (translationContent, bool, error) {

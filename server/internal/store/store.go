@@ -12,6 +12,13 @@ import (
 	"moesekai/server/internal/model"
 )
 
+// Snapshot writes a point-in-time SQLite copy including committed WAL content.
+// The destination must not already exist.
+func (s *Store) Snapshot(path string) error {
+	_, err := s.db.Exec(`VACUUM INTO ?`, path)
+	return err
+}
+
 // Store provides CRUD over translation entries backed by SQLite.
 type Store struct {
 	db *db.DB

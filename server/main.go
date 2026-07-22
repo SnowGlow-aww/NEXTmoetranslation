@@ -117,32 +117,7 @@ func main() {
 		fileService.Handler().ServeHTTP(w, r)
 	})
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"status":"ok"}`)
-	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if err := database.PingContext(ctx); err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprint(w, `{"status":"not_ready"}`)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"status":"ready"}`)
-	})
-	mux.HandleFunc("/healthz/details", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status": "ok",
-			"requests": map[string]uint64{
-				"total": httpRequestTotal.Load(), "clientErrors": httpClientErrors.Load(),
-				"serverErrors": httpServerErrors.Load(),
-			},
-		})
-	})
+	registerOperationalRoutes(mux, database, authSvc)
 
 	// Catch-all: serve the statically-exported console SPA. More specific routes
 	// above (/api/, /files/, /healthz, /sse) take precedence in ServeMux, so "/"
@@ -171,15 +146,49 @@ func main() {
 	if !cfg.HasMasterKey() {
 		log.Println("  WARNING: MOESEKAI_MASTER_KEY not set — secrets cannot be stored")
 	}
-	httpServer := &http.Server{
-		Addr:              ":" + port,
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       2 * time.Minute,
-		MaxHeaderBytes:    1 << 20,
-	}
+	httpServer := newHTTPServer(":"+port, handler)
 	if err := httpServer.ListenAndServe(); err != nil {
 		fatal("listen", err)
+	}
+}
+
+func registerOperationalRoutes(mux *http.ServeMux, database *db.DB, authSvc *auth.Auth) {
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":"ok"}`)
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := database.PingContext(ctx); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":"ready"}`)
+	})
+	mux.HandleFunc("/healthz/details", authSvc.RequireAdmin(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status": "ok",
+			"requests": map[string]uint64{
+				"total": httpRequestTotal.Load(), "clientErrors": httpClientErrors.Load(),
+				"serverErrors": httpServerErrors.Load(),
+			},
+		})
+	}))
+}
+
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    1 << 20,
 	}
 }
 

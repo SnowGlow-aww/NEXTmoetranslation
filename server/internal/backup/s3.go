@@ -53,11 +53,7 @@ func (m *Manager) backupS3() error {
 	work := filepath.Join(m.workDir, "s3-backup")
 	_ = os.RemoveAll(work)
 	defer os.RemoveAll(work)
-	srcDir, err := m.materializeTranslations(work)
-	if err != nil {
-		return err
-	}
-	contentDir, err := m.materializeTranslationContent(work)
+	srcDir, contentDir, err := m.materializeBackupPayload(work)
 	if err != nil {
 		return err
 	}
@@ -82,7 +78,11 @@ func (m *Manager) backupS3() error {
 	return m.s3Put(cfg, latestKey, tarball)
 }
 
-func (m *Manager) restoreS3() (importer.Result, error) {
+func (m *Manager) restoreS3(actors ...string) (importer.Result, error) {
+	actor := ""
+	if len(actors) > 0 {
+		actor = actors[0]
+	}
 	cfg, err := m.s3Config()
 	if err != nil {
 		return importer.Result{}, err
@@ -116,11 +116,11 @@ func (m *Manager) restoreS3() (importer.Result, error) {
 	if err != nil {
 		return importer.Result{}, err
 	}
-	result, err := importer.ImportDir(src, m.store, m.eventStr)
+	payload, result, err := importer.ReadDir(src)
 	if err != nil {
 		return result, err
 	}
-	if err := m.importTranslationContent(content, present); err != nil {
+	if err := m.store.RestoreBackup(payload.Categories, payload.Events, content.Entries, content.Events, content.Lyrics, present, actor); err != nil {
 		return result, err
 	}
 	return result, nil

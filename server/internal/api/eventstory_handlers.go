@@ -135,7 +135,11 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 	if req.SegmentID != "" {
 		payload["segmentId"] = req.SegmentID
 	}
-	s.broadcast(sse.EventStoryUpdated, payload)
+	event := sse.EventStoryUpdated
+	if explicit && locale != model.LocaleChinese {
+		event = sse.EventStoryLocaleUpdated
+	}
+	s.broadcast(event, payload)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

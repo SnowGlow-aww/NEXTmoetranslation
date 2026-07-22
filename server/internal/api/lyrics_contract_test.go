@@ -222,6 +222,13 @@ func TestLyricsSourcePreviewContract(t *testing.T) {
 	if result.RevisionID != 34 || len(result.Lines) != 1 || result.Lines[0].Japanese != "歌詞" {
 		t.Fatalf("source preview = %+v", result)
 	}
+	var auditCount int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE user='alice' AND action IN ('lyrics.source.search', 'lyrics.source.preview')`).Scan(&auditCount); err != nil {
+		t.Fatal(err)
+	}
+	if auditCount != 2 {
+		t.Fatalf("source audit count = %d", auditCount)
+	}
 }
 
 func TestLyricsSourceFailureIsSanitized(t *testing.T) {

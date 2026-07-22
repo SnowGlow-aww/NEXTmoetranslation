@@ -32,6 +32,20 @@ func openTranslatorConfig(t *testing.T) *config.Config {
 	return cfg
 }
 
+func TestOrderedEpisodesKeepDuplicatePositionalLines(t *testing.T) {
+	episodes := toOrderedEpisodes(map[string]builtEpisode{"1": {
+		episodeNo: "1", scenarioID: "scenario", title: "title",
+		talkKeys: []string{"same"}, talkData: map[string]string{"same": "legacy"},
+		lines: []store.OrderedLine{
+			{JPKey: "same", Text: "first", Source: "cn"},
+			{JPKey: "same", Text: "second", Source: "cn"},
+		},
+	}}, "cn")
+	if len(episodes) != 1 || len(episodes[0].Lines) != 2 || episodes[0].Lines[0].Text != "first" || episodes[0].Lines[1].Text != "second" {
+		t.Fatalf("ordered duplicate lines = %+v", episodes)
+	}
+}
+
 func openTestTranslator(t *testing.T) (*Translator, *store.EventStore, *config.Config) {
 	t.Helper()
 	database, err := db.Open(t.TempDir() + "/translator.db")

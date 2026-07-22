@@ -24,6 +24,56 @@ type Result struct {
 	Warnings     []string
 }
 
+type Payload struct {
+	Categories map[string]model.Category
+	Events     []store.LegacyEventRestore
+}
+
+// ReadDir parses a complete restore candidate without mutating the database.
+// Callers that need all-or-nothing restore can validate additive content and
+// commit this payload with it in one transaction.
+func ReadDir(src string) (Payload, Result, error) {
+	payload := Payload{Categories: map[string]model.Category{}}
+	var res Result
+	for _, cat := range model.SupportedCategories {
+		category, warnings, err := legacy.LoadCategory(src, cat)
+		if err != nil {
+			continue
+		}
+		payload.Categories[cat] = category
+		res.Warnings = append(res.Warnings, warnings...)
+		res.Categories++
+		for _, entries := range category {
+			res.Entries += len(entries)
+		}
+	}
+	storyFiles, _ := filepath.Glob(filepath.Join(src, "eventStory", "event_*.json"))
+	for _, file := range storyFiles {
+		eventID := eventIDFromPath(file)
+		if eventID <= 0 {
+			continue
+		}
+		story, err := legacy.LoadEventStory(file)
+		if err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("event %d: %v", eventID, err))
+			continue
+		}
+		episodes := make([]store.OrderedEpisode, 0, len(story.EpisodeKeys))
+		for _, no := range story.EpisodeKeys {
+			episode := story.Episodes[no]
+			episodes = append(episodes, store.OrderedEpisode{
+				EpisodeNo: no, ScenarioID: episode.ScenarioID, Title: episode.Title,
+				TitleSource: episode.TitleSource, TalkKeys: episode.TalkKeys,
+				TalkData: episode.TalkData, TalkSources: episode.TalkSources,
+				SpeakerNames: episode.SpeakerNames,
+			})
+		}
+		payload.Events = append(payload.Events, store.LegacyEventRestore{EventID: eventID, Meta: story.Meta, Episodes: episodes})
+		res.EventStories++
+	}
+	return payload, res, nil
+}
+
 // ImportDir loads every category and event story under src into the stores,
 // then fires a single change notification so public files regenerate. src must
 // directly contain X.json/X.full.json and an eventStory/ subdir.

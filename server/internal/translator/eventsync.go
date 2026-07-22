@@ -19,9 +19,11 @@ type builtEpisode struct {
 	episodeNo    string
 	scenarioID   string
 	title        string
+	sourceTitle  string
 	talkKeys     []string
 	talkData     map[string]string
 	speakerNames map[string]string
+	lines        []store.OrderedLine
 }
 
 type eventStorySyncOutcome struct {
@@ -51,10 +53,12 @@ func toOrderedEpisodes(eps map[string]builtEpisode, lineSource string) []store.O
 			ScenarioID:   ep.scenarioID,
 			Title:        ep.title,
 			TitleSource:  lineSource,
+			SourceTitle:  ep.sourceTitle,
 			TalkKeys:     ep.talkKeys,
 			TalkData:     ep.talkData,
 			TalkSources:  sources,
 			SpeakerNames: ep.speakerNames,
+			Lines:        ep.lines,
 		})
 	}
 	return out
@@ -253,12 +257,15 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 		talkData := map[string]string{}
 		speakerNames := map[string]string{}
 		var talkOrder []string
+		var episodeLines []store.OrderedLine
 		seen := map[string]bool{}
 		for i := 0; i < len(jpTalk) && i < len(cnTalk); i++ {
 			jpBody := strings.TrimSpace(getString(jpTalk[i], "Body"))
 			cnBody := strings.TrimSpace(getString(cnTalk[i], "Body"))
 			cnSpeaker := strings.TrimSpace(getString(cnTalk[i], "WindowDisplayName"))
 			if jpBody != "" && cnBody != "" && jpBody != cnBody {
+				line := store.OrderedLine{JPKey: jpBody, Text: cnBody, Source: "cn", SpeakerName: cnSpeaker}
+				episodeLines = append(episodeLines, line)
 				talkData[jpBody] = cnBody
 				if !seen[jpBody] {
 					talkOrder = append(talkOrder, jpBody)
@@ -271,6 +278,7 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 			jpName := strings.TrimSpace(getString(jpTalk[i], "WindowDisplayName"))
 			cnName := strings.TrimSpace(getString(cnTalk[i], "WindowDisplayName"))
 			if jpName != "" && cnName != "" && jpName != cnName {
+				episodeLines = append(episodeLines, store.OrderedLine{JPKey: jpName, Text: cnName, Source: "cn"})
 				talkData[jpName] = cnName
 				if !seen[jpName] {
 					talkOrder = append(talkOrder, jpName)
@@ -295,9 +303,11 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 			episodeNo:    strconv.Itoa(epNo),
 			scenarioID:   scenarioID,
 			title:        cnTitle,
+			sourceTitle:  strings.TrimSpace(getString(ep, "title")),
 			talkKeys:     talkOrder,
 			talkData:     talkData,
 			speakerNames: speakerNames,
+			lines:        episodeLines,
 		}
 	}
 	return episodes, hasTalk, hasTitleOnly, errs
@@ -359,7 +369,7 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 			if title != "" {
 				episodes[strconv.Itoa(epNo)] = builtEpisode{
 					episodeNo: strconv.Itoa(epNo), scenarioID: scenarioID,
-					title: title, talkData: map[string]string{},
+					title: title, sourceTitle: title, talkData: map[string]string{},
 				}
 			}
 			continue
@@ -369,11 +379,13 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 		talkData := map[string]string{}
 		speakerNames := map[string]string{}
 		var talkOrder []string
+		var episodeLines []store.OrderedLine
 		seen := map[string]bool{}
 		for _, talk := range jpTalk {
 			jpBody := strings.TrimSpace(getString(talk, "Body"))
 			jpSpeaker := strings.TrimSpace(getString(talk, "WindowDisplayName"))
 			if jpBody != "" {
+				episodeLines = append(episodeLines, store.OrderedLine{JPKey: jpBody, Text: "", Source: "jp_pending", SpeakerName: jpSpeaker})
 				talkData[jpBody] = ""
 				if !seen[jpBody] {
 					talkOrder = append(talkOrder, jpBody)
@@ -384,6 +396,7 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 				}
 			}
 			if jpSpeaker != "" {
+				episodeLines = append(episodeLines, store.OrderedLine{JPKey: jpSpeaker, Text: "", Source: "jp_pending"})
 				talkData[jpSpeaker] = ""
 				if !seen[jpSpeaker] {
 					talkOrder = append(talkOrder, jpSpeaker)
@@ -396,7 +409,7 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 		}
 		episodes[strconv.Itoa(epNo)] = builtEpisode{
 			episodeNo: strconv.Itoa(epNo), scenarioID: scenarioID,
-			title: title, talkKeys: talkOrder, talkData: talkData, speakerNames: speakerNames,
+			title: title, sourceTitle: title, talkKeys: talkOrder, talkData: talkData, speakerNames: speakerNames, lines: episodeLines,
 		}
 	}
 	return episodes, errs

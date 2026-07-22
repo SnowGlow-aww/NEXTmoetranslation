@@ -32,6 +32,10 @@ func TestLocaleEntryIsolationAndValidation(t *testing.T) {
 	if got := findEntry(englishEntries, "human-key"); got.Text != "English editorial" || got.Source != model.SourceHuman {
 		t.Fatalf("English entry = %+v", got)
 	}
+	var localeAudits int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='entry.locale.update' AND user='alice'`).Scan(&localeAudits); err != nil || localeAudits != 1 {
+		t.Fatalf("locale audit count=%d err=%v", localeAudits, err)
+	}
 	if got := findEntry(englishEntries, "cn-key"); got.Text != "" || got.Source != model.SourceUnknown {
 		t.Fatalf("missing English entry = %+v", got)
 	}
@@ -102,6 +106,10 @@ func TestLocaleEventStoryUsesStableSegmentsAndKeepsLegacyProjection(t *testing.T
 	if update.StatusCode != http.StatusOK {
 		t.Fatalf("English event update status = %d", update.StatusCode)
 	}
+	var eventAudits int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='event.locale.update' AND user='alice'`).Scan(&eventAudits); err != nil || eventAudits != 1 {
+		t.Fatalf("event locale audit count=%d err=%v", eventAudits, err)
+	}
 
 	localized := authorizedRequest(t, h, http.MethodGet, "/api/event-story?eventId=42&locale=en-US", nil)
 	defer localized.Body.Close()
@@ -130,6 +138,7 @@ func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	eventData := make(chan map[string]any, 1)
+	legacyEvent := make(chan struct{}, 1)
 	go func() {
 		reader := bufio.NewReader(resp.Body)
 		var event string
@@ -142,10 +151,14 @@ func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
 			if strings.HasPrefix(line, "event: ") {
 				event = strings.TrimPrefix(line, "event: ")
 			}
-			if event == "entry.updated" && strings.HasPrefix(line, "data: ") {
+			if event == "entry.locale.updated" && strings.HasPrefix(line, "data: ") {
 				var data map[string]any
 				_ = json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &data)
 				eventData <- data
+				return
+			}
+			if event == "entry.updated" && strings.HasPrefix(line, "data: ") {
+				legacyEvent <- struct{}{}
 				return
 			}
 		}
@@ -156,6 +169,8 @@ func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
 	})
 	update.Body.Close()
 	select {
+	case <-legacyEvent:
+		t.Fatal("English edit was broadcast on the legacy Chinese SSE event")
 	case data := <-eventData:
 		if data["locale"] != model.LocaleEnglish || data["key"] != "cn-key" || data["text"] != "English" {
 			t.Fatalf("localized SSE payload = %#v", data)

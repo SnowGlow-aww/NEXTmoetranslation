@@ -111,6 +111,11 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 			copy := current.lyrics
 			return model.SongLyrics{}, &LyricsContractError{Code: "revision_conflict", Current: &copy}
 		}
+		if lyricsProvenanceChanged(normalized, current.lyrics) {
+			return model.SongLyrics{}, &LyricsContractError{
+				Code: "source_drift", Details: []string{"source page, revision, SHA1, fetched timestamp, and URL are immutable after first save"},
+			}
+		}
 		if sourceHash != current.sourceHash {
 			return model.SongLyrics{}, &LyricsContractError{
 				Code: "source_drift", Details: []string{"ordered line IDs or Japanese source text changed"},
@@ -162,6 +167,10 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 			}
 		}
 	}
+	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'lyrics.save', ?)`,
+		now, user, fmt.Sprintf("musicId=%d revision=%d", normalized.MusicID, nextRevision)); err != nil {
+		return model.SongLyrics{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return model.SongLyrics{}, err
 	}
@@ -172,7 +181,7 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 	return normalized, nil
 }
 
-func (s *Store) PublishLyrics(musicID, revision int) (model.SongLyrics, error) {
+func (s *Store) PublishLyrics(musicID, revision int, users ...string) (model.SongLyrics, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return model.SongLyrics{}, err
@@ -224,6 +233,10 @@ func (s *Store) PublishLyrics(musicID, revision int) (model.SongLyrics, error) {
 		musicID, revision, updatedAt, string(payload)); err != nil {
 		return model.SongLyrics{}, err
 	}
+	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'lyrics.publish', ?)`,
+		time.Now().Unix(), optionalActor(users), fmt.Sprintf("musicId=%d revision=%d", musicID, revision)); err != nil {
+		return model.SongLyrics{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return model.SongLyrics{}, err
 	}
@@ -232,7 +245,7 @@ func (s *Store) PublishLyrics(musicID, revision int) (model.SongLyrics, error) {
 	return current.lyrics, nil
 }
 
-func (s *Store) UnpublishLyrics(musicID, revision int) (model.SongLyrics, error) {
+func (s *Store) UnpublishLyrics(musicID, revision int, users ...string) (model.SongLyrics, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return model.SongLyrics{}, err
@@ -254,6 +267,10 @@ func (s *Store) UnpublishLyrics(musicID, revision int) (model.SongLyrics, error)
 		return model.SongLyrics{}, err
 	}
 	if _, err := tx.Exec(`DELETE FROM song_lyrics_publications WHERE music_id=?`, musicID); err != nil {
+		return model.SongLyrics{}, err
+	}
+	if _, err := tx.Exec(`INSERT INTO audit_log(ts, user, action, detail) VALUES (?, ?, 'lyrics.unpublish', ?)`,
+		time.Now().Unix(), optionalActor(users), fmt.Sprintf("musicId=%d revision=%d", musicID, revision)); err != nil {
 		return model.SongLyrics{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -395,7 +412,18 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 		var concatenated strings.Builder
 		for segmentIndex, segment := range line.Segments {
 			concatenated.WriteString(segment.Text)
+			seenPerformers := map[int]bool{}
+			if publishing && len(segment.PerformerIDs) == 0 {
+				publicationDetails = append(publicationDetails,
+					fmt.Sprintf("%s.segments[%d] requires at least one performerId", path, segmentIndex))
+			}
 			for _, performerID := range segment.PerformerIDs {
+				if seenPerformers[performerID] {
+					performerDetails = append(performerDetails,
+						fmt.Sprintf("%s.segments[%d] has duplicate performerId %d", path, segmentIndex, performerID))
+					continue
+				}
+				seenPerformers[performerID] = true
 				if !performers[performerID] {
 					performerDetails = append(performerDetails,
 						fmt.Sprintf("%s.segments[%d] has invalid performerId %d", path, segmentIndex, performerID))
@@ -419,6 +447,12 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 		return "incomplete_publication", publicationDetails, ""
 	}
 	return "", nil, lyricsSourceHash(lyrics.Lines)
+}
+
+func lyricsProvenanceChanged(left, right model.SongLyrics) bool {
+	return left.SourcePageID != right.SourcePageID || left.SourceRevisionID != right.SourceRevisionID ||
+		left.SourceSHA1 != right.SourceSHA1 || left.SourceFetchedAt != right.SourceFetchedAt ||
+		left.SourceURL != right.SourceURL
 }
 
 func validateLyricsProvenance(lyrics model.SongLyrics) (int64, error) {

@@ -145,6 +145,13 @@ func TestLyricsValidationCodes(t *testing.T) {
 		t.Fatalf("performer error = %#v", err)
 	}
 
+	duplicatePerformer := validLyrics()
+	duplicatePerformer.Lines[0].Segments[0].PerformerIDs = []int{1, 1}
+	_, err = s.SaveLyrics(duplicatePerformer, "editor")
+	if !errors.As(err, &contractErr) || contractErr.Code != "invalid_performer" {
+		t.Fatalf("duplicate performer error = %#v", err)
+	}
+
 	incomplete := validLyrics()
 	incomplete.Lines[0].English = ""
 	saved, err := s.SaveLyrics(incomplete, "editor")
@@ -154,6 +161,33 @@ func TestLyricsValidationCodes(t *testing.T) {
 	_, err = s.PublishLyrics(10, saved.Revision)
 	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" {
 		t.Fatalf("publication error = %#v", err)
+	}
+}
+
+func TestLyricsPublicationRequiresPerformerAndFreezesProvenance(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := validLyrics()
+	input.SourcePageID = 10
+	input.SourceRevisionID = 20
+	input.SourceSHA1 = "sha"
+	input.SourceFetchedAt = "2026-07-22T12:00:00Z"
+	input.Lines[0].Segments[0].PerformerIDs = nil
+	saved, err := s.SaveLyrics(input, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.PublishLyrics(saved.MusicID, saved.Revision)
+	var contractErr *LyricsContractError
+	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" {
+		t.Fatalf("missing performer publication error = %#v", err)
+	}
+
+	drift := saved
+	drift.SourceRevisionID++
+	drift.SourceSHA1 = "changed"
+	_, err = s.SaveLyrics(drift, "editor")
+	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+		t.Fatalf("provenance drift error = %#v", err)
 	}
 }
 
@@ -207,6 +241,27 @@ func TestLyricsSourceProvenanceRoundTrip(t *testing.T) {
 	var contractErr *LyricsContractError
 	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
 		t.Fatalf("partial source provenance error = %#v", err)
+	}
+}
+
+func TestLyricsMutationsWriteAuditRows(t *testing.T) {
+	s := setupLyricsStore(t)
+	saved, err := s.SaveLyrics(validLyrics(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishLyrics(saved.MusicID, saved.Revision, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UnpublishLyrics(saved.MusicID, saved.Revision, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action IN ('lyrics.save', 'lyrics.publish', 'lyrics.unpublish')`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Fatalf("lyrics audit count = %d", count)
 	}
 }
 

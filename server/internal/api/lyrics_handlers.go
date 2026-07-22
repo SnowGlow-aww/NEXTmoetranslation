@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -140,9 +141,9 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 	var result model.SongLyrics
 	var err error
 	if publish {
-		result, err = s.store.PublishLyrics(request.MusicID, request.Revision)
+		result, err = s.store.PublishLyrics(request.MusicID, request.Revision, currentUser(r))
 	} else {
-		result, err = s.store.UnpublishLyrics(request.MusicID, request.Revision)
+		result, err = s.store.UnpublishLyrics(request.MusicID, request.Revision, currentUser(r))
 	}
 	if err != nil {
 		writeLyricsError(w, err)
@@ -174,6 +175,10 @@ func (s *Server) handleLyricsSourceSearch(w http.ResponseWriter, r *http.Request
 	if items == nil {
 		items = []lyricssource.Candidate{}
 	}
+	if err := s.store.RecordAudit(currentUser(r), "lyrics.source.search", fmt.Sprintf("musicId=%d candidates=%d", musicID, len(items))); err != nil {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -204,6 +209,11 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 	preview, err := s.lyricsSrc.Preview(ctx, identity, request.PageID, request.RevisionID)
 	if err != nil {
 		writeLyricsSourceError(w, err)
+		return
+	}
+	if err := s.store.RecordAudit(currentUser(r), "lyrics.source.preview",
+		fmt.Sprintf("musicId=%d pageId=%d revisionId=%d", request.MusicID, request.PageID, request.RevisionID)); err != nil {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, preview)

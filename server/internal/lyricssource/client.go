@@ -115,6 +115,9 @@ func (c *Client) Search(ctx context.Context, identity MusicIdentity) ([]Candidat
 		if err != nil {
 			continue
 		}
+		if page.pageID != search.PageID || hasReprintRestriction(page.content, page.categories) {
+			continue
+		}
 		if verifyCandidate(identity, page.title, page.content, page.categories) {
 			result = append(result, Candidate{
 				PageID: search.PageID, Title: page.title, CanonicalURL: canonicalURL(page.title),
@@ -134,6 +137,12 @@ func (c *Client) Preview(ctx context.Context, identity MusicIdentity, pageID, re
 	if revisionID > 0 && page.revisionID != revisionID {
 		return Preview{}, ErrRevisionChanged
 	}
+	if page.pageID != pageID {
+		return Preview{}, ErrRevisionChanged
+	}
+	if hasReprintRestriction(page.content, page.categories) {
+		return Preview{}, ErrRestrictedReprint
+	}
 	if !verifyCandidate(identity, page.title, page.content, page.categories) {
 		return Preview{}, ErrAmbiguous
 	}
@@ -148,6 +157,7 @@ func (c *Client) Preview(ctx context.Context, identity MusicIdentity, pageID, re
 }
 
 type wikiPage struct {
+	pageID     int
 	title      string
 	revisionID int
 	sha1       string
@@ -211,7 +221,7 @@ func (c *Client) fetchPage(ctx context.Context, pageID, revisionID int, cacheabl
 		for _, category := range item.Categories {
 			categories = append(categories, strings.TrimPrefix(category.Title, "Category:"))
 		}
-		return wikiPage{title: item.Title, revisionID: revision.RevisionID, sha1: revision.SHA1, categories: categories, content: content}, nil
+		return wikiPage{pageID: item.PageID, title: item.Title, revisionID: revision.RevisionID, sha1: revision.SHA1, categories: categories, content: content}, nil
 	}
 	return wikiPage{}, ErrMalformedResponse
 }
@@ -238,7 +248,18 @@ func (c *Client) request(ctx context.Context, action string, params url.Values, 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "moesekai-lyrics-source/1")
 	log.Printf("[lyrics-source] request action=%s", action)
-	resp, err := c.httpClient.Do(req)
+	client := *c.httpClient
+	originalHost := req.URL.Host
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("lyrics source redirect limit exceeded")
+		}
+		if next.URL.Scheme != req.URL.Scheme || !strings.EqualFold(next.URL.Host, originalHost) {
+			return fmt.Errorf("lyrics source redirect changed origin")
+		}
+		return nil
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -341,11 +362,8 @@ var linkPattern = regexp.MustCompile(`\[\[(?:[^]|]+\|)?([^]]+)\]\]`)
 var templatePattern = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 
 func extractLyrics(content string) ([]ExtractedLine, error) {
-	lower := strings.ToLower(content)
-	for _, restriction := range []string{"no unauthorized reprints", "unauthorized reprint", "転載禁止", "無断転載禁止", "do not repost"} {
-		if strings.Contains(lower, strings.ToLower(restriction)) {
-			return nil, ErrRestrictedReprint
-		}
+	if hasReprintRestriction(content, nil) {
+		return nil, ErrRestrictedReprint
 	}
 	location := headingPattern.FindStringIndex(content)
 	if location == nil {
@@ -363,6 +381,19 @@ func extractLyrics(content string) ([]ExtractedLine, error) {
 		return extractLyricsTable(section)
 	}
 	return extractPlainLyrics(section)
+}
+
+func hasReprintRestriction(content string, categories []string) bool {
+	combined := strings.ToLower(content + "\n" + strings.Join(categories, "\n"))
+	for _, restriction := range []string{
+		"no unauthorized reprints", "unauthorized reprint", "転載禁止", "無断転載禁止", "do not repost",
+		"{{no reprint", "{{no-reprint", "{{noreprint", "reprint prohibited", "reprints prohibited",
+	} {
+		if strings.Contains(combined, strings.ToLower(restriction)) {
+			return true
+		}
+	}
+	return false
 }
 
 func extractPlainLyrics(section string) ([]ExtractedLine, error) {

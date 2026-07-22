@@ -17,6 +17,7 @@ import (
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/importer"
+	"moesekai/server/internal/legacy"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
 )
@@ -352,6 +353,114 @@ func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
 	english, err = destStore.GetEntriesLocale("cards", "prefix", "", model.LocaleEnglish)
 	if err != nil || len(english) != 1 || english[0].Text != "Hello" {
 		t.Fatalf("failed import was not atomic: entries=%+v err=%v", english, err)
+	}
+}
+
+func TestBackupPayloadUsesSingleSQLiteSnapshot(t *testing.T) {
+	h := setupLegacyBackup(t)
+	if _, err := h.store.UpdateEntryLocale("cards", "prefix", "こんにちは", "Old English", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
+		t.Fatal(err)
+	}
+	backupSnapshotCreatedHook = func() error {
+		if _, err := h.store.UpdateEntry("cards", "prefix", "こんにちは", "新中文", model.SourceHuman, "editor"); err != nil {
+			return err
+		}
+		_, err := h.store.UpdateEntryLocale("cards", "prefix", "こんにちは", "New English", model.SourceHuman, "editor", model.LocaleEnglish)
+		return err
+	}
+	t.Cleanup(func() { backupSnapshotCreatedHook = nil })
+	translations, contentDir, err := h.manager.materializeBackupPayload(t.TempDir())
+	backupSnapshotCreatedHook = nil
+	if err != nil {
+		t.Fatal(err)
+	}
+	category, _, err := legacy.LoadCategory(translations, "cards")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := category["prefix"]["こんにちは"].Text; got != "你好" {
+		t.Fatalf("legacy snapshot text = %q", got)
+	}
+	content, present, err := readTranslationContent(contentDir)
+	if err != nil || !present {
+		t.Fatalf("content present=%v err=%v", present, err)
+	}
+	if len(content.Entries) != 1 || content.Entries[0].Text != "Old English" {
+		t.Fatalf("additive snapshot entries = %+v", content.Entries)
+	}
+}
+
+func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
+	source := setupLegacyBackup(t)
+	translations, contentDir, err := source.manager.materializeBackupPayload(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, _, err := importer.ReadDir(translations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, present, err := readTranslationContent(contentDir)
+	if err != nil || !present {
+		t.Fatalf("content present=%v err=%v", present, err)
+	}
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "atomic-restore.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	destination := store.New(database)
+	if _, err := destination.ImportCategory("cards", model.Category{"prefix": {
+		"こんにちは": {Text: "Before Chinese", Source: model.SourceHuman},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := destination.UpdateEntryLocale("cards", "prefix", "こんにちは", "Before English", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
+		t.Fatal(err)
+	}
+	if err := destination.UpsertMusicCatalog([]store.MusicCatalogRecord{{MusicID: 10, JapaneseTitle: "歌", IsNewlyWrittenMusic: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := destination.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "歌手"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := destination.SaveLyrics(model.SongLyrics{MusicID: 10, Lines: []model.LyricLine{{
+		ID: "line", Order: 0, Japanese: "歌", Chinese: "歌", English: "Song",
+		Segments: []model.LyricSegment{{Text: "歌", PerformerIDs: []int{1}}},
+	}}}, "editor"); err != nil {
+		t.Fatal(err)
+	}
+
+	invalid := content
+	invalid.Events.Segments = append(invalid.Events.Segments, store.EventSegmentRecord{
+		SegmentID: "missing-parent", EventID: 999, EpisodeNo: "1", Kind: "talk", Position: 0,
+	})
+	if err := destination.RestoreBackup(payload.Categories, payload.Events, invalid.Entries, invalid.Events, invalid.Lyrics, true, "admin"); err == nil {
+		t.Fatal("invalid additive restore unexpectedly succeeded")
+	}
+	legacyBefore, err := destination.GetEntries("cards", "prefix", "")
+	if err != nil || len(legacyBefore) != 1 || legacyBefore[0].Text != "Before Chinese" {
+		t.Fatalf("failed restore changed legacy content: %+v err=%v", legacyBefore, err)
+	}
+	englishBefore, err := destination.GetEntriesLocale("cards", "prefix", "", model.LocaleEnglish)
+	if err != nil || len(englishBefore) != 1 || englishBefore[0].Text != "Before English" {
+		t.Fatalf("failed restore changed additive content: %+v err=%v", englishBefore, err)
+	}
+
+	if err := destination.RestoreBackup(payload.Categories, payload.Events, nil, store.EventContentExport{}, store.LyricsContentExport{}, false, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	englishAfter, err := destination.GetEntriesLocale("cards", "prefix", "", model.LocaleEnglish)
+	if err != nil || len(englishAfter) != 1 || englishAfter[0].Text != "" {
+		t.Fatalf("old backup retained English content: %+v err=%v", englishAfter, err)
+	}
+	if _, err := destination.GetLyrics(10); err != store.ErrLyricsNotFound {
+		t.Fatalf("old backup retained lyrics: %v", err)
+	}
+	var audits int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='backup.restore' AND user='admin'`).Scan(&audits); err != nil || audits != 1 {
+		t.Fatalf("restore audit count=%d err=%v", audits, err)
 	}
 }
 

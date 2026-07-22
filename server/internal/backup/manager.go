@@ -173,6 +173,10 @@ func (m *Manager) BackupAll() (map[string]string, error) {
 // RestoreFrom restores translations from the named target ("s3" or "git") and
 // imports them into the stores, replacing current data.
 func (m *Manager) RestoreFrom(target string) (importer.Result, error) {
+	return m.RestoreFromAs(target, "")
+}
+
+func (m *Manager) RestoreFromAs(target, actor string) (importer.Result, error) {
 	m.mu.Lock()
 	if m.status.Running {
 		m.mu.Unlock()
@@ -191,9 +195,9 @@ func (m *Manager) RestoreFrom(target string) (importer.Result, error) {
 	log.Printf("[backup] restore starting (target=%s)", target)
 	switch target {
 	case "s3":
-		res, err = m.restoreS3()
+		res, err = m.restoreS3(actor)
 	case "git":
-		res, err = m.restoreGit()
+		res, err = m.restoreGit(actor)
 	default:
 		return res, fmt.Errorf("unknown restore target: %s", target)
 	}

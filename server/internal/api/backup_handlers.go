@@ -59,7 +59,7 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "target required (s3 or git)")
 		return
 	}
-	res, err := s.backup.RestoreFrom(req.Target)
+	res, err := s.backup.RestoreFromAs(req.Target, currentUser(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

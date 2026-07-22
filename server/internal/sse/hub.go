@@ -16,13 +16,15 @@ import (
 // Event types broadcast to clients. Kept as constants so the frontend and
 // backend agree on the wire vocabulary.
 const (
-	EventEntryUpdated      = "entry.updated"
-	EventStoryUpdated      = "eventstory.updated"
-	EventSyncProgress      = "sync.progress"
-	EventTranslateProgress = "translate.progress"
-	EventBackupStatus      = "backup.status"
-	EventUpstreamStatus    = "upstream.status"
-	EventPing              = "ping"
+	EventEntryUpdated       = "entry.updated"
+	EventEntryLocaleUpdated = "entry.locale.updated"
+	EventStoryUpdated       = "eventstory.updated"
+	EventStoryLocaleUpdated = "eventstory.locale.updated"
+	EventSyncProgress       = "sync.progress"
+	EventTranslateProgress  = "translate.progress"
+	EventBackupStatus       = "backup.status"
+	EventUpstreamStatus     = "upstream.status"
+	EventPing               = "ping"
 )
 
 // Message is a single SSE payload. Data is marshaled to JSON.
