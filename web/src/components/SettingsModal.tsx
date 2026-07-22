@@ -26,7 +26,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         <AppearanceCard />
         <ShortcutCard />
         <BadgeFilterCard show={show} />
-        {role === "admin" && <DataManagementCard show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />}
+        <DataManagementCard canMutate={role === "admin"} show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
         <UpstreamStatusCard show={show} refreshKey={upstreamRefreshKey} />
       </div>
     </Modal>
@@ -195,7 +195,7 @@ function BadgeFilterCard({ show }: { show: ShowFn }) {
 
 // ---- Data management (CN sync + manual backup) ----
 
-function DataManagementCard({ show, onSyncFinished }: { show: ShowFn; onSyncFinished: () => void }) {
+function DataManagementCard({ canMutate, show, onSyncFinished }: { canMutate: boolean; show: ShowFn; onSyncFinished: () => void }) {
   const [busy, setBusy] = useState(false);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -253,8 +253,10 @@ function DataManagementCard({ show, onSyncFinished }: { show: ShowFn; onSyncFini
     <div className="card">
       <h3>数据管理</h3>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <button className="btn btn-primary" onClick={doSync} disabled={busy}>数据更新（CN 同步）</button>
-        <button className="btn btn-secondary" onClick={doBackup} disabled={busy}>手动备份</button>
+        {canMutate && <>
+          <button className="btn btn-primary" onClick={doSync} disabled={busy}>数据更新（CN 同步）</button>
+          <button className="btn btn-secondary" onClick={doBackup} disabled={busy}>手动备份</button>
+        </>}
         <button className="btn btn-ghost" onClick={reloadBackup} disabled={loading}>刷新状态</button>
       </div>
 

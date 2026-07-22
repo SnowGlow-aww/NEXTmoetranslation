@@ -49,15 +49,15 @@ test("lyrics workspace covers catalog, draft, source preview, and publication", 
   assert.doesNotMatch(editor, /sourceURL/);
 });
 
-test("editor UI hides administrative data and event controls", async () => {
+test("editor UI hides mutations while preserving read-only backup status", async () => {
   const [consoleSource, settings] = await Promise.all([
     read("src/components/Console.tsx"),
     read("src/components/SettingsModal.tsx"),
   ]);
   assert.match(consoleSource, /role === "admin" && <div className="story-toolbar-actions">/);
-  assert.match(settings, /role === "admin" && <DataManagementCard/);
-  assert.match(settings, /数据更新（CN 同步）/);
-  assert.match(settings, /手动备份/);
+  assert.match(settings, /<DataManagementCard canMutate={role === "admin"}/);
+  assert.doesNotMatch(settings, /role === "admin" && <DataManagementCard/);
+  assert.match(settings, /{canMutate && <>[\s\S]*数据更新（CN 同步）[\s\S]*手动备份[\s\S]*<\/\>}[\s\S]*刷新状态/);
 });
 
 test("lyrics transitions guard dirty publication and ignore stale song loads", async () => {
