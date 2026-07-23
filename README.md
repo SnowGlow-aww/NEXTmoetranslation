@@ -95,9 +95,12 @@ npm run dev          # http://localhost:3000，自动代理 /api 到 :8080（可
 # 发布构建必须使用经审核且带 sha256 digest 的三个基础镜像。runtime 镜像需预装
 # 固定版本的 git、CA 证书与 tzdata；Dockerfile 不会在构建时安装可变软件包。
 docker build \
-  --build-arg NODE_IMAGE='node:20.19.4-alpine3.22@sha256:<approved-digest>' \
-  --build-arg GO_IMAGE='golang:1.25.1-alpine3.22@sha256:<approved-digest>' \
-  --build-arg RUNTIME_IMAGE='<approved-runtime-with-git>@sha256:<approved-digest>' \
+  --build-arg NODE_IMAGE='node:20.19.4-alpine3.22' \
+  --build-arg NODE_IMAGE_DIGEST='<approved-64-hex-digest>' \
+  --build-arg GO_IMAGE='golang:1.25.1-alpine3.22' \
+  --build-arg GO_IMAGE_DIGEST='<approved-64-hex-digest>' \
+  --build-arg RUNTIME_IMAGE='<approved-runtime-with-git>' \
+  --build-arg RUNTIME_IMAGE_DIGEST='<approved-64-hex-digest>' \
   --build-arg VERSION='<release>' --build-arg VCS_REF="$(git rev-parse HEAD)" \
   -t moesekai-v2 .
 docker run -p 8080:8080 -v moesekai-data:/data \
@@ -107,6 +110,7 @@ docker run -p 8080:8080 -v moesekai-data:/data \
 ```
 
 镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse` 与 `/files`。仓库默认不附带 `seed-translations/`；如需首次迁移，应在部署前显式提供并验证种子。
+运行阶段固定使用非 root 的 `65532:65532`；挂载自定义宿主目录时必须预先授予该 UID/GID 写入权限。CI 所需的三个 digest 与 runtime 镜像名由同名 repository variables 提供，缺失或非 64 位小写十六进制值会使构建失败。
 
 ## 配置
 

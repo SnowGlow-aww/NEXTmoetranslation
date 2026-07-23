@@ -425,6 +425,9 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	if _, err := destination.UpdateEntryLocale("cards", "prefix", "こんにちは", "Before English", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := database.Exec(`INSERT INTO event_story_locale_meta(event_id, locale, last_updated) VALUES (99, 'en-US', 1234)`); err != nil {
+		t.Fatal(err)
+	}
 	if err := destination.UpsertMusicCatalog([]store.MusicCatalogRecord{{MusicID: 10, JapaneseTitle: "歌", IsNewlyWrittenMusic: true}}); err != nil {
 		t.Fatal(err)
 	}
@@ -466,6 +469,10 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	}
 	if exists, err := destinationEvents.Exists(99); err != nil || exists {
 		t.Fatalf("complete restore retained newer event: exists=%v err=%v", exists, err)
+	}
+	var localeMetadata int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM event_story_locale_meta`).Scan(&localeMetadata); err != nil || localeMetadata != 0 {
+		t.Fatalf("old backup retained locale metadata: count=%d err=%v", localeMetadata, err)
 	}
 	var audits int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='backup.restore' AND user='admin'`).Scan(&audits); err != nil || audits != 1 {

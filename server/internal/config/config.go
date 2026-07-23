@@ -48,6 +48,8 @@ const (
 	KeyUpstreamCNAssetsFallbackURL     = "upstream.cn_assets_fallback_url"
 	KeyUpstreamFetchConcurrency        = "upstream.fetch_concurrency"
 	KeySchedulerOn                     = "scheduler.enabled"
+	KeyUpstreamLastDataVersion         = "upstream.state.last_data_version"
+	KeyUpstreamPendingDataVersion      = "upstream.state.pending_data_version"
 
 	KeyBackupS3Enabled   = "backup.s3.enabled"
 	KeyBackupS3Endpoint  = "backup.s3.endpoint"

@@ -50,6 +50,8 @@ test("console generations fence loads and saves while tab identity reconciles re
   assert.match(consoleSource, /selectedEntry && !entryDirty/);
   assert.match(consoleSource, /event === "content\.restored"/);
   assert.match(consoleSource, /setRestoreGeneration/);
+  assert.match(consoleSource, /const captured = captureContext\(\)/);
+  assert.match(consoleSource, /if \(!contextIsCurrent\(captured\)\) return/);
 });
 
 test("lyrics workspace covers catalog, draft, source preview, and publication", async () => {
@@ -74,17 +76,25 @@ test("editor UI hides mutations while preserving read-only backup status", async
 
 test("lyrics transitions guard dirty publication and ignore stale song loads", async () => {
   const editor = await read("src/components/LyricsEditor.tsx");
-  assert.match(editor, /lyricsLoadSequence\.current !== sequence/);
+  assert.match(editor, /requestIsCurrent\(sequence, item\.musicId\)/);
   assert.match(editor, /kind: "publish"/);
   assert.match(editor, /continuePendingTransition\(true\)/);
   assert.match(editor, /beforeunload/);
+  assert.match(editor, /requestIsCurrent\(sequence, musicID\)/);
+  assert.match(editor, /selectedMusicIDRef\.current = item\.musicId/);
+  assert.match(editor, /disabled={busy}/);
+  assert.match(editor, /void loadCatalog\(query\)/);
+  assert.match(editor, /void loadPerformers\(\)/);
 });
 
 test("existing account and settings surfaces remain mounted", async () => {
-  const consoleSource = await read("src/components/Console.tsx");
+  const [consoleSource, admin] = await Promise.all([
+    read("src/components/Console.tsx"), read("src/components/AdminModal.tsx"),
+  ]);
   assert.match(consoleSource, /<SettingsModal/);
   assert.match(consoleSource, /<AdminModal/);
   assert.match(consoleSource, /clearSession\(\); onLogout\(\)/);
+  assert.match(admin, /await restoreBackup\(target\); reload\(\)/);
 });
 
 test("session refresh persists expiry and recreates token-bound SSE", async () => {
@@ -94,6 +104,9 @@ test("session refresh persists expiry and recreates token-bound SSE", async () =
   assert.match(api, /EXPIRES_KEY/);
   assert.match(api, /refreshSession/);
   assert.match(api, /subscribeSessionChanged/);
+  assert.match(api, /clearSession\(token\)/);
+  assert.match(api, /navigator\.locks\?\.request/);
+  assert.match(api, /getToken\(\) !== dispatchedToken/);
   assert.match(sse, /\[enabled, token\]/);
   assert.match(sse, /content\.restored/);
   assert.match(page, /expiresAt \* 1000 - Date\.now\(\) - 60_000/);
@@ -143,6 +156,7 @@ test("web install and release inputs are immutable and verifiable", async () => 
   assert.equal(lock.includes("registry.npmmirror.com"), false);
   assert.equal(manifest.scripts.lint, "eslint src --max-warnings=0");
   assert.match(dockerfile, /npm ci --ignore-scripts/);
-  assert.match(dockerfile, /ARG NODE_IMAGE/);
-  assert.doesNotMatch(dockerfile, /FROM node:[^$]/);
+  assert.match(dockerfile, /ARG NODE_IMAGE_DIGEST/);
+  assert.match(dockerfile, /FROM \$\{NODE_IMAGE\}@sha256:\$\{NODE_IMAGE_DIGEST\}/);
+  assert.match(dockerfile, /USER 65532:65532/);
 });

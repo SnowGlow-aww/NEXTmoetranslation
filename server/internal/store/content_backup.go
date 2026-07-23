@@ -467,6 +467,7 @@ func (s *Store) RestoreBackup(categories map[string]model.Category, events []Leg
 		}
 	}
 	for _, statement := range []string{
+		`DELETE FROM event_story_locale_meta`,
 		`DELETE FROM event_story_segments`,
 		`DELETE FROM event_stories`,
 		`DELETE FROM entries`,
@@ -493,7 +494,6 @@ func (s *Store) RestoreBackup(categories map[string]model.Category, events []Leg
 	} else {
 		for _, statement := range []string{
 			`DELETE FROM entry_localizations`,
-			`DELETE FROM event_story_locale_meta`,
 			`DELETE FROM event_story_segment_localizations WHERE locale<>'zh-CN'`,
 			`DELETE FROM song_lyrics_publications`,
 			`DELETE FROM song_lyric_segments`,

@@ -267,7 +267,7 @@ function BackupCard({ show }: { show: ShowFn }) {
   const doRestore = async (target: "s3" | "git") => {
     if (!confirm(`从 ${target} 恢复将覆盖当前数据，确认？`)) return;
     setBusy(true);
-    try { await restoreBackup(target); show(`已从 ${target} 恢复`, "ok"); }
+    try { await restoreBackup(target); reload(); show(`已从 ${target} 恢复`, "ok"); }
     catch (e) { show(e instanceof Error ? e.message : "恢复失败", "err"); }
     finally { setBusy(false); }
   };

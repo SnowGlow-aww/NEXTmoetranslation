@@ -60,7 +60,9 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const [sourcePreview, setSourcePreview] = useState<LyricsSourcePreview | null>(null);
   const [previewLocale, setPreviewLocale] = useState<"ja-JP" | "zh-CN" | "en-US">("zh-CN");
   const requestSequence = useRef(0);
+  const performerSequence = useRef(0);
   const lyricsLoadSequence = useRef(0);
+  const selectedMusicIDRef = useRef<number | null>(null);
   const appliedReloadGeneration = useRef(reloadGeneration);
   const [pendingTransition, setPendingTransition] = useState<PendingTransition | null>(null);
 
@@ -78,23 +80,39 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const sequence = ++requestSequence.current;
-      getCatalogMusic(query).then((result) => {
-        if (requestSequence.current === sequence) setCatalog(result.items);
-      }).catch((reason) => show(reason instanceof Error ? reason.message : "曲目目录加载失败", "err"));
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [query, show]);
+  const loadCatalog = useCallback(async (search: string) => {
+    const sequence = ++requestSequence.current;
+    try {
+      const result = await getCatalogMusic(search);
+      if (requestSequence.current === sequence) setCatalog(result.items);
+    } catch (reason) {
+      if (requestSequence.current === sequence) show(reason instanceof Error ? reason.message : "曲目目录加载失败", "err");
+    }
+  }, [show]);
+
+  const loadPerformers = useCallback(async () => {
+    const sequence = ++performerSequence.current;
+    try {
+      const result = await getCatalogPerformers();
+      if (performerSequence.current === sequence) setPerformers(result.items);
+    } catch (reason) {
+      if (performerSequence.current === sequence) show(reason instanceof Error ? reason.message : "演唱者目录加载失败", "err");
+    }
+  }, [show]);
 
   useEffect(() => {
-    getCatalogPerformers().then((result) => setPerformers(result.items))
-      .catch((reason) => show(reason instanceof Error ? reason.message : "演唱者目录加载失败", "err"));
-  }, [show]);
+    const timer = window.setTimeout(() => { void loadCatalog(query); }, 200);
+    return () => window.clearTimeout(timer);
+  }, [loadCatalog, query]);
+
+  useEffect(() => { void loadPerformers(); }, [loadPerformers]);
+
+  const requestIsCurrent = useCallback((sequence: number, musicID: number) =>
+    lyricsLoadSequence.current === sequence && selectedMusicIDRef.current === musicID, []);
 
   const performChooseMusic = useCallback(async (item: CatalogMusicItem) => {
     const sequence = ++lyricsLoadSequence.current;
+    selectedMusicIDRef.current = item.musicId;
     setSelectedMusic(item);
     setLoading(true);
     setError(null);
@@ -102,11 +120,11 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setSourcePreview(null);
     try {
       const loaded = await getLyrics(item.musicId);
-      if (lyricsLoadSequence.current !== sequence) return;
+      if (!requestIsCurrent(sequence, item.musicId)) return;
       setLyrics(loaded);
       setBaseline(JSON.stringify(loaded));
     } catch (reason) {
-      if (lyricsLoadSequence.current !== sequence) return;
+      if (!requestIsCurrent(sequence, item.musicId)) return;
       if (reason instanceof APIError && reason.status === 404) {
         const blank = emptyLyrics(item.musicId);
         setLyrics(blank);
@@ -116,15 +134,20 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
         setError(reason instanceof APIError ? reason : new APIError(500, { error: "load_failed" }));
       }
     } finally {
-      if (lyricsLoadSequence.current === sequence) setLoading(false);
+      if (requestIsCurrent(sequence, item.musicId)) setLoading(false);
     }
-  }, []);
+  }, [requestIsCurrent]);
 
   useEffect(() => {
     if (appliedReloadGeneration.current === reloadGeneration) return;
     appliedReloadGeneration.current = reloadGeneration;
+    lyricsLoadSequence.current++;
+    requestSequence.current++;
+    performerSequence.current++;
+    void loadCatalog(query);
+    void loadPerformers();
     if (selectedMusic) void performChooseMusic(selectedMusic);
-  }, [performChooseMusic, reloadGeneration, selectedMusic]);
+  }, [loadCatalog, loadPerformers, performChooseMusic, query, reloadGeneration, selectedMusic]);
 
   const chooseMusic = (item: CatalogMusicItem) => {
     if (item.musicId === selectedMusic?.musicId) return;
@@ -228,15 +251,19 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   const saveDocument = async (): Promise<SongLyrics | null> => {
     if (!lyrics || busy) return null;
+    const sequence = lyricsLoadSequence.current;
+    const musicID = lyrics.musicId;
     setBusy(true);
     setError(null);
     try {
       const saved = await saveLyrics(lyrics);
+      if (!requestIsCurrent(sequence, musicID)) return null;
       setLyrics(saved);
       setBaseline(JSON.stringify(saved));
       show("歌词草稿已保存", "ok");
       return saved;
     } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID)) return null;
       const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "save_failed" });
       setError(apiError);
       show(sourceLabel(apiError), "err");
@@ -257,17 +284,21 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   useImperativeHandle(ref, () => ({ save, discard }));
 
   const performPublication = async (nextPublished: boolean, document: SongLyrics) => {
-	if (busy) return;
+    if (busy) return;
+    const sequence = lyricsLoadSequence.current;
+    const musicID = document.musicId;
     setBusy(true);
     setError(null);
     try {
       const result = nextPublished
-		? await publishLyrics(document.musicId, document.revision)
-		: await unpublishLyrics(document.musicId, document.revision);
+        ? await publishLyrics(document.musicId, document.revision)
+        : await unpublishLyrics(document.musicId, document.revision);
+      if (!requestIsCurrent(sequence, musicID)) return;
       setLyrics(result);
       setBaseline(JSON.stringify(result));
       show(nextPublished ? "歌词已发布" : "歌词已取消发布", "ok");
     } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID)) return;
       const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "publication_failed" });
       setError(apiError);
       show(sourceLabel(apiError), "err");
@@ -287,13 +318,17 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   const findSource = async () => {
     if (!lyrics || busy) return;
+    const sequence = lyricsLoadSequence.current;
+    const musicID = lyrics.musicId;
     setBusy(true);
     setError(null);
     try {
       const result = await searchLyricsSource(lyrics.musicId);
+      if (!requestIsCurrent(sequence, musicID)) return;
       setCandidates(result.items);
       if (result.items.length === 0) show("没有找到可核对的歌词来源", "err");
     } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID)) return;
       const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "source_unavailable" });
       setError(apiError);
       show(sourceLabel(apiError), "err");
@@ -304,11 +339,16 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   const previewSource = async (candidate: LyricsSourceCandidate) => {
     if (!lyrics || busy) return;
+    const sequence = lyricsLoadSequence.current;
+    const musicID = lyrics.musicId;
     setBusy(true);
     setSourcePreview(null);
     try {
-      setSourcePreview(await previewLyricsSource(lyrics.musicId, candidate.pageId, candidate.revisionId));
+      const preview = await previewLyricsSource(lyrics.musicId, candidate.pageId, candidate.revisionId);
+      if (!requestIsCurrent(sequence, musicID)) return;
+      setSourcePreview(preview);
     } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID)) return;
       const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "source_unavailable" });
       setError(apiError);
       show(sourceLabel(apiError), "err");
@@ -347,6 +387,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       document = await saveDocument();
       if (!document) return;
     } else if (baseline) {
+      if (pending.kind === "choose") lyricsLoadSequence.current++;
       document = JSON.parse(baseline) as SongLyrics;
       setLyrics(document);
       setError(null);
@@ -365,7 +406,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
         <input aria-label="搜索歌词曲目" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索新曲或 musicId…" />
         <div className="lyrics-catalog-list">
           {catalog.map((item) => (
-            <button key={item.musicId} className={selectedMusic?.musicId === item.musicId ? "active" : ""} onClick={() => chooseMusic(item)}>
+            <button key={item.musicId} className={selectedMusic?.musicId === item.musicId ? "active" : ""} onClick={() => chooseMusic(item)} disabled={busy}>
               <strong>{item.title["zh-CN"] || item.title["ja-JP"]}</strong>
               <span>#{item.musicId} · {item.lyricsStatus === "published" ? "已发布" : item.lyricsStatus === "draft-published" ? "草稿（旧版公开）" : item.lyricsStatus === "draft" ? "草稿" : "未录入"}</span>
             </button>

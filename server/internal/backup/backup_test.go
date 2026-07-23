@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -81,6 +82,62 @@ func TestGitErrorsRedactCredentialArgumentsAndOutput(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), secret) || !strings.Contains(err.Error(), "https://***@github.com") {
 		t.Fatalf("credential was not redacted: %v", err)
+	}
+}
+
+func TestGitRestoreTreeRejectsUnsafeAndOversizedEntries(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		setup func(*testing.T, string)
+		want  string
+	}{
+		{
+			name: "symlink",
+			setup: func(t *testing.T, root string) {
+				if err := os.Symlink(filepath.Join(root, "outside.json"), filepath.Join(root, "translations", "cards.json")); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+			},
+			want: "non-regular",
+		},
+		{
+			name: "file limit",
+			setup: func(t *testing.T, root string) {
+				if err := os.WriteFile(filepath.Join(root, "translations", "cards.json"), nil, 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Truncate(filepath.Join(root, "translations", "cards.json"), maxArchiveFileBytes+1); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: "exceeds",
+		},
+		{
+			name: "aggregate limit",
+			setup: func(t *testing.T, root string) {
+				for index := 0; index < int(maxArchiveExpandedBytes/maxArchiveFileBytes)+1; index++ {
+					path := filepath.Join(root, "translations", fmt.Sprintf("part-%d.json", index))
+					if err := os.WriteFile(path, nil, 0o600); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Truncate(path, maxArchiveFileBytes); err != nil {
+						t.Fatal(err)
+					}
+				}
+			},
+			want: "aggregate",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.Mkdir(filepath.Join(root, "translations"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			test.setup(t, root)
+			if err := validateGitRestoreTree(root); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("unsafe tree error = %v", err)
+			}
+		})
 	}
 }
 

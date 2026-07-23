@@ -2,11 +2,14 @@ package searchindex
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -145,5 +148,65 @@ func TestPartialSourceSuccessPreservesCompleteSearchIndex(t *testing.T) {
 	builder.build("partial")
 	if got := readIndex(); !bytes.Equal(got, complete) {
 		t.Fatalf("partial rebuild replaced complete index\ngot=%s\nwant=%s", got, complete)
+	}
+}
+
+func TestNewerSearchBuildSupersedesBlockedOlderGeneration(t *testing.T) {
+	var version atomic.Int32
+	version.Store(1)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var once sync.Once
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := version.Load()
+		once.Do(func() {
+			close(started)
+			<-release
+		})
+		name := fmt.Sprintf("version-%d", current)
+		if r.URL.Path == "/snowy_costumes.json" {
+			fmt.Fprintf(w, `{"costumes":[{"id":1,"name":%q}]}`, name)
+			return
+		}
+		field := "name"
+		if r.URL.Path == "/musics.json" {
+			field = "title"
+		} else if r.URL.Path == "/cards.json" {
+			field = "prefix"
+		}
+		fmt.Fprintf(w, `[{"id":1,%q:%q}]`, field, name)
+	}))
+	defer upstream.Close()
+	database, err := db.Open(filepath.Join(t.TempDir(), "generation-search.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	dataStore := store.New(database)
+	events := store.NewEventStore(database)
+	cfg, _ := config.New(database, "search-master-key")
+	_ = cfg.Set(config.KeyUpstreamJPMasterdataURL, upstream.URL)
+	_ = cfg.Set(config.KeyUpstreamJPMasterdataFallbackURL, upstream.URL)
+	fileService := filesvc.New(dataStore, events, files.NewGenerator(dataStore, events, ""))
+	builder := New(dataStore, fileService, cfg, time.Hour, time.Hour)
+	oldDone := make(chan struct{})
+	go func() { builder.build("old"); close(oldDone) }()
+	<-started
+	version.Store(2)
+	newDone := make(chan struct{})
+	go func() { builder.build("new"); close(newDone) }()
+	close(release)
+	<-oldDone
+	<-newDone
+	recorder := httptest.NewRecorder()
+	fileService.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/files/data/search-index.json", nil))
+	if recorder.Code != http.StatusOK || !bytes.Contains(recorder.Body.Bytes(), []byte("version-2")) || bytes.Contains(recorder.Body.Bytes(), []byte("version-1")) {
+		t.Fatalf("published stale search generation: status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	builder.mu.Lock()
+	result := builder.lastResult
+	builder.mu.Unlock()
+	if !strings.Contains(result, "new") {
+		t.Fatalf("last search result = %q", result)
 	}
 }

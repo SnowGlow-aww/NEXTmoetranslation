@@ -163,8 +163,21 @@ func (svc *Service) Rebuild() {
 
 // SetAsset stores a pre-rendered asset (e.g. data/search-index.json) under key.
 func (svc *Service) SetAsset(key string, body []byte, contentType string) {
+	svc.SetAssets(map[string][]byte{key: body}, contentType)
+}
+
+// SetAssets publishes a related asset set under one lock so readers cannot
+// observe mixed generations.
+func (svc *Service) SetAssets(bodies map[string][]byte, contentType string) {
+	now := time.Now()
+	prepared := make(map[string]asset, len(bodies))
+	for key, body := range bodies {
+		prepared[key] = makeAsset(body, contentType, now)
+	}
 	svc.mu.Lock()
-	svc.assets[key] = makeAsset(body, contentType, time.Now())
+	for key, value := range prepared {
+		svc.assets[key] = value
+	}
 	svc.mu.Unlock()
 }
 

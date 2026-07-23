@@ -13,9 +13,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"moesekai/server/internal/httpx"
 )
 
-const gameContextPrompt = "你是一个专业的游戏翻译器，专门翻译《世界计划 彩色舞台 feat. 初音未来》(Project SEKAI) 游戏内容。\n请将以下XML格式的日文文本翻译成简体中文。\n请只返回<translations>...</translations>，每条使用 <t id=\"N\">文本</t>。\n"
+const (
+	gameContextPrompt   = "你是一个专业的游戏翻译器，专门翻译《世界计划 彩色舞台 feat. 初音未来》(Project SEKAI) 游戏内容。\n请将以下XML格式的日文文本翻译成简体中文。\n请只返回<translations>...</translations>，每条使用 <t id=\"N\">文本</t>。\n"
+	maxLLMResponseBytes = 8 << 20
+)
 
 // callLLM translates a batch of JP texts via the given provider. Returns a
 // slice aligned to texts (empty string where unparsed).
@@ -122,12 +127,12 @@ func (t *Translator) callGemini(ctx context.Context, prompt string, cfg llmConfi
 		return "", err
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(resp.Body)
+	raw, err := httpx.ReadBody(resp, maxLLMResponseBytes, maxLLMResponseBytes)
 	if err != nil {
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("gemini http %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return "", fmt.Errorf("gemini http %d: %s", resp.StatusCode, responsePreview(raw))
 	}
 	var result struct {
 		Candidates []struct {
@@ -176,7 +181,7 @@ func (t *Translator) callOpenAI(ctx context.Context, prompt string, cfg llmConfi
 		return "", fmt.Errorf("openai http %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 	if strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "application/json") {
-		raw, err := io.ReadAll(resp.Body)
+		raw, err := httpx.ReadBody(resp, maxLLMResponseBytes, maxLLMResponseBytes)
 		if err != nil {
 			return "", err
 		}
@@ -185,6 +190,7 @@ func (t *Translator) callOpenAI(ctx context.Context, prompt string, cfg llmConfi
 	// Read SSE stream, concatenating delta content.
 	var sb strings.Builder
 	var nonSSE strings.Builder
+	aggregateBytes := 0
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
@@ -192,7 +198,9 @@ func (t *Translator) callOpenAI(ctx context.Context, prompt string, cfg llmConfi
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "data:") {
 			if trimmed != "" {
-				nonSSE.WriteString(trimmed)
+				if err := appendLLMText(&nonSSE, trimmed, &aggregateBytes); err != nil {
+					return "", err
+				}
 			}
 			continue
 		}
@@ -211,7 +219,9 @@ func (t *Translator) callOpenAI(ctx context.Context, prompt string, cfg llmConfi
 			continue
 		}
 		if len(chunk.Choices) > 0 {
-			sb.WriteString(chunk.Choices[0].Delta.Content)
+			if err := appendLLMText(&sb, chunk.Choices[0].Delta.Content, &aggregateBytes); err != nil {
+				return "", err
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -231,6 +241,22 @@ func (t *Translator) callOpenAI(ctx context.Context, prompt string, cfg llmConfi
 		return "", fmt.Errorf("openai returned empty content from stream")
 	}
 	return sb.String(), nil
+}
+
+func appendLLMText(builder *strings.Builder, value string, aggregateBytes *int) error {
+	if len(value) > maxLLMResponseBytes-*aggregateBytes {
+		return fmt.Errorf("llm response exceeds %d bytes", maxLLMResponseBytes)
+	}
+	builder.WriteString(value)
+	*aggregateBytes += len(value)
+	return nil
+}
+
+func responsePreview(raw []byte) string {
+	if len(raw) > 4096 {
+		raw = raw[:4096]
+	}
+	return strings.TrimSpace(string(raw))
 }
 
 func parseOpenAIJSONContent(raw []byte) (string, error) {

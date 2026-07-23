@@ -137,6 +137,9 @@ func (m *Manager) restoreGit(actors ...string) (importer.Result, error) {
 	if err := git(work, "clone", "--depth", "1", "--branch", branch, repoURL, repoDir); err != nil {
 		return importer.Result{}, err
 	}
+	if err := validateGitRestoreTree(repoDir); err != nil {
+		return importer.Result{}, err
+	}
 	src := filepath.Join(repoDir, "translations")
 	if err := importer.ValidateDir(src); err != nil {
 		return importer.Result{}, err
@@ -153,6 +156,69 @@ func (m *Manager) restoreGit(actors ...string) (importer.Result, error) {
 		return result, err
 	}
 	return result, nil
+}
+
+func validateGitRestoreTree(repoDir string) error {
+	resolvedRoot, err := filepath.EvalSymlinks(repoDir)
+	if err != nil {
+		return fmt.Errorf("resolve git restore root: %w", err)
+	}
+	resolvedRoot, err = filepath.Abs(resolvedRoot)
+	if err != nil {
+		return err
+	}
+	entries := 0
+	var totalBytes int64
+	for _, rootName := range []string{"translations", "translation-content"} {
+		root := filepath.Join(repoDir, rootName)
+		if _, err := os.Lstat(root); err != nil {
+			if os.IsNotExist(err) && rootName == "translation-content" {
+				continue
+			}
+			return fmt.Errorf("git restore %s: %w", rootName, err)
+		}
+		if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			entries++
+			if entries > maxArchiveEntries {
+				return fmt.Errorf("git restore exceeds %d entries", maxArchiveEntries)
+			}
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) {
+				return fmt.Errorf("git restore contains non-regular entry %s", path)
+			}
+			resolvedPath, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return err
+			}
+			resolvedPath, err = filepath.Abs(resolvedPath)
+			if err != nil {
+				return err
+			}
+			relative, err := filepath.Rel(resolvedRoot, resolvedPath)
+			if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+				return fmt.Errorf("git restore entry escapes checkout root: %s", path)
+			}
+			if info.Mode().IsRegular() {
+				if info.Size() < 0 || info.Size() > maxArchiveFileBytes {
+					return fmt.Errorf("git restore file %s exceeds %d bytes", path, maxArchiveFileBytes)
+				}
+				if totalBytes+info.Size() > maxArchiveExpandedBytes {
+					return fmt.Errorf("git restore exceeds %d aggregate bytes", maxArchiveExpandedBytes)
+				}
+				totalBytes += info.Size()
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // git runs a git command in dir with non-interactive credentials.

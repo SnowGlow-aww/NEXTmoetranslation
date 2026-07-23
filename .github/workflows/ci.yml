@@ -16,6 +16,13 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      NODE_IMAGE: node:20.19.4-alpine3.22
+      NODE_IMAGE_DIGEST: ${{ vars.NODE_IMAGE_DIGEST }}
+      GO_IMAGE: golang:1.25.1-alpine3.22
+      GO_IMAGE_DIGEST: ${{ vars.GO_IMAGE_DIGEST }}
+      RUNTIME_IMAGE: ${{ vars.RUNTIME_IMAGE }}
+      RUNTIME_IMAGE_DIGEST: ${{ vars.RUNTIME_IMAGE_DIGEST }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -45,6 +52,28 @@ jobs:
           npm run build
       - name: Verify release contracts
         run: ./scripts/verify-release.sh
+      - name: Validate immutable image inputs
+        run: |
+          for digest in "$NODE_IMAGE_DIGEST" "$GO_IMAGE_DIGEST" "$RUNTIME_IMAGE_DIGEST"; do
+            printf '%s' "$digest" | grep -Eq '^[0-9a-f]{64}$'
+          done
+          test -n "$RUNTIME_IMAGE"
+          case "$RUNTIME_IMAGE" in *@*) exit 1;; esac
+      - name: Build and inspect runtime image
+        run: |
+          docker build \
+            --build-arg NODE_IMAGE="$NODE_IMAGE" \
+            --build-arg NODE_IMAGE_DIGEST="$NODE_IMAGE_DIGEST" \
+            --build-arg GO_IMAGE="$GO_IMAGE" \
+            --build-arg GO_IMAGE_DIGEST="$GO_IMAGE_DIGEST" \
+            --build-arg RUNTIME_IMAGE="$RUNTIME_IMAGE" \
+            --build-arg RUNTIME_IMAGE_DIGEST="$RUNTIME_IMAGE_DIGEST" \
+            --build-arg VERSION="$GITHUB_SHA" \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --tag "moesekai-ci:$GITHUB_SHA" .
+          test "$(docker image inspect --format '{{.Config.User}}' "moesekai-ci:$GITHUB_SHA")" = '65532:65532'
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "moesekai-ci:$GITHUB_SHA")" = "$GITHUB_SHA"
+          docker run --rm --entrypoint /bin/sh "moesekai-ci:$GITHUB_SHA" -c 'test "$(id -u)" -eq 65532 && test -w /data && command -v git >/dev/null'
       - name: Build immutable rollback bundle
         run: |
           mkdir -p dist

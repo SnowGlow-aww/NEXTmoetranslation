@@ -38,6 +38,37 @@ func TestAITranslationUpdatesChineseAdditiveProjection(t *testing.T) {
 	}
 }
 
+func TestPromoteHumanUpdatesLegacyAndChineseSegmentProvenance(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-promote-human.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	if err := events.ImportOrdered(8, model.EventStoryMeta{Source: model.SourceCN}, []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario", Title: "标题", TitleSource: model.SourceCN,
+		TalkKeys: []string{"原文"}, TalkData: map[string]string{"原文": "译文"},
+		TalkSources: map[string]string{"原文": model.SourceLLM},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := events.PromoteHuman(8); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := events.Detail(8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localized, err := events.DetailLocale(8, model.LocaleChinese)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Episodes["1"].TitleSource != model.SourceHuman || legacy.Episodes["1"].TalkSources["原文"] != model.SourceHuman ||
+		localized.Episodes["1"].TitleSource != model.SourceHuman || localized.Episodes["1"].TalkSources["原文"] != model.SourceHuman {
+		t.Fatalf("promoted provenance diverged: legacy=%+v localized=%+v", legacy.Episodes["1"], localized.Episodes["1"])
+	}
+}
+
 func TestEnglishStoryEditsSurviveLegacyChineseReimport(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "event-locale.db"))
 	if err != nil {

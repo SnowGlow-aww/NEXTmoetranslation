@@ -14,7 +14,8 @@ export default function Home() {
   const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    if (!getToken()) {
+    const dispatchedToken = getToken();
+    if (!dispatchedToken) {
       // No session: ask the backend whether this is a fresh install needing
       // first-run admin registration, then show the right page.
       getSetupStatus()
@@ -25,10 +26,10 @@ export default function Home() {
     }
     // Validate the stored token against the backend.
     fetchMe()
-      .then(() => setLoggedIn(true))
+      .then(() => setLoggedIn(Boolean(getToken())))
       .catch(() => {
-        clearSession();
-        setLoggedIn(false);
+        if (clearSession(dispatchedToken)) setLoggedIn(false);
+        else setLoggedIn(Boolean(getToken()));
       });
   }, []);
 
@@ -36,15 +37,15 @@ export default function Home() {
     if (!loggedIn) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const expire = () => {
-      clearSession();
-      setLoggedIn(false);
+    const expire = (expectedToken: string | null) => {
+      if (clearSession(expectedToken)) setLoggedIn(false);
     };
     const schedule = () => {
       if (timer) clearTimeout(timer);
+      const scheduledToken = getToken();
       const expiresAt = getSessionExpiresAt();
       if (expiresAt > 0 && expiresAt * 1000 <= Date.now()) {
-        expire();
+        expire(scheduledToken);
         return;
       }
       const delay = expiresAt > 0 ? Math.max(1000, expiresAt * 1000 - Date.now() - 60_000) : 1000;
@@ -54,7 +55,7 @@ export default function Home() {
           if (!stopped) schedule();
         } catch {
           if (stopped) return;
-          if (getSessionExpiresAt() * 1000 <= Date.now()) expire();
+          if (getSessionExpiresAt() * 1000 <= Date.now()) expire(scheduledToken);
           else timer = setTimeout(schedule, 15_000);
         }
       }, delay);

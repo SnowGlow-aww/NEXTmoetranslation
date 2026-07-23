@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -79,16 +80,16 @@ func TestFetchVersionFallsBackToSecondarySource(t *testing.T) {
 	builtInVersionFallbackURLs = nil
 	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
 
-	primaryCalls := 0
+	var primaryCalls atomic.Int32
 	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		primaryCalls++
+		primaryCalls.Add(1)
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
 	}))
 	defer primary.Close()
 
-	fallbackCalls := 0
+	var fallbackCalls atomic.Int32
 	fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fallbackCalls++
+		fallbackCalls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, `{"appVersion":"1","dataVersion":"2","assetVersion":"3"}`)
 	}))
@@ -110,8 +111,8 @@ func TestFetchVersionFallsBackToSecondarySource(t *testing.T) {
 	if info.DataVersion != "2" || source != fallback.URL {
 		t.Fatalf("unexpected fallback result: info=%+v source=%q", info, source)
 	}
-	if primaryCalls != 1 || fallbackCalls != 1 {
-		t.Fatalf("unexpected calls: primary=%d fallback=%d", primaryCalls, fallbackCalls)
+	if primaryCalls.Load() > 1 || fallbackCalls.Load() != 1 {
+		t.Fatalf("unexpected calls: primary=%d fallback=%d", primaryCalls.Load(), fallbackCalls.Load())
 	}
 }
 
@@ -255,5 +256,70 @@ func TestFailedSyncKeepsChangedVersionPendingForRetry(t *testing.T) {
 	status, err := watcher.CheckNow(false)
 	if err != nil || calls.Load() != 2 || status.LastDataVersion != "101" || status.PendingDataVersion != "" {
 		t.Fatalf("pending version was not retried: status=%+v calls=%d err=%v", status, calls.Load(), err)
+	}
+}
+
+func TestFailedVersionPersistsAcrossWatcherRestart(t *testing.T) {
+	oldBuiltIns := builtInVersionFallbackURLs
+	builtInVersionFallbackURLs = nil
+	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
+	var version atomic.Value
+	version.Store("100")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"dataVersion":%q}`, version.Load().(string))
+	}))
+	defer server.Close()
+	databasePath := t.TempDir() + "/persistent-watcher.db"
+	database, err := db.Open(databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := config.New(database, "test-key")
+	_ = cfg.Set(config.KeyUpstreamVersionURL, server.URL)
+	_ = cfg.Set(config.KeyUpstreamVersionFallbackURL, server.URL)
+	first := New(cfg, func() error { return fmt.Errorf("transient") }, Options{})
+	if _, err := first.CheckNow(false); err != nil {
+		t.Fatal(err)
+	}
+	version.Store("101")
+	if _, err := first.CheckNow(false); err == nil {
+		t.Fatal("changed version unexpectedly synced")
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := db.Open(databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	reloadedConfig, err := config.New(reopened, "test-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted := New(reloadedConfig, func() error { return nil }, Options{})
+	if status := restarted.Status(); status.LastDataVersion != "100" || status.PendingDataVersion != "101" {
+		t.Fatalf("persisted state not restored: %+v", status)
+	}
+	status, err := restarted.CheckNow(false)
+	if err != nil || status.LastDataVersion != "101" || status.PendingDataVersion != "" {
+		t.Fatalf("restart did not retry pending version: status=%+v err=%v", status, err)
+	}
+}
+
+func TestVersionResponseSizeIsBounded(t *testing.T) {
+	oldBuiltIns := builtInVersionFallbackURLs
+	builtInVersionFallbackURLs = nil
+	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", fmt.Sprint(maxVersionResponseBytes+1))
+		_, _ = w.Write(make([]byte, maxVersionResponseBytes+1))
+	}))
+	defer server.Close()
+	cfg := openWatcherConfig(t)
+	_ = cfg.Set(config.KeyUpstreamVersionURL, server.URL)
+	_ = cfg.Set(config.KeyUpstreamVersionFallbackURL, server.URL)
+	if _, _, err := New(cfg, nil, Options{}).fetchVersion(); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized version response error = %v", err)
 	}
 }

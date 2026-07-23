@@ -21,9 +21,16 @@ if grep -q 'registry\.npmmirror\.com' web/package-lock.json; then
   echo "package lock contains a noncanonical registry" >&2
   exit 1
 fi
-for image_arg in NODE_IMAGE GO_IMAGE RUNTIME_IMAGE; do
+for image_arg in NODE_IMAGE NODE_IMAGE_DIGEST GO_IMAGE GO_IMAGE_DIGEST RUNTIME_IMAGE RUNTIME_IMAGE_DIGEST; do
   grep -q "ARG $image_arg" Dockerfile
 done
+grep -q 'FROM ${NODE_IMAGE}@sha256:${NODE_IMAGE_DIGEST}' Dockerfile
+grep -q 'FROM ${GO_IMAGE}@sha256:${GO_IMAGE_DIGEST}' Dockerfile
+grep -q 'FROM ${RUNTIME_IMAGE}@sha256:${RUNTIME_IMAGE_DIGEST}' Dockerfile
+grep -q '^USER 65532:65532$' Dockerfile
+grep -q 'docker build' .github/workflows/ci.yml
+grep -q 'docker image inspect' .github/workflows/ci.yml
+grep -q 'docker run --rm' .github/workflows/ci.yml
 grep -q 'actions/checkout@[0-9a-f]\{40\}' .github/workflows/ci.yml
 grep -q 'actions/setup-go@[0-9a-f]\{40\}' .github/workflows/ci.yml
 grep -q 'actions/setup-node@[0-9a-f]\{40\}' .github/workflows/ci.yml

@@ -56,9 +56,12 @@ type Builder struct {
 
 	triggerCh chan struct{}
 
-	mu         sync.Mutex
-	lastBuilt  time.Time
-	lastResult string
+	buildMu      sync.Mutex
+	generationMu sync.Mutex
+	generation   uint64
+	mu           sync.Mutex
+	lastBuilt    time.Time
+	lastResult   string
 }
 
 func New(s *store.Store, fsvc *filesvc.Service, cfg *config.Config, debounce, refresh time.Duration) *Builder {
@@ -132,6 +135,20 @@ func (b *Builder) catText(cat model.Category, field, jp string) string {
 }
 
 func (b *Builder) build(reason string) {
+	b.generationMu.Lock()
+	b.generation++
+	generation := b.generation
+	b.generationMu.Unlock()
+
+	b.buildMu.Lock()
+	defer b.buildMu.Unlock()
+	b.generationMu.Lock()
+	stale := generation != b.generation
+	b.generationMu.Unlock()
+	if stale {
+		return
+	}
+
 	index := make([]Entry, 0, 4096)
 	multilingual := make([]MultilingualEntry, 0, 4096)
 	successes := 0
@@ -242,15 +259,26 @@ func (b *Builder) build(reason string) {
 		fmt.Printf("[search-index] marshal failed: %v\n", err)
 		return
 	}
-	b.files.SetAsset("data/search-index.json", buf, "application/json; charset=utf-8")
-	if multilingualJSON, err := json.Marshal(multilingual); err == nil {
-		b.files.SetAsset("v2/data/search-index.json", multilingualJSON, "application/json; charset=utf-8")
-		b.files.SetAsset("v2/en-US/data/search-index.json", multilingualJSON, "application/json; charset=utf-8")
+	multilingualJSON, err := json.Marshal(multilingual)
+	if err != nil {
+		fmt.Printf("[search-index] multilingual marshal failed: %v\n", err)
+		return
 	}
+	b.generationMu.Lock()
+	if generation != b.generation {
+		b.generationMu.Unlock()
+		return
+	}
+	b.files.SetAssets(map[string][]byte{
+		"data/search-index.json":          buf,
+		"v2/data/search-index.json":       multilingualJSON,
+		"v2/en-US/data/search-index.json": multilingualJSON,
+	}, "application/json; charset=utf-8")
 	b.mu.Lock()
 	b.lastBuilt = time.Now()
 	b.lastResult = fmt.Sprintf("%d entries (%s)", len(index), reason)
 	b.mu.Unlock()
+	b.generationMu.Unlock()
 	fmt.Printf("[search-index] published %d entries (reason=%s)\n", len(index), reason)
 }
 

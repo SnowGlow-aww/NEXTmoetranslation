@@ -387,6 +387,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     try { await fn(); } finally { setBusy(false); }
   };
 
+  const captureContext = () => ({
+    generation: contextGenerationRef.current, category, field, locale,
+  });
+  const contextIsCurrent = (captured: ReturnType<typeof captureContext>) =>
+    contextGenerationRef.current === captured.generation && category === captured.category &&
+    field === captured.field && locale === captured.locale;
+
   // ---- Change source for a single entry ----
   const handleSourceChange = useCallback(async (key: string, newSource: string) => {
     if (!category || !field) return;
@@ -416,11 +423,51 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // Per-story AI gap-fill: translate only the currently open event story.
   const doAIStory = () => withBusy(async () => {
+    const captured = captureContext();
+    const eventID = Number(captured.field);
     try {
-      const r = await triggerAIStory(Number(field), "openai") as { totalTranslated?: number; totalCandidates?: number };
+      const r = await triggerAIStory(eventID, "openai") as { totalTranslated?: number; totalCandidates?: number };
+      if (!contextIsCurrent(captured)) return;
       show(`AI 补充翻译完成: ${r.totalTranslated ?? 0}/${r.totalCandidates ?? 0}`, "ok");
       reloadSidebar(); loadEntries();
-    } catch (e) { show(e instanceof Error ? e.message : "AI 翻译失败", "err"); }
+    } catch (e) {
+      if (contextIsCurrent(captured)) show(e instanceof Error ? e.message : "AI 翻译失败", "err");
+    }
+  });
+
+  const promoteStory = () => withBusy(async () => {
+    const captured = captureContext();
+    try {
+      await promoteEventStoryHuman(Number(captured.field));
+      if (!contextIsCurrent(captured)) return;
+      setEntries((current) => current.map((entry) => ({ ...entry, source: "human" })));
+      reloadSidebar();
+      show("已整篇标记人工", "ok");
+    } catch (reason) {
+      if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "标记失败", "err");
+    }
+  });
+
+  const retryStory = () => withBusy(async () => {
+    const captured = captureContext();
+    try {
+      await retryEventStory(Number(captured.field));
+      if (!contextIsCurrent(captured)) return;
+      loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok");
+    } catch (reason) {
+      if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "重新获取失败", "err");
+    }
+  });
+
+  const reorderStory = () => withBusy(async () => {
+    const captured = captureContext();
+    try {
+      await reorderEventStory(Number(captured.field));
+      if (!contextIsCurrent(captured)) return;
+      loadEntries(); show("已重排序对话", "ok");
+    } catch (reason) {
+      if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "重排序失败", "err");
+    }
   });
 
   const currentField = categories.find((c) => c.name === category)?.fields?.find((f) => f.name === field);
@@ -552,9 +599,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                 </span>
                 {role === "admin" && <div className="story-toolbar-actions">
                   <button className="btn btn-primary btn-sm" onClick={() => runOrGuard("运行 AI 剧情翻译", () => void doAIStory())} disabled={busy}>AI 补充剧情翻译</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await promoteEventStoryHuman(Number(field)); setEntries((p) => p.map((e) => ({ ...e, source: "human" }))); reloadSidebar(); show("已整篇标记人工", "ok"); })} disabled={busy}>整篇标记人工</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重新获取剧情", () => void withBusy(async () => { await retryEventStory(Number(field)); loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok"); }))} disabled={busy}>重新获取剧情</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重排序对话", () => void withBusy(async () => { await reorderEventStory(Number(field)); loadEntries(); show("已重排序对话", "ok"); }))} disabled={busy}>重排序对话</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重新获取剧情", () => void retryStory())} disabled={busy}>重新获取剧情</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重排序对话", () => void reorderStory())} disabled={busy}>重排序对话</button>
                 </div>}
               </div>
             )}

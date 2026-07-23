@@ -518,6 +518,7 @@ func (s *EventStore) PromoteHuman(eventID int) error {
 		return err
 	}
 	defer tx.Rollback()
+	now := time.Now().Unix()
 	if _, err := tx.Exec(
 		`UPDATE event_story_episodes SET title_source = 'human' WHERE event_id = ?`, eventID); err != nil {
 		return err
@@ -526,9 +527,15 @@ func (s *EventStore) PromoteHuman(eventID int) error {
 		`UPDATE event_story_lines SET source = 'human' WHERE event_id = ?`, eventID); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(`UPDATE event_story_segment_localizations
+		SET source='human', updated_at=?, updated_by='promote-human', revision=revision+1
+		WHERE locale=? AND segment_id IN (SELECT segment_id FROM event_story_segments WHERE event_id=?)`,
+		now, model.LocaleChinese, eventID); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(
 		`UPDATE event_stories SET source = 'human', last_updated = ? WHERE event_id = ?`,
-		time.Now().Unix(), eventID); err != nil {
+		now, eventID); err != nil {
 		return err
 	}
 	return tx.Commit()

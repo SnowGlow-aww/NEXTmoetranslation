@@ -31,6 +31,7 @@ const (
 	defaultRateLimitCooldown  = time.Hour
 	maxRetryAfterCooldown     = 24 * time.Hour
 	maxFallbackCooldown       = 6 * time.Hour
+	maxVersionResponseBytes   = 1 << 20
 	defaultVersionURL         = "https://metadata.pjsk.moe/jp/versions/current_version.json"
 	defaultVersionFallbackURL = "https://raw.githubusercontent.com/{repo}/{branch}/versions/current_version.json"
 )
@@ -108,6 +109,8 @@ func New(cfg *config.Config, syncFn SyncFn, opts Options) *Watcher {
 	if interval <= 0 {
 		interval = defaultPollInterval
 	}
+	lastDataVersion := cfg.Get(config.KeyUpstreamLastDataVersion)
+	pendingDataVersion := cfg.Get(config.KeyUpstreamPendingDataVersion)
 	return &Watcher{
 		cfg:      cfg,
 		syncFn:   syncFn,
@@ -115,7 +118,11 @@ func New(cfg *config.Config, syncFn SyncFn, opts Options) *Watcher {
 		interval: interval,
 		gitDir:   opts.GitDir,
 		useGit:   opts.UseGit && opts.GitDir != "",
-		stopCh:   make(chan struct{}),
+		status: Status{
+			LastDataVersion: lastDataVersion, PendingDataVersion: pendingDataVersion,
+		},
+		pendingDataVersion: pendingDataVersion,
+		stopCh:             make(chan struct{}),
 	}
 }
 
@@ -215,8 +222,8 @@ func (w *Watcher) updateStatusSources(s *Status) {
 }
 
 func (w *Watcher) loop() {
-	// Record the initial version without triggering a sync (avoids a sync on
-	// every restart). A change relative to this baseline triggers work.
+	// Record a first-run baseline without syncing. A pending version restored
+	// from SQLite remains a change and is retried immediately after restart.
 	w.check(true)
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -251,7 +258,7 @@ func (w *Watcher) check(baseline bool) {
 		fmt.Printf("[upstream] check failed: %v\n", err)
 		return
 	}
-	if baseline {
+	if baseline && !changed {
 		fmt.Printf("[upstream] baseline dataVersion=%s\n", w.Status().LastDataVersion)
 		return
 	}
@@ -280,7 +287,17 @@ func (w *Watcher) fetchAndCompare() (bool, error) {
 		})
 		return false, err
 	}
-	changed := false
+	status := w.Status()
+	changed := status.LastDataVersion != "" && status.LastDataVersion != info.DataVersion
+	if status.LastDataVersion == "" {
+		if err := w.cfg.Set(config.KeyUpstreamLastDataVersion, info.DataVersion); err != nil {
+			return false, fmt.Errorf("persist upstream baseline: %w", err)
+		}
+	} else if changed {
+		if err := w.cfg.Set(config.KeyUpstreamPendingDataVersion, info.DataVersion); err != nil {
+			return false, fmt.Errorf("persist pending upstream version: %w", err)
+		}
+	}
 	w.setStatus(func(s *Status) {
 		s.LastCheck = checkedAt
 		s.LastSuccess = checkedAt
@@ -289,8 +306,7 @@ func (w *Watcher) fetchAndCompare() (bool, error) {
 		s.ConsecutiveFailures = 0
 		w.updateStatusSources(s)
 		s.LastSource = sourceURL
-		if s.LastDataVersion != "" && s.LastDataVersion != info.DataVersion {
-			changed = true
+		if changed {
 			s.ChangeDetectedAt = checkedAt
 			w.pendingDataVersion = info.DataVersion
 			s.PendingDataVersion = info.DataVersion
@@ -398,6 +414,7 @@ func (w *Watcher) fetchVersionURL(ctx context.Context, sourceURL string) (Versio
 		return info, "", err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("User-Agent", "moesekai-upstream-watcher")
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
@@ -424,7 +441,11 @@ func (w *Watcher) fetchVersionURL(ctx context.Context, sourceURL string) (Versio
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
 		return info, "", fmt.Errorf("GET %s: http %d: %s", sourceURL, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	raw, err := httpx.ReadBody(resp, maxVersionResponseBytes, maxVersionResponseBytes)
+	if err != nil {
+		return info, "", fmt.Errorf("GET %s: read: %w", sourceURL, err)
+	}
+	if err := json.Unmarshal(raw, &info); err != nil {
 		return info, "", fmt.Errorf("GET %s: decode: %w", sourceURL, err)
 	}
 	if info.DataVersion == "" {
@@ -532,6 +553,19 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 // it has just verified the configured upstream data path end to end.
 func (w *Watcher) RecordSyncResult(err error) {
 	stamp := nowRFC3339()
+	if err == nil {
+		w.mu.Lock()
+		pending := w.pendingDataVersion
+		w.mu.Unlock()
+		if pending != "" {
+			if _, persistErr := w.cfg.SetMany(map[string]string{
+				config.KeyUpstreamLastDataVersion:    pending,
+				config.KeyUpstreamPendingDataVersion: "",
+			}); persistErr != nil {
+				err = fmt.Errorf("persist completed upstream version: %w", persistErr)
+			}
+		}
+	}
 	w.setStatus(func(s *Status) {
 		if err != nil {
 			s.LastError = err.Error()

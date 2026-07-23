@@ -225,6 +225,7 @@ const ROLE_KEY = "moesekai-role";
 const EXPIRES_KEY = "moesekai-expires-at";
 const SESSION_EVENT = "moesekai-session-changed";
 const CLIENT_ID_KEY = "moesekai-client-id";
+const REFRESH_LOCK = "moesekai-session-refresh";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -261,12 +262,14 @@ export function setSession(r: LoginResponse) {
   localStorage.setItem(EXPIRES_KEY, String(r.expiresAt));
   notifySessionChanged();
 }
-export function clearSession() {
+export function clearSession(expectedToken?: string | null): boolean {
+  if (expectedToken !== undefined && getToken() !== expectedToken) return false;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(EXPIRES_KEY);
   notifySessionChanged();
+  return true;
 }
 export function subscribeSessionChanged(listener: () => void): () => void {
   if (typeof window === "undefined") return () => {};
@@ -296,8 +299,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
   if (res.status === 401) {
-    clearSession();
-    if (typeof window !== "undefined") window.location.reload();
+    if (token && clearSession(token) && typeof window !== "undefined") window.location.reload();
     throw new Error("未授权");
   }
   if (!res.ok) {
@@ -313,13 +315,28 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 export const login = (username: string, password: string) =>
   apiFetch<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
 export const fetchMe = () => apiFetch<{ username: string; role: "admin" | "editor" }>("/auth/me");
-export const refreshSession = async () => {
-  const refreshed = await apiFetch<{ token: string; expiresAt: number }>("/auth/refresh", { method: "POST" });
-  const username = getUsername();
-  const role = getRole();
-  if (!username || !role) throw new Error("会话信息不完整");
-  setSession({ ...refreshed, username, role });
-  return refreshed;
+export const refreshSession = async (): Promise<{ token: string; expiresAt: number }> => {
+  const dispatchedToken = getToken();
+  if (!dispatchedToken) throw new Error("会话信息不完整");
+  const refresh = async () => {
+    const currentToken = getToken();
+    if (currentToken !== dispatchedToken) {
+      if (!currentToken) throw new Error("会话已结束");
+      return { token: currentToken, expiresAt: getSessionExpiresAt() };
+    }
+    const refreshed = await apiFetch<{ token: string; expiresAt: number }>("/auth/refresh", { method: "POST" });
+    if (getToken() !== dispatchedToken) {
+      const winner = getToken();
+      if (!winner) throw new Error("会话已结束");
+      return { token: winner, expiresAt: getSessionExpiresAt() };
+    }
+    const username = getUsername();
+    const role = getRole();
+    if (!username || !role) throw new Error("会话信息不完整");
+    setSession({ ...refreshed, username, role });
+    return refreshed;
+  };
+  return navigator.locks?.request ? navigator.locks.request(REFRESH_LOCK, refresh) : refresh();
 };
 
 // First-run setup: when no users exist, the console registers the first admin.

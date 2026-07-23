@@ -1,6 +1,7 @@
 package translator
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -495,6 +496,27 @@ func TestCallLLMHonorsRequestTimeout(t *testing.T) {
 	}
 	if elapsed := time.Since(started); elapsed > time.Second {
 		t.Fatalf("request timeout was not enforced promptly: %s", elapsed)
+	}
+}
+
+func TestLLMResponseLimitsJSONAndStreamingAggregates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Length", strconv.Itoa(maxLLMResponseBytes+1))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	tr, _, cfg := openTestTranslator(t)
+	_ = cfg.Set(config.KeyOpenAIAPIKey, "test")
+	_ = cfg.Set(config.KeyOpenAIBaseURL, server.URL)
+	if _, err := tr.callOpenAI(context.Background(), "prompt", tr.snapshotConfig()); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized JSON response error = %v", err)
+	}
+	var aggregate strings.Builder
+	aggregate.WriteString(strings.Repeat("x", maxLLMResponseBytes))
+	aggregateBytes := maxLLMResponseBytes
+	if err := appendLLMText(&aggregate, "x", &aggregateBytes); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized stream aggregate error = %v", err)
 	}
 }
 

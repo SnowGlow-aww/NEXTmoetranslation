@@ -1,9 +1,12 @@
 # Build from the REPOSITORY ROOT (this directory):
 #
 #   docker build \
-#     --build-arg NODE_IMAGE=node:20.19.4-alpine3.22@sha256:<approved-digest> \
-#     --build-arg GO_IMAGE=golang:1.25.1-alpine3.22@sha256:<approved-digest> \
-#     --build-arg RUNTIME_IMAGE=<approved-runtime-with-git>@sha256:<approved-digest> \
+#     --build-arg NODE_IMAGE=node:20.19.4-alpine3.22 \
+#     --build-arg NODE_IMAGE_DIGEST=<64-hex-digest> \
+#     --build-arg GO_IMAGE=golang:1.25.1-alpine3.22 \
+#     --build-arg GO_IMAGE_DIGEST=<64-hex-digest> \
+#     --build-arg RUNTIME_IMAGE=<approved-runtime-with-git> \
+#     --build-arg RUNTIME_IMAGE_DIGEST=<64-hex-digest> \
 #     --build-arg VERSION=<release> --build-arg VCS_REF=$(git rev-parse HEAD) \
 #     -t moesekai-v2 .
 #
@@ -14,13 +17,16 @@
 # console SPA at "/" and the API/SSE/files at /api, /sse, /files. No nginx, no
 # Node.js at runtime.
 
-ARG NODE_IMAGE
-ARG GO_IMAGE
+ARG NODE_IMAGE=node:20.19.4-alpine3.22
+ARG NODE_IMAGE_DIGEST
+ARG GO_IMAGE=golang:1.25.1-alpine3.22
+ARG GO_IMAGE_DIGEST
 ARG RUNTIME_IMAGE
+ARG RUNTIME_IMAGE_DIGEST
 
-# Build arguments deliberately have no mutable defaults. Release builds must
-# provide digest-qualified base images from the deployment's approved registry.
-FROM ${NODE_IMAGE} AS web-builder
+# Digest arguments deliberately have no defaults. Release builds must provide
+# immutable digests for the deployment's approved image references.
+FROM ${NODE_IMAGE}@sha256:${NODE_IMAGE_DIGEST} AS web-builder
 WORKDIR /web
 COPY web/package.json web/package-lock.json* ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
@@ -30,7 +36,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ---- Stage 2: build the Go backend ----
-FROM ${GO_IMAGE} AS go-builder
+FROM ${GO_IMAGE}@sha256:${GO_IMAGE_DIGEST} AS go-builder
 WORKDIR /src
 COPY server/go.mod server/go.sum* ./
 RUN go mod download && go mod verify
@@ -40,7 +46,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /m
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /moesekai-migrate ./cmd/migrate
 
 # ---- Stage 3: runtime (Go only) ----
-FROM ${RUNTIME_IMAGE} AS runtime
+FROM ${RUNTIME_IMAGE}@sha256:${RUNTIME_IMAGE_DIGEST} AS runtime
 ARG VERSION=dev
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="Moesekai Translation" \
@@ -65,12 +71,18 @@ COPY --from=web-builder /web/out ./web
 # COPY translations/ ./seed-translations/
 COPY --chmod=755 docker-entrypoint.sh ./docker-entrypoint.sh
 
+# Numeric ownership avoids depending on mutable account files in the approved
+# runtime base while keeping the application and persistent volume non-root.
+RUN mkdir -p /data && chown -R 65532:65532 /app /data
+
 ENV DB_PATH=/data/moesekai.db \
     DATA_DIR=/data \
-    WEB_DIR=/app/web
+    WEB_DIR=/app/web \
+    HOME=/tmp
 
 VOLUME ["/data"]
 # The server listens on $PORT (default 8080; the platform may inject its own).
 EXPOSE 8080
 
+USER 65532:65532
 CMD ["./docker-entrypoint.sh"]
