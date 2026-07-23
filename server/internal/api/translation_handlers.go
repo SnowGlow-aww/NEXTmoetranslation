@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -84,6 +85,7 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		Text     string `json:"text"`
 		Source   string `json:"source"`
 		Locale   string `json:"locale"`
+		ClientID string `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -112,6 +114,10 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		status, err = s.store.UpdateEntry(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r))
 	}
 	if err != nil {
+		if err == sql.ErrNoRows {
+			writeErr(w, http.StatusConflict, "entry source identity changed; reload before saving")
+			return
+		}
 		writeLocaleInternalError(w, explicit, err)
 		return
 	}
@@ -123,6 +129,7 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 			"text":     req.Text,
 			"source":   req.Source,
 			"user":     currentUser(r),
+			"clientId": req.ClientID,
 		}
 		if explicit {
 			payload["locale"] = locale

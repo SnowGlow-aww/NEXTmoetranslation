@@ -1,9 +1,18 @@
 package backup
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	"moesekai/server/internal/config"
 )
 
 func TestTarGzRoundTrip(t *testing.T) {
@@ -58,6 +67,65 @@ func TestSigV4KeyDeterministic(t *testing.T) {
 	k3 := sigv4Key("secret", "20260601", "us-east-1", "s3")
 	if string(k1) == string(k3) {
 		t.Error("signing key should differ by date")
+	}
+}
+
+func TestGitErrorsRedactCredentialArgumentsAndOutput(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable unavailable")
+	}
+	secret := "credential-that-must-not-leak"
+	err := git(t.TempDir(), "remote", "add", "origin", "https://"+secret+"@github.com/owner/repo.git")
+	if err == nil {
+		t.Fatal("git outside a repository unexpectedly succeeded")
+	}
+	if strings.Contains(err.Error(), secret) || !strings.Contains(err.Error(), "https://***@github.com") {
+		t.Fatalf("credential was not redacted: %v", err)
+	}
+}
+
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
+}
+
+func TestUntarGzRejectsOversizedFile(t *testing.T) {
+	var compressed bytes.Buffer
+	gzipWriter := gzip.NewWriter(&compressed)
+	tarWriter := tar.NewWriter(gzipWriter)
+	size := int64(maxArchiveFileBytes + 1)
+	if err := tarWriter.WriteHeader(&tar.Header{Name: "too-large", Mode: 0o600, Size: size, Typeflag: tar.TypeReg}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.CopyN(tarWriter, zeroReader{}, size); err != nil {
+		t.Fatal(err)
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := untarGz(compressed.Bytes(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "archive file") {
+		t.Fatalf("oversized archive error = %v", err)
+	}
+}
+
+func TestScheduledBackupRetriesSameDayAfterFailure(t *testing.T) {
+	h := setupLegacyBackup(t)
+	_ = h.cfg.Set(config.KeyBackupGitEnabled, "true")
+	h.manager.now = func() time.Time { return time.Date(2026, 7, 24, 23, 0, 0, 0, time.UTC) }
+	lastSuccessDay := ""
+	h.manager.runScheduledIfDue(&lastSuccessDay)
+	if lastSuccessDay != "" {
+		t.Fatalf("failed attempt consumed day %q", lastSuccessDay)
+	}
+	_ = h.cfg.Set(config.KeyBackupGitEnabled, "false")
+	h.manager.runScheduledIfDue(&lastSuccessDay)
+	if lastSuccessDay != "2026-07-24" {
+		t.Fatalf("successful retry did not complete day: %q", lastSuccessDay)
 	}
 }
 

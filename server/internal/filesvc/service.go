@@ -35,8 +35,9 @@ type Service struct {
 	swr      time.Duration
 	debounce time.Duration
 
-	mu     sync.RWMutex
-	assets map[string]asset // path key e.g. "translation/cards.json"
+	mu        sync.RWMutex
+	assets    map[string]asset // path key e.g. "translation/cards.json"
+	rebuildMu sync.Mutex
 
 	rebuildCh chan struct{}
 }
@@ -80,65 +81,79 @@ func (svc *Service) loop() {
 
 // Rebuild regenerates all in-memory assets from the DB.
 func (svc *Service) Rebuild() {
+	svc.rebuildMu.Lock()
+	defer svc.rebuildMu.Unlock()
+	releaseContent := svc.store.LockContentExclusive()
+	defer releaseContent()
+
 	next := map[string]asset{}
 	now := time.Now()
 
 	for _, cat := range model.SupportedCategories {
-		if b, err := svc.gen.CategoryFlatJSON(cat); err == nil {
-			next["translation/"+cat+".json"] = makeAsset(b, "application/json; charset=utf-8", now)
+		b, err := svc.gen.CategoryFlatJSON(cat)
+		if err != nil {
+			return
 		}
-		if b, err := svc.gen.CategoryFullJSON(cat); err == nil {
-			next["translation/"+cat+".full.json"] = makeAsset(b, "application/json; charset=utf-8", now)
+		next["translation/"+cat+".json"] = makeAsset(b, "application/json; charset=utf-8", now)
+		b, err = svc.gen.CategoryFullJSON(cat)
+		if err != nil {
+			return
 		}
+		next["translation/"+cat+".full.json"] = makeAsset(b, "application/json; charset=utf-8", now)
 	}
 	for _, locale := range model.SupportedLocales {
 		for _, cat := range model.SupportedCategories {
-			if b, err := svc.gen.CategoryLocaleFlatJSON(cat, locale); err == nil {
-				key := fmt.Sprintf("v2/%s/translation/%s.json", locale, cat)
-				next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+			b, err := svc.gen.CategoryLocaleFlatJSON(cat, locale)
+			if err != nil {
+				return
 			}
-			if b, err := svc.gen.CategoryLocaleFullJSON(cat, locale); err == nil {
-				key := fmt.Sprintf("v2/%s/translation/%s.full.json", locale, cat)
-				next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+			key := fmt.Sprintf("v2/%s/translation/%s.json", locale, cat)
+			next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+			b, err = svc.gen.CategoryLocaleFullJSON(cat, locale)
+			if err != nil {
+				return
 			}
+			key = fmt.Sprintf("v2/%s/translation/%s.full.json", locale, cat)
+			next[key] = makeAsset(b, "application/json; charset=utf-8", now)
 		}
 	}
-	if summaries, err := svc.events.List(); err == nil {
-		for _, sum := range summaries {
-			if b, err := svc.gen.EventStoryJSON(sum.EventID); err == nil {
-				key := fmt.Sprintf("translation/eventStory/event_%d.json", sum.EventID)
-				next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+	summaries, err := svc.events.List()
+	if err != nil {
+		return
+	}
+	for _, sum := range summaries {
+		b, err := svc.gen.EventStoryJSON(sum.EventID)
+		if err != nil {
+			return
+		}
+		key := fmt.Sprintf("translation/eventStory/event_%d.json", sum.EventID)
+		next[key] = makeAsset(b, "application/json; charset=utf-8", now)
+		for _, locale := range model.SupportedLocales {
+			b, err := svc.gen.EventStoryLocaleJSON(sum.EventID, locale)
+			if err != nil {
+				return
 			}
-			for _, locale := range model.SupportedLocales {
-				if b, err := svc.gen.EventStoryLocaleJSON(sum.EventID, locale); err == nil {
-					key := fmt.Sprintf("v2/%s/translation/eventStory/event_%d.json", locale, sum.EventID)
-					next[key] = makeAsset(b, "application/json; charset=utf-8", now)
-				}
-			}
+			key := fmt.Sprintf("v2/%s/translation/eventStory/event_%d.json", locale, sum.EventID)
+			next[key] = makeAsset(b, "application/json; charset=utf-8", now)
 		}
 	}
-	lyrics, lyricsErr := svc.gen.PublishedLyricsJSON()
-	if lyricsErr == nil {
-		for key, body := range lyrics {
-			next[key] = makeAsset(body, "application/json; charset=utf-8", now)
-			for _, locale := range model.SupportedLocales {
-				localizedKey := fmt.Sprintf("v2/%s/%s", locale, key)
-				next[localizedKey] = makeAsset(body, "application/json; charset=utf-8", now)
-			}
+	lyrics, err := svc.gen.PublishedLyricsJSON()
+	if err != nil {
+		return
+	}
+	for key, body := range lyrics {
+		next[key] = makeAsset(body, "application/json; charset=utf-8", now)
+		for _, locale := range model.SupportedLocales {
+			localizedKey := fmt.Sprintf("v2/%s/%s", locale, key)
+			next[localizedKey] = makeAsset(body, "application/json; charset=utf-8", now)
 		}
 	}
 
 	svc.mu.Lock()
-	if lyricsErr != nil {
-		for key, value := range svc.assets {
-			if strings.HasPrefix(key, "translation/lyrics/") || strings.Contains(key, "/translation/lyrics/") {
-				next[key] = value
-			}
-		}
-	}
-	// Preserve any externally-set assets (e.g. search index) not regenerated here.
+	// Preserve only externally-set assets. Locale mirrors are generated above and
+	// must disappear when their source event or lyrics publication disappears.
 	for k, v := range svc.assets {
-		if _, ok := next[k]; !ok && !strings.HasPrefix(k, "translation/") {
+		if _, ok := next[k]; !ok && (k == "data/search-index.json" || k == "v2/data/search-index.json" || strings.HasSuffix(k, "/data/search-index.json")) {
 			next[k] = v
 		}
 	}

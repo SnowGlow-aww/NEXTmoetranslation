@@ -135,7 +135,11 @@ function UsersCard({ show }: { show: ShowFn }) {
             <tr key={u.id}>
               <td>{u.username}</td>
               <td>
-                <select value={u.role} onChange={(e) => setRole(u, e.target.value as "admin" | "editor")}>
+                <select
+                  aria-label={`${u.username} 的角色`}
+                  value={u.role}
+                  onChange={(e) => setRole(u, e.target.value as "admin" | "editor")}
+                >
                   <option value="admin">管理员</option>
                   <option value="editor">校对员</option>
                 </select>
@@ -149,10 +153,10 @@ function UsersCard({ show }: { show: ShowFn }) {
         </tbody>
       </table>
       <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div className="form-row" style={{ margin: 0 }}><label>用户名</label><input value={nu} onChange={(e) => setNu(e.target.value)} /></div>
-        <div className="form-row" style={{ margin: 0 }}><label>密码</label><input type="password" value={np} onChange={(e) => setNp(e.target.value)} /></div>
-        <div className="form-row" style={{ margin: 0 }}><label>角色</label>
-          <select value={nr} onChange={(e) => setNr(e.target.value as "admin" | "editor")}>
+        <div className="form-row" style={{ margin: 0 }}><label htmlFor="new-username">用户名</label><input id="new-username" value={nu} onChange={(e) => setNu(e.target.value)} /></div>
+        <div className="form-row" style={{ margin: 0 }}><label htmlFor="new-password">密码</label><input id="new-password" type="password" minLength={12} value={np} onChange={(e) => setNp(e.target.value)} /></div>
+        <div className="form-row" style={{ margin: 0 }}><label htmlFor="new-role">角色</label>
+          <select id="new-role" value={nr} onChange={(e) => setNr(e.target.value as "admin" | "editor")}>
             <option value="editor">校对员</option><option value="admin">管理员</option>
           </select>
         </div>
@@ -184,18 +188,22 @@ function SettingsCard({ title, keys, show }: { title: string; keys: readonly (re
     <div className="card">
       <h3>{title}</h3>
       {!hasMasterKey && <p style={{ color: "var(--warn)", fontSize: 12, marginBottom: 10 }}>未配置 MOESEKAI_MASTER_KEY，密钥项无法保存</p>}
-      {keys.map(([k, label]) => (
-        <div className="form-row" key={k}>
-          <label>{label}</label>
-          <input
-            type={k.includes("key") || k.includes("secret") ? "password" : "text"}
-            value={values[k] ?? ""}
-            onChange={(e) => setValues((p) => ({ ...p, [k]: e.target.value }))}
-            placeholder={values[k] === "********" ? "（已设置，留空不变）" : ""}
-          />
-          {SETTING_HINTS[k] && <p className="form-hint">{SETTING_HINTS[k]}</p>}
-        </div>
-      ))}
+      {keys.map(([k, label]) => {
+        const inputID = `setting-${k.replaceAll(".", "-")}`;
+        return (
+          <div className="form-row" key={k}>
+            <label htmlFor={inputID}>{label}</label>
+            <input
+              id={inputID}
+              type={k.includes("key") || k.includes("secret") ? "password" : "text"}
+              value={values[k] ?? ""}
+              onChange={(e) => setValues((p) => ({ ...p, [k]: e.target.value }))}
+              placeholder={values[k] === "********" ? "（已设置，留空不变）" : ""}
+            />
+            {SETTING_HINTS[k] && <p className="form-hint">{SETTING_HINTS[k]}</p>}
+          </div>
+        );
+      })}
       <button className="btn btn-primary" onClick={saveAll}>保存</button>
     </div>
   );

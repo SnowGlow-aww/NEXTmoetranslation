@@ -134,6 +134,9 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "failed to issue token")
 		return
 	}
+	if s.hub != nil {
+		s.hub.RevokeUser(claims.Username)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"token":     token,
 		"expiresAt": expiresAt.Unix(),

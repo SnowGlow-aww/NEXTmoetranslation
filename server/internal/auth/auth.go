@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -39,6 +40,8 @@ var (
 	ErrInvalidCreds  = errors.New("invalid credentials")
 	ErrLastAdmin     = errors.New("cannot remove the last admin")
 	ErrSetupComplete = errors.New("setup already completed")
+	ErrWeakPassword  = errors.New("password must be 12-72 bytes and at least 12 characters")
+	ErrWeakJWTSecret = errors.New("JWT secret must contain at least 32 bytes")
 )
 
 var refreshTokenValidatedHook func()
@@ -57,6 +60,20 @@ func New(database *db.DB, jwtSecret string, ttl time.Duration) *Auth {
 	return &Auth{db: database, jwtSecret: []byte(jwtSecret), tokenTTL: ttl}
 }
 
+func ValidateJWTSecret(secret string) error {
+	if len([]byte(secret)) < 32 {
+		return ErrWeakJWTSecret
+	}
+	return nil
+}
+
+func validatePassword(password string) error {
+	if len([]byte(password)) < 12 || len([]byte(password)) > 72 || utf8.RuneCountInString(password) < 12 {
+		return ErrWeakPassword
+	}
+	return nil
+}
+
 // ---- User CRUD ----
 
 // CreateUser adds a user with a bcrypt-hashed password.
@@ -64,6 +81,9 @@ func (a *Auth) CreateUser(username, password, role string) (*User, error) {
 	username = strings.TrimSpace(username)
 	if username == "" || password == "" {
 		return nil, errors.New("username and password required")
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
 	}
 	if !ValidRole(role) {
 		role = RoleEditor
@@ -93,6 +113,9 @@ func (a *Auth) CreateFirstAdmin(username, password string) (*User, error) {
 	username = strings.TrimSpace(username)
 	if username == "" || password == "" {
 		return nil, errors.New("username and password required")
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -148,6 +171,9 @@ func (a *Auth) ListUsers() ([]User, error) {
 func (a *Auth) SetPassword(username, password string) error {
 	if password == "" {
 		return errors.New("password required")
+	}
+	if err := validatePassword(password); err != nil {
+		return err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -239,6 +265,12 @@ func (a *Auth) CountUsers() (int, error) {
 	return n, err
 }
 
+func (a *Auth) CountAdmins() (int, error) {
+	var n int
+	err := a.db.QueryRow(`SELECT COUNT(*) FROM users WHERE role=?`, RoleAdmin).Scan(&n)
+	return n, err
+}
+
 // ---- Authentication ----
 
 // Authenticate verifies credentials and returns the user.
@@ -290,6 +322,9 @@ func (a *Auth) IssueToken(u *User) (string, time.Time, error) {
 }
 
 func (a *Auth) issueToken(username, role string, tokenVersion int) (string, time.Time, error) {
+	if err := ValidateJWTSecret(string(a.jwtSecret)); err != nil {
+		return "", time.Time{}, err
+	}
 	expiresAt := time.Now().Add(a.tokenTTL)
 	claims := Claims{
 		Username:     username,
@@ -341,13 +376,16 @@ func (a *Auth) RefreshToken(claims *Claims) (string, time.Time, error) {
 
 // VerifyToken parses and validates a JWT, returning its claims.
 func (a *Auth) VerifyToken(tokenStr string) (*Claims, error) {
+	if ValidateJWTSecret(string(a.jwtSecret)) != nil {
+		return nil, ErrInvalidCreds
+	}
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if t.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return a.jwtSecret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil || !token.Valid {
 		return nil, ErrInvalidCreds
 	}

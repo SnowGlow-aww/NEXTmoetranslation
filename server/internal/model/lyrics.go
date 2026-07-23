@@ -44,26 +44,28 @@ type LyricLine struct {
 }
 
 type SongLyrics struct {
-	MusicID          int         `json:"musicId"`
-	Status           string      `json:"status"`
-	Revision         int         `json:"revision"`
-	UpdatedAt        string      `json:"updatedAt"`
-	Attribution      string      `json:"attribution,omitempty"`
-	SourceNote       string      `json:"sourceNote,omitempty"`
-	SourceURL        string      `json:"sourceUrl,omitempty"`
-	LicenseNote      string      `json:"licenseNote,omitempty"`
-	SourcePageID     int         `json:"sourcePageId,omitempty"`
-	SourceRevisionID int         `json:"sourceRevisionId,omitempty"`
-	SourceSHA1       string      `json:"sourceSha1,omitempty"`
-	SourceFetchedAt  string      `json:"sourceFetchedAt,omitempty"`
-	Lines            []LyricLine `json:"lines"`
+	MusicID           int         `json:"musicId"`
+	Status            string      `json:"status"`
+	PublishedRevision int         `json:"publishedRevision,omitempty"`
+	Revision          int         `json:"revision"`
+	UpdatedAt         string      `json:"updatedAt"`
+	Attribution       string      `json:"attribution,omitempty"`
+	SourceNote        string      `json:"sourceNote,omitempty"`
+	SourceURL         string      `json:"sourceUrl,omitempty"`
+	LicenseNote       string      `json:"licenseNote,omitempty"`
+	SourcePageID      int         `json:"sourcePageId,omitempty"`
+	SourceRevisionID  int         `json:"sourceRevisionId,omitempty"`
+	SourceSHA1        string      `json:"sourceSha1,omitempty"`
+	SourceFetchedAt   string      `json:"sourceFetchedAt,omitempty"`
+	Lines             []LyricLine `json:"lines"`
 }
 
 type LyricsListItem struct {
-	MusicID   int    `json:"musicId"`
-	Status    string `json:"status"`
-	Revision  int    `json:"revision"`
-	UpdatedAt string `json:"updatedAt"`
+	MusicID           int    `json:"musicId"`
+	Status            string `json:"status"`
+	Revision          int    `json:"revision"`
+	PublishedRevision int    `json:"publishedRevision,omitempty"`
+	UpdatedAt         string `json:"updatedAt"`
 }
 
 type LyricsListResponse struct {

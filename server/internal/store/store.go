@@ -25,10 +25,25 @@ type Store struct {
 
 	mu          sync.RWMutex
 	changeHooks []func()
+	contentGate sync.RWMutex
 }
 
 func New(database *db.DB) *Store {
 	return &Store{db: database}
+}
+
+// LockContentShared prevents a restore or public rebuild from crossing a
+// multi-step editor/translator operation. The returned function must be called
+// exactly once when the operation finishes.
+func (s *Store) LockContentShared() func() {
+	s.contentGate.RLock()
+	return s.contentGate.RUnlock
+}
+
+// LockContentExclusive creates a complete replacement/snapshot boundary.
+func (s *Store) LockContentExclusive() func() {
+	s.contentGate.Lock()
+	return s.contentGate.Unlock
 }
 
 // OnChange registers a callback invoked after any write that changes data.
@@ -233,9 +248,8 @@ func (s *Store) GetEntries(category, field, source string) ([]model.EntryWithKey
 	return result, rows.Err()
 }
 
-// UpdateEntry sets text/source for one entry. Returns "ok" or "noop".
-// The row must already exist (it is created during sync/migration); if it does
-// not, it is inserted so manual edits never silently vanish.
+// UpdateEntry sets text/source for one existing source entry. Unknown identities
+// are rejected so a stale client cannot create a key in the wrong field.
 func (s *Store) UpdateEntry(category, field, key, text, source, user string) (string, error) {
 	var curText, curSource string
 	err := s.db.QueryRow(
@@ -244,15 +258,7 @@ func (s *Store) UpdateEntry(category, field, key, text, source, user string) (st
 
 	now := time.Now().Unix()
 	if err == sql.ErrNoRows {
-		_, ierr := s.db.Exec(`INSERT INTO entries
-			(category, field, jp_key, cn_text, source, ids_json, updated_at, updated_by)
-			VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
-			category, field, key, text, source, now, user)
-		if ierr != nil {
-			return "", ierr
-		}
-		s.NotifyChange()
-		return "ok", nil
+		return "", sql.ErrNoRows
 	}
 	if err != nil {
 		return "", err

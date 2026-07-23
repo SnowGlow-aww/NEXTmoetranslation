@@ -1,9 +1,11 @@
 package store
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -297,6 +299,22 @@ func (s *Store) ImportTranslationContent(entries []EntryLocalizationRecord, even
 }
 
 func importTranslationContentTx(tx *sql.Tx, entries []EntryLocalizationRecord, events EventContentExport, lyrics LyricsContentExport) error {
+	performerIDs := make(map[int]bool, len(lyrics.Performers))
+	for _, performer := range lyrics.Performers {
+		performerIDs[performer.PerformerID] = true
+	}
+	documentIDs := make(map[int]bool, len(lyrics.Documents))
+	for _, document := range lyrics.Documents {
+		documentIDs[document.MusicID] = true
+	}
+	for _, publication := range lyrics.Publications {
+		if !documentIDs[publication.MusicID] {
+			return fmt.Errorf("lyrics publication %d has no draft document", publication.MusicID)
+		}
+		if err := validateRestoredPublication(publication, performerIDs); err != nil {
+			return err
+		}
+	}
 	// These side tables intentionally do not reference legacy event parents so
 	// previous binaries can keep doing replace-imports without cascading away
 	// new locale data. Restore still validates parent identity explicitly.
@@ -375,9 +393,7 @@ func importTranslationContentTx(tx *sql.Tx, entries []EntryLocalizationRecord, e
 			return err
 		}
 	}
-	lyricsAttribution := map[int]string{}
 	for _, record := range lyrics.Documents {
-		lyricsAttribution[record.MusicID] = record.Attribution
 		if _, err := tx.Exec(`INSERT INTO song_lyrics(music_id, revision, updated_at, updated_by, attribution, source_note, source_url, license_note, source_hash,
 			source_page_id, source_revision_id, source_sha1, source_fetched_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, record.MusicID, record.Revision, record.UpdatedAt, record.UpdatedBy,
@@ -400,21 +416,35 @@ func importTranslationContentTx(tx *sql.Tx, entries []EntryLocalizationRecord, e
 		}
 	}
 	for _, record := range lyrics.Publications {
-		attribution := strings.TrimSpace(lyricsAttribution[record.MusicID])
-		if attribution == "" {
-			continue
-		}
-		var public model.PublicSongLyrics
-		if err := json.Unmarshal([]byte(record.PayloadJSON), &public); err != nil {
-			return fmt.Errorf("lyrics publication %d: %w", record.MusicID, err)
-		}
-		if public.Attribution != lyricsAttribution[record.MusicID] {
-			return fmt.Errorf("lyrics publication %d attribution does not match its draft", record.MusicID)
-		}
 		if _, err := tx.Exec(`INSERT INTO song_lyrics_publications(music_id, revision, updated_at, payload_json)
 			VALUES (?, ?, ?, ?)`, record.MusicID, record.Revision, record.UpdatedAt, record.PayloadJSON); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateRestoredPublication(record LyricsPublicationBackupRecord, performerIDs map[int]bool) error {
+	decoder := json.NewDecoder(bytes.NewBufferString(record.PayloadJSON))
+	decoder.DisallowUnknownFields()
+	var public model.PublicSongLyrics
+	if err := decoder.Decode(&public); err != nil {
+		return fmt.Errorf("lyrics publication %d: %w", record.MusicID, err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("lyrics publication %d has trailing JSON", record.MusicID)
+	}
+	updatedAt, err := parseTimestamp(public.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("lyrics publication %d has invalid updatedAt", record.MusicID)
+	}
+	if public.Version != 1 || public.MusicID != record.MusicID || public.Revision != record.Revision || updatedAt != record.UpdatedAt {
+		return fmt.Errorf("lyrics publication %d identity does not match its manifest record", record.MusicID)
+	}
+	lyrics := model.SongLyrics{MusicID: public.MusicID, Revision: public.Revision, UpdatedAt: public.UpdatedAt,
+		Attribution: public.Attribution, Lines: public.Lines}
+	if code, details, _ := validateLyrics(lyrics, performerIDs, true); code != "" {
+		return fmt.Errorf("lyrics publication %d violates %s: %s", record.MusicID, code, strings.Join(details, "; "))
 	}
 	return nil
 }
@@ -432,10 +462,21 @@ func (s *Store) RestoreBackup(categories map[string]model.Category, events []Leg
 	}
 	defer tx.Rollback()
 	for _, category := range model.SupportedCategories {
-		content, ok := categories[category]
-		if !ok {
-			continue
+		if _, ok := categories[category]; !ok {
+			return fmt.Errorf("restore is missing category %s", category)
 		}
+	}
+	for _, statement := range []string{
+		`DELETE FROM event_story_segments`,
+		`DELETE FROM event_stories`,
+		`DELETE FROM entries`,
+	} {
+		if _, err := tx.Exec(statement); err != nil {
+			return err
+		}
+	}
+	for _, category := range model.SupportedCategories {
+		content := categories[category]
 		if err := importCategoryTx(tx, category, content); err != nil {
 			return fmt.Errorf("import %s: %w", category, err)
 		}

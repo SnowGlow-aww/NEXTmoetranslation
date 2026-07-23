@@ -38,27 +38,35 @@ export function RegisterPage({ onRegister }: { onRegister: () => void }) {
       <form className="login-card" onSubmit={submit}>
         <h1>创建管理员</h1>
         <p className="sub">首次使用，请注册管理员账号</p>
-        {error && <div className="login-error">{error}</div>}
+        {error && <div className="login-error" role="alert">{error}</div>}
+        <label className="sr-only" htmlFor="register-username">用户名</label>
         <input
+          id="register-username"
           type="text"
           placeholder="用户名"
           value={user}
           onChange={(e) => setUser(e.target.value)}
           autoFocus
         />
+        <label className="sr-only" htmlFor="register-password">密码</label>
         <input
+          id="register-password"
           type="password"
+          minLength={12}
           placeholder="密码"
           value={pass}
           onChange={(e) => setPass(e.target.value)}
         />
+        <label className="sr-only" htmlFor="register-confirm">确认密码</label>
         <input
+          id="register-confirm"
           type="password"
+          minLength={12}
           placeholder="确认密码"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
         />
-        {mismatch && <div className="login-error">两次输入的密码不一致</div>}
+        {mismatch && <div className="login-error" role="alert">两次输入的密码不一致</div>}
         <button
           className="btn btn-primary"
           type="submit"

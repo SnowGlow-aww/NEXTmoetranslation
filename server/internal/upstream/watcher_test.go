@@ -224,3 +224,36 @@ func TestCheckNowLegacyTriggerSemantics(t *testing.T) {
 		t.Fatalf("changed check status=%+v syncs=%d", status, syncCalls.Load())
 	}
 }
+
+func TestFailedSyncKeepsChangedVersionPendingForRetry(t *testing.T) {
+	oldBuiltIns := builtInVersionFallbackURLs
+	builtInVersionFallbackURLs = nil
+	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
+	var version atomic.Value
+	version.Store("100")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"dataVersion":%q}`, version.Load().(string))
+	}))
+	defer server.Close()
+	cfg := openWatcherConfig(t)
+	_ = cfg.Set(config.KeyUpstreamVersionURL, server.URL)
+	_ = cfg.Set(config.KeyUpstreamVersionFallbackURL, server.URL)
+	var calls atomic.Int32
+	watcher := New(cfg, func() error {
+		if calls.Add(1) == 1 {
+			return fmt.Errorf("transient sync failure")
+		}
+		return nil
+	}, Options{})
+	if _, err := watcher.CheckNow(false); err != nil {
+		t.Fatal(err)
+	}
+	version.Store("101")
+	if status, err := watcher.CheckNow(false); err == nil || status.LastDataVersion != "100" || status.PendingDataVersion != "101" {
+		t.Fatalf("failed sync consumed version: status=%+v err=%v", status, err)
+	}
+	status, err := watcher.CheckNow(false)
+	if err != nil || calls.Load() != 2 || status.LastDataVersion != "101" || status.PendingDataVersion != "" {
+		t.Fatalf("pending version was not retried: status=%+v calls=%d err=%v", status, calls.Load(), err)
+	}
+}

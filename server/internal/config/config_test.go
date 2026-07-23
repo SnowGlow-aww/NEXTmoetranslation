@@ -105,3 +105,20 @@ func TestAllMasksSecrets(t *testing.T) {
 		t.Errorf("reveal failed: %q", revealed[KeyOpenAIAPIKey])
 	}
 }
+
+func TestSetManyRejectsPatchAtomically(t *testing.T) {
+	database := openTestDB(t)
+	config, _ := New(database, "")
+	if _, err := config.SetMany(map[string]string{
+		KeyLLMType: "openai", KeyOpenAIAPIKey: "must-not-persist",
+	}); err == nil {
+		t.Fatal("secret patch without master key unexpectedly succeeded")
+	}
+	if got := config.Get(KeyLLMType); got != "" {
+		t.Fatalf("failed patch changed cache: %q", got)
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM settings`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("failed patch changed database: count=%d err=%v", count, err)
+	}
+}

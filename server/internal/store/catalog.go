@@ -125,8 +125,11 @@ func (s *Store) CatalogMusic(query string, newlyWrittenOnly bool, limit, cursor 
 		item.IsNewlyWrittenMusic = newlyWritten == 1
 		if revision.Valid {
 			item.LyricsStatus = "draft"
-			if publishedRevision.Valid && publishedRevision.Int64 == revision.Int64 {
-				item.LyricsStatus = "published"
+			if publishedRevision.Valid {
+				item.LyricsStatus = "draft-published"
+				if publishedRevision.Int64 == revision.Int64 {
+					item.LyricsStatus = "published"
+				}
 			}
 		}
 		response.Items = append(response.Items, item)

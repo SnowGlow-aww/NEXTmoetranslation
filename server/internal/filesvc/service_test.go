@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/files"
@@ -192,5 +193,39 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 	afterFailure, afterETag, status := readAsset("/files/translation/lyrics/music_10.json")
 	if status != http.StatusOK || !bytes.Equal(afterFailure, detail) || afterETag != etag {
 		t.Fatalf("failed all-or-nothing rebuild changed published asset: status=%d etag=%q body=%s", status, afterETag, afterFailure)
+	}
+	if _, err := s.UnpublishLyrics(10, saved.Revision, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	for _, path := range []string{
+		"/files/translation/lyrics/music_10.json",
+		"/files/v2/zh-CN/translation/lyrics/music_10.json",
+		"/files/v2/en-US/translation/lyrics/music_10.json",
+	} {
+		if _, _, status := readAsset(path); status != http.StatusNotFound {
+			t.Fatalf("unpublished mirror %s status=%d", path, status)
+		}
+	}
+}
+
+func TestRebuildWaitsForContentBoundary(t *testing.T) {
+	svc := setupLegacyFileService(t)
+	release := svc.store.LockContentShared()
+	done := make(chan struct{})
+	go func() {
+		svc.Rebuild()
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatal("rebuild crossed an active content operation")
+	case <-time.After(30 * time.Millisecond):
+	}
+	release()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("rebuild did not resume after content operation")
 	}
 }

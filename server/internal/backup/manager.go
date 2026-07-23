@@ -37,9 +37,11 @@ type Manager struct {
 	eventStr *store.EventStore
 	workDir  string // scratch space for tarballs / git clones
 
-	mu     sync.Mutex
-	status Status
-	stopCh chan struct{}
+	mu       sync.Mutex
+	status   Status
+	stopCh   chan struct{}
+	stopOnce sync.Once
+	now      func() time.Time
 }
 
 func NewManager(cfg *config.Config, gen *files.Generator, s *store.Store, es *store.EventStore, workDir string) *Manager {
@@ -50,6 +52,7 @@ func NewManager(cfg *config.Config, gen *files.Generator, s *store.Store, es *st
 		eventStr: es,
 		workDir:  workDir,
 		stopCh:   make(chan struct{}),
+		now:      time.Now,
 	}
 }
 
@@ -78,30 +81,38 @@ func (m *Manager) StartScheduler() {
 	go m.scheduleLoop()
 }
 
-func (m *Manager) Stop() { close(m.stopCh) }
+func (m *Manager) Stop() { m.stopOnce.Do(func() { close(m.stopCh) }) }
 
 func (m *Manager) scheduleLoop() {
-	// Check every 30 min whether we've crossed into the target hour today.
+	// Retry throughout the day until one complete backup succeeds. Running the
+	// check immediately also covers processes started after the configured hour.
 	ticker := time.NewTicker(30 * time.Minute)
 	defer ticker.Stop()
-	lastRunDay := ""
+	lastSuccessDay := ""
+	m.runScheduledIfDue(&lastSuccessDay)
 	for {
 		select {
 		case <-m.stopCh:
 			return
 		case <-ticker.C:
-			now := time.Now().UTC()
-			hour := m.cfg.GetInt(config.KeyBackupDailyHour, 19)
-			day := now.Format("2006-01-02")
-			if now.Hour() == hour && day != lastRunDay {
-				lastRunDay = day
-				log.Printf("[backup] daily scheduled backup starting (hour=%d UTC)", hour)
-				if _, err := m.BackupAll(); err != nil {
-					log.Printf("[backup] daily backup failed: %v", err)
-				}
-			}
+			m.runScheduledIfDue(&lastSuccessDay)
 		}
 	}
+}
+
+func (m *Manager) runScheduledIfDue(lastSuccessDay *string) {
+	now := m.now().UTC()
+	hour := m.cfg.GetInt(config.KeyBackupDailyHour, 19)
+	day := now.Format("2006-01-02")
+	if now.Hour() < hour || day == *lastSuccessDay {
+		return
+	}
+	log.Printf("[backup] daily scheduled backup starting (hour=%d UTC)", hour)
+	if _, err := m.BackupAll(); err != nil {
+		log.Printf("[backup] daily backup failed; will retry: %v", err)
+		return
+	}
+	*lastSuccessDay = day
 }
 
 // BackupAll runs every enabled backup target. Returns a per-target summary.
@@ -184,6 +195,8 @@ func (m *Manager) RestoreFromAs(target, actor string) (importer.Result, error) {
 	}
 	m.status.Running = true
 	m.mu.Unlock()
+	releaseContent := m.store.LockContentExclusive()
+	defer releaseContent()
 	defer func() {
 		m.mu.Lock()
 		m.status.Running = false

@@ -9,6 +9,35 @@ import (
 	"moesekai/server/internal/model"
 )
 
+func TestAITranslationUpdatesChineseAdditiveProjection(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-ai-locale.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	if err := events.ImportOrdered(7, model.EventStoryMeta{Source: "jp_pending"}, []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario", Title: "題名", TitleSource: "jp_pending",
+		TalkKeys: []string{"原文"}, TalkData: map[string]string{"原文": ""},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := events.UntranslatedTargets(7)
+	if err != nil || len(targets) != 2 {
+		t.Fatalf("targets=%+v err=%v", targets, err)
+	}
+	if _, err := events.ApplyEventTranslations(7, targets, []string{"标题", "译文"}, model.SourceLLM); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(7, model.LocaleChinese)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Episodes["1"].Title != "标题" || detail.Episodes["1"].TalkData["原文"] != "译文" {
+		t.Fatalf("stale Chinese additive projection: %+v", detail.Episodes["1"])
+	}
+}
+
 func TestEnglishStoryEditsSurviveLegacyChineseReimport(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "event-locale.db"))
 	if err != nil {

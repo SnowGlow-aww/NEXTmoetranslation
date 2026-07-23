@@ -35,9 +35,9 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
-      <div className="toast-stack">
+      <div className="toast-stack" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.type}`}>
+          <div key={t.id} className={`toast ${t.type}`} role={t.type === "err" ? "alert" : "status"}>
             {t.msg}
           </div>
         ))}

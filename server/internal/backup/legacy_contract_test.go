@@ -411,6 +411,12 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	}
 	defer database.Close()
 	destination := store.New(database)
+	destinationEvents := store.NewEventStore(database)
+	if err := destinationEvents.ImportOrdered(99, model.EventStoryMeta{Source: model.SourceHuman}, []store.OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "newer", Title: "must disappear", TalkData: map[string]string{},
+	}}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := destination.ImportCategory("cards", model.Category{"prefix": {
 		"こんにちは": {Text: "Before Chinese", Source: model.SourceHuman},
 	}}); err != nil {
@@ -458,9 +464,32 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	if _, err := destination.GetLyrics(10); err != store.ErrLyricsNotFound {
 		t.Fatalf("old backup retained lyrics: %v", err)
 	}
+	if exists, err := destinationEvents.Exists(99); err != nil || exists {
+		t.Fatalf("complete restore retained newer event: exists=%v err=%v", exists, err)
+	}
 	var audits int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='backup.restore' AND user='admin'`).Scan(&audits); err != nil || audits != 1 {
 		t.Fatalf("restore audit count=%d err=%v", audits, err)
+	}
+}
+
+func TestRestoreRejectsCorruptOrIncompleteLegacyProjection(t *testing.T) {
+	h := setupLegacyBackup(t)
+	translations, _, err := h.manager.materializeBackupPayload(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(translations, "cards.full.json"), []byte(`{"broken":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := importer.ValidateDir(translations); err == nil {
+		t.Fatal("corrupt complete backup unexpectedly validated")
+	}
+	if err := os.Remove(filepath.Join(translations, "music.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := importer.ReadDir(translations); err == nil {
+		t.Fatal("incomplete backup unexpectedly parsed")
 	}
 }
 

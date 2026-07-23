@@ -30,9 +30,10 @@ type Translator struct {
 	llmClient  *http.Client
 	hedgeDelay time.Duration
 
-	mu       sync.Mutex
-	status   Status
-	progress ProgressFn
+	mu             sync.Mutex
+	status         Status
+	progress       ProgressFn
+	releaseContent func()
 
 	llmUnavailableUntil time.Time
 	llmLastError        string
@@ -155,12 +156,15 @@ func (t *Translator) automaticLLMUnavailable() (string, bool) {
 
 // markStart claims the single-run lock, returning an error if already running.
 func (t *Translator) markStart(mode string) error {
+	releaseContent := t.store.LockContentShared()
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.status.Running {
+		releaseContent()
 		log.Printf("[translate] %s rejected: a job is already running", mode)
 		return fmt.Errorf("a translate job is already running")
 	}
+	t.releaseContent = releaseContent
 	t.status.Running = true
 	t.status.LastMode = mode
 	t.status.LastError = ""
@@ -176,7 +180,6 @@ func (t *Translator) setNote(note string) {
 
 func (t *Translator) markEnd(note string, err error) {
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	mode := t.status.LastMode
 	t.status.Running = false
 	t.status.LastRun = time.Now().UTC().Format(time.RFC3339)
@@ -186,6 +189,12 @@ func (t *Translator) markEnd(note string, err error) {
 		log.Printf("[translate] %s FAILED: %v", mode, err)
 	} else {
 		log.Printf("[translate] %s done: %s", mode, note)
+	}
+	releaseContent := t.releaseContent
+	t.releaseContent = nil
+	t.mu.Unlock()
+	if releaseContent != nil {
+		releaseContent()
 	}
 }
 

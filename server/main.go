@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"moesekai/server/internal/api"
@@ -39,8 +41,8 @@ func main() {
 	jwtSecret := envOr("JWT_SECRET", "")
 	allowOrigin := envOr("CONSOLE_ORIGIN", "*")
 
-	if jwtSecret == "" {
-		fmt.Fprintln(os.Stderr, "Fatal: JWT_SECRET is required")
+	if err := auth.ValidateJWTSecret(jwtSecret); err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal: JWT_SECRET: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -57,7 +59,9 @@ func main() {
 	seedConfigFromEnv(cfg)
 
 	authSvc := auth.New(database, jwtSecret, parseTTL(envOr("TOKEN_TTL_HOURS", "168")))
-	seedAdminFromEnv(authSvc)
+	if err := seedAdminFromEnv(authSvc); err != nil {
+		fatal("seed initial admin", err)
+	}
 
 	st := store.New(database)
 	es := store.NewEventStore(database)
@@ -147,8 +151,29 @@ func main() {
 		log.Println("  WARNING: MOESEKAI_MASTER_KEY not set — secrets cannot be stored")
 	}
 	httpServer := newHTTPServer(":"+port, handler)
-	if err := httpServer.ListenAndServe(); err != nil {
-		fatal("listen", err)
+	serverErr := make(chan error, 1)
+	go func() { serverErr <- httpServer.ListenAndServe() }()
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	select {
+	case err := <-serverErr:
+		if err != nil && err != http.ErrServerClosed {
+			fatal("listen", err)
+		}
+	case sig := <-signals:
+		log.Printf("shutdown requested by %s", sig)
+		watcher.Stop()
+		backupMgr.Stop()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Printf("graceful shutdown failed: %v", err)
+			_ = httpServer.Close()
+		}
+		if err := <-serverErr; err != nil && err != http.ErrServerClosed {
+			log.Printf("server stopped with error: %v", err)
+		}
 	}
 }
 
@@ -246,35 +271,42 @@ func seedConfigFromEnv(cfg *config.Config) {
 	}
 }
 
-// seedAdminFromEnv creates the first admin from TRANSLATOR_ACCOUNTS (legacy
-// "user:pass,user2:pass2") or ADMIN_USER/ADMIN_PASSWORD when no users exist.
-func seedAdminFromEnv(a *auth.Auth) {
-	n, err := a.CountUsers()
-	if err != nil || n > 0 {
-		return
+// seedAdminFromEnv guarantees an administrator from TRANSLATOR_ACCOUNTS (legacy
+// "user:pass,user2:pass2") or ADMIN_USER/ADMIN_PASSWORD when none exists.
+func seedAdminFromEnv(a *auth.Auth) error {
+	adminCount, err := a.CountAdmins()
+	if err != nil || adminCount > 0 {
+		return err
+	}
+	userCount, err := a.CountUsers()
+	if err != nil {
+		return err
 	}
 	created := 0
+	adminCreated := false
 	if accts := os.Getenv("TRANSLATOR_ACCOUNTS"); accts != "" {
-		for i, pair := range strings.Split(accts, ",") {
+		for _, pair := range strings.Split(accts, ",") {
 			parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
 			if len(parts) != 2 {
 				continue
 			}
 			role := auth.RoleEditor
-			if i == 0 {
-				role = auth.RoleAdmin // first account is admin
+			if !adminCreated {
+				role = auth.RoleAdmin
 			}
 			if _, err := a.CreateUser(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), role); err == nil {
 				created++
+				adminCreated = adminCreated || role == auth.RoleAdmin
 			}
 		}
 	}
-	if created == 0 {
+	if !adminCreated {
 		user := envOr("ADMIN_USER", "admin")
 		pass := envOr("ADMIN_PASSWORD", "")
 		if pass != "" {
 			if _, err := a.CreateUser(user, pass, auth.RoleAdmin); err == nil {
 				created++
+				adminCreated = true
 				log.Printf("[auth] created initial admin %q from env", user)
 			}
 		}
@@ -282,6 +314,10 @@ func seedAdminFromEnv(a *auth.Auth) {
 	if created > 0 {
 		log.Printf("[auth] seeded %d account(s) from environment", created)
 	}
+	if !adminCreated && userCount > 0 {
+		return fmt.Errorf("database contains users but no administrator; provide a unique strong ADMIN_USER/ADMIN_PASSWORD")
+	}
+	return nil
 }
 
 func corsMiddleware(next http.Handler, origin string) http.Handler {

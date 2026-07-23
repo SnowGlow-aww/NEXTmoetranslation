@@ -64,6 +64,7 @@ type Status struct {
 	LastCheck           string   `json:"lastCheck,omitempty"`
 	LastSuccess         string   `json:"lastSuccess,omitempty"`
 	LastDataVersion     string   `json:"lastDataVersion,omitempty"`
+	PendingDataVersion  string   `json:"pendingDataVersion,omitempty"`
 	ChangeDetectedAt    string   `json:"changeDetectedAt,omitempty"`
 	LastSync            string   `json:"lastSync,omitempty"`
 	LastError           string   `json:"lastError,omitempty"`
@@ -82,14 +83,15 @@ type Watcher struct {
 	gitDir   string // local clone path; empty disables the git mirror
 	useGit   bool
 
-	checkMu          sync.Mutex
-	mu               sync.Mutex
-	status           Status
-	etag             string
-	lastModified     string
-	validatorURL     string
-	cachedVersion    VersionInfo
-	rateLimitedUntil time.Time
+	checkMu            sync.Mutex
+	mu                 sync.Mutex
+	status             Status
+	etag               string
+	lastModified       string
+	validatorURL       string
+	cachedVersion      VersionInfo
+	pendingDataVersion string
+	rateLimitedUntil   time.Time
 
 	stopCh chan struct{}
 }
@@ -290,8 +292,11 @@ func (w *Watcher) fetchAndCompare() (bool, error) {
 		if s.LastDataVersion != "" && s.LastDataVersion != info.DataVersion {
 			changed = true
 			s.ChangeDetectedAt = checkedAt
+			w.pendingDataVersion = info.DataVersion
+			s.PendingDataVersion = info.DataVersion
+		} else if s.LastDataVersion == "" {
+			s.LastDataVersion = info.DataVersion
 		}
-		s.LastDataVersion = info.DataVersion
 	})
 	if changed {
 		fmt.Printf("[upstream] dataVersion changed -> %s\n", info.DataVersion)
@@ -534,6 +539,11 @@ func (w *Watcher) RecordSyncResult(err error) {
 			return
 		}
 		s.LastSync = stamp
+		if w.pendingDataVersion != "" {
+			s.LastDataVersion = w.pendingDataVersion
+			w.pendingDataVersion = ""
+			s.PendingDataVersion = ""
+		}
 		s.LastSuccess = stamp
 		s.LastError = ""
 		s.LastErrorAt = ""

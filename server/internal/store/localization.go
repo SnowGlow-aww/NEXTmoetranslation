@@ -186,6 +186,13 @@ func (s *Store) CategoryDataLocale(category, locale string) (model.Category, err
 }
 
 func (s *Store) UpdateEntryLocale(category, field, key, text, source, user, locale string) (string, error) {
+	var baseExists int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM entries WHERE category=? AND field=? AND jp_key=?`, category, field, key).Scan(&baseExists); err != nil {
+		return "", err
+	}
+	if baseExists != 1 {
+		return "", sql.ErrNoRows
+	}
 	if locale == model.LocaleChinese {
 		tx, err := s.db.Begin()
 		if err != nil {
@@ -202,14 +209,8 @@ func (s *Store) UpdateEntryLocale(category, field, key, text, source, user, loca
 			return "", err
 		}
 		now := time.Now().Unix()
-		if err == sql.ErrNoRows {
-			_, err = tx.Exec(`INSERT INTO entries
-				(category, field, jp_key, cn_text, source, ids_json, updated_at, updated_by)
-				VALUES (?, ?, ?, ?, ?, '', ?, ?)`, category, field, key, text, source, now, user)
-		} else {
-			_, err = tx.Exec(`UPDATE entries SET cn_text=?, source=?, updated_at=?, updated_by=?
-				WHERE category=? AND field=? AND jp_key=?`, text, source, now, user, category, field, key)
-		}
+		_, err = tx.Exec(`UPDATE entries SET cn_text=?, source=?, updated_at=?, updated_by=?
+			WHERE category=? AND field=? AND jp_key=?`, text, source, now, user, category, field, key)
 		if err != nil {
 			return "", err
 		}

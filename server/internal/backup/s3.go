@@ -20,6 +20,13 @@ import (
 	"moesekai/server/internal/importer"
 )
 
+const (
+	maxS3ResponseBytes      = 128 << 20
+	maxArchiveEntries       = 10_000
+	maxArchiveFileBytes     = 64 << 20
+	maxArchiveExpandedBytes = 512 << 20
+)
+
 // s3Settings is a snapshot of the S3 target config.
 type s3Settings struct {
 	endpoint  string // e.g. https://s3.amazonaws.com or https://<account>.r2.cloudflarestorage.com
@@ -176,12 +183,18 @@ func tarGzDir(dir string) ([]byte, error) {
 }
 
 func untarGz(data []byte, dest string) error {
+	if len(data) > maxS3ResponseBytes {
+		return fmt.Errorf("archive exceeds %d compressed bytes", maxS3ResponseBytes)
+	}
 	gr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
 	defer gr.Close()
 	tr := tar.NewReader(gr)
+	entries := 0
+	var expanded int64
+	seen := map[string]bool{}
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -190,29 +203,52 @@ func untarGz(data []byte, dest string) error {
 		if err != nil {
 			return err
 		}
+		entries++
+		if entries > maxArchiveEntries {
+			return fmt.Errorf("archive exceeds %d entries", maxArchiveEntries)
+		}
 		// Guard against path traversal in archive entries.
-		target := filepath.Join(dest, filepath.Clean("/"+hdr.Name))
+		name := filepath.Clean(filepath.FromSlash(hdr.Name))
+		if name == "." || filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("unsafe path in archive: %s", hdr.Name)
+		}
+		target := filepath.Join(dest, name)
 		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) && target != dest {
 			return fmt.Errorf("unsafe path in archive: %s", hdr.Name)
 		}
+		if seen[target] {
+			return fmt.Errorf("duplicate path in archive: %s", hdr.Name)
+		}
+		seen[target] = true
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return err
 			}
 		case tar.TypeReg:
+			if hdr.Size < 0 || hdr.Size > maxArchiveFileBytes {
+				return fmt.Errorf("archive file %s exceeds %d bytes", hdr.Name, maxArchiveFileBytes)
+			}
+			if expanded+hdr.Size > maxArchiveExpandedBytes {
+				return fmt.Errorf("archive exceeds %d expanded bytes", maxArchiveExpandedBytes)
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			f, err := os.Create(target)
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+			if _, err := io.CopyN(f, tr, hdr.Size); err != nil {
+				_ = f.Close()
 				return err
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				return err
+			}
+			expanded += hdr.Size
+		default:
+			return fmt.Errorf("unsupported archive entry type %d for %s", hdr.Typeflag, hdr.Name)
 		}
 	}
 	return nil
@@ -279,7 +315,16 @@ func (m *Manager) s3DoResp(cfg s3Settings, method, key string, body []byte) ([]b
 		return nil, err
 	}
 	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxS3ResponseBytes {
+		return nil, fmt.Errorf("s3 %s %s: response exceeds %d bytes", method, key, maxS3ResponseBytes)
+	}
+	respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, maxS3ResponseBytes+1))
+	if readErr != nil {
+		return nil, readErr
+	}
+	if len(respBody) > maxS3ResponseBytes {
+		return nil, fmt.Errorf("s3 %s %s: response exceeds %d bytes", method, key, maxS3ResponseBytes)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("s3 %s %s: http %d: %s", method, key, resp.StatusCode, s3ErrMsg(respBody))
 	}

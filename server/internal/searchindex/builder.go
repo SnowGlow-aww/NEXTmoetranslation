@@ -5,7 +5,6 @@
 package searchindex
 
 import (
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +23,9 @@ import (
 const (
 	defaultJPMasterdataURL         = "https://metadata.pjsk.moe/jp/master"
 	defaultJPMasterdataFallbackURL = "https://raw.githubusercontent.com/{repo}/{branch}/master"
+	maxMasterdataWireBytes         = 64 << 20
+	maxMasterdataDecodedBytes      = 128 << 20
+	maxMasterdataRecords           = 500_000
 )
 
 type Entry struct {
@@ -229,8 +231,9 @@ func (b *Builder) build(reason string) {
 		}
 	}
 
-	if successes == 0 {
-		fmt.Printf("[search-index] all fetches failed; keeping existing index\n")
+	expectedSuccesses := len(simple) + 1
+	if successes != expectedSuccesses {
+		fmt.Printf("[search-index] rebuilt %d/%d source sets; keeping existing complete index\n", successes, expectedSuccesses)
 		return
 	}
 
@@ -260,6 +263,9 @@ func (b *Builder) fetchArray(filename string) ([]map[string]any, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected json type for %s", filename)
 	}
+	if len(arr) > maxMasterdataRecords {
+		return nil, fmt.Errorf("too many records in %s: %d", filename, len(arr))
+	}
 	out := make([]map[string]any, 0, len(arr))
 	for _, item := range arr {
 		if m, ok := item.(map[string]any); ok {
@@ -281,6 +287,9 @@ func (b *Builder) fetchCostumes() ([]map[string]any, error) {
 	arr, ok := obj["costumes"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("missing costumes array")
+	}
+	if len(arr) > maxMasterdataRecords {
+		return nil, fmt.Errorf("too many costume records: %d", len(arr))
 	}
 	out := make([]map[string]any, 0, len(arr))
 	for _, item := range arr {
@@ -339,16 +348,7 @@ func (b *Builder) fetchJSON(url string) (any, error) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 400))
 		return nil, fmt.Errorf("GET %s: http %d: %s", url, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	var reader io.Reader = resp.Body
-	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
-		zr, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		defer zr.Close()
-		reader = zr
-	}
-	raw, err := io.ReadAll(reader)
+	raw, err := httpx.ReadBody(resp, maxMasterdataWireBytes, maxMasterdataDecodedBytes)
 	if err != nil {
 		return nil, err
 	}

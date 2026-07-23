@@ -1,6 +1,11 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+
+	"moesekai/server/internal/auth"
+)
 
 // RegisterRoutes mounts all console API routes on mux. Every route except login
 // requires a valid JWT; admin-only routes (registered elsewhere) additionally
@@ -16,24 +21,24 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Translations
 	mux.HandleFunc("/api/categories", s.auth.RequireAuth(s.handleCategories))
 	mux.HandleFunc("/api/entries", s.auth.RequireAuth(s.handleEntries))
-	mux.HandleFunc("/api/entry", s.auth.RequireAuth(s.handleUpdateEntry))
+	mux.HandleFunc("/api/entry", s.auth.RequireAuth(s.contentMutation(s.handleUpdateEntry)))
 
 	// Stable masterdata catalog and manual lyrics workflow.
 	mux.HandleFunc("/api/catalog/music", s.auth.RequireAuth(s.handleCatalogMusic))
 	mux.HandleFunc("/api/catalog/characters", s.auth.RequireAuth(s.handleCatalogCharacters))
 	mux.HandleFunc("/api/lyrics", s.auth.RequireAuth(s.handleLyricsList))
 	mux.HandleFunc("/api/lyrics/detail", s.auth.RequireAuth(s.handleLyricsDetail))
-	mux.HandleFunc("/api/lyrics/save", s.auth.RequireAuth(s.handleLyricsSave))
-	mux.HandleFunc("/api/lyrics/publish", s.auth.RequireAdmin(s.handleLyricsPublish))
-	mux.HandleFunc("/api/lyrics/unpublish", s.auth.RequireAdmin(s.handleLyricsUnpublish))
+	mux.HandleFunc("/api/lyrics/save", s.auth.RequireAuth(s.contentMutation(s.handleLyricsSave)))
+	mux.HandleFunc("/api/lyrics/publish", s.auth.RequireAdmin(s.contentMutation(s.handleLyricsPublish)))
+	mux.HandleFunc("/api/lyrics/unpublish", s.auth.RequireAdmin(s.contentMutation(s.handleLyricsUnpublish)))
 	mux.HandleFunc("/api/lyrics/source/search", s.auth.RequireAuth(s.handleLyricsSourceSearch))
 	mux.HandleFunc("/api/lyrics/source/preview", s.auth.RequireAuth(s.handleLyricsSourcePreview))
 
 	// Event stories
 	mux.HandleFunc("/api/event-stories", s.auth.RequireAuth(s.handleEventStories))
 	mux.HandleFunc("/api/event-story", s.auth.RequireAuth(s.handleEventStory))
-	mux.HandleFunc("/api/event-story/update", s.auth.RequireAuth(s.handleUpdateEventStory))
-	mux.HandleFunc("/api/event-story/promote-human", s.auth.RequireAdmin(s.handlePromoteEventStoryHuman))
+	mux.HandleFunc("/api/event-story/update", s.auth.RequireAuth(s.contentMutation(s.handleUpdateEventStory)))
+	mux.HandleFunc("/api/event-story/promote-human", s.auth.RequireAdmin(s.contentMutation(s.handlePromoteEventStoryHuman)))
 	mux.HandleFunc("/api/event-story/retry", s.auth.RequireAdmin(s.handleRetryEventStory))
 	mux.HandleFunc("/api/event-story/reorder", s.auth.RequireAdmin(s.handleReorderEventStory))
 
@@ -60,6 +65,21 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 
 	// Realtime: SSE stream (JWT via Authorization header or ?token= query param).
 	if s.hub != nil {
-		mux.HandleFunc("/sse", s.auth.RequireAuth(s.hub.Handler(currentUser)))
+		mux.HandleFunc("/sse", s.auth.RequireAuth(s.hub.Handler(currentUser, func(r *http.Request) bool {
+			_, err := s.auth.VerifyToken(auth.TokenFromRequest(r))
+			return err == nil
+		}, func(r *http.Request) time.Time {
+			claims, _ := auth.FromContext(r.Context())
+			if claims == nil || claims.ExpiresAt == nil {
+				return time.Time{}
+			}
+			return claims.ExpiresAt.Time
+		})))
 	}
+
+	// Keep unknown API paths inside the JSON API contract instead of falling
+	// through to the static SPA catch-all.
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
+		writeErr(w, http.StatusNotFound, "not found")
+	})
 }

@@ -84,6 +84,23 @@ button {
   color: inherit;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 input, select, textarea {
   font-family: inherit;
   font-size: inherit;
@@ -282,6 +299,8 @@ kbd {
   cursor: pointer;
   font-size: 13px;
   transition: background 0.1s;
+  width: 100%;
+  text-align: left;
 }
 .field-item:hover { background: var(--surface-3); }
 .field-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
@@ -672,6 +691,10 @@ kbd {
 .lyric-segments input, .lyric-segments select { min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
 .lyric-segments select { min-height: 34px; }
 .lyric-segments span { color: var(--text-dim); font-size: 11px; }
+.lyric-structure-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.lyric-line header .lyric-structure-actions { margin-left: 0; }
+.lyric-segments > div > .lyric-structure-actions { grid-column: 1 / -1; }
+.lyric-structure-actions .btn { color: var(--text-secondary); }
 .lyrics-add-line { align-self: flex-start; }
 .lyrics-preview-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
 .lyrics-preview-tabs button { padding: 5px 9px; border-radius: var(--radius-sm); color: var(--text-secondary); }

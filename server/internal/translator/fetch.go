@@ -5,7 +5,6 @@
 package translator
 
 import (
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"moesekai/server/internal/config"
+	"moesekai/server/internal/httpx"
 )
 
 const (
@@ -32,6 +32,9 @@ const (
 	defaultCNAssetsURL         = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets/ondemand"
 	defaultCNAssetsFallbackURL = ""
 	defaultSourceHedgeDelay    = 2 * time.Second
+	maxMasterdataWireBytes     = 64 << 20
+	maxMasterdataDecodedBytes  = 128 << 20
+	maxMasterdataRecords       = 500_000
 )
 
 type sourceFailure struct {
@@ -48,6 +51,9 @@ func (t *Translator) fetchMasterdata(filename, server string) ([]map[string]any,
 	arr, ok := data.([]any)
 	if !ok {
 		return nil, fmt.Errorf("unexpected json type for %s", filename)
+	}
+	if len(arr) > maxMasterdataRecords {
+		return nil, fmt.Errorf("too many records in %s: %d", filename, len(arr))
 	}
 	out := make([]map[string]any, 0, len(arr))
 	for _, item := range arr {
@@ -283,16 +289,7 @@ func (t *Translator) fetchJSONURLOnceContext(ctx context.Context, url string) (a
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 400))
 		return nil, fmt.Errorf("GET %s: http %d: %s", url, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	var reader io.Reader = resp.Body
-	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
-		zr, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("GET %s: gzip: %w", url, err)
-		}
-		defer zr.Close()
-		reader = zr
-	}
-	raw, err := io.ReadAll(reader)
+	raw, err := httpx.ReadBody(resp, maxMasterdataWireBytes, maxMasterdataDecodedBytes)
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: read: %w", url, err)
 	}

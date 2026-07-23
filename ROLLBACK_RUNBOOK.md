@@ -10,6 +10,7 @@ Use this procedure for a bad application artifact or container image, a failed r
 2. Copy the SQLite database with SQLite backup semantics, including a verification open, before rollback. Do not copy only the main file while WAL writes are active.
 3. Retain the automatic `*.pre-migration-vN.bak` file and verify it opens before relying on it.
 4. Preserve application logs, request IDs, deployment events, and the exact environment-variable names in use. Do not place secret values in tickets or logs.
+5. Download the CI artifact named `rollback-<full-git-sha>` and verify `SHA256SUMS` before use. CI artifacts are never overwritten; container deployments must separately record the digest-qualified three base images and final image digest.
 
 ## Artifact Or Image Rollback
 

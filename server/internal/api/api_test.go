@@ -27,11 +27,11 @@ func setup(t *testing.T) (*httptest.Server, string) {
 
 	s := store.New(database)
 	es := store.NewEventStore(database)
-	a := auth.New(database, "test-secret", time.Hour)
+	a := auth.New(database, "test-secret-at-least-32-bytes-long", time.Hour)
 	cfg, _ := config.New(database, "master-key")
 
 	// Seed a user and some data.
-	if _, err := a.CreateUser("alice", "pw", auth.RoleAdmin); err != nil {
+	if _, err := a.CreateUser("alice", "strong-password-123", auth.RoleAdmin); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.ImportCategory("cards", model.Category{
@@ -52,7 +52,7 @@ func setup(t *testing.T) (*httptest.Server, string) {
 	t.Cleanup(ts.Close)
 
 	// Log in to get a token.
-	body, _ := json.Marshal(map[string]string{"username": "alice", "password": "pw"})
+	body, _ := json.Marshal(map[string]string{"username": "alice", "password": "strong-password-123"})
 	resp, err := http.Post(ts.URL+"/api/auth/login", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +91,22 @@ func TestUnauthorizedRejected(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestUnknownAPIPathReturnsJSON404(t *testing.T) {
+	ts, _ := setup(t)
+	response, err := http.Get(ts.URL + "/api/does-not-exist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNotFound || response.Header.Get("Content-Type") != "application/json; charset=utf-8" {
+		t.Fatalf("unknown API status=%d content-type=%q", response.StatusCode, response.Header.Get("Content-Type"))
+	}
+	var body map[string]string
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil || body["error"] != "not found" {
+		t.Fatalf("unknown API body=%v err=%v", body, err)
 	}
 }
 
@@ -179,7 +195,7 @@ func setupEmpty(t *testing.T) *httptest.Server {
 
 	s := store.New(database)
 	es := store.NewEventStore(database)
-	a := auth.New(database, "test-secret", time.Hour)
+	a := auth.New(database, "test-secret-at-least-32-bytes-long", time.Hour)
 	cfg, _ := config.New(database, "master-key")
 
 	srv := NewServer(s, es, a, cfg, sse.NewHub(), translator.New(s, es, cfg), nil, nil)
@@ -205,7 +221,7 @@ func TestSetupStatusAndFirstAdmin(t *testing.T) {
 	}
 
 	// Registering the first account creates an admin and returns a token.
-	body, _ := json.Marshal(map[string]string{"username": "root", "password": "pw12345"})
+	body, _ := json.Marshal(map[string]string{"username": "root", "password": "strong-password-123"})
 	resp2, err := http.Post(ts.URL+"/api/auth/setup", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -231,7 +247,7 @@ func TestSetupStatusAndFirstAdmin(t *testing.T) {
 		t.Fatal("expected needsSetup=false after first admin created")
 	}
 
-	body2, _ := json.Marshal(map[string]string{"username": "intruder", "password": "pw"})
+	body2, _ := json.Marshal(map[string]string{"username": "intruder", "password": "strong-password-456"})
 	resp4, err := http.Post(ts.URL+"/api/auth/setup", "application/json", bytes.NewReader(body2))
 	if err != nil {
 		t.Fatal(err)

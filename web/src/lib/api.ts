@@ -142,7 +142,7 @@ export interface CatalogMusicItem {
   title: LocalizedTitle;
   jacketUrl?: string;
   isNewlyWrittenMusic: boolean;
-  lyricsStatus?: "draft" | "published";
+  lyricsStatus?: "draft" | "published" | "draft-published";
 }
 
 export interface CatalogPerformerItem {
@@ -167,8 +167,9 @@ export interface LyricLine {
 
 export interface SongLyrics {
   musicId: number;
-  status: "draft" | "published";
+  status: "draft" | "published" | "draft-published";
   revision: number;
+  publishedRevision?: number;
   updatedAt: string;
   attribution?: string;
   sourceNote?: string;
@@ -221,6 +222,9 @@ export class APIError extends Error {
 const TOKEN_KEY = "moesekai-token";
 const USER_KEY = "moesekai-user";
 const ROLE_KEY = "moesekai-role";
+const EXPIRES_KEY = "moesekai-expires-at";
+const SESSION_EVENT = "moesekai-session-changed";
+const CLIENT_ID_KEY = "moesekai-client-id";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -234,15 +238,47 @@ export function getRole(): "admin" | "editor" | "" {
   if (typeof window === "undefined") return "";
   return (localStorage.getItem(ROLE_KEY) as "admin" | "editor") || "";
 }
+export function getSessionExpiresAt(): number {
+  if (typeof window === "undefined") return 0;
+  return Number(localStorage.getItem(EXPIRES_KEY) || 0);
+}
+export function getClientID(): string {
+  if (typeof window === "undefined") return "";
+  let id = sessionStorage.getItem(CLIENT_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(CLIENT_ID_KEY, id);
+  }
+  return id;
+}
+function notifySessionChanged() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EVENT));
+}
 export function setSession(r: LoginResponse) {
   localStorage.setItem(TOKEN_KEY, r.token);
   localStorage.setItem(USER_KEY, r.username);
   localStorage.setItem(ROLE_KEY, r.role);
+  localStorage.setItem(EXPIRES_KEY, String(r.expiresAt));
+  notifySessionChanged();
 }
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(EXPIRES_KEY);
+  notifySessionChanged();
+}
+export function subscribeSessionChanged(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onStorage = (event: StorageEvent) => {
+    if ([TOKEN_KEY, USER_KEY, ROLE_KEY, EXPIRES_KEY].includes(event.key || "")) listener();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(SESSION_EVENT, listener);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(SESSION_EVENT, listener);
+  };
 }
 
 // ---- Fetch helper ----
@@ -277,6 +313,14 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 export const login = (username: string, password: string) =>
   apiFetch<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
 export const fetchMe = () => apiFetch<{ username: string; role: "admin" | "editor" }>("/auth/me");
+export const refreshSession = async () => {
+  const refreshed = await apiFetch<{ token: string; expiresAt: number }>("/auth/refresh", { method: "POST" });
+  const username = getUsername();
+  const role = getRole();
+  if (!username || !role) throw new Error("会话信息不完整");
+  setSession({ ...refreshed, username, role });
+  return refreshed;
+};
 
 // First-run setup: when no users exist, the console registers the first admin.
 export const getSetupStatus = () => apiFetch<{ needsSetup: boolean }>("/auth/setup-status");
@@ -303,7 +347,7 @@ export const getEntries = (category: string, field: string, source?: string, loc
 export const updateEntry = (category: string, field: string, key: string, text: string, source: string, locale?: Locale) =>
   apiFetch<{ status: string }>("/entry", {
     method: "PUT",
-    body: JSON.stringify({ category, field, key, text, source, ...(locale && locale !== "zh-CN" ? { locale } : {}) }),
+    body: JSON.stringify({ category, field, key, text, source, clientId: getClientID(), ...(locale && locale !== "zh-CN" ? { locale } : {}) }),
   });
 
 // ---- Event stories ----
@@ -324,7 +368,7 @@ export const updateEventStoryLine = (
 ) =>
   apiFetch<{ status: string }>("/event-story/update", {
     method: "PUT",
-    body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType,
+    body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType, clientId: getClientID(),
       ...(locale && locale !== "zh-CN" ? { locale } : {}), ...(segmentId ? { segmentId } : {}),
       ...(sourceHash !== undefined ? { sourceHash } : {}) }),
   });

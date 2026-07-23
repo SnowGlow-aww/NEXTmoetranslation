@@ -29,15 +29,19 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
       <form className="login-card" onSubmit={submit}>
         <h1>翻译校对</h1>
         <p className="sub">Moesekai Translation Console</p>
-        {error && <div className="login-error">{error}</div>}
+        {error && <div className="login-error" role="alert">{error}</div>}
+        <label className="sr-only" htmlFor="login-username">用户名</label>
         <input
+          id="login-username"
           type="text"
           placeholder="用户名"
           value={user}
           onChange={(e) => setUser(e.target.value)}
           autoFocus
         />
+        <label className="sr-only" htmlFor="login-password">密码</label>
         <input
+          id="login-password"
           type="password"
           placeholder="密码"
           value={pass}

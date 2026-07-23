@@ -35,9 +35,21 @@ test("dirty state survives filtering and event reload tools are guarded", async 
   for (const label of ["运行 AI 剧情翻译", "重新获取剧情", "重排序对话"]) {
     assert.ok(consoleSource.includes(`runOrGuard("${label}"`), `unguarded event action: ${label}`);
   }
-  assert.match(consoleSource, /selectedEntry\?\.sourceHash/);
+  assert.match(consoleSource, /saveEntry\?\.sourceHash/);
   assert.match(consoleSource, /event === "eventstory\.updated" \|\| event === "eventstory\.locale\.updated"/);
   assert.match(consoleSource, /runOrGuard\("同步协作者更新", loadEntries\)/);
+});
+
+test("console generations fence loads and saves while tab identity reconciles realtime edits", async () => {
+  const consoleSource = await read("src/components/Console.tsx");
+  assert.match(consoleSource, /loadGenerationRef\.current !== generation/);
+  assert.match(consoleSource, /contextGenerationRef\.current !== generation/);
+  assert.match(consoleSource, /const saveCategory = category/);
+  assert.match(consoleSource, /d\.clientId !== clientID/);
+  assert.doesNotMatch(consoleSource, /d\.user !== username/);
+  assert.match(consoleSource, /selectedEntry && !entryDirty/);
+  assert.match(consoleSource, /event === "content\.restored"/);
+  assert.match(consoleSource, /setRestoreGeneration/);
 });
 
 test("lyrics workspace covers catalog, draft, source preview, and publication", async () => {
@@ -73,4 +85,64 @@ test("existing account and settings surfaces remain mounted", async () => {
   assert.match(consoleSource, /<SettingsModal/);
   assert.match(consoleSource, /<AdminModal/);
   assert.match(consoleSource, /clearSession\(\); onLogout\(\)/);
+});
+
+test("session refresh persists expiry and recreates token-bound SSE", async () => {
+  const [api, sse, page] = await Promise.all([
+    read("src/lib/api.ts"), read("src/lib/sse.ts"), read("src/app/page.tsx"),
+  ]);
+  assert.match(api, /EXPIRES_KEY/);
+  assert.match(api, /refreshSession/);
+  assert.match(api, /subscribeSessionChanged/);
+  assert.match(sse, /\[enabled, token\]/);
+  assert.match(sse, /content\.restored/);
+  assert.match(page, /expiresAt \* 1000 - Date\.now\(\) - 60_000/);
+});
+
+test("dialogs, navigation, forms, and live feedback expose accessibility semantics", async () => {
+  const [modal, consoleSource, providers, login, register, admin, settings] = await Promise.all([
+    read("src/components/Modal.tsx"), read("src/components/Console.tsx"), read("src/app/providers.tsx"),
+    read("src/components/LoginPage.tsx"), read("src/components/RegisterPage.tsx"),
+    read("src/components/AdminModal.tsx"), read("src/components/SettingsModal.tsx"),
+  ]);
+  for (const contract of ["role=\"dialog\"", "aria-modal=\"true\"", "aria-labelledby", "previousFocusRef", 'e.key !== "Tab"']) {
+    assert.ok(modal.includes(contract), `missing modal contract: ${contract}`);
+  }
+  assert.match(consoleSource, /<button type="button" key={badgeKey}/);
+  assert.match(consoleSource, /tabIndex={0}/);
+  assert.match(consoleSource, /event\.target !== event\.currentTarget/);
+  assert.match(consoleSource, /aria-label="用户设置"/);
+  assert.match(providers, /aria-live="polite"/);
+  assert.match(login, /htmlFor="login-username"/);
+  assert.match(register, /htmlFor="register-password"/);
+  assert.match(admin, /aria-label={`\$\{u\.username\} 的角色`}/);
+  assert.match(admin, /<label htmlFor="new-username">/);
+  assert.match(admin, /<label htmlFor={inputID}>/);
+  assert.match(settings, /<label htmlFor="appearance-theme">/);
+  assert.match(settings, /<label htmlFor="save-shortcut">/);
+});
+
+test("lyrics editor implements complete line and segment structure controls", async () => {
+  const editor = await read("src/components/LyricsEditor.tsx");
+  for (const contract of ["removeLine", "moveLine", "addSegment", "splitSegment", "removeSegment", "moveSegment", "setSourcePreview(null)"]) {
+    assert.ok(editor.includes(contract), `missing lyrics structure contract: ${contract}`);
+  }
+  assert.match(editor, /draft-published/);
+  assert.match(editor, /取消发布 revision/);
+  assert.ok(editor.includes('aria-label={`第 ${lineIndex + 1} 行分段'));
+});
+
+test("web install and release inputs are immutable and verifiable", async () => {
+  const [pkg, lock, dockerfile] = await Promise.all([
+    read("package.json"), read("package-lock.json"), read("../Dockerfile"),
+  ]);
+  const manifest = JSON.parse(pkg);
+  for (const dependency of [...Object.values(manifest.dependencies), ...Object.values(manifest.devDependencies)]) {
+    assert.match(dependency, /^\d+\.\d+\.\d+$/, `dependency is not exact: ${dependency}`);
+  }
+  assert.equal(lock.includes("registry.npmmirror.com"), false);
+  assert.equal(manifest.scripts.lint, "eslint src --max-warnings=0");
+  assert.match(dockerfile, /npm ci --ignore-scripts/);
+  assert.match(dockerfile, /ARG NODE_IMAGE/);
+  assert.doesNotMatch(dockerfile, /FROM node:[^$]/);
 });

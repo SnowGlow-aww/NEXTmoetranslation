@@ -25,6 +25,9 @@ func bearerToken(r *http.Request) string {
 	return r.URL.Query().Get("token")
 }
 
+// TokenFromRequest returns the bearer/query token used by auth middleware.
+func TokenFromRequest(r *http.Request) string { return bearerToken(r) }
+
 // RequireAuth wraps a handler, rejecting requests without a valid JWT and
 // attaching the claims to the request context.
 func (a *Auth) RequireAuth(next http.HandlerFunc) http.HandlerFunc {

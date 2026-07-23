@@ -13,6 +13,7 @@ data/
 web/node_modules/
 web/.next/
 web/out/
+web/tsconfig.tsbuildinfo
 node_modules/
 
 # Env

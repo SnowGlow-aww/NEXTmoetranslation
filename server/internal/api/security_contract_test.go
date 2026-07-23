@@ -16,7 +16,7 @@ import (
 
 func TestEditorsCannotTriggerAdministrativeOperations(t *testing.T) {
 	h := setupLegacyAPI(t)
-	editor, err := h.api.auth.CreateUser("editor", "password", auth.RoleEditor)
+	editor, err := h.api.auth.CreateUser("editor", "strong-password-123", auth.RoleEditor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestStaleAdminTokensFailAuthentication(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			h := setupLegacyAPI(t)
-			if _, err := h.api.auth.CreateUser("backup-admin", "password", auth.RoleAdmin); err != nil {
+			if _, err := h.api.auth.CreateUser("backup-admin", "strong-password-456", auth.RoleAdmin); err != nil {
 				t.Fatal(err)
 			}
 			if err := test.revoke(h); err != nil {
@@ -108,7 +108,7 @@ func TestPublicAuthAttemptLimitsUseRemoteAddrAndAccount(t *testing.T) {
 		h.api.authAttempts = newAuthAttemptLimiter(2, time.Minute, 128)
 		for attempt := 0; attempt < 3; attempt++ {
 			response := invokePublicAuth(t, h.api.handleSetup, "203.0.113.20:4321", "198.51.100.20", map[string]string{
-				"username": "candidate", "password": "password",
+				"username": "candidate", "password": "strong-password-123",
 			})
 			want := http.StatusConflict
 			if attempt == 2 {

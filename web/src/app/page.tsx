@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getToken, fetchMe, clearSession, getSetupStatus } from "@/lib/api";
+import {
+  getToken, fetchMe, clearSession, getSetupStatus, getSessionExpiresAt,
+  refreshSession, subscribeSessionChanged,
+} from "@/lib/api";
 import { LoginPage } from "@/components/LoginPage";
 import { RegisterPage } from "@/components/RegisterPage";
 import { Console } from "@/components/Console";
@@ -28,6 +31,42 @@ export default function Home() {
         setLoggedIn(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expire = () => {
+      clearSession();
+      setLoggedIn(false);
+    };
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      const expiresAt = getSessionExpiresAt();
+      if (expiresAt > 0 && expiresAt * 1000 <= Date.now()) {
+        expire();
+        return;
+      }
+      const delay = expiresAt > 0 ? Math.max(1000, expiresAt * 1000 - Date.now() - 60_000) : 1000;
+      timer = setTimeout(async () => {
+        try {
+          await refreshSession();
+          if (!stopped) schedule();
+        } catch {
+          if (stopped) return;
+          if (getSessionExpiresAt() * 1000 <= Date.now()) expire();
+          else timer = setTimeout(schedule, 15_000);
+        }
+      }, delay);
+    };
+    const unsubscribe = subscribeSessionChanged(schedule);
+    schedule();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [loggedIn]);
 
   if (loggedIn === null) {
     return (

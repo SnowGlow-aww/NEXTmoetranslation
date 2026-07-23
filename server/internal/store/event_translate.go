@@ -2,7 +2,10 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
+
+	"moesekai/server/internal/model"
 )
 
 // EventTranslateTarget is an untranslated title or talk line needing LLM work.
@@ -72,6 +75,7 @@ func (s *EventStore) ApplyEventTranslations(eventID int, targets []EventTranslat
 	}
 	defer tx.Rollback()
 	changed := 0
+	now := time.Now().Unix()
 	for i, tgt := range targets {
 		if i >= len(cnByIndex) {
 			break
@@ -86,23 +90,60 @@ func (s *EventStore) ApplyEventTranslations(eventID int, targets []EventTranslat
 				cn, source, eventID, tgt.EpisodeNo); err != nil {
 				return changed, err
 			}
+			if err := upsertEventTranslationLocale(tx, eventID, tgt, cn, source, now); err != nil {
+				return changed, err
+			}
 		} else {
 			if _, err := tx.Exec(
 				`UPDATE event_story_lines SET cn_text=?, source=? WHERE event_id=? AND episode_no=? AND jp_key=?`,
 				cn, source, eventID, tgt.EpisodeNo, tgt.JP); err != nil {
 				return changed, err
 			}
+			if err := upsertEventTranslationLocale(tx, eventID, tgt, cn, source, now); err != nil {
+				return changed, err
+			}
 		}
 		changed++
 	}
-	if _, err := tx.Exec(`UPDATE event_stories SET last_updated=? WHERE event_id=?`,
-		time.Now().Unix(), eventID); err != nil {
+	if _, err := tx.Exec(`UPDATE event_stories SET last_updated=? WHERE event_id=?`, now, eventID); err != nil {
+		return changed, err
+	}
+	if _, err := tx.Exec(`INSERT INTO event_story_locale_meta(event_id, locale, last_updated) VALUES (?, ?, ?)
+		ON CONFLICT(event_id, locale) DO UPDATE SET last_updated=excluded.last_updated`, eventID, model.LocaleChinese, now); err != nil {
 		return changed, err
 	}
 	if err := tx.Commit(); err != nil {
 		return changed, err
 	}
 	return changed, nil
+}
+
+func upsertEventTranslationLocale(tx *sql.Tx, eventID int, target EventTranslateTarget, text, source string, now int64) error {
+	kind := "talk"
+	jpKey := target.JP
+	if target.EntryType == "title" {
+		kind = "title"
+		jpKey = ""
+	}
+	result, err := tx.Exec(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		SELECT segment_id, ?, ?, ?, ?, 'ai', 1 FROM event_story_segments
+		WHERE event_id=? AND episode_no=? AND kind=? AND jp_key=?
+		ON CONFLICT(segment_id, locale) DO UPDATE SET text=excluded.text, source=excluded.source,
+		updated_at=excluded.updated_at, updated_by=excluded.updated_by,
+		revision=event_story_segment_localizations.revision+1`,
+		model.LocaleChinese, text, source, now, eventID, target.EpisodeNo, kind, jpKey)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("event %d %s %s has %d additive segments", eventID, target.EpisodeNo, kind, affected)
+	}
+	return nil
 }
 
 // SetStorySource updates an event story's story-level source.

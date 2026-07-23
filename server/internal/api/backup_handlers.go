@@ -1,6 +1,11 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+
+	"moesekai/server/internal/sse"
+)
 
 // handleBackupStatus reports backup/restore state.
 //
@@ -64,6 +69,9 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.broadcast(sse.EventContentRestored, map[string]any{
+		"target": req.Target, "user": currentUser(r), "restoredAt": time.Now().UTC().Format(time.RFC3339),
+	})
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":       "ok",
 		"categories":   res.Categories,

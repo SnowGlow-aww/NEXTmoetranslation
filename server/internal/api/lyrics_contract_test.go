@@ -78,10 +78,10 @@ func TestLyricsAPIContractAndRBAC(t *testing.T) {
 	}
 
 	createEditor := authorizedRequest(t, h, http.MethodPost, "/api/admin/users", map[string]string{
-		"username": "editor", "password": "pw", "role": auth.RoleEditor,
+		"username": "editor", "password": "strong-password-123", "role": auth.RoleEditor,
 	})
 	createEditor.Body.Close()
-	login := doJSON(t, http.MethodPost, h.server.URL+"/api/auth/login", "", map[string]string{"username": "editor", "password": "pw"})
+	login := doJSON(t, http.MethodPost, h.server.URL+"/api/auth/login", "", map[string]string{"username": "editor", "password": "strong-password-123"})
 	defer login.Body.Close()
 	var editorLogin struct {
 		Token string `json:"token"`

@@ -9,7 +9,7 @@ import { Modal } from "@/components/Modal";
 import {
   CategoryInfo, EventStorySummary, Locale, TranslationEntry,
   clearSession, getCategories, getEntries, getEventStories, getEventStory,
-  getRole, getUsername, triggerAIStory,
+  getClientID, getRole, getUsername, triggerAIStory,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
 } from "@/lib/api";
 import {
@@ -72,6 +72,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const [username] = useState(getUsername());
   const [role] = useState(getRole());
+  const [clientID] = useState(getClientID());
 
   // Modal states
   const [showSettings, setShowSettings] = useState(false);
@@ -95,6 +96,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [progress, setProgress] = useState<Progress | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const savingRef = useRef(false);
+  const loadGenerationRef = useRef(0);
+  const contextGenerationRef = useRef(0);
+  const [restoreGeneration, setRestoreGeneration] = useState(0);
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -122,28 +126,36 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- Load entries on selection change ----
   const loadEntries = useCallback(() => {
-    if (!category || !field) return;
-    if (isLyrics) {
+    const generation = ++loadGenerationRef.current;
+    if (!category || !field) {
       setEntries([]);
       setSelectedKey(null);
+      setEditValue("");
+      return;
+    }
+    setEntries([]);
+    setSelectedKey(null);
+    setEditValue("");
+    if (isLyrics) {
       setLoading(false);
       return;
     }
     setLoading(true);
-    setSelectedKey(null);
     if (isEventStory) {
       getEventStory(Number(field), locale)
         .then((detail) => {
+          if (loadGenerationRef.current !== generation) return;
           const list = buildEventStoryEntries(detail);
           setEntries(list);
           if (list.length) { setSelectedKey(list[0].key); setEditValue(list[0].text); }
         })
-        .catch((e) => show(e.message, "err"))
-        .finally(() => setLoading(false));
+        .catch((e) => { if (loadGenerationRef.current === generation) show(e.message, "err"); })
+        .finally(() => { if (loadGenerationRef.current === generation) setLoading(false); });
       return;
     }
     getEntries(category, field, undefined, locale)
       .then((data) => {
+        if (loadGenerationRef.current !== generation) return;
         data.sort((a, b) => {
           const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
           return d !== 0 ? d : a.key.localeCompare(b.key, undefined, { numeric: true });
@@ -151,8 +163,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         setEntries(data);
         if (data.length) { setSelectedKey(data[0].key); setEditValue(data[0].text); }
       })
-      .catch((e) => show(e.message, "err"))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (loadGenerationRef.current === generation) show(e.message, "err"); })
+      .finally(() => { if (loadGenerationRef.current === generation) setLoading(false); });
   }, [category, field, isEventStory, isLyrics, locale, show]);
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
@@ -203,15 +215,24 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
     } else if (event === "entry.updated" || event === "entry.locale.updated") {
       const updateLocale = String(d.locale || "zh-CN");
-      if (updateLocale === locale && d.category === category && d.field === field && d.user !== username) {
-        setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: String(d.text), source: String(d.source) } : e)));
+      if (updateLocale === locale && d.category === category && d.field === field && d.clientId !== clientID) {
+        const nextText = String(d.text);
+        if (d.key === selectedKey && selectedEntry && !entryDirty) setEditValue(nextText);
+        setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: nextText, source: String(d.source) } : e)));
         show(`${d.user} 修改了一条翻译`, "ok");
       }
     } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
       const updateLocale = String(d.locale || "zh-CN");
-      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
+      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.clientId !== clientID) {
         runOrGuard("同步协作者更新", loadEntries);
       }
+    } else if (event === "content.restored") {
+      runOrGuard("载入恢复后的数据", () => {
+        contextGenerationRef.current++;
+        reloadSidebar();
+        loadEntries();
+        setRestoreGeneration((value) => value + 1);
+      });
     }
   }, true);
 
@@ -230,6 +251,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- Actions ----
   const performSelectField = (cat: string, f: string) => {
+    contextGenerationRef.current++;
+    loadGenerationRef.current++;
     setCategory(cat); setField(f); setQuery(""); setSelectedKey(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       setSidebarOpen(false);
@@ -242,6 +265,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   };
 
   const applyLocale = (next: Locale) => {
+    contextGenerationRef.current++;
+    loadGenerationRef.current++;
     setLocale(next);
     setEntries([]);
     setSelectedKey(null);
@@ -277,26 +302,35 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
     savingRef.current = true;
     const src = overrideSource || "human";
+    const generation = contextGenerationRef.current;
+    const saveCategory = category;
+    const saveField = field;
+    const saveLocale = locale;
+    const saveKey = selectedKey;
+    const saveValue = editValue;
+    const saveEntry = selectedEntry;
     try {
       if (isEventStory) {
-        const p = parseEventStoryEntryKey(selectedKey);
-        const episodeNo = selectedEntry?.episodeNo || p.episodeNo;
-        const entryType = selectedEntry?.entryType || p.entryType;
-        const japanese = selectedEntry?.japanese || p.originalText;
-        await updateEventStoryLine(Number(field), episodeNo, entryType === "title" ? "" : japanese,
-          editValue, src, entryType, locale, selectedEntry?.segmentId, selectedEntry?.sourceHash);
+        const p = parseEventStoryEntryKey(saveKey);
+        const episodeNo = saveEntry?.episodeNo || p.episodeNo;
+        const entryType = saveEntry?.entryType || p.entryType;
+        const japanese = saveEntry?.japanese || p.originalText;
+        await updateEventStoryLine(Number(saveField), episodeNo, entryType === "title" ? "" : japanese,
+          saveValue, src, entryType, saveLocale, saveEntry?.segmentId, saveEntry?.sourceHash);
+        if (contextGenerationRef.current !== generation) return true;
         setEntries((prev) => prev.map((e) =>
-          e.key === selectedKey
-            ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}` : e.key, text: editValue, source: src }
+          e.key === saveKey
+            ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}` : e.key, text: saveValue, source: src }
             : e));
-        if (entryType === "title" && !selectedEntry?.segmentId) setSelectedKey(`${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}`);
+        if (entryType === "title" && !saveEntry?.segmentId) setSelectedKey(`${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}`);
       } else {
-        await updateEntry(category, field, selectedKey, editValue, src, locale);
-        setEntries((prev) => prev.map((e) => (e.key === selectedKey ? { ...e, text: editValue, source: src } : e)));
+        await updateEntry(saveCategory, saveField, saveKey, saveValue, src, saveLocale);
+        if (contextGenerationRef.current !== generation) return true;
+        setEntries((prev) => prev.map((e) => (e.key === saveKey ? { ...e, text: saveValue, source: src } : e)));
       }
       // Advance to next.
       if (advance) {
-        const idx = filtered.findIndex((e) => e.key === selectedKey);
+        const idx = filtered.findIndex((e) => e.key === saveKey);
         if (idx >= 0 && idx < filtered.length - 1) {
           const next = filtered[idx + 1];
           setSelectedKey(next.key); setEditValue(next.text);
@@ -358,6 +392,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (!category || !field) return;
     const entry = entries.find((e) => e.key === key);
     if (!entry) return;
+    const generation = contextGenerationRef.current;
     try {
       if (isEventStory) {
         const parsed = parseEventStoryEntryKey(key);
@@ -371,6 +406,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       } else {
         await updateEntry(category, field, key, entry.text, newSource, locale);
       }
+      if (contextGenerationRef.current !== generation) return;
       setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, source: newSource } : e)));
       show(`来源已改为「${SOURCE_LABELS[newSource] || newSource}」`, "ok");
     } catch (err) {
@@ -403,7 +439,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       {/* Mobile drawer backdrop. */}
       <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
 
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="翻译类别导航">
         <div className="sidebar-header">
           <div className="sidebar-title-row">
             <div>
@@ -411,9 +447,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               <span className="sub">{username}{role === "admin" ? " · 管理员" : ""}</span>
             </div>
             <div className="sidebar-icon-row">
-              <button className="icon-btn" onClick={() => setShowSettings(true)} title="用户设置"><IconSettings /></button>
-              {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} title="管理设置"><IconShield /></button>}
-              <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => { clearSession(); onLogout(); })} title="退出登录"><IconLogout /></button>
+              <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="用户设置" title="用户设置"><IconSettings /></button>
+              {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} aria-label="管理设置" title="管理设置"><IconShield /></button>}
+              <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => { clearSession(); onLogout(); })} aria-label="退出登录" title="退出登录"><IconLogout /></button>
               <button className="icon-btn" onClick={() => setSidebarOpen(false)} aria-label="收起侧边栏" title="收起侧边栏"><IconChevronLeft /></button>
             </div>
           </div>
@@ -437,10 +473,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                 const badgeKey = `${cat.name}:${f.name}`;
                 const hideBadge = hiddenBadges.has(badgeKey);
                 return (
-                  <div key={badgeKey} className={`field-item ${active ? "active" : ""}`} onClick={() => selectField(cat.name, f.name)}>
+                  <button type="button" key={badgeKey} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField(cat.name, f.name)}>
                     <span>{FIELD_LABELS[f.name] || f.name}</span>
                     {work > 0 && !hideBadge && <span className="badge work">{work}</span>}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -455,7 +491,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                 const badgeKey = `eventStory:${s.eventId}`;
                 const hideBadge = hiddenBadges.has(badgeKey);
                 return (
-                  <div key={s.eventId} className={`field-item ${active ? "active" : ""}`} onClick={() => selectField("eventStory", String(s.eventId))}>
+                  <button type="button" key={s.eventId} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField("eventStory", String(s.eventId))}>
                     <span>
                       <span className={`story-dot ${done ? "done" : "pending"}`} title={done ? "已翻译" : "有未翻译内容"} />
                       Event #{s.eventId}
@@ -465,7 +501,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         ? <span className="badge work" title="未翻译条数">{s.untranslatedCount}</span>
                         : <span className="badge ok" title="已全部翻译">✓</span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -473,16 +509,16 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
           <div className="field-group">
             <div className="field-group-title">音乐内容</div>
-            <div className={`field-item ${isLyrics ? "active" : ""}`} onClick={() => selectField("lyrics", "catalog")}>
+            <button type="button" className={`field-item ${isLyrics ? "active" : ""}`} aria-current={isLyrics ? "page" : undefined} onClick={() => selectField("lyrics", "catalog")}>
               <span>歌词编辑与发布</span>
-            </div>
+            </button>
           </div>
         </div>
       </aside>
 
       <main className="main">
         {progress && (
-          <div className="progress-line">
+          <div className="progress-line" role="status" aria-live="polite">
             <span>{progress.label}</span>
             <div className="progress-track">
               <div className="progress-fill" style={{ width: `${progress.total ? (progress.current / progress.total) * 100 : 0}%` }} />
@@ -491,7 +527,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         )}
 
         {isLyrics ? (
-          <LyricsEditor ref={lyricsEditorRef} role={role} onDirtyChange={setLyricsDirty} />
+          <LyricsEditor ref={lyricsEditorRef} role={role} reloadGeneration={restoreGeneration} onDirtyChange={setLyricsDirty} />
         ) : !category || !field ? (
           <div className="center-state">
             <p>从左侧选择一个翻译类别</p>
@@ -524,7 +560,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             )}
 
             <div className="search-bar">
-              <input placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input aria-label="搜索当前翻译" placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
 
             <div className="content">
@@ -558,6 +594,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       placeholder="输入翻译…"
                       rows={3}
                       readOnly={isReadOnly}
+                      aria-label="翻译校对内容"
                     />
                     <div className="proof-actions">
                       <button className="btn btn-primary" onClick={() => save()} disabled={isReadOnly}>保存并下一条</button>
@@ -590,6 +627,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         data-key={entry.key}
                         className={`entry-row ${selectedKey === entry.key ? "active" : ""}`}
                         onClick={() => selectEntry(entry)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectEntry(entry); }
+                        }}
+                        tabIndex={0}
+                        aria-selected={selectedKey === entry.key}
                       >
                         <td className="col-source" onClick={(e) => e.stopPropagation()}>
                           <select
@@ -597,6 +640,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                             onChange={(e) => handleSourceChange(entry.key, e.target.value)}
                             className={`source-tag ${entry.source}`}
                             disabled={isReadOnly}
+                            aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
                           >
                             {Object.entries(SOURCE_LABELS).map(([k, v]) => (
                               <option key={k} value={k}>{v}</option>

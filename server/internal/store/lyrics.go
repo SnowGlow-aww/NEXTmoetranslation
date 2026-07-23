@@ -54,8 +54,12 @@ func (s *Store) ListLyrics(limit, cursor int) (model.LyricsListResponse, error) 
 			return model.LyricsListResponse{}, err
 		}
 		item.Status = "draft"
-		if published.Valid && published.Int64 == int64(item.Revision) {
-			item.Status = "published"
+		if published.Valid {
+			item.PublishedRevision = int(published.Int64)
+			item.Status = "draft-published"
+			if published.Int64 == int64(item.Revision) {
+				item.Status = "published"
+			}
 		}
 		item.UpdatedAt = formatTimestamp(updatedAt)
 		response.Items = append(response.Items, item)
@@ -76,6 +80,9 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 	sourceFetchedAt, err := validateLyricsProvenance(normalized)
 	if err != nil {
 		return model.SongLyrics{}, err
+	}
+	if sourceFetchedAt > 0 {
+		normalized.SourceFetchedAt = formatTimestamp(sourceFetchedAt)
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -175,6 +182,10 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 		return model.SongLyrics{}, err
 	}
 	normalized.Status = "draft"
+	if loadErr == nil && current.lyrics.PublishedRevision > 0 {
+		normalized.Status = "draft-published"
+		normalized.PublishedRevision = current.lyrics.PublishedRevision
+	}
 	normalized.Revision = nextRevision
 	normalized.UpdatedAt = formatTimestamp(now)
 	s.NotifyChange()
@@ -210,6 +221,7 @@ func (s *Store) PublishLyrics(musicID, revision int, users ...string) (model.Son
 	err = tx.QueryRow(`SELECT revision FROM song_lyrics_publications WHERE music_id=?`, musicID).Scan(&existingRevision)
 	if err == nil && existingRevision == revision {
 		current.lyrics.Status = "published"
+		current.lyrics.PublishedRevision = revision
 		return current.lyrics, nil
 	}
 	if err != nil && err != sql.ErrNoRows {
@@ -241,6 +253,7 @@ func (s *Store) PublishLyrics(musicID, revision int, users ...string) (model.Son
 		return model.SongLyrics{}, err
 	}
 	current.lyrics.Status = "published"
+	current.lyrics.PublishedRevision = revision
 	s.NotifyChange()
 	return current.lyrics, nil
 }
@@ -262,6 +275,7 @@ func (s *Store) UnpublishLyrics(musicID, revision int, users ...string) (model.S
 	var publishedRevision int
 	if err := tx.QueryRow(`SELECT revision FROM song_lyrics_publications WHERE music_id=?`, musicID).Scan(&publishedRevision); err == sql.ErrNoRows {
 		current.lyrics.Status = "draft"
+		current.lyrics.PublishedRevision = 0
 		return current.lyrics, nil
 	} else if err != nil {
 		return model.SongLyrics{}, err
@@ -277,6 +291,7 @@ func (s *Store) UnpublishLyrics(musicID, revision int, users ...string) (model.S
 		return model.SongLyrics{}, err
 	}
 	current.lyrics.Status = "draft"
+	current.lyrics.PublishedRevision = 0
 	s.NotifyChange()
 	return current.lyrics, nil
 }
@@ -332,8 +347,12 @@ func (s *Store) loadLyrics(q queryRower, musicID int) (storedLyrics, error) {
 		return result, err
 	}
 	result.lyrics.Status = "draft"
-	if publishedRevision.Valid && publishedRevision.Int64 == int64(result.lyrics.Revision) {
-		result.lyrics.Status = "published"
+	if publishedRevision.Valid {
+		result.lyrics.PublishedRevision = int(publishedRevision.Int64)
+		result.lyrics.Status = "draft-published"
+		if publishedRevision.Int64 == int64(result.lyrics.Revision) {
+			result.lyrics.Status = "published"
+		}
 	}
 	result.lyrics.UpdatedAt = formatTimestamp(updatedAt)
 	if sourceFetchedAt > 0 {
@@ -492,8 +511,8 @@ func lyricsSourceHash(lines []model.LyricLine) string {
 }
 
 func sameLyricsContent(left, right model.SongLyrics) bool {
-	left.Status, left.Revision, left.UpdatedAt = "", 0, ""
-	right.Status, right.Revision, right.UpdatedAt = "", 0, ""
+	left.Status, left.Revision, left.PublishedRevision, left.UpdatedAt = "", 0, 0, ""
+	right.Status, right.Revision, right.PublishedRevision, right.UpdatedAt = "", 0, 0, ""
 	leftJSON, _ := json.Marshal(left)
 	rightJSON, _ := json.Marshal(right)
 	return string(leftJSON) == string(rightJSON)

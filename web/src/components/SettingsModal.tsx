@@ -25,7 +25,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         <AccountCard />
         <AppearanceCard />
         <ShortcutCard />
-        <BadgeFilterCard show={show} />
+        <BadgeFilterCard />
         <DataManagementCard canMutate={role === "admin"} show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
         <UpstreamStatusCard show={show} refreshKey={upstreamRefreshKey} />
       </div>
@@ -62,15 +62,15 @@ function AppearanceCard() {
     <div className="card">
       <h3>外观</h3>
       <div className="form-row">
-        <label>主题</label>
+        <label htmlFor="appearance-theme">主题</label>
         {mounted ? (
-          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+          <select id="appearance-theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
             <option value="system">跟随系统</option>
             <option value="light">亮色</option>
             <option value="dark">深色</option>
           </select>
         ) : (
-          <select disabled><option>加载中…</option></select>
+          <select id="appearance-theme" disabled><option>加载中…</option></select>
         )}
       </div>
     </div>
@@ -94,8 +94,8 @@ function ShortcutCard() {
     <div className="card">
       <h3>快捷键</h3>
       <div className="form-row">
-        <label>保存快捷键</label>
-        <select value={enterSaves ? "enter" : "shift-enter"} onChange={(e) => toggle(e.target.value === "enter")}>
+        <label htmlFor="save-shortcut">保存快捷键</label>
+        <select id="save-shortcut" value={enterSaves ? "enter" : "shift-enter"} onChange={(e) => toggle(e.target.value === "enter")}>
           <option value="shift-enter">Shift+Enter 保存（默认）</option>
           <option value="enter">Enter 保存</option>
         </select>
@@ -114,7 +114,7 @@ function ShortcutCard() {
 
 // ---- Badge filter (per-field hide) ----
 
-function BadgeFilterCard({ show }: { show: ShowFn }) {
+function BadgeFilterCard() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());

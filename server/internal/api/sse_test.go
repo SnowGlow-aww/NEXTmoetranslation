@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -98,6 +99,37 @@ func TestSSERequiresAuth(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestSSEClosesWhenTokenGenerationChanges(t *testing.T) {
+	ts, token := setup(t)
+	request, _ := http.NewRequest(http.MethodGet, ts.URL+"/sse?token="+token, nil)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	closed := make(chan struct{})
+	go func() {
+		_, _ = io.ReadAll(response.Body)
+		close(closed)
+	}()
+	body, _ := json.Marshal(map[string]string{"username": "alice", "password": "replacement-password-123"})
+	update, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/admin/users", bytes.NewReader(body))
+	update.Header.Set("Authorization", "Bearer "+token)
+	updated, err := http.DefaultClient.Do(update)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated.Body.Close()
+	if updated.StatusCode != http.StatusOK {
+		t.Fatalf("password update status = %d", updated.StatusCode)
+	}
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("revoked user retained live SSE stream")
 	}
 }
 

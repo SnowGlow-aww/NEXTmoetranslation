@@ -5,8 +5,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"moesekai/server/internal/db"
 )
+
+func TestStrongSecretsAndHS256Only(t *testing.T) {
+	a := openTestAuth(t)
+	if _, err := a.CreateUser("weak", "short", RoleEditor); err != ErrWeakPassword {
+		t.Fatalf("weak password error = %v", err)
+	}
+	user, err := a.CreateUser("editor", "strong-password-123", RoleEditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims := Claims{Username: user.Username, Role: user.Role, TokenVersion: user.TokenVersion,
+		RegisteredClaims: jwt.RegisteredClaims{Subject: user.Username, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS384, claims).SignedString(a.jwtSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(token); err != ErrInvalidCreds {
+		t.Fatalf("HS384 token error = %v", err)
+	}
+	weak := New(a.db, "too-short", time.Hour)
+	if _, _, err := weak.IssueToken(user); err != ErrWeakJWTSecret {
+		t.Fatalf("weak JWT secret error = %v", err)
+	}
+}
 
 func openTestAuth(t *testing.T) *Auth {
 	t.Helper()
@@ -15,15 +41,15 @@ func openTestAuth(t *testing.T) *Auth {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	return New(database, "jwt-secret", time.Hour)
+	return New(database, "jwt-secret-at-least-32-bytes-long", time.Hour)
 }
 
 func TestCreateAndAuthenticate(t *testing.T) {
 	a := openTestAuth(t)
-	if _, err := a.CreateUser("alice", "pw123", RoleAdmin); err != nil {
+	if _, err := a.CreateUser("alice", "strong-password-123", RoleAdmin); err != nil {
 		t.Fatal(err)
 	}
-	u, err := a.Authenticate("alice", "pw123")
+	u, err := a.Authenticate("alice", "strong-password-123")
 	if err != nil {
 		t.Fatalf("authenticate: %v", err)
 	}
@@ -37,15 +63,15 @@ func TestCreateAndAuthenticate(t *testing.T) {
 
 func TestDuplicateUser(t *testing.T) {
 	a := openTestAuth(t)
-	a.CreateUser("bob", "pw", RoleEditor)
-	if _, err := a.CreateUser("bob", "pw2", RoleEditor); err != ErrUserExists {
+	a.CreateUser("bob", "strong-password-123", RoleEditor)
+	if _, err := a.CreateUser("bob", "strong-password-456", RoleEditor); err != ErrUserExists {
 		t.Errorf("expected ErrUserExists, got %v", err)
 	}
 }
 
 func TestJWTRoundTrip(t *testing.T) {
 	a := openTestAuth(t)
-	u, _ := a.CreateUser("carol", "pw", RoleEditor)
+	u, _ := a.CreateUser("carol", "strong-password-123", RoleEditor)
 	token, _, err := a.IssueToken(u)
 	if err != nil {
 		t.Fatal(err)
@@ -65,9 +91,9 @@ func TestJWTRoundTrip(t *testing.T) {
 func TestExpiredToken(t *testing.T) {
 	database, _ := db.Open(t.TempDir() + "/exp.db")
 	defer database.Close()
-	a := New(database, "s", time.Hour)
+	a := New(database, "jwt-secret-at-least-32-bytes-long", time.Hour)
 	a.tokenTTL = -time.Hour // force already-expired tokens (bypasses New's clamp)
-	u, _ := a.CreateUser("dave", "pw", RoleEditor)
+	u, _ := a.CreateUser("dave", "strong-password-123", RoleEditor)
 	token, _, _ := a.IssueToken(u)
 	if _, err := a.VerifyToken(token); err == nil {
 		t.Error("expected expired token to fail verification")
@@ -76,8 +102,8 @@ func TestExpiredToken(t *testing.T) {
 
 func TestLastAdminGuard(t *testing.T) {
 	a := openTestAuth(t)
-	a.CreateUser("admin1", "pw", RoleAdmin)
-	a.CreateUser("editor1", "pw", RoleEditor)
+	a.CreateUser("admin1", "strong-password-123", RoleAdmin)
+	a.CreateUser("editor1", "strong-password-123", RoleEditor)
 
 	// Demoting the only admin must fail.
 	if err := a.SetRole("admin1", RoleEditor); err != ErrLastAdmin {
@@ -88,7 +114,7 @@ func TestLastAdminGuard(t *testing.T) {
 		t.Errorf("expected ErrLastAdmin on delete, got %v", err)
 	}
 	// With a second admin, demotion is allowed.
-	a.CreateUser("admin2", "pw", RoleAdmin)
+	a.CreateUser("admin2", "strong-password-456", RoleAdmin)
 	if err := a.SetRole("admin1", RoleEditor); err != nil {
 		t.Errorf("demote with 2 admins should succeed: %v", err)
 	}
@@ -96,7 +122,7 @@ func TestLastAdminGuard(t *testing.T) {
 
 func TestWrongSecretRejected(t *testing.T) {
 	a := openTestAuth(t)
-	u, _ := a.CreateUser("eve", "pw", RoleEditor)
+	u, _ := a.CreateUser("eve", "strong-password-123", RoleEditor)
 	token, _, _ := a.IssueToken(u)
 	other := New(a.db, "different-secret", time.Hour)
 	if _, err := other.VerifyToken(token); err == nil {
@@ -114,7 +140,7 @@ func TestCreateFirstAdminIsAtomicUnderConcurrency(t *testing.T) {
 		go func(username string) {
 			defer wait.Done()
 			<-start
-			_, err := a.CreateFirstAdmin(username, "password")
+			_, err := a.CreateFirstAdmin(username, "strong-password-123")
 			results <- err
 		}(username)
 	}
@@ -147,7 +173,7 @@ func TestRolePasswordAndDeleteRevokeIssuedTokens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.CreateUser("backup-admin", "password", RoleAdmin); err != nil {
+	if _, err := a.CreateUser("backup-admin", "strong-password-456", RoleAdmin); err != nil {
 		t.Fatal(err)
 	}
 	roleToken, _, err := a.IssueToken(admin)
@@ -200,7 +226,7 @@ func TestRolePasswordAndDeleteRevokeIssuedTokens(t *testing.T) {
 
 func TestRefreshTokenCannotBeReplayed(t *testing.T) {
 	a := openTestAuth(t)
-	user, err := a.CreateUser("editor", "password", RoleEditor)
+	user, err := a.CreateUser("editor", "strong-password-123", RoleEditor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +259,7 @@ func TestRefreshTokenCannotBeReplayed(t *testing.T) {
 
 func TestConcurrentRefreshTokenDoubleSpendAllowsOneReplacement(t *testing.T) {
 	a := openTestAuth(t)
-	user, err := a.CreateUser("editor", "password", RoleEditor)
+	user, err := a.CreateUser("editor", "strong-password-123", RoleEditor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,11 +317,11 @@ func TestConcurrentRefreshTokenDoubleSpendAllowsOneReplacement(t *testing.T) {
 
 func TestRefreshTokenIsAtomicWithRevocation(t *testing.T) {
 	a := openTestAuth(t)
-	admin, err := a.CreateUser("admin", "password", RoleAdmin)
+	admin, err := a.CreateUser("admin", "strong-password-123", RoleAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.CreateUser("backup-admin", "password", RoleAdmin); err != nil {
+	if _, err := a.CreateUser("backup-admin", "strong-password-456", RoleAdmin); err != nil {
 		t.Fatal(err)
 	}
 	token, _, err := a.IssueToken(admin)
@@ -342,7 +368,7 @@ func TestRefreshTokenIsAtomicWithRevocation(t *testing.T) {
 		t.Fatalf("refreshed pre-revocation generation error = %v", err)
 	}
 
-	current, err := a.Authenticate("admin", "password")
+	current, err := a.Authenticate("admin", "strong-password-123")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +400,7 @@ func TestConcurrentAdminMutationsCannotRemoveEveryAdmin(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			a := openTestAuth(t)
 			for _, username := range []string{"admin-a", "admin-b"} {
-				if _, err := a.CreateUser(username, "password", RoleAdmin); err != nil {
+				if _, err := a.CreateUser(username, "strong-password-123", RoleAdmin); err != nil {
 					t.Fatal(err)
 				}
 			}

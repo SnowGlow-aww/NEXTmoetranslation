@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -163,19 +164,16 @@ func git(dir string, args ...string) error {
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GCM_INTERACTIVE=never")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git %s: %v: %s", strings.Join(args, " "), err, sanitizeGit(strings.TrimSpace(string(out))))
+		return fmt.Errorf("git %s: %v: %s", sanitizeGit(strings.Join(args, " ")), err, sanitizeGit(strings.TrimSpace(string(out))))
 	}
 	return nil
 }
 
-// sanitizeGit masks any embedded token in git output.
+var credentialURL = regexp.MustCompile(`(?i)(https?://)[^/@\s]+@`)
+
+// sanitizeGit masks URL userinfo in commands, stderr, logs, and status payloads.
 func sanitizeGit(s string) string {
-	if i := strings.Index(s, "@github.com"); i > 0 {
-		if start := strings.Index(s, "https://"); start >= 0 && start < i {
-			return s[:start+8] + "***" + s[i:]
-		}
-	}
-	return s
+	return credentialURL.ReplaceAllString(s, `${1}***@`)
 }
 
 // copyDir recursively copies src to dst.

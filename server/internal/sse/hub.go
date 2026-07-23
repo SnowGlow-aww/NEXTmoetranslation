@@ -22,8 +22,7 @@ const (
 	EventStoryLocaleUpdated = "eventstory.locale.updated"
 	EventSyncProgress       = "sync.progress"
 	EventTranslateProgress  = "translate.progress"
-	EventBackupStatus       = "backup.status"
-	EventUpstreamStatus     = "upstream.status"
+	EventContentRestored    = "content.restored"
 	EventPing               = "ping"
 )
 
@@ -90,9 +89,22 @@ func (h *Hub) remove(id uint64) {
 	h.mu.Unlock()
 }
 
+// RevokeUser immediately closes every live stream for an account whose token
+// generation or role changed.
+func (h *Hub) RevokeUser(user string) {
+	h.mu.Lock()
+	for id, c := range h.clients {
+		if c.user == user {
+			delete(h.clients, id)
+			close(c.ch)
+		}
+	}
+	h.mu.Unlock()
+}
+
 // Handler streams events to one client over SSE. The caller must wrap this with
 // auth middleware (the username is read from the request context if present).
-func (h *Hub) Handler(usernameFn func(*http.Request) string) http.HandlerFunc {
+func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.Request) bool, expiresAtFn func(*http.Request) time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -115,19 +127,40 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string) http.HandlerFunc {
 		// Heartbeat keeps intermediaries from closing an idle connection.
 		ticker := time.NewTicker(25 * time.Second)
 		defer ticker.Stop()
+		var expiryTimer *time.Timer
+		var expiry <-chan time.Time
+		if expiresAtFn != nil {
+			if expiresAt := expiresAtFn(r); !expiresAt.IsZero() {
+				delay := time.Until(expiresAt)
+				if delay < 0 {
+					delay = 0
+				}
+				expiryTimer = time.NewTimer(delay)
+				expiry = expiryTimer.C
+				defer expiryTimer.Stop()
+			}
+		}
 
 		ctx := r.Context()
 		for {
 			select {
 			case <-ctx.Done():
 				return
+			case <-expiry:
+				return
 			case <-ticker.C:
+				if validFn != nil && !validFn(r) {
+					return
+				}
 				if !writeEvent(w, Message{Event: EventPing, Data: time.Now().Unix()}) {
 					return
 				}
 				flusher.Flush()
 			case msg, ok := <-c.ch:
 				if !ok {
+					return
+				}
+				if validFn != nil && !validFn(r) {
 					return
 				}
 				if !writeEvent(w, msg) {

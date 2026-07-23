@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -102,5 +103,47 @@ func TestLegacySearchIndexGolden(t *testing.T) {
 	if v2Rec.Code != http.StatusOK || !bytes.Contains(v2Rec.Body.Bytes(), []byte(`"n":"Event JP","g":"events","cn":"事件","en":"Event EN"`)) ||
 		!bytes.Contains(v2Rec.Body.Bytes(), []byte(`"n":"Card JP","g":"cards","c":7,"cn":"卡片","en":"Card EN"`)) {
 		t.Fatalf("multilingual search-index status=%d body=%s", v2Rec.Code, v2Rec.Body.String())
+	}
+}
+
+func TestPartialSourceSuccessPreservesCompleteSearchIndex(t *testing.T) {
+	documents := map[string]string{
+		"/events.json": `[{"id":1,"name":"event"}]`, "/musics.json": `[{"id":2,"title":"music"}]`,
+		"/cards.json": `[{"id":3,"prefix":"card"}]`, "/gachas.json": `[{"id":4,"name":"gacha"}]`,
+		"/mysekaiFixtures.json": `[{"id":5,"name":"fixture"}]`, "/virtualLives.json": `[{"id":6,"name":"live"}]`,
+		"/snowy_costumes.json": `{"costumes":[{"id":7,"name":"costume"}]}`,
+	}
+	var partial atomic.Bool
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if partial.Load() && r.URL.Path != "/events.json" {
+			http.Error(w, "failed", http.StatusBadGateway)
+			return
+		}
+		_, _ = io.WriteString(w, documents[r.URL.Path])
+	}))
+	defer upstream.Close()
+	database, err := db.Open(filepath.Join(t.TempDir(), "partial-search.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	dataStore := store.New(database)
+	events := store.NewEventStore(database)
+	cfg, _ := config.New(database, "search-master-key")
+	_ = cfg.Set(config.KeyUpstreamJPMasterdataURL, upstream.URL)
+	_ = cfg.Set(config.KeyUpstreamJPMasterdataFallbackURL, upstream.URL)
+	fileService := filesvc.New(dataStore, events, files.NewGenerator(dataStore, events, ""))
+	builder := New(dataStore, fileService, cfg, time.Hour, time.Hour)
+	builder.build("complete")
+	readIndex := func() []byte {
+		recorder := httptest.NewRecorder()
+		fileService.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/files/data/search-index.json", nil))
+		return append([]byte(nil), recorder.Body.Bytes()...)
+	}
+	complete := readIndex()
+	partial.Store(true)
+	builder.build("partial")
+	if got := readIndex(); !bytes.Equal(got, complete) {
+		t.Fatalf("partial rebuild replaced complete index\ngot=%s\nwant=%s", got, complete)
 	}
 }

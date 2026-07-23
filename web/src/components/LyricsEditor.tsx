@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
@@ -37,6 +37,7 @@ export interface LyricsEditorHandle {
 
 interface LyricsEditorProps {
   role: "admin" | "editor" | "";
+  reloadGeneration: number;
   onDirtyChange?: (dirty: boolean) => void;
 }
 
@@ -44,7 +45,7 @@ type PendingTransition =
   | { kind: "choose"; item: CatalogMusicItem }
   | { kind: "publish"; nextPublished: boolean };
 
-export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(function LyricsEditor({ role, onDirtyChange }, ref) {
+export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(function LyricsEditor({ role, reloadGeneration, onDirtyChange }, ref) {
   const { show } = useToast();
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<CatalogMusicItem[]>([]);
@@ -60,6 +61,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const [previewLocale, setPreviewLocale] = useState<"ja-JP" | "zh-CN" | "en-US">("zh-CN");
   const requestSequence = useRef(0);
   const lyricsLoadSequence = useRef(0);
+  const appliedReloadGeneration = useRef(reloadGeneration);
   const [pendingTransition, setPendingTransition] = useState<PendingTransition | null>(null);
 
   const dirty = lyrics != null && JSON.stringify(lyrics) !== baseline;
@@ -91,7 +93,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       .catch((reason) => show(reason instanceof Error ? reason.message : "演唱者目录加载失败", "err"));
   }, [show]);
 
-  const performChooseMusic = async (item: CatalogMusicItem) => {
+  const performChooseMusic = useCallback(async (item: CatalogMusicItem) => {
     const sequence = ++lyricsLoadSequence.current;
     setSelectedMusic(item);
     setLoading(true);
@@ -116,7 +118,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     } finally {
       if (lyricsLoadSequence.current === sequence) setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (appliedReloadGeneration.current === reloadGeneration) return;
+    appliedReloadGeneration.current = reloadGeneration;
+    if (selectedMusic) void performChooseMusic(selectedMusic);
+  }, [performChooseMusic, reloadGeneration, selectedMusic]);
 
   const chooseMusic = (item: CatalogMusicItem) => {
     if (item.musicId === selectedMusic?.musicId) return;
@@ -147,6 +155,50 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     updateLine(lineIndex, { segments, japanese: segments.map((segment) => segment.text).join("") });
   };
 
+  const setSegments = (lineIndex: number, segments: SongLyrics["lines"][number]["segments"], sourceMayChange = false) => {
+    const patch: Partial<SongLyrics["lines"][number]> = { segments };
+    if (sourceMayChange) patch.japanese = segments.map((segment) => segment.text).join("");
+    updateLine(lineIndex, patch);
+  };
+
+  const addSegment = (lineIndex: number, after: number) => {
+    if (!lyrics) return;
+    const segments = [...lyrics.lines[lineIndex].segments];
+    segments.splice(after + 1, 0, { text: "", performerIds: [] });
+    setSegments(lineIndex, segments);
+  };
+
+  const splitSegment = (lineIndex: number, segmentIndex: number) => {
+    if (!lyrics) return;
+    const segments = [...lyrics.lines[lineIndex].segments];
+    const segment = segments[segmentIndex];
+    const characters = Array.from(segment.text);
+    const splitAt = Math.ceil(characters.length / 2);
+    segments.splice(segmentIndex, 1,
+      { ...segment, text: characters.slice(0, splitAt).join("") },
+      { ...segment, text: characters.slice(splitAt).join("") });
+    setSegments(lineIndex, segments);
+  };
+
+  const removeSegment = (lineIndex: number, segmentIndex: number) => {
+    if (!lyrics) return;
+    const segments = lyrics.lines[lineIndex].segments.map((segment) => ({ ...segment }));
+    if (segments.length <= 1) return;
+    const [removed] = segments.splice(segmentIndex, 1);
+    if (segmentIndex > 0) segments[segmentIndex - 1].text += removed.text;
+    else segments[0].text = removed.text + segments[0].text;
+    setSegments(lineIndex, segments);
+  };
+
+  const moveSegment = (lineIndex: number, segmentIndex: number, direction: -1 | 1) => {
+    if (!lyrics || lyrics.revision > 0) return;
+    const target = segmentIndex + direction;
+    const segments = [...lyrics.lines[lineIndex].segments];
+    if (target < 0 || target >= segments.length) return;
+    [segments[segmentIndex], segments[target]] = [segments[target], segments[segmentIndex]];
+    setSegments(lineIndex, segments, true);
+  };
+
   const addLine = () => {
     if (!lyrics || lyrics.revision > 0) return;
     const order = lyrics.lines.length;
@@ -154,6 +206,24 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       id: `manual-${lyrics.musicId}-${Date.now()}-${order}`,
       order, japanese: "", "zh-CN": "", "en-US": "", segments: [{ text: "", performerIds: [] }],
     }] });
+  };
+
+  const replaceLines = (lines: SongLyrics["lines"]) => {
+    updateLyrics({ lines: lines.map((line, order) => ({ ...line, order })) });
+  };
+
+  const removeLine = (lineIndex: number) => {
+    if (!lyrics || lyrics.revision > 0 || lyrics.lines.length <= 1) return;
+    replaceLines(lyrics.lines.filter((_, index) => index !== lineIndex));
+  };
+
+  const moveLine = (lineIndex: number, direction: -1 | 1) => {
+    if (!lyrics || lyrics.revision > 0) return;
+    const target = lineIndex + direction;
+    if (target < 0 || target >= lyrics.lines.length) return;
+    const lines = [...lyrics.lines];
+    [lines[lineIndex], lines[target]] = [lines[target], lines[lineIndex]];
+    replaceLines(lines);
   };
 
   const saveDocument = async (): Promise<SongLyrics | null> => {
@@ -235,6 +305,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const previewSource = async (candidate: LyricsSourceCandidate) => {
     if (!lyrics || busy) return;
     setBusy(true);
+    setSourcePreview(null);
     try {
       setSourcePreview(await previewLyricsSource(lyrics.musicId, candidate.pageId, candidate.revisionId));
     } catch (reason) {
@@ -291,12 +362,12 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   return (
     <div className="lyrics-workspace">
       <aside className="lyrics-catalog">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索新曲或 musicId…" />
+        <input aria-label="搜索歌词曲目" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索新曲或 musicId…" />
         <div className="lyrics-catalog-list">
           {catalog.map((item) => (
             <button key={item.musicId} className={selectedMusic?.musicId === item.musicId ? "active" : ""} onClick={() => chooseMusic(item)}>
               <strong>{item.title["zh-CN"] || item.title["ja-JP"]}</strong>
-              <span>#{item.musicId} · {item.lyricsStatus === "published" ? "已发布" : item.lyricsStatus === "draft" ? "草稿" : "未录入"}</span>
+              <span>#{item.musicId} · {item.lyricsStatus === "published" ? "已发布" : item.lyricsStatus === "draft-published" ? "草稿（旧版公开）" : item.lyricsStatus === "draft" ? "草稿" : "未录入"}</span>
             </button>
           ))}
         </div>
@@ -308,15 +379,12 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
         ) : lyrics ? (
           <>
             <div className="lyrics-editor-head">
-              <div><h2>{selectedMusic.title["zh-CN"] || selectedMusic.title["ja-JP"]}</h2><span>musicId {lyrics.musicId} · revision {lyrics.revision} · {lyrics.status === "published" ? "已发布" : "草稿"}</span></div>
+              <div><h2>{selectedMusic.title["zh-CN"] || selectedMusic.title["ja-JP"]}</h2><span>musicId {lyrics.musicId} · revision {lyrics.revision} · {lyrics.status === "published" ? "当前修订已发布" : lyrics.status === "draft-published" ? `草稿（revision ${lyrics.publishedRevision} 仍公开）` : "草稿"}</span></div>
               <div className="lyrics-actions">
                 <button className="btn btn-secondary" onClick={findSource} disabled={busy || lyrics.revision > 0}>查找来源</button>
                 <button className="btn btn-primary" onClick={save} disabled={busy || !dirty}>保存草稿</button>
-                {role === "admin" && lyrics.revision > 0 && (
-                  <button className="btn btn-secondary" onClick={() => publish(lyrics.status !== "published")} disabled={busy}>
-                    {lyrics.status === "published" ? "取消发布" : "发布"}
-                  </button>
-                )}
+                {role === "admin" && lyrics.revision > 0 && lyrics.status !== "published" && <button className="btn btn-secondary" onClick={() => publish(true)} disabled={busy}>发布当前修订</button>}
+                {role === "admin" && Boolean(lyrics.publishedRevision) && <button className="btn btn-secondary" onClick={() => publish(false)} disabled={busy}>取消发布 revision {lyrics.publishedRevision}</button>}
               </div>
             </div>
 
@@ -361,7 +429,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             <div className="lyrics-lines">
               {lyrics.lines.map((line, lineIndex) => (
                 <article className="lyric-line" key={line.id}>
-                  <header><strong>{lineIndex + 1}</strong><code>{line.id}</code><label><input type="checkbox" checked={Boolean(line.stanzaBreakBefore)} onChange={(event) => updateLine(lineIndex, { stanzaBreakBefore: event.target.checked })} /> 段落前空行</label></header>
+                  <header><strong>{lineIndex + 1}</strong><code>{line.id}</code><label><input type="checkbox" checked={Boolean(line.stanzaBreakBefore)} onChange={(event) => updateLine(lineIndex, { stanzaBreakBefore: event.target.checked })} /> 段落前空行</label>
+                    {lyrics.revision === 0 && <span className="lyric-structure-actions">
+                      <button type="button" className="btn btn-ghost btn-sm" aria-label={`上移第 ${lineIndex + 1} 行`} disabled={lineIndex === 0} onClick={() => moveLine(lineIndex, -1)}>上移</button>
+                      <button type="button" className="btn btn-ghost btn-sm" aria-label={`下移第 ${lineIndex + 1} 行`} disabled={lineIndex === lyrics.lines.length - 1} onClick={() => moveLine(lineIndex, 1)}>下移</button>
+                      <button type="button" className="btn btn-ghost btn-sm" aria-label={`删除第 ${lineIndex + 1} 行`} disabled={lyrics.lines.length <= 1} onClick={() => removeLine(lineIndex)}>删除行</button>
+                    </span>}
+                  </header>
                   <div className="lyric-translations">
                     <label>日文<textarea value={line.japanese} readOnly rows={2} /></label>
                     <label>简中<textarea value={line["zh-CN"]} onChange={(event) => updateLine(lineIndex, { "zh-CN": event.target.value })} rows={2} /></label>
@@ -371,10 +445,20 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
                     {line.segments.map((segment, segmentIndex) => (
                       <div key={`${line.id}-${segmentIndex}`}>
                         <input aria-label={`第 ${lineIndex + 1} 行分段 ${segmentIndex + 1}`} value={segment.text} readOnly={lyrics.revision > 0} onChange={(event) => updateSegment(lineIndex, segmentIndex, event.target.value)} />
-                        <select multiple value={segment.performerIds.map(String)} onChange={(event) => updateSegment(lineIndex, segmentIndex, segment.text, Array.from(event.target.selectedOptions, (option) => Number(option.value)))}>
+                        <label className="sr-only" htmlFor={`performers-${line.id}-${segmentIndex}`}>第 {lineIndex + 1} 行分段 {segmentIndex + 1} 的演唱者</label>
+                        <select id={`performers-${line.id}-${segmentIndex}`} aria-label={`第 ${lineIndex + 1} 行分段 ${segmentIndex + 1} 的演唱者`} multiple value={segment.performerIds.map(String)} onChange={(event) => updateSegment(lineIndex, segmentIndex, segment.text, Array.from(event.target.selectedOptions, (option) => Number(option.value)))}>
                           {performers.map((performer) => <option key={performer.performerId} value={performer.performerId}>{performer.name["zh-CN"] || performer.name["ja-JP"]}</option>)}
                         </select>
                         <span>{segment.performerIds.map(performerName).join(" / ") || "未指定演唱者"}</span>
+                        <span className="lyric-structure-actions">
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => addSegment(lineIndex, segmentIndex)}>新增分段</button>
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => splitSegment(lineIndex, segmentIndex)} disabled={segment.text.length < 2}>拆分</button>
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeSegment(lineIndex, segmentIndex)} disabled={line.segments.length <= 1}>移除分段</button>
+                          {lyrics.revision === 0 && <>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => moveSegment(lineIndex, segmentIndex, -1)} disabled={segmentIndex === 0}>左移</button>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => moveSegment(lineIndex, segmentIndex, 1)} disabled={segmentIndex === line.segments.length - 1}>右移</button>
+                          </>}
+                        </span>
                       </div>
                     ))}
                   </div>

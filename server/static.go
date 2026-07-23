@@ -21,6 +21,12 @@ import (
 func staticHandler(root string) http.HandlerFunc {
 	root = filepath.Clean(root)
 	return func(w http.ResponseWriter, r *http.Request) {
+		headers := w.Header()
+		headers.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; connect-src 'self'; img-src 'self' data: https:; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; form-action 'self'")
+		headers.Set("X-Frame-Options", "DENY")
+		headers.Set("X-Content-Type-Options", "nosniff")
+		headers.Set("Referrer-Policy", "no-referrer")
+		headers.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return

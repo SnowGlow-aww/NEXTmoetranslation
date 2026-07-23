@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -36,9 +37,9 @@ func ReadDir(src string) (Payload, Result, error) {
 	payload := Payload{Categories: map[string]model.Category{}}
 	var res Result
 	for _, cat := range model.SupportedCategories {
-		category, warnings, err := legacy.LoadCategory(src, cat)
+		category, warnings, err := loadCompleteCategory(src, cat)
 		if err != nil {
-			continue
+			return payload, res, err
 		}
 		payload.Categories[cat] = category
 		res.Warnings = append(res.Warnings, warnings...)
@@ -47,16 +48,23 @@ func ReadDir(src string) (Payload, Result, error) {
 			res.Entries += len(entries)
 		}
 	}
-	storyFiles, _ := filepath.Glob(filepath.Join(src, "eventStory", "event_*.json"))
+	eventDir := filepath.Join(src, "eventStory")
+	info, err := os.Stat(eventDir)
+	if err != nil || !info.IsDir() {
+		return payload, res, fmt.Errorf("missing eventStory directory")
+	}
+	storyFiles, err := filepath.Glob(filepath.Join(eventDir, "event_*.json"))
+	if err != nil {
+		return payload, res, err
+	}
 	for _, file := range storyFiles {
 		eventID := eventIDFromPath(file)
 		if eventID <= 0 {
-			continue
+			return payload, res, fmt.Errorf("invalid event story filename %s", filepath.Base(file))
 		}
 		story, err := legacy.LoadEventStory(file)
 		if err != nil {
-			res.Warnings = append(res.Warnings, fmt.Sprintf("event %d: %v", eventID, err))
-			continue
+			return payload, res, fmt.Errorf("event %d: %w", eventID, err)
 		}
 		episodes := make([]store.OrderedEpisode, 0, len(story.EpisodeKeys))
 		for _, no := range story.EpisodeKeys {
@@ -74,58 +82,49 @@ func ReadDir(src string) (Payload, Result, error) {
 	return payload, res, nil
 }
 
+func loadCompleteCategory(src, category string) (model.Category, []string, error) {
+	flatPath := filepath.Join(src, category+".json")
+	fullPath := filepath.Join(src, category+".full.json")
+	flatBody, err := os.ReadFile(flatPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("missing %s.json: %w", category, err)
+	}
+	if _, err := os.Stat(fullPath); err != nil {
+		return nil, nil, fmt.Errorf("missing %s.full.json: %w", category, err)
+	}
+	var flat map[string]map[string]string
+	if err := json.Unmarshal(flatBody, &flat); err != nil {
+		return nil, nil, fmt.Errorf("%s.json: %w", category, err)
+	}
+	loaded, warnings, err := legacy.LoadCategory(src, category)
+	if err != nil {
+		return nil, warnings, err
+	}
+	projected := make(map[string]map[string]string, len(loaded))
+	for field, entries := range loaded {
+		projected[field] = make(map[string]string, len(entries))
+		for key, entry := range entries {
+			projected[field][key] = entry.Text
+		}
+	}
+	if !reflect.DeepEqual(projected, flat) {
+		return nil, warnings, fmt.Errorf("%s flat/full projections do not match", category)
+	}
+	return loaded, warnings, nil
+}
+
 // ImportDir loads every category and event story under src into the stores,
 // then fires a single change notification so public files regenerate. src must
 // directly contain X.json/X.full.json and an eventStory/ subdir.
 func ImportDir(src string, s *store.Store, es *store.EventStore) (Result, error) {
-	var res Result
-
-	for _, cat := range model.SupportedCategories {
-		category, warnings, err := legacy.LoadCategory(src, cat)
-		if err != nil {
-			continue // category file absent in this backup; skip
-		}
-		res.Warnings = append(res.Warnings, warnings...)
-		n, err := s.ImportCategory(cat, category)
-		if err != nil {
-			return res, fmt.Errorf("import %s: %w", cat, err)
-		}
-		res.Categories++
-		res.Entries += n
+	_ = es
+	payload, res, err := ReadDir(src)
+	if err != nil {
+		return res, err
 	}
-
-	storyFiles, _ := filepath.Glob(filepath.Join(src, "eventStory", "event_*.json"))
-	for _, f := range storyFiles {
-		eventID := eventIDFromPath(f)
-		if eventID <= 0 {
-			continue
-		}
-		story, err := legacy.LoadEventStory(f)
-		if err != nil {
-			res.Warnings = append(res.Warnings, fmt.Sprintf("event %d: %v", eventID, err))
-			continue
-		}
-		eps := make([]store.OrderedEpisode, 0, len(story.EpisodeKeys))
-		for _, no := range story.EpisodeKeys {
-			ep := story.Episodes[no]
-			eps = append(eps, store.OrderedEpisode{
-				EpisodeNo:    no,
-				ScenarioID:   ep.ScenarioID,
-				Title:        ep.Title,
-				TitleSource:  ep.TitleSource,
-				TalkKeys:     ep.TalkKeys,
-				TalkData:     ep.TalkData,
-				TalkSources:  ep.TalkSources,
-				SpeakerNames: ep.SpeakerNames,
-			})
-		}
-		if err := es.ImportOrdered(eventID, story.Meta, eps); err != nil {
-			return res, fmt.Errorf("import event %d: %w", eventID, err)
-		}
-		res.EventStories++
+	if err := s.RestoreBackup(payload.Categories, payload.Events, nil, store.EventContentExport{}, store.LyricsContentExport{}, false, "import"); err != nil {
+		return res, err
 	}
-
-	s.NotifyChange()
 	return res, nil
 }
 
@@ -139,18 +138,9 @@ func eventIDFromPath(path string) int {
 	return n
 }
 
-// ValidateDir checks that src looks like a translations backup (has at least one
-// recognizable category file) before a destructive restore.
+// ValidateDir parses the complete legacy projection before a destructive
+// restore. Every generated category pair and the event directory are required.
 func ValidateDir(src string) error {
-	for _, cat := range model.SupportedCategories {
-		if _, err := os.Stat(filepath.Join(src, cat+".json")); err == nil {
-			return nil
-		}
-		if _, err := os.Stat(filepath.Join(src, cat+".full.json")); err == nil {
-			return nil
-		}
-	}
-	return fmt.Errorf("no recognizable translation files found in %s", src)
+	_, _, err := ReadDir(src)
+	return err
 }
-
-var _ = json.Marshal

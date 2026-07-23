@@ -6,7 +6,7 @@ Project SEKAI 翻译校对系统的重构版本。前后端分离，SQLite 单�
 
 ```
 v2/
-├── server/                 Go 后端 (module moesekai/server, Go 1.23)
+├── server/                 Go 后端 (module moesekai/server, Go 1.25)
 │   ├── main.go             组装依赖、启动 HTTP + 后台任务
 │   ├── cmd/migrate/        旧 translations/ → SQLite 迁移工具（含无损校验）
 │   └── internal/
@@ -81,35 +81,45 @@ cd server
 go run ./cmd/migrate -src ../../translations -db ./data/moesekai.db
 
 # 2. 启动后端
-JWT_SECRET=dev MOESEKAI_MASTER_KEY=dev ADMIN_USER=admin ADMIN_PASSWORD=admin go run .
+JWT_SECRET=$(openssl rand -hex 32) MOESEKAI_MASTER_KEY=dev ADMIN_USER=admin ADMIN_PASSWORD='local-admin-password' go run .
 
 # 3. 启动前端（另开终端）
 cd ../web
-npm install
-npm run dev          # http://localhost:3000，自动代理 /api 到 :9090
+npm ci
+npm run dev          # http://localhost:3000，自动代理 /api 到 :8080（可用 BACKEND_ORIGIN 修改）
 ```
 
 ### Docker
 
 ```bash
-# 从仓库根目录构建（Dockerfile 需要 v2/ 源码 + 根级 translations/ 种子）
-docker build -f v2/Dockerfile -t moesekai-v2 .
-docker run -p 9090:9090 -p 3000:3000 -v moesekai-data:/data \
+# 发布构建必须使用经审核且带 sha256 digest 的三个基础镜像。runtime 镜像需预装
+# 固定版本的 git、CA 证书与 tzdata；Dockerfile 不会在构建时安装可变软件包。
+docker build \
+  --build-arg NODE_IMAGE='node:20.19.4-alpine3.22@sha256:<approved-digest>' \
+  --build-arg GO_IMAGE='golang:1.25.1-alpine3.22@sha256:<approved-digest>' \
+  --build-arg RUNTIME_IMAGE='<approved-runtime-with-git>@sha256:<approved-digest>' \
+  --build-arg VERSION='<release>' --build-arg VCS_REF="$(git rev-parse HEAD)" \
+  -t moesekai-v2 .
+docker run -p 8080:8080 -v moesekai-data:/data \
   -e JWT_SECRET=... -e MOESEKAI_MASTER_KEY=... \
   -e ADMIN_USER=admin -e ADMIN_PASSWORD=... \
   moesekai-v2
 ```
 
-首次启动时，若 DB 不存在，会用镜像内 `seed-translations/` 自动迁移。容器内同时运行后端（:9090）与 Next.js 控制台（:3000）。
+镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse` 与 `/files`。仓库默认不附带 `seed-translations/`；如需首次迁移，应在部署前显式提供并验证种子。
 
 ## 配置
 
-见 `.env.example`。密钥项（LLM key、备份凭证）在 DB 中以 AES-GCM 加密存储，由 `MOESEKAI_MASTER_KEY` 派生密钥。env 变量仅在**首次启动**作为种子写入；之后管理设置页是唯一真源。
+见 `.env.example`。`JWT_SECRET` 至少 32 字节，新增/重置密码为 12-72 字节。密钥项（LLM key、备份凭证）在 DB 中以 AES-GCM 加密存储，由 `MOESEKAI_MASTER_KEY` 派生密钥。env 变量仅在**首次启动**作为种子写入；之后管理设置页是唯一真源。
 
 ## 测试
 
 ```bash
 cd server && go test ./...
+go test -race ./...
+go vet ./...
+cd ../web && npm ci && npm test && npm run typecheck && npm run lint && npm run build
+cd .. && ./scripts/verify-release.sh
 ```
 
 迁移工具自带无损往返校验：导入后从 DB 读回，逐条比对文本、来源、ID、活动剧情每行及其顺序。

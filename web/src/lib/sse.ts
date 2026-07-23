@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { getToken } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { getToken, subscribeSessionChanged } from "./api";
 
 // SSE event names (mirror the Go sse package constants).
 export type SSEEvent =
@@ -11,8 +11,7 @@ export type SSEEvent =
   | "eventstory.locale.updated"
   | "sync.progress"
   | "translate.progress"
-  | "backup.status"
-  | "upstream.status"
+  | "content.restored"
   | "ping";
 
 export type SSEHandler = (event: SSEEvent, data: unknown) => void;
@@ -30,10 +29,12 @@ const SSE_BASE = process.env.NEXT_PUBLIC_API_BASE
 export function useSSE(handler: SSEHandler, enabled: boolean) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
+  const [token, setToken] = useState(() => getToken());
+
+  useEffect(() => subscribeSessionChanged(() => setToken(getToken())), []);
 
   useEffect(() => {
     if (!enabled) return;
-    const token = getToken();
     if (!token) return;
 
     const url = `${SSE_BASE}/sse?token=${encodeURIComponent(token)}`;
@@ -41,7 +42,7 @@ export function useSSE(handler: SSEHandler, enabled: boolean) {
 
     const events: SSEEvent[] = [
       "entry.updated", "entry.locale.updated", "eventstory.updated", "eventstory.locale.updated", "sync.progress",
-      "translate.progress", "backup.status", "upstream.status", "ping",
+      "translate.progress", "content.restored", "ping",
     ];
     const listeners: Array<[string, (e: MessageEvent) => void]> = [];
     for (const name of events) {
@@ -62,5 +63,5 @@ export function useSSE(handler: SSEHandler, enabled: boolean) {
       for (const [name, fn] of listeners) es.removeEventListener(name, fn);
       es.close();
     };
-  }, [enabled]);
+  }, [enabled, token]);
 }

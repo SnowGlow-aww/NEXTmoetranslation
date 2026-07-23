@@ -85,6 +85,7 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		Locale     string  `json:"locale"`
 		SegmentID  string  `json:"segmentId"`
 		SourceHash *string `json:"sourceHash"`
+		ClientID   string  `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -151,6 +152,7 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		"source":    req.Source,
 		"entryType": req.EntryType,
 		"user":      currentUser(r),
+		"clientId":  req.ClientID,
 	}
 	if explicit {
 		payload["locale"] = locale

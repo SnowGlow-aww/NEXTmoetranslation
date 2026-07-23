@@ -107,7 +107,7 @@ func TestLyricsCRUDRevisionDriftAndPublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if edited.Revision != 2 || edited.Status != "draft" {
+	if edited.Revision != 2 || edited.Status != "draft-published" || edited.PublishedRevision != 1 {
 		t.Fatalf("edited draft = %+v", edited)
 	}
 	_, details, err = s.PublishedLyrics()
@@ -257,6 +257,26 @@ func TestLyricsSourceProvenanceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLyricsSourceFetchedAtIsCanonicalBeforeDriftComparison(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := validLyrics()
+	input.SourcePageID = 123
+	input.SourceRevisionID = 456
+	input.SourceSHA1 = "source-sha1"
+	input.SourceFetchedAt = "2026-07-22T20:34:56.900+08:00"
+	saved, err := s.SaveLyrics(input, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.SourceFetchedAt != "2026-07-22T12:34:56Z" {
+		t.Fatalf("sourceFetchedAt = %q", saved.SourceFetchedAt)
+	}
+	saved.Lines[0].English = "Canonical retry"
+	if _, err := s.SaveLyrics(saved, "editor"); err != nil {
+		t.Fatalf("canonical retry reported drift: %v", err)
+	}
+}
+
 func TestLyricsMutationsWriteAuditRows(t *testing.T) {
 	s := setupLyricsStore(t)
 	saved, err := s.SaveLyrics(validLyrics(), "editor")
@@ -278,7 +298,7 @@ func TestLyricsMutationsWriteAuditRows(t *testing.T) {
 	}
 }
 
-func TestLegacyBackupWithoutPublicAttributionRestoresLyricsAsDraft(t *testing.T) {
+func TestRestoreRejectsInvalidLyricsPublication(t *testing.T) {
 	s := setupLyricsStore(t)
 	lyrics := LyricsContentExport{
 		Music:      []CatalogMusicBackupRecord{{MusicID: 10, TitleJA: "新曲", NewlyWritten: 1}},
@@ -291,15 +311,11 @@ func TestLegacyBackupWithoutPublicAttributionRestoresLyricsAsDraft(t *testing.T)
 			PayloadJSON: `{"version":1,"musicId":10,"revision":1,"updatedAt":"1970-01-01T00:00:01Z","lines":[]}`,
 		}},
 	}
-	if err := s.ImportTranslationContent(nil, EventContentExport{}, lyrics); err != nil {
-		t.Fatal(err)
+	if err := s.ImportTranslationContent(nil, EventContentExport{}, lyrics); err == nil {
+		t.Fatal("invalid public lyrics snapshot unexpectedly restored")
 	}
-	restored, err := s.GetLyrics(10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if restored.Status != "draft" || restored.Attribution != "" {
-		t.Fatalf("legacy restored lyrics = %+v", restored)
+	if _, err := s.GetLyrics(10); err != ErrLyricsNotFound {
+		t.Fatalf("failed restore changed lyrics: %v", err)
 	}
 }
 

@@ -40,12 +40,12 @@ func setupLegacyAPI(t *testing.T) *legacyAPIHarness {
 
 	s := store.New(database)
 	es := store.NewEventStore(database)
-	a := auth.New(database, "legacy-contract-secret", time.Hour)
+	a := auth.New(database, "legacy-contract-secret-at-least-32-bytes", time.Hour)
 	cfg, err := config.New(database, "legacy-contract-master-key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.CreateUser("alice", "pw", auth.RoleAdmin); err != nil {
+	if _, err := a.CreateUser("alice", "strong-password-123", auth.RoleAdmin); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.ImportCategory("cards", model.Category{
@@ -89,7 +89,7 @@ func setupLegacyAPI(t *testing.T) *legacyAPIHarness {
 	t.Cleanup(ts.Close)
 
 	resp := doJSON(t, http.MethodPost, ts.URL+"/api/auth/login", "", map[string]string{
-		"username": "alice", "password": "pw",
+		"username": "alice", "password": "strong-password-123",
 	})
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -160,18 +160,20 @@ func TestLegacyEntryUpdateContractGolden(t *testing.T) {
 		t.Fatalf("noop fired a change hook; count = %d", changes)
 	}
 
-	// V1 accepts arbitrary fields and source strings and inserts missing rows.
+	// Stale source identities are rejected instead of creating a row in the
+	// currently selected destination field.
 	insert := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
 		"category": "cards", "field": "legacy-field", "key": "new-key",
 		"text": "legacy text", "source": "arbitrary-v1-source",
 	})
 	defer insert.Body.Close()
-	assertLegacyAPIResponse(t, insert, http.StatusOK, "entry-ok.json")
-	if err := h.db.QueryRow(`SELECT source FROM entries WHERE category='cards' AND field='legacy-field' AND jp_key='new-key'`).Scan(&source); err != nil {
-		t.Fatal(err)
+	if insert.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(insert.Body)
+		t.Fatalf("stale insert status = %d: %s", insert.StatusCode, body)
 	}
-	if source != "arbitrary-v1-source" {
-		t.Fatalf("arbitrary source was changed to %q", source)
+	var inserted int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM entries WHERE category='cards' AND field='legacy-field' AND jp_key='new-key'`).Scan(&inserted); err != nil || inserted != 0 {
+		t.Fatalf("stale insert count=%d err=%v", inserted, err)
 	}
 
 	bad := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
@@ -217,7 +219,7 @@ func TestLegacyAuthSetupLoginRefreshGolden(t *testing.T) {
 	assertLegacyAPIResponse(t, status, http.StatusOK, "auth-setup-status.json")
 
 	setupResp := doJSON(t, http.MethodPost, ts.URL+"/api/auth/setup", "", map[string]string{
-		"username": "root", "password": "pw12345",
+		"username": "root", "password": "strong-password-123",
 	})
 	setupToken := normalizeAuthResponse(t, setupResp, "auth-setup.json")
 
@@ -231,7 +233,7 @@ func TestLegacyAuthSetupLoginRefreshGolden(t *testing.T) {
 	assertLegacyAPIResponse(t, meResp, http.StatusOK, "auth-me.json")
 
 	loginResp := doJSON(t, http.MethodPost, ts.URL+"/api/auth/login", "", map[string]string{
-		"username": "root", "password": "pw12345",
+		"username": "root", "password": "strong-password-123",
 	})
 	loginToken := normalizeAuthResponse(t, loginResp, "auth-login.json")
 

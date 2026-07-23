@@ -81,8 +81,9 @@ type Config struct {
 	db     *db.DB
 	aesKey []byte
 
-	mu    sync.RWMutex
-	cache map[string]string // decrypted values
+	mu      sync.RWMutex
+	cache   map[string]string // decrypted values
+	writeMu sync.Mutex
 }
 
 // New opens the config over the given DB. masterKey may be empty, in which case
@@ -179,30 +180,65 @@ func (c *Config) GetInt(key string, fallback int) int {
 
 // Set writes a setting, encrypting it if the key is a secret.
 func (c *Config) Set(key, value string) error {
+	_, err := c.SetMany(map[string]string{key: value})
+	return err
+}
+
+// SetMany validates, encrypts, and commits a settings patch atomically. The
+// in-memory cache is published only after the database transaction commits.
+func (c *Config) SetMany(values map[string]string) (int, error) {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	type encodedSetting struct {
+		key, value, stored string
+		encrypted          int
+	}
+	encoded := make([]encodedSetting, 0, len(values))
+	for key, value := range values {
+		stored, encrypted, err := c.encodeSetting(key, value)
+		if err != nil {
+			return 0, err
+		}
+		encoded = append(encoded, encodedSetting{key: key, value: value, stored: stored, encrypted: encrypted})
+	}
+	tx, err := c.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	for _, setting := range encoded {
+		if _, err := tx.Exec(`INSERT INTO settings (key, value, encrypted) VALUES (?, ?, ?)
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value, encrypted = excluded.encrypted`,
+			setting.key, setting.stored, setting.encrypted); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	c.mu.Lock()
+	for _, setting := range encoded {
+		c.cache[setting.key] = setting.value
+	}
+	c.mu.Unlock()
+	return len(encoded), nil
+}
+
+func (c *Config) encodeSetting(key, value string) (string, int, error) {
 	enc := 0
 	stored := value
 	if IsSecret(key) {
 		if !c.HasMasterKey() {
-			return errors.New("cannot store secret: MOESEKAI_MASTER_KEY not configured")
+			return "", 0, errors.New("cannot store secret: MOESEKAI_MASTER_KEY not configured")
 		}
 		e, err := c.encrypt(value)
 		if err != nil {
-			return err
+			return "", 0, err
 		}
 		stored = e
 		enc = 1
 	}
-	_, err := c.db.Exec(
-		`INSERT INTO settings (key, value, encrypted) VALUES (?, ?, ?)
-		 ON CONFLICT(key) DO UPDATE SET value = excluded.value, encrypted = excluded.encrypted`,
-		key, stored, enc)
-	if err != nil {
-		return err
-	}
-	c.mu.Lock()
-	c.cache[key] = value
-	c.mu.Unlock()
-	return nil
+	return stored, enc, nil
 }
 
 // SetIfAbsent writes a setting only if it is not already present. Used for
@@ -211,17 +247,23 @@ func (c *Config) SetIfAbsent(key, value string) (bool, error) {
 	if value == "" {
 		return false, nil
 	}
-	var exists int
-	err := c.db.QueryRow(`SELECT COUNT(*) FROM settings WHERE key = ?`, key).Scan(&exists)
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	stored, encrypted, err := c.encodeSetting(key, value)
 	if err != nil {
 		return false, err
 	}
-	if exists > 0 {
-		return false, nil
-	}
-	if err := c.Set(key, value); err != nil {
+	result, err := c.db.Exec(`INSERT OR IGNORE INTO settings (key, value, encrypted) VALUES (?, ?, ?)`, key, stored, encrypted)
+	if err != nil {
 		return false, err
 	}
+	changed, err := result.RowsAffected()
+	if err != nil || changed == 0 {
+		return false, err
+	}
+	c.mu.Lock()
+	c.cache[key] = value
+	c.mu.Unlock()
 	return true, nil
 }
 

@@ -56,6 +56,14 @@ func (s *Server) broadcast(event string, data any) {
 	}
 }
 
+func (s *Server) contentMutation(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		release := s.store.LockContentShared()
+		defer release()
+		next(w, r)
+	}
+}
+
 // writeJSON sends v as JSON with no-store caching (console data is live).
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
