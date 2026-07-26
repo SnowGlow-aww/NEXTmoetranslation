@@ -3,6 +3,34 @@
  * All console calls hit /api/* (JWT, no-store). Public files are at /files/*.
  */
 
+import {
+  REFRESH_LOCK,
+  clearSession,
+  commitIdentitySession,
+  commitRefreshedSession,
+  ensureSessionMigrated,
+  getSessionEnvelope,
+  sameSessionIdentity,
+  sameSessionVersion,
+  validSession,
+  validSessionRole,
+  withSessionIdentityLock,
+  type Session,
+} from "./session";
+import { buildLyricsSavePayload } from "./lyrics-save.mjs";
+
+export {
+  clearSession,
+  ensureSessionMigrated,
+  getRole,
+  getSessionEnvelope,
+  getSessionEpoch,
+  getSessionExpiresAt,
+  getToken,
+  getUsername,
+  subscribeSessionChanged,
+} from "./session";
+
 // ---- Types (mirror the Go backend) ----
 
 export interface FieldInfo {
@@ -70,6 +98,23 @@ export interface EventStoryDetail {
 export interface TranslateStatus {
   translator: { running: boolean; lastRun?: string; lastMode?: string; lastError?: string; lastNote?: string };
   clients?: number;
+}
+
+export interface EditorGateStatus {
+  version: number;
+  instanceId: string;
+  revision: number;
+  generation: number;
+  completedGeneration: number;
+  running: boolean;
+  lastRun: string;
+}
+
+export interface ProjectionStatus {
+  generation: number;
+  pending: boolean;
+  lastSuccessAt?: string;
+  lastError?: string;
 }
 
 export interface LoginResponse {
@@ -199,6 +244,17 @@ export interface LyricsSourcePreview {
   categories: string[];
   fetchedAt: string;
   lines: Array<{ japanese: string; stanzaBreakBefore?: boolean }>;
+  importToken: string;
+}
+
+function isEditorGateStatus(value: unknown): value is EditorGateStatus {
+  if (!value || typeof value !== "object") return false;
+  const status = value as Partial<EditorGateStatus>;
+  return status.version === 1 && typeof status.instanceId === "string" && status.instanceId.length > 0 &&
+    Number.isSafeInteger(status.revision) && Number(status.revision) >= 0 &&
+    Number.isSafeInteger(status.generation) && Number(status.generation) >= 0 &&
+    Number.isSafeInteger(status.completedGeneration) && Number(status.completedGeneration) >= 0 &&
+    typeof status.running === "boolean" && typeof status.lastRun === "string";
 }
 
 export class APIError extends Error {
@@ -206,143 +262,213 @@ export class APIError extends Error {
   code: string;
   details: string[];
   current?: SongLyrics;
+  producerStatus?: EditorGateStatus;
+  results?: Record<string, string>;
 
-  constructor(status: number, body: { error?: string; details?: string[]; current?: SongLyrics }) {
-    super(body.error || `HTTP ${status}`);
+  constructor(status: number, body: { error?: string; details?: string[]; current?: SongLyrics; results?: Record<string, string> } | EditorGateStatus) {
+    const producerStatus = isEditorGateStatus(body) ? body : undefined;
+    const contractBody = producerStatus ? undefined : body as { error?: string; details?: string[]; current?: SongLyrics; results?: Record<string, string> };
+    super(producerStatus ? "producer_state_changed" : contractBody?.error || `HTTP ${status}`);
     this.name = "APIError";
     this.status = status;
-    this.code = body.error || "request_failed";
-    this.details = body.details || [];
-    this.current = body.current;
+    this.code = producerStatus ? "producer_state_changed" : contractBody?.error || "request_failed";
+    this.details = producerStatus ? ["内容生产状态已变化，请完成重新校对后再保存"] : contractBody?.details || [];
+    this.current = contractBody?.current;
+    this.producerStatus = producerStatus;
+    this.results = contractBody?.results;
   }
 }
 
-// ---- Auth token storage ----
+// ---- Per-tab client identity ----
 
-const TOKEN_KEY = "moesekai-token";
-const USER_KEY = "moesekai-user";
-const ROLE_KEY = "moesekai-role";
-const EXPIRES_KEY = "moesekai-expires-at";
-const SESSION_EVENT = "moesekai-session-changed";
-const CLIENT_ID_KEY = "moesekai-client-id";
-const REFRESH_LOCK = "moesekai-session-refresh";
+let clientID = "";
+let loadedProducerState: { epoch: string; header: string } | null = null;
+const PRODUCER_PROOF_INVALIDATED_EVENT = "moesekai-producer-proof-invalidated";
 
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-export function getUsername(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem(USER_KEY) || "";
-}
-export function getRole(): "admin" | "editor" | "" {
-  if (typeof window === "undefined") return "";
-  return (localStorage.getItem(ROLE_KEY) as "admin" | "editor") || "";
-}
-export function getSessionExpiresAt(): number {
-  if (typeof window === "undefined") return 0;
-  return Number(localStorage.getItem(EXPIRES_KEY) || 0);
-}
 export function getClientID(): string {
   if (typeof window === "undefined") return "";
-  let id = sessionStorage.getItem(CLIENT_ID_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(CLIENT_ID_KEY, id);
+  if (!clientID) clientID = crypto.randomUUID();
+  return clientID;
+}
+
+export function clearLoadedProducerState(): void {
+  loadedProducerState = null;
+}
+
+export function acceptLoadedProducerState(status: EditorGateStatus): boolean {
+  const envelope = getSessionEnvelope();
+  if (!envelope?.session || status.version !== 1 || status.running ||
+      !/^[A-Za-z0-9_-]+$/.test(status.instanceId) ||
+      !Number.isSafeInteger(status.revision) || status.revision < 0 ||
+      !Number.isSafeInteger(status.generation) || status.generation < 0 ||
+      !Number.isSafeInteger(status.completedGeneration) || status.completedGeneration < 0 ||
+      status.completedGeneration > status.generation) {
+    loadedProducerState = null;
+    return false;
   }
-  return id;
-}
-function notifySessionChanged() {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EVENT));
-}
-export function setSession(r: LoginResponse) {
-  localStorage.setItem(TOKEN_KEY, r.token);
-  localStorage.setItem(USER_KEY, r.username);
-  localStorage.setItem(ROLE_KEY, r.role);
-  localStorage.setItem(EXPIRES_KEY, String(r.expiresAt));
-  notifySessionChanged();
-}
-export function clearSession(expectedToken?: string | null): boolean {
-  if (expectedToken !== undefined && getToken() !== expectedToken) return false;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem(ROLE_KEY);
-  localStorage.removeItem(EXPIRES_KEY);
-  notifySessionChanged();
+  loadedProducerState = {
+    epoch: envelope.epoch,
+    header: `${status.instanceId}:${status.completedGeneration}`,
+  };
   return true;
 }
-export function subscribeSessionChanged(listener: () => void): () => void {
+
+function invalidateLoadedProducerState(): void {
+  loadedProducerState = null;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PRODUCER_PROOF_INVALIDATED_EVENT));
+}
+
+export function subscribeProducerProofInvalidated(listener: () => void): () => void {
   if (typeof window === "undefined") return () => {};
-  const onStorage = (event: StorageEvent) => {
-    if ([TOKEN_KEY, USER_KEY, ROLE_KEY, EXPIRES_KEY].includes(event.key || "")) listener();
-  };
-  window.addEventListener("storage", onStorage);
-  window.addEventListener(SESSION_EVENT, listener);
-  return () => {
-    window.removeEventListener("storage", onStorage);
-    window.removeEventListener(SESSION_EVENT, listener);
-  };
+  window.addEventListener(PRODUCER_PROOF_INVALIDATED_EVENT, listener);
+  return () => window.removeEventListener(PRODUCER_PROOF_INVALIDATED_EVENT, listener);
 }
 
 // ---- Fetch helper ----
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
+async function apiFetch<T>(path: string, options?: RequestInit, requireProducerProof = false): Promise<T> {
+  await ensureSessionMigrated();
+  const initiated = await withSessionIdentityLock("shared", () => {
+    const envelope = getSessionEnvelope();
+    const token = envelope?.session?.token;
+    const loaded = loadedProducerState;
+    const proof = loaded && loaded.epoch === envelope?.epoch ? loaded.header : "";
+    if (requireProducerProof && !proof) {
+      invalidateLoadedProducerState();
+      throw new APIError(409, { error: "内容版本尚未完成校对，请重试" });
+    }
+    return {
+      envelope,
+      response: fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...options?.headers,
+          ...(requireProducerProof && proof ? { "X-Moe-Loaded-Producer-State": proof } : {}),
+        },
+      }),
+    };
   });
+  const res = await initiated.response;
   if (res.status === 401) {
-    if (token && clearSession(token) && typeof window !== "undefined") window.location.reload();
-    throw new Error("未授权");
+    if (initiated.envelope?.session && await clearSession(initiated.envelope) && typeof window !== "undefined") {
+      window.location.reload();
+    }
+    throw new APIError(401, { error: "未授权" });
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
+    if (requireProducerProof && res.status === 409 && isEditorGateStatus(err)) invalidateLoadedProducerState();
     throw new APIError(res.status, err);
   }
-  if (res.status === 204) return undefined as T;
-  return res.json();
+  const body = res.status === 204 ? undefined as T : await res.json() as T;
+  const current = await withSessionIdentityLock("shared", getSessionEnvelope);
+  if (initiated.envelope && !sameSessionIdentity(current, initiated.envelope)) {
+    throw new APIError(409, { error: "会话已变化，请重试" });
+  }
+  return body;
 }
 
 // ---- Auth ----
 
+async function authenticateAndCommit(path: "/auth/login" | "/auth/setup", username: string, password: string): Promise<LoginResponse> {
+  await ensureSessionMigrated();
+  const previous = await withSessionIdentityLock("shared", getSessionEnvelope);
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const body = await response.json().catch(() => ({ error: response.statusText }));
+  if (!response.ok) throw new APIError(response.status, body);
+  if (!validSession(body) || body.expiresAt * 1000 <= Date.now()) {
+    throw new APIError(502, { error: "登录响应包含无效会话" });
+  }
+  const committed = await commitIdentitySession(body, previous);
+  if (!committed?.session) throw new APIError(409, { error: "登录期间会话已变化" });
+  return { ...committed.session };
+}
+
 export const login = (username: string, password: string) =>
-  apiFetch<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
-export const fetchMe = () => apiFetch<{ username: string; role: "admin" | "editor" }>("/auth/me");
+  authenticateAndCommit("/auth/login", username, password);
+export const fetchMe = async () => {
+  const principal = await apiFetch<{ username: unknown; role: unknown }>("/auth/me");
+  if (typeof principal.username !== "string" || !principal.username || !validSessionRole(principal.role)) {
+    throw new APIError(502, { error: "身份响应无效" });
+  }
+  return principal as { username: string; role: "admin" | "editor" };
+};
 export const refreshSession = async (): Promise<{ token: string; expiresAt: number }> => {
-  const dispatchedToken = getToken();
-  if (!dispatchedToken) throw new Error("会话信息不完整");
+  await ensureSessionMigrated();
+  const dispatched = await withSessionIdentityLock("shared", getSessionEnvelope);
+  if (!dispatched?.session) throw new Error("会话信息不完整");
   const refresh = async () => {
-    const currentToken = getToken();
-    if (currentToken !== dispatchedToken) {
-      if (!currentToken) throw new Error("会话已结束");
-      return { token: currentToken, expiresAt: getSessionExpiresAt() };
+    const current = await withSessionIdentityLock("shared", getSessionEnvelope);
+    if (!current?.session) throw new Error("会话已结束");
+    if (!sameSessionVersion(current, dispatched)) {
+      return { token: current.session.token, expiresAt: current.session.expiresAt };
     }
-    const refreshed = await apiFetch<{ token: string; expiresAt: number }>("/auth/refresh", { method: "POST" });
-    if (getToken() !== dispatchedToken) {
-      const winner = getToken();
-      if (!winner) throw new Error("会话已结束");
-      return { token: winner, expiresAt: getSessionExpiresAt() };
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${current.session.token}` },
+    });
+    const refreshed = await response.json().catch(() => ({ error: response.statusText }));
+    if (!response.ok) {
+      if (response.status === 401) await clearSession(current);
+      throw new APIError(response.status, refreshed);
     }
-    const username = getUsername();
-    const role = getRole();
-    if (!username || !role) throw new Error("会话信息不完整");
-    setSession({ ...refreshed, username, role });
-    return refreshed;
+    const token = typeof refreshed.token === "string" ? refreshed.token : "";
+    const expiresAt = Number(refreshed.expiresAt || 0);
+    if (!token || !Number.isSafeInteger(expiresAt) || expiresAt * 1000 <= Date.now()) {
+      throw new APIError(502, { error: "刷新响应包含无效会话" });
+    }
+    // The refresh endpoint has already issued a valid successor. Commit it
+    // before the follow-up identity probe so a transient /auth/me failure does
+    // not leave the browser holding the now-superseded predecessor token.
+    const successor: Session = { token, expiresAt, username: current.session.username, role: current.session.role };
+    const committed = await commitRefreshedSession(successor, current);
+    if (!committed?.session) {
+      const winner = await withSessionIdentityLock("shared", getSessionEnvelope);
+      if (!winner?.session) throw new APIError(409, { error: "刷新期间会话已变化" });
+      return { token: winner.session.token, expiresAt: winner.session.expiresAt };
+    }
+    let meResponse: Response;
+    try {
+      meResponse = await fetch(`${API_BASE}/auth/me`, {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      return { token: committed.session.token, expiresAt: committed.session.expiresAt };
+    }
+    if (meResponse.status === 429 || meResponse.status >= 500) {
+      await meResponse.body?.cancel().catch(() => {});
+      return { token: committed.session.token, expiresAt: committed.session.expiresAt };
+    }
+    const principal = await meResponse.json().catch(() => ({ error: meResponse.statusText }));
+    if (!meResponse.ok || typeof principal.username !== "string" || !principal.username || !validSessionRole(principal.role)) {
+      if (meResponse.status === 401) await clearSession(committed);
+      throw new APIError(meResponse.ok ? 502 : meResponse.status, { error: "刷新后的身份响应无效" });
+    }
+    const candidate: Session = { token, expiresAt, username: principal.username, role: principal.role };
+    const verified = await commitRefreshedSession(candidate, committed);
+    if (!verified?.session) {
+      const winner = await withSessionIdentityLock("shared", getSessionEnvelope);
+      if (!winner?.session) throw new APIError(409, { error: "刷新期间会话已变化" });
+      return { token: winner.session.token, expiresAt: winner.session.expiresAt };
+    }
+    return { token: verified.session.token, expiresAt: verified.session.expiresAt };
   };
-  return navigator.locks?.request ? navigator.locks.request(REFRESH_LOCK, refresh) : refresh();
+  if (!navigator.locks?.request) throw new Error("会话刷新需要浏览器 Web Locks 支持");
+  return navigator.locks.request(REFRESH_LOCK, { mode: "exclusive" }, refresh);
 };
 
 // First-run setup: when no users exist, the console registers the first admin.
 export const getSetupStatus = () => apiFetch<{ needsSetup: boolean }>("/auth/setup-status");
 export const setupAdmin = (username: string, password: string) =>
-  apiFetch<LoginResponse>("/auth/setup", { method: "POST", body: JSON.stringify({ username, password }) });
+  authenticateAndCommit("/auth/setup", username, password);
 
 // ---- Translations ----
 
@@ -355,6 +481,8 @@ export const getCategories = (locale?: Locale) => {
   addLocale(p, locale);
   return apiFetch<CategoryInfo[]>(`/categories${p.size ? `?${p}` : ""}`);
 };
+export const getEditorGateStatus = () => apiFetch<EditorGateStatus>("/editor-gate/status");
+export const getProjectionStatus = () => apiFetch<ProjectionStatus>("/projection/status");
 export const getEntries = (category: string, field: string, source?: string, locale?: Locale) => {
   const p = new URLSearchParams({ category, field });
   if (source) p.set("source", source);
@@ -362,10 +490,10 @@ export const getEntries = (category: string, field: string, source?: string, loc
   return apiFetch<TranslationEntry[]>(`/entries?${p}`);
 };
 export const updateEntry = (category: string, field: string, key: string, text: string, source: string, locale?: Locale) =>
-  apiFetch<{ status: string }>("/entry", {
+  apiFetch<{ status: string }>("/editor/v1/entry", {
     method: "PUT",
     body: JSON.stringify({ category, field, key, text, source, clientId: getClientID(), ...(locale && locale !== "zh-CN" ? { locale } : {}) }),
-  });
+  }, true);
 
 // ---- Event stories ----
 
@@ -383,14 +511,14 @@ export const updateEventStoryLine = (
   eventId: number, episodeNo: string, jpKey: string, cnText: string,
   source = "human", entryType: "talk" | "title" = "talk", locale?: Locale, segmentId?: string, sourceHash?: string,
 ) =>
-  apiFetch<{ status: string }>("/event-story/update", {
+  apiFetch<{ status: string }>("/editor/v1/event-story/update", {
     method: "PUT",
     body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType, clientId: getClientID(),
       ...(locale && locale !== "zh-CN" ? { locale } : {}), ...(segmentId ? { segmentId } : {}),
       ...(sourceHash !== undefined ? { sourceHash } : {}) }),
-  });
+  }, true);
 export const promoteEventStoryHuman = (eventId: number) =>
-  apiFetch<{ status: string }>("/event-story/promote-human", { method: "POST", body: JSON.stringify({ eventId }) });
+  apiFetch<{ status: string }>("/editor/v1/event-story/promote-human", { method: "POST", body: JSON.stringify({ eventId }) }, true);
 export const retryEventStory = (eventId: number) =>
   apiFetch<Record<string, unknown>>("/event-story/retry", { method: "POST", body: JSON.stringify({ eventId }) });
 export const reorderEventStory = (eventId: number) =>
@@ -429,9 +557,9 @@ export const checkUpstream = (force = false) =>
 export const getUpstreamStatusPublic = () => apiFetch<UpstreamStatus>("/upstream/status");
 
 export const getBackupStatus = () => apiFetch<BackupStatus>("/backup/status");
-export const pushBackup = () => apiFetch<{ status: string; results: Record<string, string> }>("/backup/push", { method: "POST" });
-export const restoreBackup = (target: "s3" | "git") =>
-  apiFetch<Record<string, unknown>>("/backup/restore", { method: "POST", body: JSON.stringify({ target }) });
+export const pushBackup = () => apiFetch<{ status: string; results: Record<string, string> }>("/editor/v1/backup/push", { method: "POST" }, true);
+export const restoreBackup = (target: "s3" | "git", confirmation: string) =>
+  apiFetch<Record<string, unknown>>("/backup/restore", { method: "POST", body: JSON.stringify({ target, confirmation }) });
 
 // ---- Lyrics ----
 
@@ -444,12 +572,15 @@ export const getCatalogPerformers = () =>
   apiFetch<{ items: CatalogPerformerItem[] }>("/catalog/characters");
 export const getLyrics = (musicId: number) =>
   apiFetch<SongLyrics>(`/lyrics/detail?musicId=${musicId}`);
-export const saveLyrics = (lyrics: SongLyrics) =>
-  apiFetch<SongLyrics>("/lyrics/save", { method: "PUT", body: JSON.stringify(lyrics) });
+export const saveLyrics = (lyrics: SongLyrics, sourceImportToken?: string) =>
+  apiFetch<SongLyrics>("/editor/v1/lyrics/save", {
+    method: "PUT",
+    body: JSON.stringify(buildLyricsSavePayload(lyrics, sourceImportToken, getClientID())),
+  }, true);
 export const publishLyrics = (musicId: number, revision: number) =>
-  apiFetch<SongLyrics>("/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision }) });
+  apiFetch<SongLyrics>("/editor/v1/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) }, true);
 export const unpublishLyrics = (musicId: number, revision: number) =>
-  apiFetch<SongLyrics>("/lyrics/unpublish", { method: "POST", body: JSON.stringify({ musicId, revision }) });
+  apiFetch<SongLyrics>("/editor/v1/lyrics/unpublish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) }, true);
 export const searchLyricsSource = (musicId: number) =>
   apiFetch<{ items: LyricsSourceCandidate[] }>(`/lyrics/source/search?musicId=${musicId}`);
 export const previewLyricsSource = (musicId: number, pageId: number, revisionId: number) =>

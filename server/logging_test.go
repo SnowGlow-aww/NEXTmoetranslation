@@ -4,7 +4,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
+
+type deadlineResponseWriter struct {
+	http.ResponseWriter
+	deadlineSet bool
+}
+
+func (w *deadlineResponseWriter) SetWriteDeadline(time.Time) error {
+	w.deadlineSet = true
+	return nil
+}
 
 func TestLoggingMiddlewareAddsSafeRequestIDAndCountsFailures(t *testing.T) {
 	httpRequestTotal.Store(0)
@@ -26,5 +37,16 @@ func TestLoggingMiddlewareAddsSafeRequestIDAndCountsFailures(t *testing.T) {
 	}
 	if httpRequestTotal.Load() != 1 || httpServerErrors.Load() != 1 || httpClientErrors.Load() != 0 {
 		t.Fatalf("counters total=%d client=%d server=%d", httpRequestTotal.Load(), httpClientErrors.Load(), httpServerErrors.Load())
+	}
+}
+
+func TestLoggingWriterExposesTransportDeadlines(t *testing.T) {
+	underlying := &deadlineResponseWriter{ResponseWriter: httptest.NewRecorder()}
+	wrapped := &loggingResponseWriter{ResponseWriter: underlying}
+	if err := http.NewResponseController(wrapped).SetWriteDeadline(time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if !underlying.deadlineSet {
+		t.Fatal("logging writer hid the transport write deadline")
 	}
 }

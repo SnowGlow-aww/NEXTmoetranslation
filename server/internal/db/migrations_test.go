@@ -34,7 +34,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 7 || migrationCount != 7 || checksum != migrations[6].checksum() {
+	if version != 9 || migrationCount != 9 || checksum != migrations[8].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -73,6 +73,15 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatalf("migrated title segment ID = %q", titleSegmentID)
 	}
+	var scenarioTable int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='event_story_scenarios'`).Scan(&scenarioTable); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if scenarioTable != 1 {
+		database.Close()
+		t.Fatal("v8 scenario side table was not created")
+	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +93,9 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 	}
 	if err := verifySQLiteBackup(backupPath); err != nil {
 		t.Fatal(err)
+	}
+	if got := before.Mode().Perm(); got != 0o600 {
+		t.Fatalf("pre-migration backup mode=%#o want %#o", got, os.FileMode(0o600))
 	}
 
 	reopened, err := Open(path)
@@ -132,6 +144,50 @@ func TestMigrationFailureRollsBackAndLeavesRecoverableBackup(t *testing.T) {
 	}
 	if err := verifySQLiteBackup(path + ".pre-migration-v1.bak"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMigrationRetryRefreshesBackupAfterLegacyWrite(t *testing.T) {
+	path := legacyFixtureCopy(t, "retry-refresh.db")
+	migrationBeforeCommitHook = func(version int) error {
+		return errors.New("injected first migration failure")
+	}
+	t.Cleanup(func() { migrationBeforeCommitHook = nil })
+	if _, err := Open(path); err == nil {
+		t.Fatal("first migration unexpectedly succeeded")
+	}
+
+	legacy, err := sql.Open("sqlite", "file:"+path+"?_pragma=busy_timeout(10000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.Exec(`UPDATE entries SET cn_text='written-after-failure' WHERE jp_key='旧キー'`); err != nil {
+		legacy.Close()
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrationBeforeCommitHook = nil
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	backup, err := sql.Open("sqlite", "file:"+path+".pre-migration-v1.bak?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backup.Close()
+	var text string
+	if err := backup.QueryRow(`SELECT cn_text FROM entries WHERE jp_key='旧キー'`).Scan(&text); err != nil {
+		t.Fatal(err)
+	}
+	if text != "written-after-failure" {
+		t.Fatalf("retry backup retained stale value %q", text)
 	}
 }
 
@@ -202,6 +258,24 @@ func TestMigrationChecksumMismatchRefusesStartup(t *testing.T) {
 	}
 }
 
+func TestMigrationHistoryGapRefusesStartup(t *testing.T) {
+	path := legacyFixtureCopy(t, "migration-gap.db")
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`DELETE FROM schema_migrations WHERE version=3`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "not a contiguous prefix") {
+		t.Fatalf("Open error = %v", err)
+	}
+}
+
 func TestPreviousBinaryQueriesRemainCompatibleAfterMigration(t *testing.T) {
 	path := legacyFixtureCopy(t, "rolling.db")
 	database, err := Open(path)
@@ -231,6 +305,11 @@ func TestPreviousBinaryQueriesRemainCompatibleAfterMigration(t *testing.T) {
 		FROM event_story_segments WHERE event_id=7 AND kind='talk'`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := legacy.Exec(`INSERT INTO event_story_scenarios(event_id, episode_no, scenario_id, canonical_json, sha256)
+		VALUES (7, '1', 'legacy-scenario', '{"ScenarioId":"legacy-scenario","Snippets":[],"TalkData":[],"SpecialEffectData":[],"AppearCharacters":[]}',
+		'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := legacy.Exec(`DELETE FROM event_stories WHERE event_id=7`); err != nil {
 		t.Fatalf("legacy event replace delete failed: %v", err)
 	}
@@ -240,6 +319,93 @@ func TestPreviousBinaryQueriesRemainCompatibleAfterMigration(t *testing.T) {
 	}
 	if localized != 1 {
 		t.Fatal("legacy event replace cascaded into additive locale content")
+	}
+	var scenarios int
+	if err := legacy.QueryRow(`SELECT COUNT(*) FROM event_story_scenarios WHERE event_id=7`).Scan(&scenarios); err != nil {
+		t.Fatal(err)
+	}
+	if scenarios != 1 {
+		t.Fatal("legacy event replace cascaded into scenario snapshots")
+	}
+}
+
+func TestV9MigrationRetainsExistingSegmentsAndAllowsRecoveryIdentityAtSamePosition(t *testing.T) {
+	path := legacyFixtureCopy(t, "v9-segment-recovery.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:8]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	var originalID, episodeNo, scenarioID, kind, jpKey, sourceText, sourceHash string
+	var eventID, position int
+	if err := raw.QueryRow(`SELECT segment_id, event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash
+		FROM event_story_segments WHERE kind='talk'`).Scan(&originalID, &eventID, &episodeNo, &scenarioID,
+		&kind, &position, &jpKey, &sourceText, &sourceHash); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	recoveryID := originalID + ":recovery"
+	if _, err := migrated.Exec(`INSERT INTO event_story_segments
+		(segment_id, event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, recoveryID, eventID, episodeNo, "replacement-scenario", kind,
+		position, jpKey, sourceText, sourceHash); err != nil {
+		t.Fatalf("same-position recovery segment after v9: %v", err)
+	}
+	var count int
+	if err := migrated.QueryRow(`SELECT COUNT(*) FROM event_story_segments WHERE segment_id IN (?, ?)`,
+		originalID, recoveryID).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("v9 segment preservation count=%d err=%v", count, err)
+	}
+}
+
+func TestV8MigrationCreatesDedicatedPreMigrationBackup(t *testing.T) {
+	path := legacyFixtureCopy(t, "v8-backup.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:7]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened.Close()
+	backupPath := path + ".pre-migration-v8.bak"
+	if err := verifySQLiteBackup(backupPath); err != nil {
+		t.Fatalf("v8 pre-migration backup: %v", err)
+	}
+	backup, err := sql.Open("sqlite", "file:"+backupPath+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backup.Close()
+	var version int
+	if err := backup.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 7 {
+		t.Fatalf("v8 backup version=%d err=%v", version, err)
+	}
+	var scenarioTable int
+	if err := backup.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='event_story_scenarios'`).Scan(&scenarioTable); err != nil || scenarioTable != 0 {
+		t.Fatalf("v8 backup scenario table=%d err=%v", scenarioTable, err)
 	}
 }
 

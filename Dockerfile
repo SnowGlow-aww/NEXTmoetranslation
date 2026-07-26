@@ -7,6 +7,8 @@
 #     --build-arg GO_IMAGE_DIGEST=<64-hex-digest> \
 #     --build-arg RUNTIME_IMAGE=<approved-runtime-with-git> \
 #     --build-arg RUNTIME_IMAGE_DIGEST=<64-hex-digest> \
+#     --build-context workspace=/path/to/verified/sekaitext-moe-workspace \
+#     --build-arg WORKSPACE_MANIFEST_SHA256=<manifest-sha256> \
 #     --build-arg VERSION=<release> --build-arg VCS_REF=$(git rev-parse HEAD) \
 #     -t moesekai-v2 .
 #
@@ -52,7 +54,7 @@ ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="Moesekai Translation" \
       org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.revision=$VCS_REF \
-      org.opencontainers.image.source="https://github.com/SnowGlow-aww/production-next-locale-lyrics"
+      org.opencontainers.image.source="https://github.com/StarMoe-org/NEXTmoetrabslation"
 # The approved runtime image must already contain pinned git, CA certificates,
 # and timezone data; installing mutable packages during release builds is banned.
 RUN command -v git >/dev/null && test -s /etc/ssl/certs/ca-certificates.crt
@@ -72,8 +74,10 @@ COPY --from=web-builder /web/out ./web
 COPY --chmod=755 docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Numeric ownership avoids depending on mutable account files in the approved
-# runtime base while keeping the application and persistent volume non-root.
-RUN mkdir -p /data && chown -R 65532:65532 /app /data
+# runtime base. Application code is immutable to that UID; only persistent data
+# and the base image's explicit temporary directory remain writable.
+RUN mkdir -p /data && chown -R 65532:65532 /data && chmod 0700 /data && \
+    chown -R 0:0 /app && chmod -R a-w /app
 
 ENV DB_PATH=/data/moesekai.db \
     DATA_DIR=/data \
@@ -86,3 +90,32 @@ EXPOSE 8080
 
 USER 65532:65532
 CMD ["./docker-entrypoint.sh"]
+
+# ---- Stage 4: immutable backend/workspace pairing (default final image) ----
+# Supply the producer artifact as a BuildKit named context:
+#   --build-context workspace=/path/to/workspace
+FROM runtime AS paired
+ARG WORKSPACE_MANIFEST_SHA256
+ARG WORKSPACE_ARCHIVE_SHA256
+ARG NEXT_REVISION
+ARG MOE_REVISION
+ARG MOE_TAG
+RUN printf '%s\n' "$WORKSPACE_MANIFEST_SHA256" | grep -Eq '^[0-9a-f]{64}$' && \
+    printf '%s\n' "$WORKSPACE_ARCHIVE_SHA256" | grep -Eq '^[0-9a-f]{64}$' && \
+    printf '%s\n' "$NEXT_REVISION" | grep -Eq '^[0-9a-f]{40}$' && \
+    printf '%s\n' "$MOE_REVISION" | grep -Eq '^[0-9a-f]{40}$' && \
+    printf '%s\n' "$MOE_TAG" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+LABEL org.opencontainers.image.revision=$NEXT_REVISION \
+      io.sekaitext.pair.next.revision=$NEXT_REVISION \
+      io.sekaitext.pair.moe.revision=$MOE_REVISION \
+      io.sekaitext.pair.moe.tag=$MOE_TAG \
+      io.sekaitext.pair.workspace.archive.digest="sha256:${WORKSPACE_ARCHIVE_SHA256}" \
+      io.sekaitext.pair.workspace.manifest.digest="sha256:${WORKSPACE_MANIFEST_SHA256}"
+USER root
+COPY --from=workspace --chown=0:0 --chmod=0555 ./ /app/workspace/
+RUN chown -R 0:0 /app && chmod -R a-w /app && chmod 0555 /app /app/workspace
+ENV WORKSPACE_WEB_DIR=/app/workspace \
+    WORKSPACE_MANIFEST_SHA256=${WORKSPACE_MANIFEST_SHA256} \
+    MOESEKAI_PRODUCTION=true
+USER 65532:65532
+RUN ./moesekai-server --verify-workspace

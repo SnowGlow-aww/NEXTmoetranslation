@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { setupAdmin, setSession } from "@/lib/api";
+import { setupAdmin } from "@/lib/api";
 
 // RegisterPage is shown on a fresh install (no users yet). It creates the first
 // account, which is always an admin, then logs in with the returned token.
@@ -24,7 +24,7 @@ export function RegisterPage({ onRegister }: { onRegister: () => void }) {
     setLoading(true);
     try {
       const res = await setupAdmin(user, pass);
-      setSession(res);
+      if (!res.token) throw new Error("注册响应无效");
       onRegister();
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败");

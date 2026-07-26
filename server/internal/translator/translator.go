@@ -1,6 +1,8 @@
 package translator
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"moesekai/server/internal/config"
+	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/httpx"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
@@ -34,6 +37,11 @@ type Translator struct {
 	status         Status
 	progress       ProgressFn
 	releaseContent func()
+	editorGate     *editorgate.Gate
+	releaseGate    func()
+	runCtx         context.Context
+	runCancel      context.CancelFunc
+	runWG          sync.WaitGroup
 
 	llmUnavailableUntil time.Time
 	llmLastError        string
@@ -70,8 +78,10 @@ const (
 	llmFailureCooldown        = 10 * time.Minute
 )
 
-func New(s *store.Store, es *store.EventStore, cfg *config.Config) *Translator {
-	return &Translator{
+var ErrRunning = errors.New("a translate job is already running")
+
+func New(s *store.Store, es *store.EventStore, cfg *config.Config, gates ...*editorgate.Gate) *Translator {
+	t := &Translator{
 		store:      s,
 		eventStore: es,
 		cfg:        cfg,
@@ -79,9 +89,19 @@ func New(s *store.Store, es *store.EventStore, cfg *config.Config) *Translator {
 		// LLM calls use a live, per-request context timeout from config. Keeping
 		// the client timeout at zero prevents it from fighting that deadline,
 		// especially while an OpenAI-compatible SSE response is streaming.
-		llmClient:  httpx.NewClientWithTimeouts(0, 10*time.Second, 15*time.Second, 0),
+		llmClient:  httpx.NewHTTPSCredentialClient(0, 10*time.Second, 15*time.Second, 0),
 		hedgeDelay: defaultSourceHedgeDelay,
 	}
+	if len(gates) > 0 {
+		t.editorGate = gates[0]
+	}
+	return t
+}
+
+func (t *Translator) SetEditorGate(gate *editorgate.Gate) {
+	t.mu.Lock()
+	t.editorGate = gate
+	t.mu.Unlock()
 }
 
 // SetProgress installs a progress callback (e.g. SSE broadcast).
@@ -155,19 +175,88 @@ func (t *Translator) automaticLLMUnavailable() (string, bool) {
 }
 
 // markStart claims the single-run lock, returning an error if already running.
-func (t *Translator) markStart(mode string) error {
-	releaseContent := t.store.LockContentShared()
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.status.Running {
-		releaseContent()
-		log.Printf("[translate] %s rejected: a job is already running", mode)
-		return fmt.Errorf("a translate job is already running")
+func (t *Translator) markStart(ctx context.Context, mode string) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	t.releaseContent = releaseContent
+	t.mu.Lock()
+	if t.status.Running {
+		t.mu.Unlock()
+		log.Printf("[translate] %s rejected: a job is already running", mode)
+		return ErrRunning
+	}
+	previous := t.status
+	runCtx, runCancel := context.WithCancel(ctx)
 	t.status.Running = true
 	t.status.LastMode = mode
 	t.status.LastError = ""
+	gate := t.editorGate
+	t.runCtx = runCtx
+	t.runCancel = runCancel
+	t.runWG.Add(1)
+	t.mu.Unlock()
+
+	var releaseGate func()
+	if gate != nil {
+		var err error
+		releaseGate, err = gate.BeginProducerContext(runCtx)
+		if err != nil {
+			t.mu.Lock()
+			t.status = previous
+			t.runCtx = nil
+			t.runCancel = nil
+			t.mu.Unlock()
+			runCancel()
+			t.runWG.Done()
+			log.Printf("[translate] %s rejected: %v", mode, err)
+			return err
+		}
+	}
+	if err := runCtx.Err(); err != nil {
+		if releaseGate != nil {
+			releaseGate()
+		}
+		t.mu.Lock()
+		t.status = previous
+		t.runCtx = nil
+		t.runCancel = nil
+		t.mu.Unlock()
+		runCancel()
+		t.runWG.Done()
+		return err
+	}
+	releaseContent, err := t.store.LockContentSharedContext(runCtx)
+	if err != nil {
+		if releaseGate != nil {
+			releaseGate()
+		}
+		t.mu.Lock()
+		t.status = previous
+		t.runCtx = nil
+		t.runCancel = nil
+		t.mu.Unlock()
+		runCancel()
+		t.runWG.Done()
+		return err
+	}
+	if err := runCtx.Err(); err != nil {
+		releaseContent()
+		if releaseGate != nil {
+			releaseGate()
+		}
+		t.mu.Lock()
+		t.status = previous
+		t.runCtx = nil
+		t.runCancel = nil
+		t.mu.Unlock()
+		runCancel()
+		t.runWG.Done()
+		return err
+	}
+	t.mu.Lock()
+	t.releaseContent = releaseContent
+	t.releaseGate = releaseGate
+	t.mu.Unlock()
 	log.Printf("[translate] %s started", mode)
 	return nil
 }
@@ -181,27 +270,84 @@ func (t *Translator) setNote(note string) {
 func (t *Translator) markEnd(note string, err error) {
 	t.mu.Lock()
 	mode := t.status.LastMode
+	releaseContent := t.releaseContent
+	releaseGate := t.releaseGate
+	runCancel := t.runCancel
+	t.releaseContent = nil
+	t.releaseGate = nil
+	t.runCtx = nil
+	t.runCancel = nil
+	t.mu.Unlock()
+	if releaseContent != nil {
+		releaseContent()
+	}
+	if releaseGate != nil {
+		releaseGate()
+	}
+	if runCancel != nil {
+		runCancel()
+	}
+
+	t.mu.Lock()
 	t.status.Running = false
 	t.status.LastRun = time.Now().UTC().Format(time.RFC3339)
 	t.status.LastNote = note
 	if err != nil {
 		t.status.LastError = err.Error()
+	}
+	t.mu.Unlock()
+	if err != nil {
 		log.Printf("[translate] %s FAILED: %v", mode, err)
 	} else {
 		log.Printf("[translate] %s done: %s", mode, note)
 	}
-	releaseContent := t.releaseContent
-	t.releaseContent = nil
+	t.runWG.Done()
+}
+
+// Cancel interrupts the active producer's network and retry waits. Wait must be
+// called before SQLite is closed.
+func (t *Translator) Cancel() {
+	t.mu.Lock()
+	cancel := t.runCancel
 	t.mu.Unlock()
-	if releaseContent != nil {
-		releaseContent()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (t *Translator) Wait() { t.runWG.Wait() }
+
+func (t *Translator) runContext() context.Context {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.runCtx != nil {
+		return t.runCtx
+	}
+	return context.Background()
+}
+
+func (t *Translator) wait(delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	ctx := t.runContext()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
 // IsAlreadyRunning reports whether an error is the "already running" sentinel.
 func IsAlreadyRunning(err error) bool {
-	return err != nil && strings.Contains(strings.ToLower(err.Error()), "already running")
+	return errors.Is(err, ErrRunning) || errors.Is(err, editorgate.ErrProducerRunning) ||
+		(err != nil && strings.Contains(strings.ToLower(err.Error()), "already running"))
 }
+
+func IsDraining(err error) bool { return errors.Is(err, editorgate.ErrDraining) }
 
 // ---- CN sync ----
 
@@ -284,7 +430,11 @@ func summarizeErrors(errs []error) error {
 // SyncCNOnly fetches masterdata and applies official CN translations to all
 // categories plus event stories. It is the scheduled / manual "数据更新" action.
 func (t *Translator) SyncCNOnly() (CNSyncResult, error) {
-	if err := t.markStart("cn-sync"); err != nil {
+	return t.SyncCNOnlyContext(context.Background())
+}
+
+func (t *Translator) SyncCNOnlyContext(ctx context.Context) (CNSyncResult, error) {
+	if err := t.markStart(ctx, "cn-sync"); err != nil {
 		return CNSyncResult{}, err
 	}
 	result := CNSyncResult{Mode: "cn-sync"}
@@ -362,6 +512,10 @@ func (t *Translator) SyncCNOnly() (CNSyncResult, error) {
 	}
 
 	for i, step := range steps {
+		if err := t.runContext().Err(); err != nil {
+			runErr = err
+			return result, runErr
+		}
 		t.setNote(fmt.Sprintf("cn-sync %d/%d: %s", i+1, len(steps), step.category))
 		t.emit("sync.progress", "正在写入 "+step.category, len(steps)+i+1, progressTotal)
 		fields, err := fetched[i].fields, fetched[i].err
@@ -427,7 +581,11 @@ type AITranslateResult struct {
 
 // ManualAITranslate fills empty entries in one field via the LLM.
 func (t *Translator) ManualAITranslate(req AITranslateRequest) (AITranslateResult, error) {
-	if err := t.markStart("manual-ai"); err != nil {
+	return t.ManualAITranslateContext(context.Background(), req)
+}
+
+func (t *Translator) ManualAITranslateContext(ctx context.Context, req AITranslateRequest) (AITranslateResult, error) {
+	if err := t.markStart(ctx, "manual-ai"); err != nil {
 		return AITranslateResult{}, err
 	}
 	var runErr error
@@ -467,6 +625,10 @@ func (t *Translator) ManualAITranslate(req AITranslateRequest) (AITranslateResul
 
 	updates, translateErr := t.translateBatch(provider, candidates)
 	if len(updates) > 0 {
+		if err := t.runContext().Err(); err != nil {
+			runErr = err
+			return result, runErr
+		}
 		translated, moreSkipped, err := t.store.ApplyAITranslations(req.Category, req.Field, updates)
 		if err != nil {
 			runErr = err
@@ -514,7 +676,9 @@ func (t *Translator) translateBatch(provider string, keys []string) (map[string]
 		}
 		t.emit("translate.progress", fmt.Sprintf("AI 翻译已完成 %d/%d", end, len(keys)), end, len(keys))
 		if end < len(keys) {
-			time.Sleep(cfg.RateDelay)
+			if err := t.wait(cfg.RateDelay); err != nil {
+				return updates, err
+			}
 		}
 	}
 	return updates, nil

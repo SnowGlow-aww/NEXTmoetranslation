@@ -38,6 +38,64 @@ func TestAITranslationUpdatesChineseAdditiveProjection(t *testing.T) {
 	}
 }
 
+func TestAIApplySkipsCollaboratorDriftAndDisappearedCandidates(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-ai-stale.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	if err := events.ImportOrdered(18, model.EventStoryMeta{Source: "jp_pending"}, []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario", Title: "題名", TitleSource: "jp_pending",
+		TalkKeys: []string{"原文"}, TalkData: map[string]string{"原文": ""},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	targets, err := events.UntranslatedTargets(18)
+	if err != nil || len(targets) != 2 {
+		t.Fatalf("targets=%+v err=%v", targets, err)
+	}
+	if _, err := database.Exec(`UPDATE event_story_episodes SET title='协作标题', title_source='unknown'
+		WHERE event_id=18 AND episode_no='1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE event_story_lines SET cn_text='协作译文', source='unknown'
+		WHERE event_id=18 AND episode_no='1' AND jp_key='原文'`); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := events.ApplyEventTranslations(18, targets, []string{"AI 标题", "AI 译文"}, model.SourceLLM)
+	if err != nil || changed != 0 {
+		t.Fatalf("stale AI apply changed=%d err=%v", changed, err)
+	}
+	detail, err := events.Detail(18)
+	if err != nil || detail.Episodes["1"].Title != "协作标题" || detail.Episodes["1"].TalkData["原文"] != "协作译文" ||
+		detail.Episodes["1"].TitleSource != model.SourceUnknown || detail.Episodes["1"].TalkSources["原文"] != model.SourceUnknown {
+		t.Fatalf("collaborator values overwritten: detail=%+v err=%v", detail, err)
+	}
+
+	if err := events.ImportOrdered(19, model.EventStoryMeta{Source: "jp_pending"}, []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario", TalkKeys: []string{"消失原文"}, TalkData: map[string]string{"消失原文": ""},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	staleTargets, err := events.UntranslatedTargets(19)
+	if err != nil || len(staleTargets) != 1 {
+		t.Fatalf("disappearing targets=%+v err=%v", staleTargets, err)
+	}
+	if _, err := database.Exec(`DELETE FROM event_story_lines WHERE event_id=19 AND episode_no='1' AND jp_key='消失原文'`); err != nil {
+		t.Fatal(err)
+	}
+	changed, err = events.ApplyEventTranslations(19, staleTargets, []string{"不应重建"}, model.SourceLLM)
+	if err != nil || changed != 0 {
+		t.Fatalf("disappeared AI apply changed=%d err=%v", changed, err)
+	}
+	var localizedText string
+	if err := database.QueryRow(`SELECT text FROM event_story_segment_localizations
+		WHERE segment_id=? AND locale=?`, staleTargets[0].SegmentIDs[0], model.LocaleChinese).Scan(&localizedText); err != nil || localizedText != "" {
+		t.Fatalf("disappeared candidate localization=%q err=%v", localizedText, err)
+	}
+}
+
 func TestPromoteHumanUpdatesLegacyAndChineseSegmentProvenance(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "event-promote-human.db"))
 	if err != nil {
@@ -442,5 +500,109 @@ func TestScenarioPositionAndFieldKeepIdentityAcrossChineseAvailability(t *testin
 	segments = detail.Episodes["1"].Segments
 	if segments[3].ID != secondLineID || segments[3].Text != "Second line" {
 		t.Fatalf("CN availability shifted stable identity: %+v", segments)
+	}
+}
+
+func TestUpdateLineIsAtomicAndTitleIgnoresJPKey(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-update-line.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	if err := events.ImportOrdered(16, model.EventStoryMeta{Source: model.SourceCN, LastUpdated: 100}, []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario", Title: "旧标题", TitleSource: model.SourceCN,
+		TalkKeys: []string{"原文"}, TalkData: map[string]string{"原文": "旧译文"}, TalkSources: map[string]string{"原文": model.SourceCN},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	assertUnchanged := func() {
+		t.Helper()
+		var text, source string
+		var updated int64
+		if err := database.QueryRow(`SELECT cn_text, source FROM event_story_lines WHERE event_id=16 AND episode_no='1' AND jp_key='原文'`).Scan(&text, &source); err != nil {
+			t.Fatal(err)
+		}
+		if err := database.QueryRow(`SELECT last_updated FROM event_stories WHERE event_id=16`).Scan(&updated); err != nil {
+			t.Fatal(err)
+		}
+		if text != "旧译文" || source != model.SourceCN || updated != 100 {
+			t.Fatalf("partial update text=%q source=%q updated=%d", text, source, updated)
+		}
+	}
+	if _, err := database.Exec(`CREATE TRIGGER fail_event_timestamp BEFORE UPDATE OF last_updated ON event_stories
+		BEGIN SELECT RAISE(ABORT, 'timestamp failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if err := events.UpdateLine(16, "1", "原文", "不应保存", model.SourceHuman, "talk"); err == nil {
+		t.Fatal("last_updated failure was ignored")
+	}
+	assertUnchanged()
+	if _, err := database.Exec(`DROP TRIGGER fail_event_timestamp`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TRIGGER fail_event_localization BEFORE UPDATE ON event_story_segment_localizations
+		BEGIN SELECT RAISE(ABORT, 'localization failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if err := events.UpdateLine(16, "1", "原文", "仍不应保存", model.SourceHuman, "talk"); err == nil {
+		t.Fatal("localization failure was ignored")
+	}
+	assertUnchanged()
+	if _, err := database.Exec(`DROP TRIGGER fail_event_localization`); err != nil {
+		t.Fatal(err)
+	}
+	if err := events.UpdateLine(16, "1", "must-be-ignored", "新标题", model.SourceHuman, "title"); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(16, model.LocaleChinese)
+	if err != nil || detail.Episodes["1"].Title != "新标题" || detail.Episodes["1"].TitleSource != model.SourceHuman {
+		t.Fatalf("localized title=%+v err=%v", detail.Episodes["1"], err)
+	}
+}
+
+func TestRollingLegacyWriterStaleSegmentsFallBackByEpisode(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-rolling-stale.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	if err := events.ImportOrdered(17, model.EventStoryMeta{Source: model.SourceCN}, []OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "old", Title: "旧标题", TitleSource: model.SourceCN,
+		TalkKeys: []string{"旧原文"}, TalkData: map[string]string{"旧原文": "旧译文"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	oldDetail, err := events.DetailLocale(17, model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := oldDetail.Episodes["1"].Segments[1]
+	if _, err := database.Exec(`DELETE FROM event_stories WHERE event_id=17`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO event_stories(event_id, source, version, last_updated) VALUES (17, 'official_cn', '2', 200)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO event_story_episodes(event_id, episode_no, scenario_id, title, title_source, position)
+		VALUES (17, '1', 'new', '新标题', 'cn', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO event_story_lines(event_id, episode_no, jp_key, cn_text, source, position)
+		VALUES (17, '1', '新原文', '新译文', 'cn', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := events.DetailLocale(17, model.LocaleChinese)
+	if err != nil {
+		t.Fatal(err)
+	}
+	episode := detail.Episodes["1"]
+	if len(episode.Segments) != 0 || episode.Title != "新标题" || episode.TalkData["新原文"] != "新译文" {
+		t.Fatalf("rolling fallback episode=%+v", episode)
+	}
+	if err := events.UpdateLineLocaleRevision(17, "1", "旧原文", stale.ID, stale.SourceHash, "stale", model.SourceHuman,
+		"talk", model.LocaleEnglish, "editor", nil); !errors.Is(err, ErrEventSourceConflict) {
+		t.Fatalf("stale segment update error=%v", err)
 	}
 }

@@ -30,11 +30,17 @@ func openLegacyGenerator(tb testing.TB) (*Generator, *db.DB) {
 	}); err != nil {
 		tb.Fatal(err)
 	}
+	canonical, digest, err := store.CanonicalizeEventScenario(map[string]any{
+		"ScenarioId": "scenario-1", "Snippets": []any{}, "TalkData": []any{},
+		"SpecialEffectData": []any{}, "AppearCharacters": []any{},
+	}, "scenario-1")
+	if err != nil {
+		tb.Fatal(err)
+	}
 	if err := es.ImportOrdered(42, model.EventStoryMeta{
 		Source: "official_cn", Version: "1.0", LastUpdated: 1700000000,
 	}, []store.OrderedEpisode{{
-		EpisodeNo:   "1",
-		ScenarioID:  "scenario-1",
+		EpisodeNo: "1", ScenarioID: "scenario-1", ScenarioCanonicalJSON: canonical, ScenarioSHA256: digest,
 		Title:       "标题 & <",
 		TitleSource: model.SourceHuman,
 		TalkKeys:    []string{"zebra", "apple", "mango & lime"},

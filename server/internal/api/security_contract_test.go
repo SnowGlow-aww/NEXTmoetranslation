@@ -24,21 +24,40 @@ func TestEditorsCannotTriggerAdministrativeOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{
-		"/api/event-story/promote-human",
-		"/api/event-story/retry",
-		"/api/event-story/reorder",
-		"/api/translate/cn-sync",
-		"/api/translate/ai",
-		"/api/translate/ai-all",
-		"/api/translate/ai-story",
-		"/api/backup/push",
+	for _, operation := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/event-story/promote-human"},
+		{http.MethodPost, "/api/event-story/retry"},
+		{http.MethodPost, "/api/event-story/reorder"},
+		{http.MethodPost, "/api/translate/cn-sync"},
+		{http.MethodPost, "/api/translate/ai"},
+		{http.MethodPost, "/api/translate/ai-all"},
+		{http.MethodPost, "/api/translate/ai-story"},
+		{http.MethodPost, "/api/backup/push"},
+		{http.MethodGet, "/api/lyrics/source/search"},
+		{http.MethodPost, "/api/lyrics/source/preview"},
 	} {
-		response := doJSON(t, http.MethodPost, h.server.URL+path, token, map[string]any{})
+		response := doJSON(t, operation.method, h.server.URL+operation.path, token, map[string]any{})
 		response.Body.Close()
 		if response.StatusCode != http.StatusForbidden {
-			t.Fatalf("editor %s status = %d", path, response.StatusCode)
+			t.Fatalf("editor %s status = %d", operation.path, response.StatusCode)
 		}
+	}
+}
+
+func TestGETRefreshNeverRotatesToken(t *testing.T) {
+	h := setupLegacyAPI(t)
+	refresh := doJSON(t, http.MethodGet, h.server.URL+"/api/auth/refresh", h.token, nil)
+	refresh.Body.Close()
+	if refresh.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("GET refresh status = %d", refresh.StatusCode)
+	}
+	me := doJSON(t, http.MethodGet, h.server.URL+"/api/auth/me", h.token, nil)
+	me.Body.Close()
+	if me.StatusCode != http.StatusOK {
+		t.Fatalf("GET refresh consumed the token; /me status = %d", me.StatusCode)
 	}
 }
 
@@ -65,6 +84,56 @@ func TestStaleAdminTokensFailAuthentication(t *testing.T) {
 				t.Fatalf("stale %s token status = %d", test.name, response.StatusCode)
 			}
 		})
+	}
+}
+
+func TestQueryTokenAuthenticationIsRejectedEverywhere(t *testing.T) {
+	h := setupLegacyAPI(t)
+	for _, test := range []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "normal API", method: http.MethodGet, path: "/api/categories"},
+		{name: "admin API", method: http.MethodGet, path: "/api/admin/users"},
+		{name: "strict API", method: http.MethodPut, path: "/api/editor/v1/entry"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request, err := http.NewRequest(test.method, h.server.URL+test.path+"?token="+h.token, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response.Body.Close()
+			if response.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("query token status = %d", response.StatusCode)
+			}
+		})
+	}
+
+	response, err := http.Get(h.server.URL + "/sse?token=" + h.token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("SSE query token status = %d", response.StatusCode)
+	}
+
+	bearer := bearerSSERequest(t, h.server.URL, h.token)
+	authorized, err := http.DefaultClient.Do(bearer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer authorized.Body.Close()
+	if authorized.StatusCode != http.StatusOK {
+		t.Fatalf("SSE bearer status = %d", authorized.StatusCode)
+	}
+	if got := authorized.Header.Get("Content-Type"); got != "text/event-stream" {
+		t.Fatalf("SSE Content-Type = %q", got)
 	}
 }
 

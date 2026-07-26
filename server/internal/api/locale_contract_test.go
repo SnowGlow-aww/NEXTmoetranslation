@@ -293,7 +293,7 @@ func TestExplicitChineseEventAuditFailureRollsBackMutation(t *testing.T) {
 
 func TestLocaleSSEPayloadIsIgnorableAndScoped(t *testing.T) {
 	h := setupLegacyAPI(t)
-	req, _ := http.NewRequest(http.MethodGet, h.server.URL+"/sse?token="+h.token, nil)
+	req := bearerSSERequest(t, h.server.URL, h.token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

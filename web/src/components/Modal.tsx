@@ -8,9 +8,11 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   maxWidth?: number;
+  closeDisabled?: boolean;
+  dismissible?: boolean;
 }
 
-export function Modal({ open, onClose, title, children, maxWidth = 880 }: ModalProps) {
+export function Modal({ open, onClose, title, children, maxWidth = 880, closeDisabled = false, dismissible = true }: ModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -33,11 +35,11 @@ export function Modal({ open, onClose, title, children, maxWidth = 880 }: ModalP
     };
   }, [open]);
 
-  // Close on Escape key.
+  // Close on Escape key unless the caller is completing an in-flight action.
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && dismissible && !closeDisabled) onClose();
       if (e.key !== "Tab" || !dialogRef.current) return;
       const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
         'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
@@ -54,18 +56,18 @@ export function Modal({ open, onClose, title, children, maxWidth = 880 }: ModalP
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [closeDisabled, dismissible, open, onClose]);
 
   if (!open) return null;
 
   return (
     <div className="modal-backdrop" ref={backdropRef} onClick={(e) => {
-      if (e.target === backdropRef.current) onClose();
+      if (e.target === backdropRef.current && dismissible && !closeDisabled) onClose();
     }}>
       <div ref={dialogRef} className="modal-container" style={{ maxWidth }} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-header">
           <h2 id={titleId}>{title}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="关闭" title="关闭">×</button>
+          {dismissible && <button className="modal-close" onClick={onClose} aria-label="关闭" title="关闭" disabled={closeDisabled}>×</button>}
         </div>
         <div className="modal-body">
           {children}

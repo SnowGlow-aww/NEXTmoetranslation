@@ -2,6 +2,7 @@ package files
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -150,6 +151,14 @@ func (g *Generator) EventStoryLocaleJSON(eventID int, locale string) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
+	// Translation revisions are an authenticated editing concern. Keep the
+	// existing public v2 projection byte-for-byte stable.
+	for episodeNo, episode := range detail.Episodes {
+		for i := range episode.Segments {
+			episode.Segments[i].Revision = 0
+		}
+		detail.Episodes[episodeNo] = episode
+	}
 	return marshalIndentNoEscape(detail)
 }
 
@@ -179,20 +188,35 @@ func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
 	return assets, nil
 }
 
-// WriteAll regenerates the full translation/ tree under outDir. Returns the
-// number of files written.
+// WriteAll regenerates the legacy category/event translation/ projection under
+// outDir. Published lyrics, locale mirrors, and search indexes are materialized
+// by their owning runtime or backup paths rather than changing this legacy
+// generator contract. Returns the number of files written.
 func (g *Generator) WriteAll() (int, error) {
+	return g.WriteAllContext(context.Background())
+}
+
+func (g *Generator) WriteAllContext(ctx context.Context) (int, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	transDir := filepath.Join(g.outDir, "translation")
 	if err := os.MkdirAll(transDir, 0o755); err != nil {
 		return 0, err
 	}
 	written := 0
 	for _, cat := range model.SupportedCategories {
+		if err := ctx.Err(); err != nil {
+			return written, err
+		}
 		flat, err := g.CategoryFlatJSON(cat)
 		if err != nil {
 			return written, fmt.Errorf("flat %s: %w", cat, err)
 		}
-		if err := writeAtomic(filepath.Join(transDir, cat+".json"), flat); err != nil {
+		if err := writeAtomicContext(ctx, filepath.Join(transDir, cat+".json"), flat); err != nil {
 			return written, err
 		}
 		written++
@@ -200,7 +224,7 @@ func (g *Generator) WriteAll() (int, error) {
 		if err != nil {
 			return written, fmt.Errorf("full %s: %w", cat, err)
 		}
-		if err := writeAtomic(filepath.Join(transDir, cat+".full.json"), full); err != nil {
+		if err := writeAtomicContext(ctx, filepath.Join(transDir, cat+".full.json"), full); err != nil {
 			return written, err
 		}
 		written++
@@ -215,22 +239,37 @@ func (g *Generator) WriteAll() (int, error) {
 		return written, err
 	}
 	for _, sum := range summaries {
+		if err := ctx.Err(); err != nil {
+			return written, err
+		}
 		b, err := g.EventStoryJSON(sum.EventID)
 		if err != nil {
 			return written, fmt.Errorf("event %d: %w", sum.EventID, err)
 		}
 		path := filepath.Join(esDir, "event_"+strconv.Itoa(sum.EventID)+".json")
-		if err := writeAtomic(path, b); err != nil {
+		if err := writeAtomicContext(ctx, path, b); err != nil {
 			return written, err
 		}
 		written++
 	}
+
 	return written, nil
 }
 
 func writeAtomic(path string, data []byte) error {
+	return writeAtomicContext(context.Background(), path, data)
+}
+
+func writeAtomicContext(ctx context.Context, path string, data []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = os.Remove(tmp)
 		return err
 	}
 	return os.Rename(tmp, path)

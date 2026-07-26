@@ -19,9 +19,12 @@ import (
 )
 
 const (
-	vocaloidWikiAPI  = "https://vocaloid.fandom.com/api.php"
-	maxResponseBytes = 2 << 20
-	maxCacheEntries  = 128
+	vocaloidWikiAPI       = "https://vocaloid.fandom.com/api.php"
+	maxResponseBytes      = 2 << 20
+	maxCacheEntries       = 128
+	maxExtractedLines     = 1000
+	maxExtractedLineBytes = 8 << 10
+	maxExtractedTextBytes = 1 << 20
 )
 
 var (
@@ -30,6 +33,7 @@ var (
 	ErrMissingLyrics     = errors.New("missing Lyrics section")
 	ErrRestrictedReprint = errors.New("source prohibits reprints")
 	ErrUnsupportedTable  = errors.New("unsupported lyrics table")
+	ErrLyricsTooLarge    = errors.New("lyrics source exceeds safe limits")
 	ErrMalformedResponse = errors.New("malformed source response")
 )
 
@@ -61,6 +65,7 @@ type Preview struct {
 	Categories   []string        `json:"categories"`
 	FetchedAt    string          `json:"fetchedAt"`
 	Lines        []ExtractedLine `json:"lines"`
+	ImportToken  string          `json:"importToken,omitempty"`
 }
 
 type cacheEntry struct {
@@ -99,20 +104,25 @@ func (c *Client) Search(ctx context.Context, identity MusicIdentity) ([]Candidat
 		return nil, err
 	}
 	var response struct {
-		Query struct {
+		Error json.RawMessage `json:"error"`
+		Query *struct {
 			Search []struct {
 				PageID int    `json:"pageid"`
 				Title  string `json:"title"`
 			} `json:"search"`
 		} `json:"query"`
 	}
-	if err := json.Unmarshal(data, &response); err != nil {
+	if err := json.Unmarshal(data, &response); err != nil || len(response.Error) > 0 || response.Query == nil {
 		return nil, ErrMalformedResponse
 	}
 	result := []Candidate{}
+	fetchFailures := 0
+	var lastFetchErr error
 	for _, search := range response.Query.Search {
 		page, err := c.fetchPage(ctx, search.PageID, 0, true)
 		if err != nil {
+			fetchFailures++
+			lastFetchErr = err
 			continue
 		}
 		if page.pageID != search.PageID || hasReprintRestriction(page.content, page.categories) {
@@ -124,6 +134,12 @@ func (c *Client) Search(ctx context.Context, identity MusicIdentity) ([]Candidat
 				RevisionID: page.revisionID, SHA1: page.sha1, Categories: page.categories,
 			})
 		}
+	}
+	if fetchFailures > 0 {
+		if lastFetchErr != nil {
+			return nil, fmt.Errorf("fetch %d of %d source candidates: %w", fetchFailures, len(response.Query.Search), lastFetchErr)
+		}
+		return nil, ErrMalformedResponse
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].PageID < result[j].PageID })
 	return result, nil
@@ -210,6 +226,9 @@ func (c *Client) fetchPage(ctx context.Context, pageID, revisionID int, cacheabl
 			continue
 		}
 		revision := item.Revisions[0]
+		if revision.RevisionID <= 0 || !mediaWikiSHA1Pattern.MatchString(revision.SHA1) {
+			continue
+		}
 		content := revision.Slots.Main.Content
 		if content == "" {
 			content = revision.Slots.Main.LegacyContent
@@ -314,7 +333,12 @@ func (c *Client) waitRateLimit(ctx context.Context) error {
 }
 
 func canonicalURL(title string) string {
-	return "https://vocaloid.fandom.com/wiki/" + url.PathEscape(strings.ReplaceAll(title, " ", "_"))
+	canonical := url.URL{
+		Scheme: "https",
+		Host:   "vocaloid.fandom.com",
+		Path:   "/wiki/" + strings.ReplaceAll(title, " ", "_"),
+	}
+	return canonical.String()
 }
 
 func normalizeTitle(value string) string {
@@ -330,15 +354,12 @@ func normalizeTitle(value string) string {
 func verifyCandidate(identity MusicIdentity, title, content string, categories []string) bool {
 	wantedTitle := normalizeTitle(identity.JapaneseTitle)
 	combined := strings.ToLower(title + "\n" + content + "\n" + strings.Join(categories, "\n"))
-	if wantedTitle == "" || (!strings.Contains(normalizeTitle(title), wantedTitle) && !strings.Contains(normalizeTitle(content), wantedTitle)) {
+	if wantedTitle == "" || !candidateTitleMatches(title, wantedTitle) {
 		return false
 	}
 	producerMatch := false
-	for _, producer := range strings.FieldsFunc(identity.ProducerMetadata, func(r rune) bool {
-		return r == '|' || r == '/' || r == ',' || r == ';'
-	}) {
-		producer = strings.TrimSpace(strings.ToLower(producer))
-		if producer != "" && producer != "-" && strings.Contains(combined, producer) {
+	for _, producer := range identityFields(identity.ProducerMetadata) {
+		if producer != "" && producer != "-" && containsIdentityField(combined, producer, true) {
 			producerMatch = true
 			break
 		}
@@ -352,14 +373,57 @@ func verifyCandidate(identity MusicIdentity, title, content string, categories [
 			return true
 		}
 	}
-	return containsJapanese(content)
+	return false
+}
+
+func candidateTitleMatches(title, wanted string) bool {
+	parts := strings.SplitN(title, "/", 2)
+	return normalizeTitle(parts[0]) == wanted
+}
+
+func identityFields(value string) []string {
+	raw := strings.FieldsFunc(value, func(r rune) bool {
+		return unicode.IsSpace(r) || strings.ContainsRune("|/／,，;；:=：[]{}()（）<>\"'", r)
+	})
+	fields := make([]string, 0, len(raw))
+	for _, field := range raw {
+		if normalized := normalizeTitle(field); normalized != "" {
+			fields = append(fields, normalized)
+		}
+	}
+	return fields
+}
+
+func containsIdentityField(value, wanted string, allowJapaneseSuffix bool) bool {
+	for _, field := range identityFields(value) {
+		if field == wanted {
+			return true
+		}
+		if allowJapaneseSuffix && strings.HasPrefix(field, wanted) {
+			suffix := strings.TrimPrefix(field, wanted)
+			for _, allowed := range []string{"による", "の", "制作", "作詞", "作曲"} {
+				if suffix == allowed || strings.HasPrefix(suffix, allowed) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 var headingPattern = regexp.MustCompile(`(?im)^==+\s*Lyrics\s*==+\s*$`)
 var nextHeadingPattern = regexp.MustCompile(`(?m)^==+[^=].*==+\s*$`)
 var markupPattern = regexp.MustCompile(`(?s)<!--.*?-->|<ref[^>]*>.*?</ref>|<[^>]+>`)
 var linkPattern = regexp.MustCompile(`\[\[(?:[^]|]+\|)?([^]]+)\]\]`)
-var templatePattern = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+var sharedPlainLinePattern = regexp.MustCompile(`(?i)^\{\{\s*shared\s*\}\}\s*(?:\|\s*)?(.*)$`)
+var sharedTableCellPattern = regexp.MustCompile(`(?i)^\{\{\s*shared\s*\}\}\s*(?:\|\s*)?`)
+var mediaWikiSHA1Pattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// HasCanonicalSHA1 reports whether value is the lowercase 40-hex revision
+// identity required for every provenance-bearing preview, save, and restore.
+func HasCanonicalSHA1(value string) bool {
+	return mediaWikiSHA1Pattern.MatchString(value)
+}
 
 func extractLyrics(content string) ([]ExtractedLine, error) {
 	if hasReprintRestriction(content, nil) {
@@ -397,43 +461,231 @@ func hasReprintRestriction(content string, categories []string) bool {
 }
 
 func extractPlainLyrics(section string) ([]ExtractedLine, error) {
-	section = markupPattern.ReplaceAllString(section, "")
-	section = linkPattern.ReplaceAllString(section, "$1")
-	section = templatePattern.ReplaceAllString(section, "")
-	if strings.Contains(section, "{{") || strings.Contains(section, "{|") {
-		return nil, ErrUnsupportedTable
+	raw := strings.Split(strings.ReplaceAll(section, "\r", ""), "\n")
+	lines := make([]string, 0, len(raw))
+	explicitShared := make([]bool, 0, len(raw))
+	for _, line := range raw {
+		shared := sharedPlainLinePattern.FindStringSubmatch(strings.TrimSpace(line))
+		if shared != nil {
+			line = shared[1]
+		}
+		sanitized, err := sanitizeLyricText(line)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, sanitized)
+		explicitShared = append(explicitShared, shared != nil)
 	}
-	return lyricLines(strings.Split(strings.ReplaceAll(section, "\r", ""), "\n"))
+	return plainLyricLines(lines, explicitShared)
 }
 
 func extractLyricsTable(section string) ([]ExtractedLine, error) {
-	if strings.Contains(strings.ToLower(section), "rowspan") || strings.Contains(strings.ToLower(section), "colspan") {
+	lower := strings.ToLower(section)
+	if strings.Contains(lower, "rowspan") || strings.Contains(lower, "colspan") || strings.Count(section, "{|") != 1 {
 		return nil, ErrUnsupportedTable
 	}
+
 	var cells []string
-	for _, row := range strings.Split(strings.ReplaceAll(section, "\r", ""), "\n") {
-		row = strings.TrimSpace(row)
-		if row == "|-" {
-			cells = append(cells, "")
-			continue
+	var headers []string
+	var rowCells []string
+	inTable := false
+	dataStarted := false
+	sourceColumn := -1
+
+	flushHeaders := func() error {
+		if sourceColumn >= 0 {
+			return nil
 		}
-		if !strings.HasPrefix(row, "|") || strings.HasPrefix(row, "|-") || strings.HasPrefix(row, "|}") || strings.HasPrefix(row, "{|") {
-			continue
+		if len(headers) == 0 || !isSupportedSourceHeader(headers[0]) {
+			return ErrUnsupportedTable
 		}
-		for _, cell := range strings.Split(strings.TrimPrefix(row, "|"), "||") {
-			cell = strings.TrimSpace(cell)
-			if containsJapanese(cell) {
-				cells = append(cells, cell)
-				break
+		sourceColumn = 0
+		for _, header := range headers[1:] {
+			if isSupportedSourceHeader(header) {
+				return ErrUnsupportedTable
 			}
 		}
+		return nil
 	}
-	return lyricLines(cells)
+	flushRow := func() error {
+		if len(rowCells) == 0 {
+			return nil
+		}
+		if err := flushHeaders(); err != nil {
+			return err
+		}
+		if len(rowCells) > len(headers) || sourceColumn >= len(rowCells) {
+			return ErrUnsupportedTable
+		}
+		sanitized := make([]string, len(rowCells))
+		for index, raw := range rowCells {
+			cell := strings.TrimSpace(raw)
+			if index == sourceColumn {
+				if looksLikeTableCellAttributes(cell) {
+					return ErrUnsupportedTable
+				}
+				cell = sharedTableCellPattern.ReplaceAllString(cell, "")
+			}
+			var err error
+			cell, err = sanitizeLyricText(cell)
+			if err != nil {
+				return err
+			}
+			sanitized[index] = strings.TrimSpace(html.UnescapeString(cell))
+		}
+		source := sanitized[sourceColumn]
+		if source == "" {
+			for index, cell := range sanitized {
+				if index != sourceColumn && cell != "" {
+					return ErrUnsupportedTable
+				}
+			}
+		}
+		cells = append(cells, source)
+		rowCells = nil
+		return nil
+	}
+
+	for _, rawLine := range strings.Split(strings.ReplaceAll(section, "\r", ""), "\n") {
+		line := strings.TrimSpace(rawLine)
+		if strings.HasPrefix(line, "{|") {
+			if inTable {
+				return nil, ErrUnsupportedTable
+			}
+			inTable = true
+			continue
+		}
+		if !inTable {
+			continue
+		}
+		if line == "|}" {
+			if err := flushRow(); err != nil {
+				return nil, err
+			}
+			if err := flushHeaders(); err != nil {
+				return nil, err
+			}
+			inTable = false
+			continue
+		}
+		if strings.HasPrefix(line, "|-") {
+			if line != "|-" {
+				return nil, ErrUnsupportedTable
+			}
+			if err := flushRow(); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "!") {
+			if dataStarted || len(rowCells) > 0 {
+				return nil, ErrUnsupportedTable
+			}
+			for _, rawHeader := range strings.Split(strings.TrimPrefix(line, "!"), "!!") {
+				header := strings.TrimSpace(rawHeader)
+				if separator := strings.LastIndex(header, "|"); separator >= 0 {
+					header = strings.TrimSpace(header[separator+1:])
+				}
+				var err error
+				header, err = sanitizeLyricText(header)
+				if err != nil {
+					return nil, err
+				}
+				headers = append(headers, strings.TrimSpace(html.UnescapeString(header)))
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "|+") {
+			return nil, ErrUnsupportedTable
+		}
+		if !strings.HasPrefix(line, "|") {
+			if len(rowCells) > 0 && line != "" {
+				return nil, ErrUnsupportedTable
+			}
+			continue
+		}
+		if err := flushHeaders(); err != nil {
+			return nil, err
+		}
+		dataStarted = true
+		for _, cell := range strings.Split(strings.TrimPrefix(line, "|"), "||") {
+			rowCells = append(rowCells, strings.TrimSpace(cell))
+		}
+	}
+	if inTable || sourceColumn < 0 {
+		return nil, ErrUnsupportedTable
+	}
+	return lyricLines(cells, false)
 }
 
-func lyricLines(raw []string) ([]ExtractedLine, error) {
+func isSupportedSourceHeader(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.ReplaceAll(value, "'", "")
+	value = strings.Join(strings.Fields(value), " ")
+	if value == "japanese" || value == "japanese lyrics" || value == "lyrics" || value == "original" || value == "original lyrics" ||
+		value == "source" || value == "source lyrics" || value == "日本語" || value == "日本語歌詞" {
+		return true
+	}
+	return strings.HasPrefix(value, "japanese (") && strings.HasSuffix(value, ")") && strings.Contains(value, "日本語歌詞")
+}
+
+func sanitizeLyricText(value string) (string, error) {
+	value = markupPattern.ReplaceAllString(value, "")
+	value = linkPattern.ReplaceAllString(value, "$1")
+	if strings.Contains(value, "{{") || strings.Contains(value, "}}") || strings.Contains(value, "{|") || strings.Contains(value, "|}") ||
+		strings.Contains(value, "[[") || strings.Contains(value, "]]") {
+		return "", ErrUnsupportedTable
+	}
+	return value, nil
+}
+
+func looksLikeTableCellAttributes(value string) bool {
+	separator := strings.Index(value, "|")
+	if separator < 0 {
+		return false
+	}
+	attributes := strings.ToLower(strings.TrimSpace(value[:separator]))
+	return strings.Contains(attributes, "=") || strings.Contains(attributes, "style") ||
+		strings.Contains(attributes, "class") || strings.Contains(attributes, "scope")
+}
+
+func plainLyricLines(raw []string, explicitShared []bool) ([]ExtractedLine, error) {
+	if len(raw) != len(explicitShared) {
+		return nil, ErrMalformedResponse
+	}
 	result := []ExtractedLine{}
 	stanza := false
+	totalBytes := 0
+	for index, line := range raw {
+		line = strings.TrimSpace(html.UnescapeString(line))
+		line = strings.Trim(line, "'")
+		if line == "" {
+			if len(result) > 0 {
+				stanza = true
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "Category:") || strings.HasPrefix(line, "[[Category:") {
+			continue
+		}
+		if !explicitShared[index] && !containsJapanese(line) {
+			continue
+		}
+		if err := appendExtractedLine(&result, line, stanza, &totalBytes); err != nil {
+			return nil, err
+		}
+		stanza = false
+	}
+	if len(result) == 0 {
+		return nil, ErrMissingLyrics
+	}
+	return result, nil
+}
+
+func lyricLines(raw []string, requireJapanese bool) ([]ExtractedLine, error) {
+	result := []ExtractedLine{}
+	stanza := false
+	totalBytes := 0
 	for _, line := range raw {
 		line = strings.TrimSpace(html.UnescapeString(line))
 		line = strings.Trim(line, "'")
@@ -446,16 +698,27 @@ func lyricLines(raw []string) ([]ExtractedLine, error) {
 		if strings.HasPrefix(line, "Category:") || strings.HasPrefix(line, "[[Category:") {
 			continue
 		}
-		if !containsJapanese(line) {
+		if requireJapanese && !containsJapanese(line) {
 			continue
 		}
-		result = append(result, ExtractedLine{Japanese: line, StanzaBreakBefore: stanza})
+		if err := appendExtractedLine(&result, line, stanza, &totalBytes); err != nil {
+			return nil, err
+		}
 		stanza = false
 	}
 	if len(result) == 0 {
 		return nil, ErrMissingLyrics
 	}
 	return result, nil
+}
+
+func appendExtractedLine(result *[]ExtractedLine, line string, stanza bool, totalBytes *int) error {
+	if len(line) > maxExtractedLineBytes || len(*result) >= maxExtractedLines || *totalBytes > maxExtractedTextBytes-len(line) {
+		return ErrLyricsTooLarge
+	}
+	*totalBytes += len(line)
+	*result = append(*result, ExtractedLine{Japanese: line, StanzaBreakBefore: stanza})
+	return nil
 }
 
 func containsJapanese(value string) bool {

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,27 +16,38 @@ import (
 	"moesekai/server/internal/importer"
 )
 
-// materializeTranslations writes the current DB-backed translations into a fresh
-// "translations" directory under parent, returning its path. This is the backup
-// payload (same layout the consumer site and legacy backups use).
+// materializeTranslations writes the current DB-backed legacy category/event
+// projection into a fresh "translations" directory under parent. Backup-only
+// public lyrics assets are added separately by materializeBackupPayload from
+// the same SQLite snapshot.
 func (m *Manager) materializeTranslations(parent string) (string, error) {
 	return materializeTranslationsWithGenerator(parent, m.gen)
 }
 
 func materializeTranslationsWithGenerator(parent string, generator *files.Generator) (string, error) {
+	return materializeTranslationsWithGeneratorContext(context.Background(), parent, generator)
+}
+
+func materializeTranslationsWithGeneratorContext(ctx context.Context, parent string, generator *files.Generator) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return "", err
 	}
 	// Generator.WriteAll writes <outDir>/translation/...; backups historically
 	// used a top-level "translations" dir, so generate then point at it.
 	gen := generator.WithOutDir(parent)
-	if _, err := gen.WriteAll(); err != nil {
+	if _, err := gen.WriteAllContext(ctx); err != nil {
 		return "", err
 	}
 	// WriteAll produces parent/translation/...; rename to parent/translations.
 	src := filepath.Join(parent, "translation")
 	dst := filepath.Join(parent, "translations")
 	_ = os.RemoveAll(dst)
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if err := os.Rename(src, dst); err != nil {
 		return "", err
 	}
@@ -45,120 +57,170 @@ func materializeTranslationsWithGenerator(parent string, generator *files.Genera
 // ---- GitHub backup (git commit/push) ----
 
 func (m *Manager) backupGit() error {
-	repoURL := m.cfg.Get(config.KeyBackupGitRepoURL)
-	branch := m.cfg.GetOr(config.KeyBackupGitBranch, "backup-translations")
-	if strings.TrimSpace(repoURL) == "" {
-		return fmt.Errorf("backup git repo url not configured")
-	}
+	return m.backupGitContext(context.Background())
+}
 
-	work := filepath.Join(m.workDir, "git-backup")
-	_ = os.RemoveAll(work)
-	if err := os.MkdirAll(work, 0o755); err != nil {
-		return err
-	}
-	defer os.RemoveAll(work)
-
-	repoDir := filepath.Join(work, "repo")
-	// Clone the backup branch shallowly. If the branch doesn't exist yet, init
-	// a fresh repo on that branch instead.
-	if err := git(work, "clone", "--depth", "1", "--branch", branch, repoURL, repoDir); err != nil {
-		if err := m.initFreshBackupRepo(repoDir, repoURL, branch); err != nil {
-			return fmt.Errorf("clone and init both failed: %w", err)
-		}
-	}
-	if err := git(repoDir, "config", "user.name", "MoeSekai Bot"); err != nil {
-		return err
-	}
-	if err := git(repoDir, "config", "user.email", "bot@moesekai.com"); err != nil {
-		return err
-	}
-
-	// Replace translations/ with freshly generated data.
-	target := filepath.Join(repoDir, "translations")
-	_ = os.RemoveAll(target)
-	srcDir, contentDir, err := m.materializeBackupPayload(work)
+func (m *Manager) backupGitContext(ctx context.Context) error {
+	repoURL, branch, err := m.gitConfig()
 	if err != nil {
 		return err
 	}
-	if err := copyDir(srcDir, target); err != nil {
+	work := filepath.Join(m.workDir, "git-backup")
+	_ = os.RemoveAll(work)
+	defer os.RemoveAll(work)
+	repoDir, err := m.prepareGitBackupRepoContext(ctx, filepath.Join(work, "target"), repoURL, branch)
+	if err != nil {
+		return err
+	}
+	translationsDir, contentDir, err := m.materializeBackupPayloadContext(ctx, filepath.Join(work, "materialized"))
+	if err != nil {
+		return err
+	}
+	return m.publishGitBackupPayloadContext(ctx, repoDir, repoURL, branch, backupPayload{
+		translationsDir: translationsDir,
+		contentDir:      contentDir,
+	})
+}
+
+func (m *Manager) gitConfig() (string, string, error) {
+	repoURL := m.cfg.Get(config.KeyBackupGitRepoURL)
+	branch := m.cfg.GetOr(config.KeyBackupGitBranch, "backup-translations")
+	if strings.TrimSpace(repoURL) == "" {
+		return "", "", fmt.Errorf("backup git repo url not configured")
+	}
+	return repoURL, branch, nil
+}
+
+func (m *Manager) prepareGitBackupRepoContext(ctx context.Context, work, repoURL, branch string) (string, error) {
+	if err := os.RemoveAll(work); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(work, 0o700); err != nil {
+		return "", err
+	}
+	repoDir := filepath.Join(work, "repo")
+	// Clone the backup branch shallowly. If the branch doesn't exist yet, init
+	// a fresh repo on that branch instead.
+	if err := gitRemoteContext(ctx, work, repoURL, "clone", "--depth", "1", "--branch", branch, repoURL, repoDir); err != nil {
+		if err := m.initFreshBackupRepoContext(ctx, repoDir, repoURL, branch); err != nil {
+			return "", fmt.Errorf("clone and init both failed: %w", err)
+		}
+	}
+	if err := gitContext(ctx, repoDir, "config", "user.name", "MoeSekai Bot"); err != nil {
+		return "", err
+	}
+	if err := gitContext(ctx, repoDir, "config", "user.email", "bot@moesekai.com"); err != nil {
+		return "", err
+	}
+	return repoDir, nil
+}
+
+func (m *Manager) publishGitBackupPayloadContext(ctx context.Context, repoDir, repoURL, branch string, payload backupPayload) error {
+	// Replace translations/ with the already materialized shared snapshot.
+	target := filepath.Join(repoDir, "translations")
+	_ = os.RemoveAll(target)
+	if err := copyDirContext(ctx, payload.translationsDir, target); err != nil {
 		return err
 	}
 	contentTarget := filepath.Join(repoDir, "translation-content")
 	_ = os.RemoveAll(contentTarget)
-	if err := copyDir(contentDir, contentTarget); err != nil {
+	if err := copyDirContext(ctx, payload.contentDir, contentTarget); err != nil {
 		return err
 	}
+	if err := validateGitRestoreTreeContext(ctx, repoDir); err != nil {
+		return fmt.Errorf("validate backup payload: %w", err)
+	}
 
-	if err := git(repoDir, "add", "translations", "translation-content"); err != nil {
+	if err := gitContext(ctx, repoDir, "add", "translations", "translation-content"); err != nil {
 		return err
 	}
 	msg := fmt.Sprintf("chore: backup translations %s", time.Now().UTC().Format("2006-01-02 15:04:05 UTC"))
-	if err := git(repoDir, "commit", "-m", msg); err != nil {
+	if err := gitContext(ctx, repoDir, "commit", "-m", msg); err != nil {
 		// Nothing to commit is not an error.
 		if strings.Contains(err.Error(), "nothing to commit") || strings.Contains(err.Error(), "working tree clean") {
 			return nil
 		}
 		return err
 	}
-	return git(repoDir, "push", "origin", branch)
+	return gitRemoteContext(ctx, repoDir, repoURL, "push", "origin", branch)
 }
 
 func (m *Manager) initFreshBackupRepo(repoDir, repoURL, branch string) error {
+	return m.initFreshBackupRepoContext(context.Background(), repoDir, repoURL, branch)
+}
+
+func (m *Manager) initFreshBackupRepoContext(ctx context.Context, repoDir, repoURL, branch string) error {
 	if err := os.MkdirAll(repoDir, 0o755); err != nil {
 		return err
 	}
-	if err := git(repoDir, "init"); err != nil {
+	if err := gitContext(ctx, repoDir, "init"); err != nil {
 		return err
 	}
-	if err := git(repoDir, "checkout", "-b", branch); err != nil {
+	if err := gitContext(ctx, repoDir, "checkout", "-b", branch); err != nil {
 		return err
 	}
-	return git(repoDir, "remote", "add", "origin", repoURL)
+	return gitRemoteContext(ctx, repoDir, repoURL, "remote", "add", "origin", repoURL)
 }
 
 func (m *Manager) restoreGit(actors ...string) (importer.Result, error) {
+	return m.restoreGitContext(context.Background(), actors...)
+}
+
+func (m *Manager) restoreGitContext(ctx context.Context, actors ...string) (importer.Result, error) {
 	actor := ""
 	if len(actors) > 0 {
 		actor = actors[0]
 	}
+	candidate, err := m.prepareGitRestoreContext(ctx)
+	if err != nil {
+		return candidate.result, err
+	}
+	if err := m.applyRestoreCandidate(ctx, candidate, actor); err != nil {
+		return candidate.result, err
+	}
+	return candidate.result, nil
+}
+
+func (m *Manager) prepareGitRestoreContext(ctx context.Context) (restoreCandidate, error) {
 	repoURL := m.cfg.Get(config.KeyBackupGitRepoURL)
 	branch := m.cfg.GetOr(config.KeyBackupGitBranch, "backup-translations")
 	if strings.TrimSpace(repoURL) == "" {
-		return importer.Result{}, fmt.Errorf("backup git repo url not configured")
+		return restoreCandidate{}, fmt.Errorf("backup git repo url not configured")
 	}
 	work := filepath.Join(m.workDir, "git-restore")
 	_ = os.RemoveAll(work)
 	if err := os.MkdirAll(work, 0o755); err != nil {
-		return importer.Result{}, err
+		return restoreCandidate{}, err
 	}
 	defer os.RemoveAll(work)
 
 	repoDir := filepath.Join(work, "repo")
-	if err := git(work, "clone", "--depth", "1", "--branch", branch, repoURL, repoDir); err != nil {
-		return importer.Result{}, err
+	if err := gitRemoteContext(ctx, work, repoURL, "clone", "--depth", "1", "--branch", branch, repoURL, repoDir); err != nil {
+		return restoreCandidate{}, err
 	}
-	if err := validateGitRestoreTree(repoDir); err != nil {
-		return importer.Result{}, err
+	if err := validateGitRestoreTreeContext(ctx, repoDir); err != nil {
+		return restoreCandidate{}, err
 	}
 	src := filepath.Join(repoDir, "translations")
-	if err := importer.ValidateDir(src); err != nil {
-		return importer.Result{}, err
-	}
-	content, present, err := readTranslationContent(filepath.Join(repoDir, "translation-content"))
+	content, present, err := readTranslationContentContext(ctx, filepath.Join(repoDir, "translation-content"))
 	if err != nil {
-		return importer.Result{}, err
+		return restoreCandidate{}, err
 	}
-	payload, result, err := importer.ReadDir(src)
+	payload, result, err := importer.ReadDirContext(ctx, src)
 	if err != nil {
-		return result, err
+		return restoreCandidate{result: result}, err
 	}
-	if err := m.store.RestoreBackup(payload.Categories, payload.Events, content.Entries, content.Events, content.Lyrics, present, actor); err != nil {
-		return result, err
+	if err := ctx.Err(); err != nil {
+		return restoreCandidate{result: result}, err
 	}
-	return result, nil
+	return restoreCandidate{payload: payload, result: result, content: content, contentPresent: present}, nil
 }
 
 func validateGitRestoreTree(repoDir string) error {
+	return validateGitRestoreTreeContext(context.Background(), repoDir)
+}
+
+func validateGitRestoreTreeContext(ctx context.Context, repoDir string) error {
 	resolvedRoot, err := filepath.EvalSymlinks(repoDir)
 	if err != nil {
 		return fmt.Errorf("resolve git restore root: %w", err)
@@ -178,6 +240,9 @@ func validateGitRestoreTree(repoDir string) error {
 			return fmt.Errorf("git restore %s: %w", rootName, err)
 		}
 		if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if walkErr != nil {
 				return walkErr
 			}
@@ -205,8 +270,9 @@ func validateGitRestoreTree(repoDir string) error {
 				return fmt.Errorf("git restore entry escapes checkout root: %s", path)
 			}
 			if info.Mode().IsRegular() {
-				if info.Size() < 0 || info.Size() > maxArchiveFileBytes {
-					return fmt.Errorf("git restore file %s exceeds %d bytes", path, maxArchiveFileBytes)
+				fileLimit := archiveFileByteLimit(relative)
+				if info.Size() < 0 || info.Size() > fileLimit {
+					return fmt.Errorf("git restore file %s exceeds %d bytes", path, fileLimit)
 				}
 				if totalBytes+info.Size() > maxArchiveExpandedBytes {
 					return fmt.Errorf("git restore exceeds %d aggregate bytes", maxArchiveExpandedBytes)
@@ -223,31 +289,77 @@ func validateGitRestoreTree(repoDir string) error {
 
 // git runs a git command in dir with non-interactive credentials.
 func git(dir string, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	return gitContext(context.Background(), dir, args...)
+}
+
+func gitContext(parent context.Context, dir string, args ...string) error {
+	return runGitContext(parent, dir, sanitizeGit, args...)
+}
+
+func gitRemoteContext(parent context.Context, dir, repoURL string, args ...string) error {
+	sanitize := func(value string) string {
+		if repoURL != "" {
+			value = strings.ReplaceAll(value, repoURL, "<redacted-repository-url>")
+		}
+		return sanitizeGit(value)
+	}
+	return runGitContext(parent, dir, sanitize, args...)
+}
+
+func runGitContext(parent context.Context, dir string, sanitize func(string) string, args ...string) error {
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GCM_INTERACTIVE=never")
+	cmd.Env = append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GCM_INTERACTIVE=never",
+		"GIT_ASKPASS=",
+		"SSH_ASKPASS=",
+		"GIT_SSH_COMMAND=ssh -oBatchMode=yes",
+	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git %s: %v: %s", sanitizeGit(strings.Join(args, " ")), err, sanitizeGit(strings.TrimSpace(string(out))))
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("git %s: %w", sanitize(strings.Join(args, " ")), ctxErr)
+		}
+		message := sanitize(strings.TrimSpace(string(out)))
+		if message == "" {
+			return fmt.Errorf("git %s: %v", sanitize(strings.Join(args, " ")), err)
+		}
+		return fmt.Errorf("git %s: %v: %s", sanitize(strings.Join(args, " ")), err, message)
 	}
 	return nil
 }
 
-var credentialURL = regexp.MustCompile(`(?i)(https?://)[^/@\s]+@`)
+var (
+	credentialURL      = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@`)
+	sensitiveURLSuffix = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://[^\s?#]+)[?#][^\s]*`)
+)
 
-// sanitizeGit masks URL userinfo in commands, stderr, logs, and status payloads.
+// sanitizeGit masks URL userinfo and query or fragment data in commands,
+// stderr, logs, and status payloads.
 func sanitizeGit(s string) string {
-	return credentialURL.ReplaceAllString(s, `${1}***@`)
+	s = credentialURL.ReplaceAllString(s, `${1}***@`)
+	return sensitiveURLSuffix.ReplaceAllString(s, `${1}?<redacted>`)
 }
 
 // copyDir recursively copies src to dst.
 func copyDir(src, dst string) error {
+	return copyDirContext(context.Background(), src, dst)
+}
+
+func copyDirContext(ctx context.Context, src, dst string) error {
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		return err
 	}
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err != nil {
 			return err
 		}
@@ -262,10 +374,16 @@ func copyDir(src, dst string) error {
 		if info.IsDir() {
 			return os.MkdirAll(target, 0o755)
 		}
-		data, err := os.ReadFile(path)
+		source, err := os.Open(path)
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(target, data, 0o644)
+		destination, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+		if err != nil {
+			_ = source.Close()
+			return err
+		}
+		_, copyErr := copyWithContext(ctx, destination, source)
+		return errors.Join(copyErr, destination.Close(), source.Close())
 	})
 }

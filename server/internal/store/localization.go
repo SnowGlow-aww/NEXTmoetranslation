@@ -1,11 +1,13 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"moesekai/server/internal/model"
@@ -185,7 +187,77 @@ func (s *Store) CategoryDataLocale(category, locale string) (model.Category, err
 	return categoryData, nil
 }
 
+// SearchTranslationSnapshotContext reads the Chinese and English category
+// projections in one SQLite statement. The statement is a short WAL snapshot,
+// so callers can release the restore fence before doing remote index fetches.
+func (s *Store) SearchTranslationSnapshotContext(ctx context.Context, categories []string) (map[string]model.Category, map[string]model.Category, error) {
+	if len(categories) == 0 {
+		return map[string]model.Category{}, map[string]model.Category{}, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(categories)), ",")
+	query := `SELECT 1, e.category, e.field, e.jp_key, e.cn_text, e.source, e.ids_json,
+		COALESCE(l.text, ''), COALESCE(l.source, 'unknown')
+		FROM entries e
+		LEFT JOIN entry_localizations l
+		  ON l.category=e.category AND l.field=e.field AND l.jp_key=e.jp_key AND l.locale=?
+		WHERE e.category IN (` + placeholders + `)
+		UNION ALL
+		SELECT 0, l.category, l.field, l.jp_key, '', 'unknown', '', l.text, l.source
+		FROM entry_localizations l
+		LEFT JOIN entries e
+		  ON e.category=l.category AND e.field=l.field AND e.jp_key=l.jp_key
+		WHERE l.locale=? AND e.jp_key IS NULL AND l.category IN (` + placeholders + `)`
+	args := make([]any, 0, 2+2*len(categories))
+	args = append(args, model.LocaleEnglish)
+	for _, category := range categories {
+		args = append(args, category)
+	}
+	args = append(args, model.LocaleEnglish)
+	for _, category := range categories {
+		args = append(args, category)
+	}
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	chinese := make(map[string]model.Category, len(categories))
+	english := make(map[string]model.Category, len(categories))
+	for _, category := range categories {
+		chinese[category] = model.Category{}
+		english[category] = model.Category{}
+	}
+	for rows.Next() {
+		var base int
+		var category, field, key, cnText, cnSource, idsJSON, enText, enSource string
+		if err := rows.Scan(&base, &category, &field, &key, &cnText, &cnSource, &idsJSON, &enText, &enSource); err != nil {
+			return nil, nil, err
+		}
+		var ids []string
+		if idsJSON != "" {
+			_ = json.Unmarshal([]byte(idsJSON), &ids)
+		}
+		if base == 1 {
+			if chinese[category][field] == nil {
+				chinese[category][field] = map[string]model.Entry{}
+			}
+			chinese[category][field][key] = model.Entry{Text: cnText, Source: cnSource, Ids: ids}
+		}
+		if english[category][field] == nil {
+			english[category][field] = map[string]model.Entry{}
+		}
+		english[category][field][key] = model.Entry{Text: enText, Source: enSource, Ids: ids}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	return chinese, english, nil
+}
+
 func (s *Store) UpdateEntryLocale(category, field, key, text, source, user, locale string) (string, error) {
+	if !model.IsValidSource(source) {
+		return "", fmt.Errorf("invalid translation source: %q", source)
+	}
 	var baseExists int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM entries WHERE category=? AND field=? AND jp_key=?`, category, field, key).Scan(&baseExists); err != nil {
 		return "", err

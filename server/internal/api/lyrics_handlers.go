@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"moesekai/server/internal/auth"
 	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
+	"moesekai/server/internal/sse"
 	"moesekai/server/internal/store"
 )
 
@@ -102,16 +104,155 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	var request model.SongLyrics
+	var request struct {
+		model.SongLyrics
+		ClientID          string `json:"clientId"`
+		SourceImportToken string `json:"sourceImportToken"`
+	}
 	if !decodeBody(w, r, &request) {
 		return
 	}
-	result, err := s.store.SaveLyrics(request, currentUser(r))
-	if err != nil {
-		writeLyricsError(w, err)
-		return
+	var result model.SongLyrics
+	var changed bool
+	var err error
+	if strings.TrimSpace(request.SourceImportToken) != "" {
+		producerStatus, strict := acceptedEditorStatus(r)
+		if !strict {
+			writeErr(w, http.StatusPreconditionRequired, "verified source imports require the producer-aware editor route")
+			return
+		}
+		if !currentUserIsAdmin(r) {
+			writeContractError(w, http.StatusForbidden, "admin_required", []string{"only administrators can import an external lyrics source"}, nil)
+			return
+		}
+		claim, claimErr := s.claimLyricsImportGrant(request.SourceImportToken, currentUser(r), request.MusicID, producerStatus)
+		if claimErr != nil {
+			if errors.Is(claimErr, errLyricsImportGrantBusy) {
+				writeContractError(w, http.StatusConflict, "source_import_in_flight", []string{"the verified source preview is already being saved"}, nil)
+			} else if errors.Is(claimErr, errLyricsImportGrantInvalid) {
+				writeContractError(w, http.StatusUnprocessableEntity, "source_drift", []string{"the verified source preview expired or no longer matches this editor, music, or producer state"}, nil)
+			} else {
+				writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+			}
+			return
+		}
+		claimResolved := false
+		defer func() {
+			if !claimResolved && !s.releaseLyricsImportGrant(claim) {
+				s.invalidateLyricsImportGrant(claim.token)
+				s.reportLyricsInvariant("[lyrics] import grant deferred release invariant failed musicId=%d", request.MusicID)
+			}
+		}()
+		consumeClaim := func(stage string) bool {
+			committed := s.commitLyricsImportGrant(claim)
+			claimResolved = true
+			if !committed {
+				// The expected exact claim disappeared or changed ownership. Report
+				// the invariant and fail closed by deleting this non-reusable token;
+				// do not report a false save failure after a durable DB commit.
+				s.invalidateLyricsImportGrant(claim.token)
+				s.reportLyricsInvariant("[lyrics] import grant commit invariant failed stage=%s musicId=%d", stage, request.MusicID)
+			}
+			return committed
+		}
+		releaseClaim := func(stage string) {
+			released := s.releaseLyricsImportGrant(claim)
+			claimResolved = true
+			if !released {
+				// Retryability cannot be asserted when exact claim ownership was
+				// lost. Delete the non-reusable token and surface the invariant
+				// instead of silently leaving ambiguous authorization state.
+				s.invalidateLyricsImportGrant(claim.token)
+				s.reportLyricsInvariant("[lyrics] import grant release invariant failed stage=%s musicId=%d", stage, request.MusicID)
+			}
+		}
+		catalogCurrent, catalogChecked, catalogErr := s.lyricsImportGrantCatalogCurrent(claim)
+		if catalogErr != nil {
+			if errors.Is(catalogErr, errLyricsImportGrantInvalid) {
+				consumeClaim("catalog_identity_claim_invalid")
+			} else {
+				releaseClaim("catalog_identity_read_error")
+			}
+			writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+			return
+		}
+		if catalogChecked && !catalogCurrent {
+			consumeClaim("catalog_identity_drift")
+			writeContractError(w, http.StatusUnprocessableEntity, "source_drift", []string{"the catalog title or producer identity changed after the verified preview"}, nil)
+			return
+		}
+		if request.Revision != 0 || !lyricsMatchSourcePreview(request.SongLyrics, claim.preview) {
+			consumeClaim("deterministic_request_drift")
+			writeContractError(w, http.StatusUnprocessableEntity, "source_drift", []string{"the verified source preview no longer matches this first-save draft"}, nil)
+			return
+		}
+		result, changed, err = s.store.SaveImportedLyricsMutationWithCommit(request.SongLyrics, currentUser(r), func() {
+			consumeClaim("post_save_commit")
+		})
+		if err != nil {
+			if importedLyricsFailureIsTerminal(err) {
+				consumeClaim("deterministic_store_error")
+			} else {
+				releaseClaim("retryable_store_error")
+			}
+			writeLyricsError(w, err)
+			return
+		}
+		// The transaction committed and consumed the capability before any
+		// synchronous change hook ran. Preserve the durable success response even
+		// if a later notification hook mutates unrelated in-memory state.
+	} else {
+		result, changed, err = s.store.SaveLyricsMutation(request.SongLyrics, currentUser(r))
+		if err != nil {
+			writeLyricsError(w, err)
+			return
+		}
+	}
+	if changed {
+		s.broadcastLyricsUpdated(result, request.ClientID)
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func importedLyricsFailureIsTerminal(err error) bool {
+	var contractErr *store.LyricsContractError
+	if !errors.As(err, &contractErr) {
+		return false
+	}
+	// Source identity/provenance drift and an already-existing/nonzero-revision
+	// first save cannot succeed with the issued capability. Draft validation
+	// errors remain retryable so the same verified preview can be corrected.
+	return contractErr.Code == "source_drift" || contractErr.Code == "revision_conflict"
+}
+
+func currentUserIsAdmin(r *http.Request) bool {
+	claims, ok := auth.FromContext(r.Context())
+	return ok && claims != nil && claims.Role == auth.RoleAdmin
+}
+
+func lyricsMatchSourcePreview(lyrics model.SongLyrics, preview lyricssource.Preview) bool {
+	if !lyricssource.HasCanonicalSHA1(preview.SHA1) || !lyricssource.HasCanonicalSHA1(lyrics.SourceSHA1) {
+		return false
+	}
+	if lyrics.SourceURL != preview.CanonicalURL || lyrics.SourcePageID != preview.PageID ||
+		lyrics.SourceRevisionID != preview.RevisionID || lyrics.SourceSHA1 != preview.SHA1 ||
+		lyrics.SourceFetchedAt != preview.FetchedAt || len(lyrics.Lines) != len(preview.Lines) {
+		return false
+	}
+	for index, sourceLine := range preview.Lines {
+		line := lyrics.Lines[index]
+		if line.Order != index || line.Japanese != sourceLine.Japanese || line.StanzaBreakBefore != sourceLine.StanzaBreakBefore {
+			return false
+		}
+		var japanese strings.Builder
+		for _, segment := range line.Segments {
+			japanese.WriteString(segment.Text)
+		}
+		if japanese.String() != sourceLine.Japanese {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) handleLyricsPublish(w http.ResponseWriter, r *http.Request) {
@@ -128,8 +269,9 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	var request struct {
-		MusicID  int `json:"musicId"`
-		Revision int `json:"revision"`
+		MusicID  int    `json:"musicId"`
+		Revision int    `json:"revision"`
+		ClientID string `json:"clientId"`
 	}
 	if !decodeBody(w, r, &request) {
 		return
@@ -139,17 +281,27 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	var result model.SongLyrics
+	var changed bool
 	var err error
 	if publish {
-		result, err = s.store.PublishLyrics(request.MusicID, request.Revision, currentUser(r))
+		result, changed, err = s.store.PublishLyricsMutation(request.MusicID, request.Revision, currentUser(r))
 	} else {
-		result, err = s.store.UnpublishLyrics(request.MusicID, request.Revision, currentUser(r))
+		result, changed, err = s.store.UnpublishLyricsMutation(request.MusicID, request.Revision, currentUser(r))
 	}
 	if err != nil {
 		writeLyricsError(w, err)
 		return
 	}
+	if changed {
+		s.broadcastLyricsUpdated(result, request.ClientID)
+	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) broadcastLyricsUpdated(lyrics model.SongLyrics, clientID string) {
+	s.broadcast(sse.EventLyricsUpdated, map[string]any{
+		"musicId": lyrics.MusicID, "revision": lyrics.Revision, "clientId": clientID,
+	})
 }
 
 func (s *Server) handleLyricsSourceSearch(w http.ResponseWriter, r *http.Request) {
@@ -200,8 +352,22 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 			[]string{"musicId, pageId, and revisionId must be positive integers"}, nil)
 		return
 	}
+	if _, err := s.store.GetLyrics(request.MusicID); err == nil {
+		writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
+			[]string{"verified source previews are only available before the first lyrics save"}, nil)
+		return
+	} else if err != store.ErrLyricsNotFound {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
 	identity, ok := s.lyricsSourceIdentity(w, request.MusicID)
 	if !ok {
+		return
+	}
+	producerBefore := s.editorGate.Status()
+	if !producerStatusStopped(producerBefore) {
+		writeContractError(w, http.StatusConflict, "producer_state_changed",
+			[]string{"the producer must be stopped and fully completed before previewing lyrics"}, nil)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
@@ -211,11 +377,68 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 		writeLyricsSourceError(w, err)
 		return
 	}
-	if err := s.store.RecordAudit(currentUser(r), "lyrics.source.preview",
-		fmt.Sprintf("musicId=%d pageId=%d revisionId=%d", request.MusicID, request.PageID, request.RevisionID)); err != nil {
+	producerAfter := s.editorGate.Status()
+	if !producerStatusStopped(producerAfter) || !sameProducerStatus(producerBefore, producerAfter) {
+		writeContractError(w, http.StatusConflict, "producer_state_changed",
+			[]string{"the producer state changed while the external source was being fetched; retry the preview"}, nil)
+		return
+	}
+	identityAfter, ok := s.lyricsSourceIdentity(w, request.MusicID)
+	if !ok {
+		return
+	}
+	if identityAfter != identity {
+		writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
+			[]string{"catalog title or producer identity changed while the external source was being fetched; retry the preview"}, nil)
+		return
+	}
+	// Enforce the exact requested MediaWiki revision identity before issuing a
+	// grant, even when tests or alternate clients implement lyricsSourceClient.
+	if preview.PageID != request.PageID || preview.RevisionID != request.RevisionID || !lyricssource.HasCanonicalSHA1(preview.SHA1) {
+		writeLyricsSourceError(w, lyricssource.ErrMalformedResponse)
+		return
+	}
+	// The network fetch intentionally does not hold the content lock. Recheck
+	// first-save eligibility after it completes so a concurrent first save can
+	// never leave behind an otherwise valid one-use import grant.
+	if _, err := s.store.GetLyrics(request.MusicID); err == nil {
+		writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
+			[]string{"lyrics were saved while the external source was being fetched; reload the document"}, nil)
+		return
+	} else if err != store.ErrLyricsNotFound {
 		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
 	}
+	var grantToken string
+	err = s.store.WithLyricsFirstSaveEligibility(request.MusicID, func() error {
+		var issueErr error
+		grantToken, issueErr = s.issueLyricsImportGrant(currentUser(r), request.MusicID, preview, producerAfter, identityAfter)
+		return issueErr
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrLyricsAlreadySaved) {
+			writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
+				[]string{"lyrics were saved while the verified source grant was being issued; reload the document"}, nil)
+			return
+		}
+		if errors.Is(err, lyricssource.ErrMalformedResponse) {
+			writeLyricsSourceError(w, err)
+		} else if errors.Is(err, errLyricsImportCapacity) {
+			writeContractError(w, http.StatusServiceUnavailable, "source_import_capacity", []string{"all verified source grants are currently in use; retry later"}, nil)
+		} else {
+			writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		}
+		return
+	}
+	if err := s.store.RecordAudit(currentUser(r), "lyrics.source.preview",
+		fmt.Sprintf("musicId=%d pageId=%d revisionId=%d", request.MusicID, request.PageID, request.RevisionID)); err != nil {
+		s.lyricsImportMu.Lock()
+		delete(s.lyricsImports, grantToken)
+		s.lyricsImportMu.Unlock()
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
+	preview.ImportToken = grantToken
 	writeJSON(w, http.StatusOK, preview)
 }
 
@@ -251,7 +474,7 @@ func writeLyricsSourceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, lyricssource.ErrRestrictedReprint):
 		writeContractError(w, http.StatusUnprocessableEntity, "source_restricted",
 			[]string{"the source page prohibits reprints"}, nil)
-	case errors.Is(err, lyricssource.ErrMissingLyrics), errors.Is(err, lyricssource.ErrUnsupportedTable):
+	case errors.Is(err, lyricssource.ErrMissingLyrics), errors.Is(err, lyricssource.ErrUnsupportedTable), errors.Is(err, lyricssource.ErrLyricsTooLarge):
 		writeContractError(w, http.StatusUnprocessableEntity, "source_unsupported",
 			[]string{"the source lyrics cannot be extracted safely"}, nil)
 	default:

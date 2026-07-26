@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
-  BackupStatus, CategoryInfo, EventStorySummary, UpstreamStatus,
+  APIError, BackupStatus, CategoryInfo, EventStorySummary, UpstreamStatus,
   getBackupStatus, getCategories, getEventStories,
   getUpstreamStatusPublic, getUsername, getRole,
   pushBackup, runCNSync,
@@ -14,7 +14,11 @@ import { CATEGORY_LABELS, FIELD_LABELS } from "@/lib/labels";
 
 type ShowFn = (msg: string, type?: "ok" | "err") => void;
 
-export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function SettingsModal({ open, onClose, guardProducerMutation }: {
+  open: boolean;
+  onClose: () => void;
+  guardProducerMutation: (label: string, action: () => Promise<void>) => void;
+}) {
   const { show } = useToast();
   const [role] = useState(getRole());
   const [upstreamRefreshKey, setUpstreamRefreshKey] = useState(0);
@@ -26,7 +30,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         <AppearanceCard />
         <ShortcutCard />
         <BadgeFilterCard />
-        <DataManagementCard canMutate={role === "admin"} show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
+        <DataManagementCard canMutate={role === "admin"} show={show} guardProducerMutation={guardProducerMutation} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
         <UpstreamStatusCard show={show} refreshKey={upstreamRefreshKey} />
       </div>
     </Modal>
@@ -195,7 +199,12 @@ function BadgeFilterCard() {
 
 // ---- Data management (CN sync + manual backup) ----
 
-function DataManagementCard({ canMutate, show, onSyncFinished }: { canMutate: boolean; show: ShowFn; onSyncFinished: () => void }) {
+function DataManagementCard({ canMutate, show, guardProducerMutation, onSyncFinished }: {
+  canMutate: boolean;
+  show: ShowFn;
+  guardProducerMutation: (label: string, action: () => Promise<void>) => void;
+  onSyncFinished: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -243,7 +252,11 @@ function DataManagementCard({ canMutate, show, onSyncFinished }: { canMutate: bo
       show(`备份完成: ${Object.entries(r.results).map(([k, v]) => `${k}: ${v}`).join(", ")}`, "ok");
       reloadBackup();
     } catch (e) {
-      show(e instanceof Error ? e.message : "备份失败", "err");
+      if (e instanceof APIError && e.results) {
+        show(`备份未全部完成: ${Object.entries(e.results).map(([k, v]) => `${k}: ${v}`).join(", ")}`, "err");
+      } else {
+        show(e instanceof Error ? e.message : "备份失败", "err");
+      }
     } finally {
       setBusy(false);
     }
@@ -252,9 +265,12 @@ function DataManagementCard({ canMutate, show, onSyncFinished }: { canMutate: bo
   return (
     <div className="card">
       <h3>数据管理</h3>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+        Git/S3 仅用于内容数据备份/归档，不是部署或公开发布流程，也不会触发 CDN 同步或刷新。
+      </p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {canMutate && <>
-          <button className="btn btn-primary" onClick={doSync} disabled={busy}>数据更新（CN 同步）</button>
+          <button className="btn btn-primary" onClick={() => guardProducerMutation("运行 CN 同步", doSync)} disabled={busy}>数据更新（CN 同步）</button>
           <button className="btn btn-secondary" onClick={doBackup} disabled={busy}>手动备份</button>
         </>}
         <button className="btn btn-ghost" onClick={reloadBackup} disabled={loading}>刷新状态</button>

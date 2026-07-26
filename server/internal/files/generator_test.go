@@ -2,6 +2,8 @@ package files
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"moesekai/server/internal/db"
@@ -110,6 +112,58 @@ func TestEventStoryOrderPreserved(t *testing.T) {
 	// Literal ampersand, not &.
 	if !containsLiteral(b, "mango & lime") {
 		t.Errorf("event JSON should keep literal &: %s", b)
+	}
+}
+
+func TestWriteAllContextKeepsLegacyProjectionWithoutPublishedLyrics(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "legacy-projection.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	for _, category := range model.SupportedCategories {
+		if _, err := s.ImportCategory(category, model.Category{"name": map[string]model.Entry{
+			category + "-jp": {Text: category + "-zh", Source: model.SourceHuman},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := s.SaveLyrics(model.SongLyrics{
+		MusicID: 10, Attribution: "MoeSeka translation team",
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+
+	root := t.TempDir()
+	written, err := NewGenerator(s, es, root).WriteAllContext(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantWritten := len(model.SupportedCategories) * 2
+	if written != wantWritten {
+		t.Fatalf("WriteAllContext wrote %d files, want %d legacy category files", written, wantWritten)
+	}
+	if _, err := os.Stat(filepath.Join(root, "translation", "lyrics")); !os.IsNotExist(err) {
+		t.Fatalf("WriteAllContext unexpectedly materialized published lyrics: %v", err)
 	}
 }
 

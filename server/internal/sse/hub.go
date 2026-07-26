@@ -6,6 +6,7 @@ package sse
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -20,6 +21,7 @@ const (
 	EventEntryLocaleUpdated = "entry.locale.updated"
 	EventStoryUpdated       = "eventstory.updated"
 	EventStoryLocaleUpdated = "eventstory.locale.updated"
+	EventLyricsUpdated      = "lyrics.updated"
 	EventSyncProgress       = "sync.progress"
 	EventTranslateProgress  = "translate.progress"
 	EventContentRestored    = "content.restored"
@@ -33,34 +35,66 @@ type Message struct {
 }
 
 type client struct {
-	id   uint64
-	user string
-	ch   chan Message
+	id         uint64
+	user       string
+	ch         chan Message
+	done       chan struct{}
+	abortWrite func()
+	closeOnce  sync.Once
+}
+
+const (
+	clientQueueSize      = 32
+	maxHubClients        = 128
+	maxHubClientsPerUser = 8
+)
+
+var (
+	errHubClosed       = errors.New("SSE hub is closed")
+	errHubCapacity     = errors.New("SSE connection limit reached")
+	errUserHubCapacity = errors.New("SSE per-user connection limit reached")
+)
+
+func (c *client) disconnect() {
+	c.closeOnce.Do(func() {
+		close(c.done)
+		if c.abortWrite != nil {
+			c.abortWrite()
+		}
+		close(c.ch)
+	})
 }
 
 // Hub fans out messages to all connected clients.
 type Hub struct {
-	mu      sync.RWMutex
-	clients map[uint64]*client
-	nextID  atomic.Uint64
+	mu        sync.RWMutex
+	clients   map[uint64]*client
+	nextID    atomic.Uint64
+	closed    bool
+	closeOnce sync.Once
 }
 
 func NewHub() *Hub {
 	return &Hub{clients: map[uint64]*client{}}
 }
 
-// Broadcast sends a message to every connected client. Slow clients that cannot
-// keep up are dropped rather than blocking the broadcast.
+// Broadcast sends a message to every connected client. A client whose queue is
+// full is disconnected: silently dropping a mutation hint would let that
+// client continue editing from state it cannot know is stale.
 func (h *Hub) Broadcast(event string, data any) {
 	msg := Message{Event: event, Data: data}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	for _, c := range h.clients {
+		select {
+		case <-c.done:
+			continue
+		default:
+		}
 		select {
 		case c.ch <- msg:
 		default:
-			// Client buffer full; drop this message for them. The next full
-			// page load reconciles state, so a dropped realtime hint is benign.
+			c.disconnect()
 		}
 	}
 }
@@ -72,19 +106,51 @@ func (h *Hub) ClientCount() int {
 	return len(h.clients)
 }
 
-func (h *Hub) add(user string) *client {
-	c := &client{id: h.nextID.Add(1), user: user, ch: make(chan Message, 32)}
+func (h *Hub) add(user string) (*client, error) {
+	return h.addWithAbort(user, nil)
+}
+
+func (h *Hub) addWithAbort(user string, abortWrite func()) (*client, error) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return nil, errHubClosed
+	}
+	if len(h.clients) >= maxHubClients {
+		return nil, errHubCapacity
+	}
+	userClients := 0
+	for _, existing := range h.clients {
+		if existing.user == user {
+			userClients++
+		}
+	}
+	if userClients >= maxHubClientsPerUser {
+		return nil, errUserHubCapacity
+	}
+	c := &client{id: h.nextID.Add(1), user: user, ch: make(chan Message, clientQueueSize), done: make(chan struct{}), abortWrite: abortWrite}
 	h.clients[c.id] = c
-	h.mu.Unlock()
-	return c
+	return c, nil
+}
+
+// Close promptly disconnects all streams and rejects new ones. It is safe to
+// call more than once during overlapping shutdown paths.
+func (h *Hub) Close() {
+	h.closeOnce.Do(func() {
+		h.mu.Lock()
+		h.closed = true
+		for _, c := range h.clients {
+			c.disconnect()
+		}
+		h.mu.Unlock()
+	})
 }
 
 func (h *Hub) remove(id uint64) {
 	h.mu.Lock()
 	if c, ok := h.clients[id]; ok {
 		delete(h.clients, id)
-		close(c.ch)
+		c.disconnect()
 	}
 	h.mu.Unlock()
 }
@@ -93,10 +159,9 @@ func (h *Hub) remove(id uint64) {
 // generation or role changed.
 func (h *Hub) RevokeUser(user string) {
 	h.mu.Lock()
-	for id, c := range h.clients {
+	for _, c := range h.clients {
 		if c.user == user {
-			delete(h.clients, id)
-			close(c.ch)
+			c.disconnect()
 		}
 	}
 	h.mu.Unlock()
@@ -111,17 +176,30 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 			return
 		}
-		h.setSSEHeaders(w)
-
 		user := ""
 		if usernameFn != nil {
 			user = usernameFn(r)
 		}
-		c := h.add(user)
+		controller := http.NewResponseController(w)
+		c, err := h.addWithAbort(user, func() {
+			_ = controller.SetWriteDeadline(time.Now())
+		})
+		if err != nil {
+			if errors.Is(err, errHubCapacity) || errors.Is(err, errUserHubCapacity) {
+				w.Header().Set("Retry-After", "3")
+				http.Error(w, "too many SSE connections", http.StatusTooManyRequests)
+				return
+			}
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		defer h.remove(c.id)
+		h.setSSEHeaders(w)
 
 		// Initial comment + retry hint so the browser reconnects quickly.
-		fmt.Fprintf(w, ": connected\nretry: 3000\n\n")
+		if _, err := fmt.Fprintf(w, ": connected\nretry: 3000\n\n"); err != nil {
+			return
+		}
 		flusher.Flush()
 
 		// Heartbeat keeps intermediaries from closing an idle connection.
@@ -143,8 +221,18 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 
 		ctx := r.Context()
 		for {
+			// Prefer disconnect over draining a closed client's buffered queue.
 			select {
 			case <-ctx.Done():
+				return
+			case <-c.done:
+				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-c.done:
 				return
 			case <-expiry:
 				return
@@ -159,6 +247,11 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 			case msg, ok := <-c.ch:
 				if !ok {
 					return
+				}
+				select {
+				case <-c.done:
+					return
+				default:
 				}
 				if validFn != nil && !validFn(r) {
 					return

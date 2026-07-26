@@ -16,8 +16,8 @@ import (
 func TestSSEBroadcastOnEdit(t *testing.T) {
 	ts, token := setup(t)
 
-	// Open the SSE stream with the token as a query param (EventSource style).
-	req, _ := http.NewRequest("GET", ts.URL+"/sse?token="+token, nil)
+	// Open the SSE stream with the normal session bearer token.
+	req := bearerSSERequest(t, ts.URL, token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -102,9 +102,19 @@ func TestSSERequiresAuth(t *testing.T) {
 	}
 }
 
+func bearerSSERequest(t *testing.T, serverURL, token string) *http.Request {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodGet, serverURL+"/sse", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	return request
+}
+
 func TestSSEClosesWhenTokenGenerationChanges(t *testing.T) {
 	ts, token := setup(t)
-	request, _ := http.NewRequest(http.MethodGet, ts.URL+"/sse?token="+token, nil)
+	request := bearerSSERequest(t, ts.URL, token)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)
@@ -133,9 +143,38 @@ func TestSSEClosesWhenTokenGenerationChanges(t *testing.T) {
 	}
 }
 
+func TestSSEValidationRechecksBearerTokenGeneration(t *testing.T) {
+	h := setupLegacyAPI(t)
+	request := bearerSSERequest(t, h.server.URL, h.token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("SSE bearer status = %d", response.StatusCode)
+	}
+
+	closed := make(chan struct{})
+	go func() {
+		_, _ = io.ReadAll(response.Body)
+		close(closed)
+	}()
+	if _, err := h.db.Exec(`UPDATE users SET token_version = token_version + 1 WHERE username = 'alice'`); err != nil {
+		t.Fatal(err)
+	}
+	h.api.hub.Broadcast("generation.check", map[string]bool{"changed": true})
+
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("stream retained a bearer token from a revoked generation")
+	}
+}
+
 func TestLegacySSENoopDoesNotBroadcast(t *testing.T) {
 	ts, token := setup(t)
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/sse?token="+token, nil)
+	req := bearerSSERequest(t, ts.URL, token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +224,7 @@ func TestLegacySSENoopDoesNotBroadcast(t *testing.T) {
 
 func TestLegacySSEEventStoryUpdatePayload(t *testing.T) {
 	ts, token := setup(t)
-	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/sse?token="+token, nil)
+	req := bearerSSERequest(t, ts.URL, token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -234,5 +273,156 @@ func TestLegacySSEEventStoryUpdatePayload(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for eventstory.updated SSE event")
+	}
+}
+
+func TestLyricsMutationsBroadcastCollaborationEvents(t *testing.T) {
+	h := setupLegacyAPI(t)
+	seedLyricsCatalog(t, h)
+	request := bearerSSERequest(t, h.server.URL, h.token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	events := make(chan map[string]any, 8)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var event string
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "event: ") {
+				event = strings.TrimPrefix(line, "event: ")
+			}
+			if event == "lyrics.updated" && strings.HasPrefix(line, "data: ") {
+				var data map[string]any
+				if json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &data) == nil {
+					events <- data
+				}
+				event = ""
+			}
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	await := func(clientID string, revision int) {
+		t.Helper()
+		select {
+		case data := <-events:
+			if len(data) != 3 || data["musicId"] != float64(10) || data["revision"] != float64(revision) || data["clientId"] != clientID {
+				t.Fatalf("lyrics.updated payload=%#v", data)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for lyrics.updated clientId=%q", clientID)
+		}
+	}
+	assertNoEvent := func(action string) {
+		t.Helper()
+		select {
+		case data := <-events:
+			t.Fatalf("%s broadcast unexpected lyrics event=%#v", action, data)
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+
+	saveBody, _ := json.Marshal(apiLyrics())
+	var savePayload map[string]any
+	if err := json.Unmarshal(saveBody, &savePayload); err != nil {
+		t.Fatal(err)
+	}
+	savePayload["clientId"] = "save-window"
+	savedResponse := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", savePayload)
+	savedBody, err := io.ReadAll(savedResponse.Body)
+	savedResponse.Body.Close()
+	if err != nil || savedResponse.StatusCode != http.StatusOK || bytes.Contains(savedBody, []byte(`"clientId"`)) {
+		t.Fatalf("save status=%d body=%s err=%v", savedResponse.StatusCode, savedBody, err)
+	}
+	await("save-window", 1)
+	savePayload["revision"] = 1
+	noopSave := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", savePayload)
+	noopSave.Body.Close()
+	if noopSave.StatusCode != http.StatusOK {
+		t.Fatalf("noop save status=%d", noopSave.StatusCode)
+	}
+	assertNoEvent("noop save")
+
+	published := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/publish", map[string]any{
+		"musicId": 10, "revision": 1, "clientId": "publish-window",
+	})
+	published.Body.Close()
+	if published.StatusCode != http.StatusOK {
+		t.Fatalf("publish status=%d", published.StatusCode)
+	}
+	await("publish-window", 1)
+	noopPublish := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/publish", map[string]any{
+		"musicId": 10, "revision": 1, "clientId": "noop-publish-window",
+	})
+	noopPublish.Body.Close()
+	if noopPublish.StatusCode != http.StatusOK {
+		t.Fatalf("noop publish status=%d", noopPublish.StatusCode)
+	}
+	assertNoEvent("noop publish")
+
+	unpublished := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/unpublish", map[string]any{
+		"musicId": 10, "revision": 1, "clientId": "unpublish-window",
+	})
+	unpublished.Body.Close()
+	if unpublished.StatusCode != http.StatusOK {
+		t.Fatalf("unpublish status=%d", unpublished.StatusCode)
+	}
+	await("unpublish-window", 1)
+	noopUnpublish := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/unpublish", map[string]any{
+		"musicId": 10, "revision": 1, "clientId": "noop-unpublish-window",
+	})
+	noopUnpublish.Body.Close()
+	if noopUnpublish.StatusCode != http.StatusOK {
+		t.Fatalf("noop unpublish status=%d", noopUnpublish.StatusCode)
+	}
+	assertNoEvent("noop unpublish")
+
+	lines := savePayload["lines"].([]any)
+	segments := lines[0].(map[string]any)["segments"].([]any)
+	firstSegment := segments[0].(map[string]any)
+	firstSegment["performerIds"] = nil
+	savePayload["revision"] = 1
+	savePayload["clientId"] = "null-performers"
+	nullPerformers := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", savePayload)
+	nullPerformers.Body.Close()
+	if nullPerformers.StatusCode != http.StatusOK {
+		t.Fatalf("null performerIds save status=%d", nullPerformers.StatusCode)
+	}
+	await("null-performers", 2)
+
+	delete(firstSegment, "performerIds")
+	savePayload["revision"] = 2
+	savePayload["clientId"] = "omitted-performers"
+	omittedPerformers := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", savePayload)
+	omittedPerformers.Body.Close()
+	if omittedPerformers.StatusCode != http.StatusOK {
+		t.Fatalf("omitted performerIds retry status=%d", omittedPerformers.StatusCode)
+	}
+	assertNoEvent("omitted performerIds retry")
+
+	savePayload["revision"] = 0
+	failedSave := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", savePayload)
+	failedSave.Body.Close()
+	if failedSave.StatusCode != http.StatusConflict {
+		t.Fatalf("failed save status=%d", failedSave.StatusCode)
+	}
+	failedPublish := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/publish", map[string]any{
+		"musicId": 10, "revision": 99, "clientId": "failed-window",
+	})
+	failedPublish.Body.Close()
+	if failedPublish.StatusCode != http.StatusConflict {
+		t.Fatalf("failed publish status=%d", failedPublish.StatusCode)
+	}
+	select {
+	case data := <-events:
+		t.Fatalf("failed lyrics mutation broadcast=%#v", data)
+	case <-time.After(300 * time.Millisecond):
 	}
 }

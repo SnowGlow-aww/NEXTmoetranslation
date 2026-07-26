@@ -53,6 +53,8 @@ type VersionInfo struct {
 // SyncFn runs a CN sync. Returning an error keeps the change pending for retry.
 type SyncFn func() error
 
+type ContextSyncFn func(context.Context) error
+
 // Status reports the watcher's state for the admin UI.
 type Status struct {
 	Enabled             bool     `json:"enabled"`
@@ -78,7 +80,7 @@ type Status struct {
 // Watcher polls current_version.json and triggers sync on dataVersion change.
 type Watcher struct {
 	cfg      *config.Config
-	syncFn   SyncFn
+	syncFn   ContextSyncFn
 	client   *http.Client
 	interval time.Duration
 	gitDir   string // local clone path; empty disables the git mirror
@@ -94,7 +96,11 @@ type Watcher struct {
 	pendingDataVersion string
 	rateLimitedUntil   time.Time
 
-	stopCh chan struct{}
+	ctx       context.Context
+	cancel    context.CancelFunc
+	startOnce sync.Once
+	stopOnce  sync.Once
+	wg        sync.WaitGroup
 }
 
 // Options configures the watcher.
@@ -105,12 +111,25 @@ type Options struct {
 }
 
 func New(cfg *config.Config, syncFn SyncFn, opts Options) *Watcher {
+	var contextual ContextSyncFn
+	if syncFn != nil {
+		contextual = func(context.Context) error { return syncFn() }
+	}
+	return newWatcher(cfg, contextual, opts)
+}
+
+func NewWithContext(cfg *config.Config, syncFn ContextSyncFn, opts Options) *Watcher {
+	return newWatcher(cfg, syncFn, opts)
+}
+
+func newWatcher(cfg *config.Config, syncFn ContextSyncFn, opts Options) *Watcher {
 	interval := opts.Interval
 	if interval <= 0 {
 		interval = defaultPollInterval
 	}
 	lastDataVersion := cfg.Get(config.KeyUpstreamLastDataVersion)
 	pendingDataVersion := cfg.Get(config.KeyUpstreamPendingDataVersion)
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Watcher{
 		cfg:      cfg,
 		syncFn:   syncFn,
@@ -122,7 +141,8 @@ func New(cfg *config.Config, syncFn SyncFn, opts Options) *Watcher {
 			LastDataVersion: lastDataVersion, PendingDataVersion: pendingDataVersion,
 		},
 		pendingDataVersion: pendingDataVersion,
-		stopCh:             make(chan struct{}),
+		ctx:                ctx,
+		cancel:             cancel,
 	}
 }
 
@@ -175,24 +195,39 @@ func expandVersionTemplate(tmpl, repo, branch string) string {
 
 // Start launches the polling loop unless disabled in config.
 func (w *Watcher) Start() {
-	if !w.cfg.GetBool(config.KeySchedulerOn, true) {
-		fmt.Println("[upstream] scheduler disabled by config")
-		w.setStatus(func(s *Status) { s.Enabled = false })
-		return
-	}
-	w.setStatus(func(s *Status) {
-		s.Enabled = true
-		s.Repo = w.cfg.GetOr(config.KeyUpstreamRepo, "Team-Haruki/haruki-sekai-master")
-		s.Branch = w.cfg.GetOr(config.KeyUpstreamBranch, "main")
-		w.updateStatusSources(s)
+	w.startOnce.Do(func() {
+		if w.ctx.Err() != nil {
+			return
+		}
+		if !w.cfg.GetBool(config.KeySchedulerOn, true) {
+			fmt.Println("[upstream] scheduler disabled by config")
+			w.setStatus(func(s *Status) { s.Enabled = false })
+			return
+		}
+		w.setStatus(func(s *Status) {
+			s.Enabled = true
+			s.Repo = w.cfg.GetOr(config.KeyUpstreamRepo, "Team-Haruki/haruki-sekai-master")
+			s.Branch = w.cfg.GetOr(config.KeyUpstreamBranch, "main")
+			w.updateStatusSources(s)
+		})
+		if w.useGit {
+			w.wg.Add(1)
+			go func() {
+				defer w.wg.Done()
+				w.ensureGitMirrorContext(w.ctx)
+			}()
+		}
+		w.wg.Add(1)
+		go func() {
+			defer w.wg.Done()
+			w.loop()
+		}()
 	})
-	if w.useGit {
-		go w.ensureGitMirror()
-	}
-	go w.loop()
 }
 
-func (w *Watcher) Stop() { close(w.stopCh) }
+func (w *Watcher) Stop() { w.stopOnce.Do(w.cancel) }
+
+func (w *Watcher) Wait() { w.wg.Wait() }
 
 func (w *Watcher) Status() Status {
 	w.mu.Lock()
@@ -224,15 +259,15 @@ func (w *Watcher) updateStatusSources(s *Status) {
 func (w *Watcher) loop() {
 	// Record a first-run baseline without syncing. A pending version restored
 	// from SQLite remains a change and is retried immediately after restart.
-	w.check(true)
+	w.checkContext(w.ctx, true)
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-w.stopCh:
+		case <-w.ctx.Done():
 			return
 		case <-ticker.C:
-			w.check(false)
+			w.checkContext(w.ctx, false)
 		}
 	}
 }
@@ -240,12 +275,16 @@ func (w *Watcher) loop() {
 // CheckNow runs an immediate check (admin "check now" button). When force is
 // true it triggers a sync even if the version is unchanged.
 func (w *Watcher) CheckNow(force bool) (Status, error) {
-	changed, err := w.fetchAndCompare()
+	return w.CheckNowContext(context.Background(), force)
+}
+
+func (w *Watcher) CheckNowContext(ctx context.Context, force bool) (Status, error) {
+	changed, err := w.fetchAndCompareContext(ctx)
 	if err != nil {
 		return w.Status(), err
 	}
 	if changed || force {
-		if err := w.runSync(); err != nil {
+		if err := w.runSyncContext(ctx); err != nil {
 			return w.Status(), err
 		}
 	}
@@ -253,7 +292,11 @@ func (w *Watcher) CheckNow(force bool) (Status, error) {
 }
 
 func (w *Watcher) check(baseline bool) {
-	changed, err := w.fetchAndCompare()
+	w.checkContext(context.Background(), baseline)
+}
+
+func (w *Watcher) checkContext(ctx context.Context, baseline bool) {
+	changed, err := w.fetchAndCompareContext(ctx)
 	if err != nil {
 		fmt.Printf("[upstream] check failed: %v\n", err)
 		return
@@ -263,7 +306,7 @@ func (w *Watcher) check(baseline bool) {
 		return
 	}
 	if changed {
-		if err := w.runSync(); err != nil {
+		if err := w.runSyncContext(ctx); err != nil {
 			fmt.Printf("[upstream] sync failed: %v\n", err)
 		}
 	}
@@ -272,10 +315,17 @@ func (w *Watcher) check(baseline bool) {
 // fetchAndCompare fetches the version file and updates status, returning whether
 // dataVersion changed since the last observed value.
 func (w *Watcher) fetchAndCompare() (bool, error) {
+	return w.fetchAndCompareContext(context.Background())
+}
+
+func (w *Watcher) fetchAndCompareContext(ctx context.Context) (bool, error) {
 	w.checkMu.Lock()
 	defer w.checkMu.Unlock()
 
-	info, sourceURL, err := w.fetchVersion()
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	info, sourceURL, err := w.fetchVersionContext(ctx)
 	checkedAt := nowRFC3339()
 	if err != nil {
 		w.setStatus(func(s *Status) {
@@ -285,6 +335,9 @@ func (w *Watcher) fetchAndCompare() (bool, error) {
 			s.ConsecutiveFailures++
 			w.updateStatusSources(s)
 		})
+		return false, err
+	}
+	if err := ctx.Err(); err != nil {
 		return false, err
 	}
 	status := w.Status()
@@ -321,6 +374,10 @@ func (w *Watcher) fetchAndCompare() (bool, error) {
 }
 
 func (w *Watcher) fetchVersion() (VersionInfo, string, error) {
+	return w.fetchVersionContext(context.Background())
+}
+
+func (w *Watcher) fetchVersionContext(ctx context.Context) (VersionInfo, string, error) {
 	var info VersionInfo
 	now := time.Now()
 	_, _, _, rateLimitedUntil := w.fetchState("")
@@ -343,15 +400,19 @@ func (w *Watcher) fetchVersion() (VersionInfo, string, error) {
 		err        error
 	}
 	runRound := func(urls []string) (VersionInfo, string, []failedSource, bool) {
-		ctx, cancel := context.WithCancel(context.Background())
+		roundCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		results := make(chan fetchResult, len(urls))
+		var wg sync.WaitGroup
 		for _, sourceURL := range urls {
+			wg.Add(1)
 			go func() {
-				fetched, retryAfter, err := w.fetchVersionURL(ctx, sourceURL)
+				defer wg.Done()
+				fetched, retryAfter, err := w.fetchVersionURL(roundCtx, sourceURL)
 				results <- fetchResult{info: fetched, sourceURL: sourceURL, retryAfter: retryAfter, err: err}
 			}()
 		}
+		defer wg.Wait()
 		failures := make([]failedSource, 0, len(urls))
 		for range urls {
 			result := <-results
@@ -380,7 +441,9 @@ func (w *Watcher) fetchVersion() (VersionInfo, string, error) {
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
+		if err := waitContext(ctx, 500*time.Millisecond); err != nil {
+			return info, "", err
+		}
 		fetched, sourceURL, retryFailures, ok := runRound(retryable)
 		if ok {
 			return fetched, sourceURL, nil
@@ -587,15 +650,19 @@ func (w *Watcher) RecordSyncResult(err error) {
 
 // runSync refreshes the git mirror (if enabled) then runs the CN sync.
 func (w *Watcher) runSync() error {
+	return w.runSyncContext(context.Background())
+}
+
+func (w *Watcher) runSyncContext(ctx context.Context) error {
 	if w.useGit {
-		if err := w.pullGitMirror(); err != nil {
+		if err := w.pullGitMirrorContext(ctx); err != nil {
 			fmt.Printf("[upstream] git mirror pull failed (continuing with HTTP sync): %v\n", err)
 		}
 	}
 	if w.syncFn == nil {
 		return nil
 	}
-	if err := w.syncFn(); err != nil {
+	if err := w.syncFn(ctx); err != nil {
 		w.RecordSyncResult(err)
 		return err
 	}
@@ -614,6 +681,10 @@ func (w *Watcher) repoURL() string {
 // ensureGitMirror clones the masterdata repo on first run (shallow), or marks
 // the mirror ready if it already exists.
 func (w *Watcher) ensureGitMirror() {
+	w.ensureGitMirrorContext(context.Background())
+}
+
+func (w *Watcher) ensureGitMirrorContext(ctx context.Context) {
 	if w.gitDir == "" {
 		return
 	}
@@ -628,7 +699,7 @@ func (w *Watcher) ensureGitMirror() {
 	}
 	branch := w.cfg.GetOr(config.KeyUpstreamBranch, "main")
 	fmt.Printf("[upstream] cloning masterdata mirror (shallow) -> %s\n", w.gitDir)
-	if err := runGit(w.gitDir, true, "clone", "--depth", "1", "--branch", branch, w.repoURL(), w.gitDir); err != nil {
+	if err := runGitContext(ctx, w.gitDir, true, "clone", "--depth", "1", "--branch", branch, w.repoURL(), w.gitDir); err != nil {
 		fmt.Printf("[upstream] git clone failed: %v\n", err)
 		return
 	}
@@ -638,21 +709,29 @@ func (w *Watcher) ensureGitMirror() {
 
 // pullGitMirror fast-forwards the local mirror. Clones first if absent.
 func (w *Watcher) pullGitMirror() error {
+	return w.pullGitMirrorContext(context.Background())
+}
+
+func (w *Watcher) pullGitMirrorContext(ctx context.Context) error {
 	if w.gitDir == "" {
 		return nil
 	}
 	if _, err := os.Stat(filepath.Join(w.gitDir, ".git")); err != nil {
-		w.ensureGitMirror()
+		w.ensureGitMirrorContext(ctx)
 		return nil
 	}
 	branch := w.cfg.GetOr(config.KeyUpstreamBranch, "main")
-	return runGit(w.gitDir, false, "pull", "--ff-only", "origin", branch)
+	return runGitContext(ctx, w.gitDir, false, "pull", "--ff-only", "origin", branch)
 }
 
 // runGit runs a git command. When isClone is true, dir is the parent (the clone
 // target is in args); otherwise dir is the repo working directory.
 func runGit(dir string, isClone bool, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	return runGitContext(context.Background(), dir, isClone, args...)
+}
+
+func runGitContext(parent context.Context, dir string, isClone bool, args ...string) error {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	if isClone {
@@ -669,3 +748,14 @@ func runGit(dir string, isClone bool, args ...string) error {
 }
 
 func nowRFC3339() string { return time.Now().UTC().Format(time.RFC3339) }
+
+func waitContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}

@@ -25,6 +25,10 @@ type loggingResponseWriter struct {
 	wroteHeader bool
 }
 
+// Unwrap lets http.ResponseController reach transport controls such as write
+// deadlines through the logging middleware used by SSE responses.
+func (w *loggingResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 func (w *loggingResponseWriter) WriteHeader(code int) {
 	if !w.wroteHeader {
 		w.status = code

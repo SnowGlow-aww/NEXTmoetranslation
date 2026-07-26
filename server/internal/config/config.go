@@ -15,7 +15,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 
 	"moesekai/server/internal/db"
@@ -75,6 +78,23 @@ var secretKeys = map[string]bool{
 	KeyBackupGitRepoURL:  true,
 }
 
+var settingKeys = map[string]bool{
+	KeyLLMType: true, KeyGeminiAPIKey: true, KeyGeminiModel: true,
+	KeyOpenAIAPIKey: true, KeyOpenAIBaseURL: true, KeyOpenAIModel: true,
+	KeyLLMRequestTimeoutMS: true, KeyLLMMaxRetries: true, KeyBatchSize: true, KeyRateDelayMS: true,
+	KeyUpstreamRepo: true, KeyUpstreamBranch: true, KeyUpstreamVersionURL: true,
+	KeyUpstreamVersionFallbackURL: true, KeyUpstreamJPMasterdataURL: true,
+	KeyUpstreamJPMasterdataFallbackURL: true, KeyUpstreamCNMasterdataURL: true,
+	KeyUpstreamCNMasterdataFallbackURL: true, KeyUpstreamJPAssetsURL: true,
+	KeyUpstreamJPAssetsFallbackURL: true, KeyUpstreamCNAssetsURL: true,
+	KeyUpstreamCNAssetsFallbackURL: true, KeyUpstreamFetchConcurrency: true,
+	KeySchedulerOn: true, KeyUpstreamLastDataVersion: true, KeyUpstreamPendingDataVersion: true,
+	KeyBackupS3Enabled: true, KeyBackupS3Endpoint: true, KeyBackupS3Region: true,
+	KeyBackupS3Bucket: true, KeyBackupS3Prefix: true, KeyBackupS3AccessKey: true,
+	KeyBackupS3SecretKey: true, KeyBackupGitEnabled: true, KeyBackupGitRepoURL: true,
+	KeyBackupGitBranch: true, KeyBackupDailyHour: true,
+}
+
 // IsSecret reports whether a setting key holds a secret value.
 func IsSecret(key string) bool { return secretKeys[key] }
 
@@ -128,6 +148,9 @@ func (c *Config) reload() error {
 				return fmt.Errorf("decrypt %s: %w", key, err)
 			}
 			value = dec
+		}
+		if err := validateSettingValue(key, value); err != nil {
+			return fmt.Errorf("invalid persisted setting: %w", err)
 		}
 		cache[key] = value
 	}
@@ -227,6 +250,12 @@ func (c *Config) SetMany(values map[string]string) (int, error) {
 }
 
 func (c *Config) encodeSetting(key, value string) (string, int, error) {
+	if !settingKeys[key] {
+		return "", 0, fmt.Errorf("unknown setting %q", key)
+	}
+	if err := validateSettingValue(key, value); err != nil {
+		return "", 0, err
+	}
 	enc := 0
 	stored := value
 	if IsSecret(key) {
@@ -243,30 +272,131 @@ func (c *Config) encodeSetting(key, value string) (string, int, error) {
 	return stored, enc, nil
 }
 
+func validateSettingValue(key, value string) error {
+	canonicalBool := func() error {
+		if value != "true" && value != "false" {
+			return fmt.Errorf("%s must be true or false", key)
+		}
+		return nil
+	}
+	canonicalInt := func(minimum, maximum int) error {
+		number, err := strconv.Atoi(value)
+		if err != nil || number < minimum || number > maximum || strconv.Itoa(number) != value {
+			return fmt.Errorf("%s must be an integer from %d through %d", key, minimum, maximum)
+		}
+		return nil
+	}
+	switch key {
+	case KeySchedulerOn, KeyBackupS3Enabled, KeyBackupGitEnabled:
+		return canonicalBool()
+	case KeyLLMType:
+		if value != "gemini" && value != "openai" {
+			return fmt.Errorf("%s must be gemini or openai", key)
+		}
+	case KeyOpenAIBaseURL, KeyBackupS3Endpoint:
+		return validateSecretServiceURL(key, value)
+	case KeyLLMRequestTimeoutMS:
+		return canonicalInt(1, 300000)
+	case KeyLLMMaxRetries:
+		return canonicalInt(0, 5)
+	case KeyBatchSize:
+		return canonicalInt(1, 200)
+	case KeyRateDelayMS:
+		return canonicalInt(0, 60000)
+	case KeyUpstreamFetchConcurrency:
+		return canonicalInt(1, 12)
+	case KeyBackupDailyHour:
+		return canonicalInt(0, 23)
+	}
+	return nil
+}
+
+func validateSecretServiceURL(key, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if len(value) > 2048 {
+		return fmt.Errorf("%s exceeds the 2048-byte URL limit", key)
+	}
+	parsed, err := url.Parse(value)
+	loopbackHTTP := parsed != nil && parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname())
+	if err != nil || (parsed.Scheme != "https" && !loopbackHTTP) || parsed.Host == "" || parsed.Hostname() == "" ||
+		parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" || parsed.ForceQuery {
+		return fmt.Errorf("%s must be an absolute HTTPS URL (or loopback HTTP for local testing) without credentials, query, or fragment", key)
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return fmt.Errorf("%s must not contain control characters", key)
+		}
+	}
+	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(strings.TrimSpace(host), "localhost") {
+		return true
+	}
+	address := net.ParseIP(strings.TrimSpace(host))
+	return address != nil && address.IsLoopback()
+}
+
 // SetIfAbsent writes a setting only if it is not already present. Used for
 // env-based seeding so the admin UI remains authoritative after first run.
 func (c *Config) SetIfAbsent(key, value string) (bool, error) {
-	if value == "" {
-		return false, nil
-	}
+	changed, err := c.SetManyIfAbsent(map[string]string{key: value})
+	return changed == 1, err
+}
+
+// SetManyIfAbsent validates and seeds a group atomically. Existing settings are
+// left untouched, and no value is inserted if any supplied value is invalid.
+func (c *Config) SetManyIfAbsent(values map[string]string) (int, error) {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
-	stored, encrypted, err := c.encodeSetting(key, value)
-	if err != nil {
-		return false, err
+	type encodedSetting struct {
+		key, value, stored string
+		encrypted          int
 	}
-	result, err := c.db.Exec(`INSERT OR IGNORE INTO settings (key, value, encrypted) VALUES (?, ?, ?)`, key, stored, encrypted)
-	if err != nil {
-		return false, err
+	encoded := make([]encodedSetting, 0, len(values))
+	for key, value := range values {
+		if value == "" {
+			continue
+		}
+		stored, encrypted, err := c.encodeSetting(key, value)
+		if err != nil {
+			return 0, err
+		}
+		encoded = append(encoded, encodedSetting{key: key, value: value, stored: stored, encrypted: encrypted})
 	}
-	changed, err := result.RowsAffected()
-	if err != nil || changed == 0 {
-		return false, err
+	tx, err := c.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	inserted := make([]encodedSetting, 0, len(encoded))
+	for _, setting := range encoded {
+		result, err := tx.Exec(`INSERT OR IGNORE INTO settings (key, value, encrypted) VALUES (?, ?, ?)`,
+			setting.key, setting.stored, setting.encrypted)
+		if err != nil {
+			return 0, err
+		}
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		if changed == 1 {
+			inserted = append(inserted, setting)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
 	}
 	c.mu.Lock()
-	c.cache[key] = value
+	for _, setting := range inserted {
+		c.cache[setting.key] = setting.value
+	}
 	c.mu.Unlock()
-	return true, nil
+	return len(inserted), nil
 }
 
 // All returns a snapshot of all settings, with secrets masked unless reveal is

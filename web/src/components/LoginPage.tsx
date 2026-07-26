@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { login, setSession } from "@/lib/api";
+import { login } from "@/lib/api";
 
 export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [user, setUser] = useState("");
@@ -15,7 +15,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
     setLoading(true);
     try {
       const res = await login(user, pass);
-      setSession(res);
+      if (!res.token) throw new Error("登录响应无效");
       onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");

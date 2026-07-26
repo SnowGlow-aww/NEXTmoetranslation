@@ -98,6 +98,10 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "field and key required")
 		return
 	}
+	if !model.IsValidSource(req.Source) {
+		writeErr(w, http.StatusBadRequest, "invalid translation source")
+		return
+	}
 	locale, explicit, ok := requestLocale(w, r, req.Locale)
 	if !ok {
 		return

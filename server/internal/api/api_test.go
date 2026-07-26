@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"moesekai/server/internal/sse"
 	"moesekai/server/internal/store"
 	"moesekai/server/internal/translator"
+	"moesekai/server/internal/workspaceverify"
 )
 
 func setup(t *testing.T) (*httptest.Server, string) {
@@ -107,6 +109,161 @@ func TestUnknownAPIPathReturnsJSON404(t *testing.T) {
 	var body map[string]string
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil || body["error"] != "not found" {
 		t.Fatalf("unknown API body=%v err=%v", body, err)
+	}
+}
+
+func TestJSONMutationBodiesRejectUnknownAndTrailingValues(t *testing.T) {
+	h := setupLegacyAPI(t)
+	for _, raw := range []string{
+		`{"musicId":10,"revision":1,"clientId":"tab","unexpected":true}`,
+		`{"musicId":10,"revision":1,"clientId":"tab"}{"second":true}`,
+		`{"musicId":10,"musicId":11,"revision":1,"clientId":"tab"}`,
+	} {
+		request, err := http.NewRequest(http.MethodPost, h.server.URL+"/api/lyrics/publish", strings.NewReader(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Authorization", "Bearer "+h.token)
+		request.Header.Set("Content-Type", "application/json")
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusBadRequest {
+			t.Fatalf("body %q status=%d, want 400", raw, response.StatusCode)
+		}
+	}
+}
+
+func TestJSONMutationBodiesRejectNestedDuplicateKeys(t *testing.T) {
+	h := setupLegacyAPI(t)
+	raw := `{"musicId":10,"revision":0,"status":"draft","attribution":"team","lines":[{"id":"line-1","order":0,"japanese":"歌","chinese":"","english":"","stanzaBreakBefore":false,"segments":[{"text":"歌","text":"改ざん","performerIds":[]}]}]}`
+	request, err := http.NewRequest(http.MethodPut, h.server.URL+"/api/lyrics/save", strings.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+h.token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("nested duplicate-key body status=%d, want 400", response.StatusCode)
+	}
+}
+
+func TestSettingsUpdateRejectsInvalidDailyHourAndUnknownKeysAtomically(t *testing.T) {
+	h := setupLegacyAPI(t)
+	for _, patch := range []map[string]string{
+		{config.KeyLLMType: "openai", config.KeyBackupDailyHour: "24"},
+		{config.KeyBackupDailyHour: "01"},
+		{config.KeyBackupDailyHour: "7", "backup.unrecognized": "value"},
+	} {
+		response := doJSON(t, http.MethodPut, h.server.URL+"/api/admin/settings", h.token, patch)
+		response.Body.Close()
+		if response.StatusCode != http.StatusBadRequest {
+			t.Fatalf("invalid settings patch %+v status = %d", patch, response.StatusCode)
+		}
+		if h.api.cfg.Get(config.KeyLLMType) != "" || h.api.cfg.Get(config.KeyBackupDailyHour) != "" {
+			t.Fatalf("invalid patch persisted values: %+v", h.api.cfg.All(true))
+		}
+	}
+	response := doJSON(t, http.MethodPut, h.server.URL+"/api/admin/settings", h.token,
+		map[string]string{config.KeyBackupDailyHour: "23"})
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK || h.api.cfg.Get(config.KeyBackupDailyHour) != "23" {
+		t.Fatalf("valid daily hour status=%d value=%q", response.StatusCode, h.api.cfg.Get(config.KeyBackupDailyHour))
+	}
+}
+
+func TestLoginRejectsInjectedUnknownRole(t *testing.T) {
+	h := setupLegacyAPI(t)
+	if _, err := h.api.auth.CreateUser("viewer", "strong-password-123", auth.RoleEditor); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.db.Exec(`UPDATE users SET role='viewer' WHERE username='viewer'`); err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(map[string]string{"username": "viewer", "password": "strong-password-123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.Post(h.server.URL+"/api/auth/login", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("viewer login status = %d", response.StatusCode)
+	}
+}
+
+func TestWorkspaceCapabilityContractIsMountedByTheServer(t *testing.T) {
+	h := setupLegacyAPI(t)
+	editor, err := h.api.auth.CreateUser("route-editor", "strong-password-123", auth.RoleEditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentEditorToken := func() string {
+		t.Helper()
+		currentEditor, err := h.api.auth.GetUser(editor.Username)
+		if err != nil {
+			t.Fatal(err)
+		}
+		token, _, err := h.api.auth.IssueToken(currentEditor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return token
+	}
+	for _, route := range workspaceverify.RequiredRoutes() {
+		request, err := http.NewRequest(route.Method, h.server.URL+route.Path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("%s %s: %v", route.Method, route.Path, err)
+		}
+		response.Body.Close()
+		if route.Authentication == "none" {
+			if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden || response.StatusCode == http.StatusNotFound {
+				t.Fatalf("public workspace capability policy mismatch: %s %s status=%d", route.Method, route.Path, response.StatusCode)
+			}
+		} else if response.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("workspace capability accepted missing %s auth: %s %s status=%d", route.Authentication, route.Method, route.Path, response.StatusCode)
+		}
+
+		if route.ProducerProof {
+			token := currentEditorToken()
+			if len(route.AllowedRoles) == 1 && route.AllowedRoles[0] == auth.RoleAdmin {
+				token = h.token
+			}
+			withoutProof := doJSON(t, route.Method, h.server.URL+route.Path, token, nil)
+			withoutProof.Body.Close()
+			if withoutProof.StatusCode != http.StatusPreconditionRequired {
+				t.Fatalf("workspace producer proof policy mismatch: %s %s status=%d", route.Method, route.Path, withoutProof.StatusCode)
+			}
+			continue
+		}
+		if len(route.AllowedRoles) == 1 && route.AllowedRoles[0] == auth.RoleAdmin {
+			forbidden := doJSON(t, route.Method, h.server.URL+route.Path, currentEditorToken(), nil)
+			forbidden.Body.Close()
+			if forbidden.StatusCode != http.StatusForbidden {
+				t.Fatalf("workspace admin policy mismatch: %s %s status=%d", route.Method, route.Path, forbidden.StatusCode)
+			}
+			continue
+		}
+		if route.Authentication == "bearer" && len(route.AllowedRoles) == 2 {
+			allowed := doJSON(t, route.Method, h.server.URL+route.Path, currentEditorToken(), nil)
+			allowed.Body.Close()
+			if allowed.StatusCode == http.StatusUnauthorized || allowed.StatusCode == http.StatusForbidden || allowed.StatusCode == http.StatusNotFound {
+				t.Fatalf("workspace editor policy mismatch: %s %s status=%d", route.Method, route.Path, allowed.StatusCode)
+			}
+		}
 	}
 }
 

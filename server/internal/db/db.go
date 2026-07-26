@@ -1,9 +1,11 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
@@ -17,8 +19,19 @@ type DB struct {
 // Open opens (or creates) the SQLite database at path and applies the schema.
 // modernc.org/sqlite is a pure-Go driver, so no CGO is required.
 func Open(path string) (*DB, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("create sqlite directory: %w", err)
+	}
+	if err := os.Chmod(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("secure sqlite directory: %w", err)
+	}
 	_, statErr := os.Stat(path)
 	preexisting := statErr == nil
+	if preexisting {
+		if err := os.Chmod(path, 0o600); err != nil {
+			return nil, fmt.Errorf("secure sqlite database: %w", err)
+		}
+	}
 	// WAL lets many readers run concurrently with a single writer, which is the
 	// whole point of using it here: background jobs (cn-sync, AI translate,
 	// backup) hold long write transactions while editors keep reading. For that
@@ -42,7 +55,12 @@ func Open(path string) (*DB, error) {
 	sqlDB.SetMaxIdleConns(8)
 	sqlDB.SetConnMaxLifetime(0)
 	if err := sqlDB.Ping(); err != nil {
+		sqlDB.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("secure sqlite database: %w", err)
 	}
 	d := &DB{DB: sqlDB, path: path}
 	pending, err := d.pendingMigrations()
@@ -64,11 +82,63 @@ func Open(path string) (*DB, error) {
 		sqlDB.Close()
 		return nil, fmt.Errorf("apply migrations: %w", err)
 	}
+	if err := d.IntegrityCheck(context.Background()); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("verify sqlite integrity: %w", err)
+	}
 	return d, nil
 }
 
 // Path returns the SQLite database path used by Open.
 func (d *DB) Path() string { return d.path }
+
+// Checkpoint flushes committed WAL pages into the main database and truncates
+// the sidecar. It is used before publishing an offline staging database.
+func (d *DB) Checkpoint(ctx context.Context) error {
+	rows, err := d.QueryContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var busy, logFrames, checkpointed int
+		if err := rows.Scan(&busy, &logFrames, &checkpointed); err != nil {
+			return err
+		}
+		if busy != 0 {
+			return fmt.Errorf("sqlite checkpoint remained busy")
+		}
+	}
+	return rows.Err()
+}
+
+// IntegrityCheck requires SQLite's complete integrity check to return exactly
+// one "ok" row.
+func (d *DB) IntegrityCheck(ctx context.Context) error {
+	rows, err := d.QueryContext(ctx, `PRAGMA integrity_check`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		var result string
+		if err := rows.Scan(&result); err != nil {
+			return err
+		}
+		count++
+		if result != "ok" {
+			return fmt.Errorf("sqlite integrity check: %s", result)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if count != 1 {
+		return fmt.Errorf("sqlite integrity check returned %d rows", count)
+	}
+	return nil
+}
 
 func (d *DB) applySchema() error {
 	_, err := d.Exec(schema)

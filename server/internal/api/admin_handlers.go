@@ -208,8 +208,11 @@ func (s *Server) handleUpstreamCheck(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Force bool `json:"force"`
 	}
-	_ = decodeOptional(r, &req)
-	status, err := s.upstream.CheckNow(req.Force)
+	if err := decodeOptional(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	status, err := s.upstream.CheckNowContext(r.Context(), req.Force)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

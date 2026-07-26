@@ -57,7 +57,7 @@ func (t *Translator) callLLMUsingConfig(provider string, texts []string, cfg llm
 		if onAttempt != nil {
 			onAttempt(attempt, attempts)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
+		ctx, cancel := context.WithTimeout(t.runContext(), cfg.RequestTimeout)
 		var content string
 		var err error
 		switch provider {
@@ -74,7 +74,9 @@ func (t *Translator) callLLMUsingConfig(provider string, texts []string, cfg llm
 			lastErr = err
 			log.Printf("[llm] %s attempt %d/%d request error: %v", provider, attempt, attempts, err)
 			if attempt < attempts {
-				time.Sleep(time.Duration(attempt) * time.Second)
+				if waitErr := t.wait(time.Duration(attempt) * time.Second); waitErr != nil {
+					return nil, waitErr
+				}
 			}
 			continue
 		}
@@ -93,7 +95,9 @@ func (t *Translator) callLLMUsingConfig(provider string, texts []string, cfg llm
 		lastErr = fmt.Errorf("parse incomplete: %d non-empty of %d", nonEmpty, len(texts))
 		log.Printf("[llm] %s attempt %d/%d %v", provider, attempt, attempts, lastErr)
 		if attempt < attempts {
-			time.Sleep(time.Duration(attempt) * time.Second)
+			if waitErr := t.wait(time.Duration(attempt) * time.Second); waitErr != nil {
+				return nil, waitErr
+			}
 		}
 	}
 	log.Printf("[llm] %s gave up after %d attempts (texts=%d): %v", provider, attempts, len(texts), lastErr)

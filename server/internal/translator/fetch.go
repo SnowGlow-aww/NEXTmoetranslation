@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"moesekai/server/internal/config"
@@ -174,7 +175,9 @@ func (t *Translator) fetchJSONURLs(urls []string) (any, error) {
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
+		if err := t.wait(500 * time.Millisecond); err != nil {
+			return nil, err
+		}
 		result, retryFailures, ok := t.fetchJSONRound(dedupeURLs(retryable))
 		if ok {
 			return result, nil
@@ -193,13 +196,17 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 		data any
 		err  error
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.runContext())
 	defer cancel()
 	results := make(chan fetchResult, len(urls))
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	next, active := 0, 0
 	start := func(url string) {
 		active++
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			data, err := t.fetchJSONURLOnceContext(ctx, url)
 			results <- fetchResult{url: url, data: data, err: err}
 		}()
@@ -243,6 +250,8 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 			continue
 		}
 		select {
+		case <-ctx.Done():
+			return nil, append(failures, sourceFailure{err: ctx.Err()}), false
 		case result := <-results:
 			active--
 			if result.err == nil {
@@ -269,7 +278,7 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 }
 
 func (t *Translator) fetchJSONURLOnce(url string) (any, error) {
-	return t.fetchJSONURLOnceContext(context.Background(), url)
+	return t.fetchJSONURLOnceContext(t.runContext(), url)
 }
 
 func (t *Translator) fetchJSONURLOnceContext(ctx context.Context, url string) (any, error) {
@@ -313,6 +322,9 @@ func (t *Translator) fetchJPScenarioJSON(assetPath string) (any, error) {
 	failures := make([]sourceFailure, 0, len(urls)*2)
 	retryable := make([]string, 0, len(urls))
 	for _, url := range urls {
+		if err := t.runContext().Err(); err != nil {
+			return nil, err
+		}
 		result, err := t.fetchJSONURLOnce(url)
 		if err == nil && scenarioHasTalkData(result) {
 			return result, nil
@@ -327,7 +339,9 @@ func (t *Translator) fetchJPScenarioJSON(assetPath string) (any, error) {
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
+		if err := t.wait(500 * time.Millisecond); err != nil {
+			return nil, err
+		}
 		for _, url := range retryable {
 			result, err := t.fetchJSONURLOnce(url)
 			if err == nil && scenarioHasTalkData(result) {

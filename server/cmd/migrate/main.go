@@ -1,22 +1,10 @@
-// Command migrate imports the legacy translations/ directory into SQLite and
-// verifies the import is lossless.
-//
-// Two checks run:
-//   - FATAL: DB round-trip. Everything loaded from the legacy files (text,
-//     source, ids, every event-story line and its order) must read back from
-//     the DB unchanged. A failure here means data loss and aborts.
-//   - WARN: consumer-format compatibility. Regenerated flat JSON is compared
-//     against the legacy flat files. The legacy data is internally inconsistent
-//     (e.g. gacha.json disagrees with gacha.full.json on 2 entries), so diffs
-//     here are reported, not fatal.
-//
-// Usage:
-//
-//	go run ./cmd/migrate -src ../../translations -db ./data/moesekai.db
+// Command migrate atomically imports a complete legacy translations seed into
+// a new SQLite database. It never mutates or replaces an existing database.
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -27,15 +15,26 @@ import (
 	"strings"
 
 	"moesekai/server/internal/db"
-	"moesekai/server/internal/legacy"
+	"moesekai/server/internal/importer"
 	"moesekai/server/internal/model"
+	"moesekai/server/internal/singleinstance"
 	"moesekai/server/internal/store"
 )
+
+var errTargetExists = errors.New("target database already exists")
+
+// migrationObjectImportedHook is used by command-package tests to inject a
+// failure between staging imports. The staging database remains unpublished.
+var migrationObjectImportedHook func(int) error
+
+// migrationPostRenameDirSyncHook injects the durability uncertainty that can
+// occur after rename but before the containing directory is confirmed.
+var migrationPostRenameDirSyncHook func(string) error
 
 func main() {
 	src := flag.String("src", "../../translations", "legacy translations directory")
 	dbPath := flag.String("db", "./data/moesekai.db", "target SQLite path")
-	verify := flag.Bool("verify", true, "verify lossless DB round-trip")
+	verify := flag.Bool("verify", true, "required lossless DB round-trip verification")
 	flag.Parse()
 
 	if err := run(*src, *dbPath, *verify); err != nil {
@@ -45,249 +44,328 @@ func main() {
 }
 
 func run(src, dbPath string, verify bool) error {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-		return err
-	}
-	database, err := db.Open(dbPath)
-	if err != nil {
-		return err
-	}
-	defer database.Close()
+	return runContext(context.Background(), src, dbPath, verify)
+}
 
-	s := store.New(database)
-	es := store.NewEventStore(database)
-
-	// ---- Import flat categories ----
-	loadedCats := map[string]model.Category{}
-	totalEntries := 0
-	for _, cat := range model.SupportedCategories {
-		category, warnings, err := legacy.LoadCategory(src, cat)
-		if err != nil {
-			fmt.Printf("[migrate] skip %s: %v\n", cat, err)
-			continue
-		}
-		for _, w := range warnings {
-			fmt.Printf("[migrate] WARN %s\n", w)
-		}
-		n, err := s.ImportCategory(cat, category)
-		if err != nil {
-			return fmt.Errorf("import %s: %w", cat, err)
-		}
-		loadedCats[cat] = category
-		totalEntries += n
-		fmt.Printf("[migrate] %-12s %d entries\n", cat, n)
+func runContext(ctx context.Context, src, dbPath string, verify bool) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	fmt.Printf("[migrate] total entries: %d\n", totalEntries)
-
-	// ---- Import event stories ----
-	esDir := filepath.Join(src, "eventStory")
-	storyFiles, _ := filepath.Glob(filepath.Join(esDir, "event_*.json"))
-	sort.Slice(storyFiles, func(i, j int) bool {
-		return idOf(storyFiles[i]) < idOf(storyFiles[j])
-	})
-	loadedStories := map[int]*legacy.EventStory{}
-	for _, f := range storyFiles {
-		eventID := idOf(f)
-		if eventID <= 0 {
-			continue
-		}
-		story, err := legacy.LoadEventStory(f)
-		if err != nil {
-			fmt.Printf("[migrate] skip event %d: %v\n", eventID, err)
-			continue
-		}
-		eps := make([]store.OrderedEpisode, 0, len(story.EpisodeKeys))
-		for _, no := range story.EpisodeKeys {
-			ep := story.Episodes[no]
-			eps = append(eps, store.OrderedEpisode{
-				EpisodeNo:    no,
-				ScenarioID:   ep.ScenarioID,
-				Title:        ep.Title,
-				TitleSource:  ep.TitleSource,
-				TalkKeys:     ep.TalkKeys,
-				TalkData:     ep.TalkData,
-				TalkSources:  ep.TalkSources,
-				SpeakerNames: ep.SpeakerNames,
-			})
-		}
-		if err := es.ImportOrdered(eventID, story.Meta, eps); err != nil {
-			return fmt.Errorf("import event %d: %w", eventID, err)
-		}
-		loadedStories[eventID] = story
-	}
-	fmt.Printf("[migrate] event stories: %d\n", len(loadedStories))
-
 	if !verify {
-		return nil
+		return errors.New("seed verification cannot be disabled")
 	}
-	if err := verifyDBRoundTrip(s, es, loadedCats, loadedStories); err != nil {
-		return err
-	}
-	reportFlatCompat(src, s)
-	return nil
-}
-
-func idOf(path string) int {
-	base := strings.TrimSuffix(filepath.Base(path), ".json")
-	base = strings.TrimPrefix(base, "event_")
-	n, err := strconv.Atoi(base)
+	owner, err := singleinstance.Acquire(dbPath)
 	if err != nil {
-		return -1
+		return fmt.Errorf("acquire database ownership: %w", err)
 	}
-	return n
-}
+	defer owner.Close()
+	parent := filepath.Dir(dbPath)
+	incompletePath := dbPath + ".seed-incomplete"
+	if _, markerErr := os.Stat(incompletePath); markerErr == nil {
+		if _, targetErr := os.Stat(dbPath); targetErr == nil {
+			return fmt.Errorf("incomplete seed marker exists for target %s", dbPath)
+		} else if !errors.Is(targetErr, os.ErrNotExist) {
+			return fmt.Errorf("inspect incomplete seed target: %w", targetErr)
+		}
+		if err := os.Remove(incompletePath); err != nil {
+			return fmt.Errorf("remove recoverable incomplete seed marker: %w", err)
+		}
+		if err := fsyncDir(parent); err != nil {
+			return fmt.Errorf("sync recovered seed marker removal: %w", err)
+		}
+	} else if !errors.Is(markerErr, os.ErrNotExist) {
+		return fmt.Errorf("inspect incomplete seed marker: %w", markerErr)
+	}
 
-// verifyDBRoundTrip is the FATAL check: everything we loaded must read back from
-// the DB identically (no dropped/altered text, source, ids, lines, or order).
-func verifyDBRoundTrip(s *store.Store, es *store.EventStore,
-	cats map[string]model.Category, stories map[int]*legacy.EventStory) error {
+	if _, err := os.Stat(dbPath); err == nil {
+		return fmt.Errorf("%w: %s", errTargetExists, dbPath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect target database: %w", err)
+	}
 
-	mismatches := 0
+	payload, result, err := importer.ReadSeedDir(ctx, src)
+	if err != nil {
+		return fmt.Errorf("validate complete seed: %w", err)
+	}
+	sort.Slice(payload.Events, func(i, j int) bool { return payload.Events[i].EventID < payload.Events[j].EventID })
 
-	for cat, loaded := range cats {
-		got, err := s.CategoryData(cat)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("create database directory: %w", err)
+	}
+	stagingFile, err := os.CreateTemp(parent, "."+filepath.Base(dbPath)+".seed-*.db")
+	if err != nil {
+		return fmt.Errorf("create staging database: %w", err)
+	}
+	stagingPath := stagingFile.Name()
+	if err := stagingFile.Close(); err != nil {
+		_ = os.Remove(stagingPath)
+		return fmt.Errorf("close staging placeholder: %w", err)
+	}
+	published := false
+	defer func() {
+		if !published {
+			removeSQLiteFiles(stagingPath)
+		}
+	}()
+
+	if err := os.Remove(stagingPath); err != nil {
+		return fmt.Errorf("prepare staging database: %w", err)
+	}
+	database, err := db.Open(stagingPath)
+	if err != nil {
+		return fmt.Errorf("open staging database: %w", err)
+	}
+	databaseOpen := true
+	defer func() {
+		if databaseOpen {
+			_ = database.Close()
+		}
+	}()
+	translationStore := store.New(database)
+	eventStore := store.NewEventStore(database)
+
+	objects := 0
+	importedEntries := 0
+	importedEvents := 0
+	for _, categoryName := range model.SupportedCategories {
+		count, err := translationStore.ImportCategoryContext(ctx, categoryName, payload.Categories[categoryName])
 		if err != nil {
+			return fmt.Errorf("import %s: %w", categoryName, err)
+		}
+		if count == 0 {
+			return fmt.Errorf("import %s produced zero rows", categoryName)
+		}
+		importedEntries += count
+		objects++
+		if err := afterImportedObject(objects); err != nil {
 			return err
 		}
-		if !reflect.DeepEqual(normalizeCat(loaded), normalizeCat(got)) {
-			mismatches++
-			fmt.Printf("[verify] FATAL category %s did not round-trip\n", cat)
-			reportCatDiff(cat, normalizeCat(loaded), normalizeCat(got))
+		fmt.Printf("[migrate] %-12s %d entries\n", categoryName, count)
+	}
+	for _, event := range payload.Events {
+		if err := eventStore.ImportOrderedContext(ctx, event.EventID, event.Meta, event.Episodes); err != nil {
+			return fmt.Errorf("import event %d: %w", event.EventID, err)
+		}
+		objects++
+		importedEvents++
+		if err := afterImportedObject(objects); err != nil {
+			return err
 		}
 	}
-
-	for id, story := range stories {
-		od, err := es.OrderedDetail(id)
-		if err != nil {
-			return fmt.Errorf("read back event %d: %w", id, err)
-		}
-		if msg := eventDiff(story, od); msg != "" {
-			mismatches++
-			if mismatches <= 12 {
-				fmt.Printf("[verify] FATAL event_%d: %s\n", id, msg)
-			}
-		}
+	if objects != len(model.SupportedCategories)+len(payload.Events) ||
+		importedEntries == 0 || importedEntries != result.Entries ||
+		importedEvents == 0 || importedEvents != result.EventStories {
+		return fmt.Errorf("seed import produced an incomplete database")
 	}
-
-	if mismatches > 0 {
-		return fmt.Errorf("%d objects did not round-trip through the DB", mismatches)
+	if err := verifyDBRoundTrip(translationStore, eventStore, payload); err != nil {
+		return err
 	}
-	fmt.Printf("[verify] OK — DB round-trip lossless: %d categories, %d event stories\n",
-		len(cats), len(stories))
+	if err := database.IntegrityCheck(ctx); err != nil {
+		return fmt.Errorf("verify staging integrity: %w", err)
+	}
+	if err := database.Checkpoint(ctx); err != nil {
+		return fmt.Errorf("checkpoint staging database: %w", err)
+	}
+	if err := database.Close(); err != nil {
+		return fmt.Errorf("close staging database: %w", err)
+	}
+	databaseOpen = false
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("publish canceled seed: %w", err)
+	}
+	if err := fsyncFile(stagingPath); err != nil {
+		return fmt.Errorf("sync staging database: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("publish canceled seed: %w", err)
+	}
+	if err := writeIncompleteMarker(incompletePath); err != nil {
+		return fmt.Errorf("write incomplete seed marker: %w", err)
+	}
+	if err := fsyncDir(parent); err != nil {
+		return fmt.Errorf("sync incomplete seed marker: %w", err)
+	}
+	if err := renameNoReplace(stagingPath, dbPath); err != nil {
+		_ = os.Remove(incompletePath)
+		_ = fsyncDir(parent)
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("%w before publish: %s", errTargetExists, dbPath)
+		}
+		return fmt.Errorf("publish staging database: %w", err)
+	}
+	syncDirectory := fsyncDir
+	if migrationPostRenameDirSyncHook != nil {
+		syncDirectory = migrationPostRenameDirSyncHook
+	}
+	if err := syncDirectory(parent); err != nil {
+		removeErr := os.Remove(dbPath)
+		rollbackSyncErr := fsyncDir(parent)
+		return fmt.Errorf("sync database directory: %w", errors.Join(err,
+			wrapError("remove unconfirmed target", removeErr), wrapError("sync target rollback", rollbackSyncErr)))
+	}
+	if err := os.Remove(incompletePath); err != nil {
+		return fmt.Errorf("remove incomplete seed marker: %w", err)
+	}
+	if err := fsyncDir(parent); err != nil {
+		markerErr := writeIncompleteMarker(incompletePath)
+		markerSyncErr := fsyncDir(parent)
+		return fmt.Errorf("sync incomplete seed marker removal: %w", errors.Join(err,
+			wrapError("restore incomplete seed marker", markerErr), wrapError("sync restored seed marker", markerSyncErr)))
+	}
+	published = true
+	removeSQLiteFiles(stagingPath)
+	fmt.Printf("[verify] OK: %d categories, %d entries, %d event stories; integrity_check=ok\n",
+		result.Categories, result.Entries, result.EventStories)
 	return nil
 }
 
-// normalizeCat drops empty fields and normalizes empty source to "unknown" and
-// empty ids slices to nil so comparison reflects stored semantics.
-func normalizeCat(c model.Category) model.Category {
-	out := make(model.Category, len(c))
-	for field, entries := range c {
+func writeIncompleteMarker(path string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := file.WriteString("seed publication is not yet directory-durable\n"); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return errors.Join(file.Sync(), file.Close())
+}
+
+func wrapError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", operation, err)
+}
+
+func afterImportedObject(count int) error {
+	if migrationObjectImportedHook != nil {
+		if err := migrationObjectImportedHook(count); err != nil {
+			return fmt.Errorf("injected failure after object %d: %w", count, err)
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("MOESEKAI_MIGRATE_FAIL_AFTER_OBJECTS")); raw != "" {
+		failAfter, err := strconv.Atoi(raw)
+		if err != nil || failAfter <= 0 {
+			return fmt.Errorf("MOESEKAI_MIGRATE_FAIL_AFTER_OBJECTS must be a positive integer")
+		}
+		if count == failAfter {
+			return fmt.Errorf("injected failure after object %d", count)
+		}
+	}
+	return nil
+}
+
+func verifyDBRoundTrip(s *store.Store, es *store.EventStore, payload importer.Payload) error {
+	for _, categoryName := range model.SupportedCategories {
+		got, err := s.CategoryData(categoryName)
+		if err != nil {
+			return fmt.Errorf("read back category %s: %w", categoryName, err)
+		}
+		if !reflect.DeepEqual(normalizeCategory(payload.Categories[categoryName]), normalizeCategory(got)) {
+			return fmt.Errorf("category %s did not round-trip through staging database", categoryName)
+		}
+	}
+	for _, expected := range payload.Events {
+		got, err := es.OrderedDetail(expected.EventID)
+		if err != nil {
+			return fmt.Errorf("read back event %d: %w", expected.EventID, err)
+		}
+		if diff := eventDiff(expected, got); diff != "" {
+			return fmt.Errorf("event %d did not round-trip: %s", expected.EventID, diff)
+		}
+	}
+	return nil
+}
+
+func normalizeCategory(category model.Category) model.Category {
+	out := make(model.Category, len(category))
+	for field, entries := range category {
 		if len(entries) == 0 {
-			continue // empty fields are not stored as rows
+			continue
 		}
-		ne := make(map[string]model.Entry, len(entries))
-		for k, e := range entries {
-			if e.Source == "" {
-				e.Source = model.SourceUnknown
+		normalized := make(map[string]model.Entry, len(entries))
+		for key, entry := range entries {
+			if entry.Source == "" {
+				entry.Source = model.SourceUnknown
 			}
-			if len(e.Ids) == 0 {
-				e.Ids = nil
+			if len(entry.Ids) == 0 {
+				entry.Ids = nil
 			}
-			ne[k] = e
+			normalized[key] = entry
 		}
-		out[field] = ne
+		out[field] = normalized
 	}
 	return out
 }
 
-func reportCatDiff(cat string, a, b model.Category) {
-	shown := 0
-	for field, entries := range a {
-		for k, e := range entries {
-			be, ok := b[field][k]
-			if !ok {
-				fmt.Printf("    missing in DB: %s/%s %q\n", cat, field, trunc(k))
-				shown++
-			} else if !reflect.DeepEqual(e, be) {
-				fmt.Printf("    differs: %s/%s %q  loaded=%+v db=%+v\n", cat, field, trunc(k), e, be)
-				shown++
-			}
-			if shown >= 5 {
-				return
-			}
-		}
+func eventDiff(expected store.LegacyEventRestore, got store.OrderedDetail) string {
+	if !reflect.DeepEqual(expected.Meta, got.Meta) {
+		return fmt.Sprintf("metadata mismatch: expected=%+v got=%+v", expected.Meta, got.Meta)
 	}
-}
-
-// eventDiff returns "" if the loaded story matches the DB read-back exactly,
-// preserving episode order, line order, text, and speaker names.
-func eventDiff(loaded *legacy.EventStory, od store.OrderedDetail) string {
-	if len(loaded.EpisodeKeys) != len(od.Episodes) {
-		return fmt.Sprintf("episode count %d != %d", len(loaded.EpisodeKeys), len(od.Episodes))
+	if len(expected.Episodes) != len(got.Episodes) {
+		return fmt.Sprintf("episode count %d != %d", len(expected.Episodes), len(got.Episodes))
 	}
-	for i, no := range loaded.EpisodeKeys {
-		dbEp := od.Episodes[i]
-		if dbEp.EpisodeNo != no {
-			return fmt.Sprintf("episode order at %d: %q != %q", i, no, dbEp.EpisodeNo)
+	for index, episode := range expected.Episodes {
+		actual := got.Episodes[index]
+		if episode.EpisodeNo != actual.EpisodeNo || episode.ScenarioID != actual.ScenarioID ||
+			episode.Title != actual.Title || episode.TitleSource != actual.TitleSource {
+			return fmt.Sprintf("episode %d identity/metadata mismatch", index)
 		}
-		le := loaded.Episodes[no]
-		if le.Title != dbEp.Title {
-			return fmt.Sprintf("ep %s title mismatch", no)
+		if !reflect.DeepEqual(episode.TalkKeys, actual.TalkKeys) {
+			return fmt.Sprintf("episode %s talk order mismatch", episode.EpisodeNo)
 		}
-		if len(le.TalkKeys) != len(dbEp.TalkKeys) {
-			return fmt.Sprintf("ep %s line count %d != %d", no, len(le.TalkKeys), len(dbEp.TalkKeys))
+		if !reflect.DeepEqual(episode.TalkData, actual.TalkData) {
+			return fmt.Sprintf("episode %s talk text mismatch", episode.EpisodeNo)
 		}
-		for j, jp := range le.TalkKeys {
-			if dbEp.TalkKeys[j] != jp {
-				return fmt.Sprintf("ep %s line order at %d", no, j)
+		expectedSources := make(map[string]string, len(episode.TalkKeys))
+		for _, key := range episode.TalkKeys {
+			expectedSources[key] = expected.Meta.Source
+			if episode.TalkSources[key] != "" {
+				expectedSources[key] = episode.TalkSources[key]
 			}
-			if le.TalkData[jp] != dbEp.TalkData[jp] {
-				return fmt.Sprintf("ep %s line %d text mismatch", no, j)
-			}
+		}
+		if !reflect.DeepEqual(normalizeStringMap(expectedSources), normalizeStringMap(actual.TalkSources)) {
+			return fmt.Sprintf("episode %s talk source mismatch", episode.EpisodeNo)
+		}
+		if !reflect.DeepEqual(normalizeStringMap(episode.SpeakerNames), normalizeStringMap(actual.SpeakerNames)) {
+			return fmt.Sprintf("episode %s speaker mismatch", episode.EpisodeNo)
 		}
 	}
 	return ""
 }
 
-// reportFlatCompat is the WARN check: how close regenerated flat JSON is to the
-// legacy flat X.json files (the consumer-site contract). Informational only —
-// the legacy flat and full files are themselves inconsistent in places.
-func reportFlatCompat(src string, s *store.Store) {
-	for _, cat := range model.SupportedCategories {
-		raw, err := os.ReadFile(filepath.Join(src, cat+".json"))
-		if err != nil {
-			continue
-		}
-		var legacyFlat map[string]map[string]string
-		if err := json.Unmarshal(raw, &legacyFlat); err != nil {
-			continue
-		}
-		dbData, err := s.CategoryData(cat)
-		if err != nil {
-			continue
-		}
-		diffs, missing := 0, 0
-		for field, entries := range legacyFlat {
-			for k, text := range entries {
-				dbEntry, ok := dbData[field][k]
-				if !ok {
-					missing++
-				} else if dbEntry.Text != text {
-					diffs++
-				}
-			}
-		}
-		if diffs > 0 || missing > 0 {
-			fmt.Printf("[compat] %s: %d text diffs, %d keys only-in-flat vs DB "+
-				"(legacy flat/full inconsistency, non-fatal)\n", cat, diffs, missing)
-		}
+func normalizeStringMap(value map[string]string) map[string]string {
+	if len(value) == 0 {
+		return nil
+	}
+	return value
+}
+
+func removeSQLiteFiles(path string) {
+	_ = os.Remove(path)
+	_ = os.Remove(path + "-wal")
+	_ = os.Remove(path + "-shm")
+	backups, _ := filepath.Glob(path + ".pre-migration-v*.bak")
+	for _, backup := range backups {
+		_ = os.Remove(backup)
 	}
 }
 
-func trunc(s string) string {
-	r := []rune(s)
-	if len(r) > 30 {
-		return string(r[:30]) + "…"
+func fsyncFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
 	}
-	return s
+	syncErr := file.Sync()
+	return errors.Join(syncErr, file.Close())
+}
+
+func fsyncDir(path string) error {
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	syncErr := directory.Sync()
+	return errors.Join(syncErr, directory.Close())
 }

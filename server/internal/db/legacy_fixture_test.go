@@ -58,7 +58,7 @@ func TestLegacyV2SQLiteFixture(t *testing.T) {
 	if strings.Join(columns, ",") != wantColumns {
 		t.Fatalf("legacy entries columns = %v", columns)
 	}
-	for _, present := range []string{"schema_migrations", "entry_localizations", "event_story_segments", "song_lyrics"} {
+	for _, present := range []string{"schema_migrations", "entry_localizations", "event_story_segments", "event_story_scenarios", "song_lyrics"} {
 		var count int
 		if err := database.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, present).Scan(&count); err != nil {
 			t.Fatal(err)

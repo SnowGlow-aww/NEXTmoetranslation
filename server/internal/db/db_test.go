@@ -3,10 +3,61 @@ package db
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestOpenRunsIntegrityCheckBeforeReturning(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "corrupt.db")
+	if err := os.WriteFile(path, []byte("not a sqlite database"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(path); err == nil {
+		t.Fatal("Open accepted a corrupt SQLite database")
+	}
+}
+
+func TestOpenSecuresDatabaseAndParentDirectory(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "private-data")
+	path := filepath.Join(root, "production.db")
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	assertMode := func(target string, want os.FileMode) {
+		t.Helper()
+		info, err := os.Stat(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Fatalf("%s mode=%#o want %#o", target, got, want)
+		}
+	}
+	assertMode(root, 0o700)
+	assertMode(path, 0o600)
+
+	if err := os.Chmod(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reopened.Close(); err != nil {
+		t.Fatal(err)
+	}
+	assertMode(root, 0o700)
+	assertMode(path, 0o600)
+}
 
 // TestReadsNotBlockedByLongWrite is the regression guard for the production
 // incident where SetMaxOpenConns(1) serialized every query behind the daily

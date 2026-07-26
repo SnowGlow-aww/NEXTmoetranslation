@@ -67,6 +67,48 @@ func (s *Server) handleEventStory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, detail)
 }
 
+func (s *Server) handleEventEpisodeSnapshot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	eventID, ok := parseEventID(w, r.URL.Query().Get("eventId"))
+	if !ok {
+		return
+	}
+	episodeNo := strings.TrimSpace(r.URL.Query().Get("episodeNo"))
+	if episodeNo == "" {
+		writeContractError(w, http.StatusBadRequest, "invalid_query", []string{"episodeNo required"}, nil)
+		return
+	}
+	locale, explicit, localeOK := requestLocale(w, r, "")
+	if !localeOK {
+		return
+	}
+	if !explicit {
+		writeContractError(w, http.StatusBadRequest, "locale_required", []string{"explicit locale required"}, nil)
+		return
+	}
+	snapshot, err := s.eventStore.EpisodeSnapshot(eventID, episodeNo, locale)
+	if err == sql.ErrNoRows {
+		writeContractError(w, http.StatusNotFound, "not_found", nil, nil)
+		return
+	}
+	if errors.Is(err, store.ErrEventScenarioConflict) {
+		writeContractError(w, http.StatusConflict, "scenario_conflict", nil, nil)
+		return
+	}
+	if errors.Is(err, store.ErrEventScenarioInvalid) {
+		writeContractError(w, http.StatusInternalServerError, "scenario_invalid", nil, nil)
+		return
+	}
+	if err != nil {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
+}
+
 // handleUpdateEventStory updates one talk line or episode title.
 //
 // PUT /api/event-story/update {eventId, episodeNo, jpKey, cnText, source, entryType}
@@ -85,6 +127,7 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		Locale     string  `json:"locale"`
 		SegmentID  string  `json:"segmentId"`
 		SourceHash *string `json:"sourceHash"`
+		Revision   *int    `json:"revision"`
 		ClientID   string  `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
@@ -100,6 +143,10 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 	}
 	if req.Source == "" {
 		req.Source = "human"
+	}
+	if !model.IsValidSource(req.Source) {
+		writeErr(w, http.StatusBadRequest, "invalid translation source")
+		return
 	}
 	locale, explicit, ok := requestLocale(w, r, req.Locale)
 	if !ok {
@@ -127,7 +174,7 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		if req.SourceHash != nil {
 			sourceHash = *req.SourceHash
 		}
-		err = s.eventStore.UpdateLineLocale(req.EventID, req.EpisodeNo, req.JpKey, req.SegmentID, sourceHash, req.CnText, req.Source, req.EntryType, locale, currentUser(r))
+		err = s.eventStore.UpdateLineLocaleRevision(req.EventID, req.EpisodeNo, req.JpKey, req.SegmentID, sourceHash, req.CnText, req.Source, req.EntryType, locale, currentUser(r), req.Revision)
 	} else {
 		err = s.eventStore.UpdateLine(req.EventID, req.EpisodeNo, req.JpKey, req.CnText, req.Source, req.EntryType)
 	}
@@ -137,6 +184,10 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 	}
 	if errors.Is(err, store.ErrEventSourceConflict) {
 		writeContractError(w, http.StatusConflict, "source_conflict", []string{"event source identity changed; reload before saving"}, nil)
+		return
+	}
+	if errors.Is(err, store.ErrEventRevisionConflict) {
+		writeContractError(w, http.StatusConflict, "revision_conflict", []string{"event translation changed; reload before saving"}, nil)
 		return
 	}
 	if err != nil {
@@ -160,11 +211,18 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 	if req.SegmentID != "" {
 		payload["segmentId"] = req.SegmentID
 	}
+	if req.Revision != nil {
+		payload["revision"] = *req.Revision + 1
+	}
 	event := sse.EventStoryUpdated
 	if explicit && locale != model.LocaleChinese {
 		event = sse.EventStoryLocaleUpdated
 	}
 	s.broadcast(event, payload)
+	if explicit && req.Revision != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "revision": *req.Revision + 1})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

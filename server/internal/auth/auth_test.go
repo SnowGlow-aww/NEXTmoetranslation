@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -44,6 +47,15 @@ func openTestAuth(t *testing.T) *Auth {
 	return New(database, "jwt-secret-at-least-32-bytes-long", time.Hour)
 }
 
+func TestValidateJWTSecretRejectsPublishedTemplate(t *testing.T) {
+	if err := ValidateJWTSecret("replace-with-at-least-32-random-bytes"); err != ErrWeakJWTSecret {
+		t.Fatalf("template JWT secret error = %v", err)
+	}
+	if err := ValidateJWTSecret("jwt-secret-at-least-32-bytes-long"); err != nil {
+		t.Fatalf("ordinary test JWT secret rejected: %v", err)
+	}
+}
+
 func TestCreateAndAuthenticate(t *testing.T) {
 	a := openTestAuth(t)
 	if _, err := a.CreateUser("alice", "strong-password-123", RoleAdmin); err != nil {
@@ -58,6 +70,41 @@ func TestCreateAndAuthenticate(t *testing.T) {
 	}
 	if _, err := a.Authenticate("alice", "wrong"); err != ErrInvalidCreds {
 		t.Errorf("expected ErrInvalidCreds, got %v", err)
+	}
+}
+
+func TestUnknownRolesAreRejectedAtEveryAuthenticationBoundary(t *testing.T) {
+	a := openTestAuth(t)
+	if _, err := a.CreateUser("viewer", "strong-password-123", "viewer"); err != ErrInvalidRole {
+		t.Fatalf("create viewer error = %v", err)
+	}
+	user, err := a.CreateUser("injected", "strong-password-123", RoleEditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.db.Exec(`UPDATE users SET role='viewer' WHERE username=?`, user.Username); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Authenticate(user.Username, "strong-password-123"); err != ErrInvalidCreds {
+		t.Fatalf("viewer login error = %v", err)
+	}
+	if _, err := a.GetUser(user.Username); !errors.Is(err, ErrInvalidRole) {
+		t.Fatalf("get viewer error = %v", err)
+	}
+	if err := a.ValidatePersistedRoles(); !errors.Is(err, ErrInvalidRole) {
+		t.Fatalf("persisted viewer validation error = %v", err)
+	}
+	if _, _, err := a.IssueToken(&User{Username: user.Username, Role: "viewer", TokenVersion: 1}); err != ErrInvalidRole {
+		t.Fatalf("issue viewer token error = %v", err)
+	}
+	claims := Claims{Username: user.Username, Role: "viewer", TokenVersion: 1,
+		RegisteredClaims: jwt.RegisteredClaims{Subject: user.Username, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(a.jwtSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.VerifyToken(token); err != ErrInvalidCreds {
+		t.Fatalf("verify viewer token error = %v", err)
 	}
 }
 
@@ -85,6 +132,40 @@ func TestJWTRoundTrip(t *testing.T) {
 	}
 	if _, err := a.VerifyToken("garbage.token.here"); err == nil {
 		t.Error("expected error for garbage token")
+	}
+}
+
+func TestRequireAuthAcceptsOnlyBearerHeader(t *testing.T) {
+	a := openTestAuth(t)
+	user, err := a.CreateUser("bearer", "strong-password-123", RoleEditor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := a.IssueToken(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := a.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := FromContext(r.Context())
+		if !ok || claims.Username != user.Username {
+			t.Fatalf("claims = %+v, ok = %v", claims, ok)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	queryOnly := httptest.NewRequest(http.MethodGet, "/sse?token="+token, nil)
+	queryResponse := httptest.NewRecorder()
+	handler(queryResponse, queryOnly)
+	if queryResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("query token status = %d", queryResponse.Code)
+	}
+
+	bearer := httptest.NewRequest(http.MethodGet, "/sse", nil)
+	bearer.Header.Set("Authorization", "Bearer "+token)
+	bearerResponse := httptest.NewRecorder()
+	handler(bearerResponse, bearer)
+	if bearerResponse.Code != http.StatusNoContent {
+		t.Fatalf("bearer status = %d", bearerResponse.Code)
 	}
 }
 

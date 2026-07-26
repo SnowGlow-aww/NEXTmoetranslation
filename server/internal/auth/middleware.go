@@ -16,23 +16,22 @@ func FromContext(ctx context.Context) (*Claims, bool) {
 	return c, ok
 }
 
-// bearerToken extracts a token from the Authorization header, or—for SSE, where
-// EventSource cannot set headers—from the "token" query parameter.
-func bearerToken(r *http.Request) string {
-	if h := r.Header.Get("Authorization"); h != "" {
-		return strings.TrimPrefix(h, "Bearer ")
+// BearerTokenFromRequest extracts a token from the Authorization header. Query
+// parameters are deliberately excluded so credentials in URLs cannot
+// authenticate APIs.
+func BearerTokenFromRequest(r *http.Request) string {
+	scheme, token, ok := strings.Cut(strings.TrimSpace(r.Header.Get("Authorization")), " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" || strings.ContainsAny(token, " \t") {
+		return ""
 	}
-	return r.URL.Query().Get("token")
+	return token
 }
-
-// TokenFromRequest returns the bearer/query token used by auth middleware.
-func TokenFromRequest(r *http.Request) string { return bearerToken(r) }
 
 // RequireAuth wraps a handler, rejecting requests without a valid JWT and
 // attaching the claims to the request context.
 func (a *Auth) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		claims, err := a.VerifyToken(bearerToken(r))
+		claims, err := a.VerifyToken(BearerTokenFromRequest(r))
 		if err != nil {
 			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 			return
@@ -56,6 +55,7 @@ func (a *Auth) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	// msg is a fixed internal string, safe to inline.
 	w.Write([]byte(`{"error":"` + msg + `"}`))

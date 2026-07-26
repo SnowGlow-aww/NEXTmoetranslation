@@ -7,9 +7,11 @@ import { AdminModal } from "@/components/AdminModal";
 import { LyricsEditor, LyricsEditorHandle } from "@/components/LyricsEditor";
 import { Modal } from "@/components/Modal";
 import {
-  CategoryInfo, EventStorySummary, Locale, TranslationEntry,
-  clearSession, getCategories, getEntries, getEventStories, getEventStory,
+  CategoryInfo, EditorGateStatus, EventStorySummary, Locale, TranslationEntry,
+  acceptLoadedProducerState, clearLoadedProducerState, clearSession,
+  getCategories, getEditorGateStatus, getEntries, getEventStories, getEventStory,
   getClientID, getRole, getUsername, triggerAIStory,
+  subscribeProducerProofInvalidated,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
 } from "@/lib/api";
 import {
@@ -20,6 +22,11 @@ import {
 import { useSSE } from "@/lib/sse";
 
 interface Progress { label: string; current: number; total: number }
+interface ContentConflict {
+  reason: "restore" | "gap";
+  draft: string | null;
+  reloadFailed: boolean;
+}
 
 // localStorage-backed boolean preference. Falls back gracefully on SSR.
 function usePref(key: string, fallback: boolean): [boolean, (v: boolean) => void] {
@@ -99,6 +106,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const loadGenerationRef = useRef(0);
   const contextGenerationRef = useRef(0);
   const [restoreGeneration, setRestoreGeneration] = useState(0);
+  const [writesLocked, setWritesLocked] = useState(true);
+  const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
+  const writeFenceRef = useRef(true);
+  const reconciliationGenerationRef = useRef(0);
+  const contentEventGenerationRef = useRef(0);
+  const preservedConflictDraftRef = useRef<string | null>(null);
+  const reconcileContentRef = useRef<(reason: "restore" | "gap", draft?: string | null) => Promise<void>>(async () => {});
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -117,57 +131,61 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const isReadOnly = locale === "ja-JP";
 
   // ---- Load categories + event stories ----
-  const reloadSidebar = useCallback(() => {
-    getCategories(locale).then(setCategories).catch((e) => show(e.message, "err"));
-    getEventStories(locale).then(setEventStories).catch(() => setEventStories([]));
+  const reloadSidebar = useCallback(async (): Promise<boolean> => {
+    let loaded = true;
+    await Promise.all([
+      getCategories(locale).then(setCategories).catch((e) => { loaded = false; show(e.message, "err"); }),
+      getEventStories(locale).then(setEventStories).catch(() => { loaded = false; setEventStories([]); }),
+    ]);
+    return loaded;
   }, [locale, show]);
 
-  useEffect(() => { reloadSidebar(); }, [reloadSidebar]);
+  useEffect(() => { void reloadSidebar(); }, [reloadSidebar]);
 
   // ---- Load entries on selection change ----
-  const loadEntries = useCallback(() => {
+  const loadEntries = useCallback(async (): Promise<boolean> => {
     const generation = ++loadGenerationRef.current;
     if (!category || !field) {
       setEntries([]);
       setSelectedKey(null);
       setEditValue("");
-      return;
+      return true;
     }
     setEntries([]);
     setSelectedKey(null);
     setEditValue("");
     if (isLyrics) {
       setLoading(false);
-      return;
+      return true;
     }
     setLoading(true);
-    if (isEventStory) {
-      getEventStory(Number(field), locale)
-        .then((detail) => {
-          if (loadGenerationRef.current !== generation) return;
-          const list = buildEventStoryEntries(detail);
-          setEntries(list);
-          if (list.length) { setSelectedKey(list[0].key); setEditValue(list[0].text); }
-        })
-        .catch((e) => { if (loadGenerationRef.current === generation) show(e.message, "err"); })
-        .finally(() => { if (loadGenerationRef.current === generation) setLoading(false); });
-      return;
+    try {
+      if (isEventStory) {
+        const detail = await getEventStory(Number(field), locale);
+        if (loadGenerationRef.current !== generation) return true;
+        const list = buildEventStoryEntries(detail);
+        setEntries(list);
+        if (list.length) { setSelectedKey(list[0].key); setEditValue(list[0].text); }
+        return true;
+      }
+      const data = await getEntries(category, field, undefined, locale);
+      if (loadGenerationRef.current !== generation) return true;
+      data.sort((a, b) => {
+        const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
+        return d !== 0 ? d : a.key.localeCompare(b.key, undefined, { numeric: true });
+      });
+      setEntries(data);
+      if (data.length) { setSelectedKey(data[0].key); setEditValue(data[0].text); }
+      return true;
+    } catch (e) {
+      if (loadGenerationRef.current === generation) show(e instanceof Error ? e.message : "加载失败", "err");
+      return false;
+    } finally {
+      if (loadGenerationRef.current === generation) setLoading(false);
     }
-    getEntries(category, field, undefined, locale)
-      .then((data) => {
-        if (loadGenerationRef.current !== generation) return;
-        data.sort((a, b) => {
-          const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
-          return d !== 0 ? d : a.key.localeCompare(b.key, undefined, { numeric: true });
-        });
-        setEntries(data);
-        if (data.length) { setSelectedKey(data[0].key); setEditValue(data[0].text); }
-      })
-      .catch((e) => { if (loadGenerationRef.current === generation) show(e.message, "err"); })
-      .finally(() => { if (loadGenerationRef.current === generation) setLoading(false); });
   }, [category, field, isEventStory, isLyrics, locale, show]);
 
-  useEffect(() => { loadEntries(); }, [loadEntries]);
+  useEffect(() => { void loadEntries(); }, [loadEntries]);
 
   // ---- Derived ----
   const filtered = useMemo(() => {
@@ -198,7 +216,130 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  const setWriteFence = (locked: boolean) => {
+    writeFenceRef.current = locked;
+    setWritesLocked(locked);
+  };
+
+  const captureUnsavedDraft = (): string | null => {
+    if (!hasUnsavedChanges) return null;
+    const payload = isLyrics
+      ? { kind: "lyrics", document: lyricsEditorRef.current?.exportDraft() ?? null }
+      : {
+          kind: "translation", category, field, locale, key: selectedKey,
+          staleText: editValue, previouslyLoadedText: selectedEntry?.text ?? "",
+        };
+    return JSON.stringify({ exportedAt: new Date().toISOString(), ...payload }, null, 2);
+  };
+
+  const reconcileContent = async (reason: "restore" | "gap", preservedDraft?: string | null) => {
+    const reconciliation = ++reconciliationGenerationRef.current;
+    const contentEventGeneration = contentEventGenerationRef.current;
+    setWriteFence(true);
+    clearLoadedProducerState();
+    pendingActionRef.current = null;
+    setPendingActionLabel("");
+    const draft = preservedDraft === undefined
+      ? (contentConflict?.draft ?? preservedConflictDraftRef.current ?? captureUnsavedDraft())
+      : preservedDraft;
+    if (draft) preservedConflictDraftRef.current = draft;
+    contextGenerationRef.current++;
+    let producerBefore: EditorGateStatus;
+    try {
+      producerBefore = await getEditorGateStatus();
+    } catch {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("无法读取内容代次，写入仍已锁定", "err");
+      return;
+    }
+    if (producerBefore.running) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("服务器内容任务仍在运行，写入仍已锁定", "err");
+      return;
+    }
+    const lyricsReload = isLyrics
+      ? lyricsEditorRef.current?.reloadAuthoritative() ?? Promise.resolve(false)
+      : Promise.resolve(true);
+    const [sidebarLoaded, entriesLoaded, lyricsLoaded] = await Promise.all([
+      reloadSidebar(), loadEntries(), lyricsReload,
+    ]);
+    if (reconciliationGenerationRef.current !== reconciliation) return;
+    if (contentEventGenerationRef.current !== contentEventGeneration) {
+      void reconcileContent(reason, draft);
+      return;
+    }
+    if (!sidebarLoaded || !entriesLoaded || !lyricsLoaded) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("无法完成权威数据校对，写入仍已锁定", "err");
+      return;
+    }
+    let producerAfter: EditorGateStatus;
+    try {
+      producerAfter = await getEditorGateStatus();
+    } catch {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("无法确认内容代次，写入仍已锁定", "err");
+      return;
+    }
+    if (reconciliationGenerationRef.current !== reconciliation) return;
+    if (contentEventGenerationRef.current !== contentEventGeneration) {
+      void reconcileContent(reason, draft);
+      return;
+    }
+    if (producerAfter.running) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("校对期间服务器内容任务已启动，写入仍已锁定", "err");
+      return;
+    }
+    if (producerBefore.instanceId !== producerAfter.instanceId ||
+        producerBefore.revision !== producerAfter.revision ||
+        producerBefore.completedGeneration !== producerAfter.completedGeneration) {
+      void reconcileContent(reason, draft);
+      return;
+    }
+    if (!acceptLoadedProducerState(producerAfter)) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("内容代次无效，写入仍已锁定", "err");
+      return;
+    }
+    if (draft) {
+      setContentConflict({ reason, draft, reloadFailed: false });
+      return;
+    }
+    preservedConflictDraftRef.current = null;
+    setContentConflict(null);
+    setWriteFence(false);
+  };
+  reconcileContentRef.current = reconcileContent;
+
+  useEffect(() => subscribeProducerProofInvalidated(() => {
+    reconciliationGenerationRef.current++;
+    setWriteFence(true);
+    void reconcileContentRef.current("gap");
+  }), []);
+
+  const resolveContentConflict = () => {
+    preservedConflictDraftRef.current = null;
+    setContentConflict(null);
+    setWriteFence(false);
+  };
+
+  const exportConflictDraft = (conflict: ContentConflict) => {
+    if (!conflict.draft) return;
+    const blob = new Blob([conflict.draft], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `moesekai-stale-draft-${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const runOrGuard = (label: string, action: () => void) => {
+    if (writeFenceRef.current) {
+      show("实时连接校对完成前禁止写入", "err");
+      return;
+    }
     if (!hasUnsavedChanges) {
       action();
       return;
@@ -207,10 +348,31 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     setPendingActionLabel(label);
   };
 
+  const guardProducerMutation = (label: string, action: () => Promise<void>) => {
+    runOrGuard(label, () => {
+      setWriteFence(true);
+      clearLoadedProducerState();
+      void Promise.resolve().then(action).finally(() => reconcileContentRef.current("gap"));
+    });
+  };
+
   // ---- SSE realtime ----
   useSSE((event, data) => {
     const d = data as Record<string, unknown>;
-    if (event === "sync.progress" || event === "translate.progress") {
+    if (event === "entry.updated" || event === "entry.locale.updated" ||
+        event === "eventstory.updated" || event === "eventstory.locale.updated" ||
+        event === "lyrics.updated" || event === "content.restored") {
+      contentEventGenerationRef.current++;
+    }
+    if (event === "sse.disconnected") {
+      reconciliationGenerationRef.current++;
+      clearLoadedProducerState();
+      setWriteFence(true);
+    } else if (event === "sse.reconnected") {
+      show("实时连接已恢复，正在校对服务器数据", "ok");
+    } else if (event === "sse.missed-events") {
+      void reconcileContent("gap");
+    } else if (event === "sync.progress" || event === "translate.progress") {
       setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
       if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
     } else if (event === "entry.updated" || event === "entry.locale.updated") {
@@ -226,13 +388,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.clientId !== clientID) {
         runOrGuard("同步协作者更新", loadEntries);
       }
+    } else if (event === "lyrics.updated") {
+      const musicID = Number(d.musicId);
+      if (isLyrics && d.clientId !== clientID) {
+        if (lyricsEditorRef.current?.isEditing(musicID)) {
+          runOrGuard("同步协作者更新", () => setRestoreGeneration((value) => value + 1));
+        } else {
+          lyricsEditorRef.current?.reloadCatalog();
+        }
+      }
     } else if (event === "content.restored") {
-      runOrGuard("载入恢复后的数据", () => {
-        contextGenerationRef.current++;
-        reloadSidebar();
-        loadEntries();
-        setRestoreGeneration((value) => value + 1);
-      });
+      void reconcileContent("restore");
     }
   }, true);
 
@@ -299,7 +465,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   };
 
   const save = useCallback(async (overrideSource?: string, advance = true) => {
-    if (savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
+    if (writeFenceRef.current || savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
     savingRef.current = true;
     const src = overrideSource || "human";
     const generation = contextGenerationRef.current;
@@ -354,6 +520,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   };
 
   const continuePendingAction = async (saveFirst: boolean) => {
+    if (writeFenceRef.current) return;
     const action = pendingActionRef.current;
     if (!action) return;
     if (saveFirst) {
@@ -381,7 +548,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     else if ((e.ctrlKey || e.metaKey) && e.key === "ArrowDown") { e.preventDefault(); navigate(1); }
   };
 
-  const withBusy = async (fn: () => Promise<void>) => {
+  const withBusy = async (fn: () => Promise<void>, producerOwnsFence = false) => {
+    if (writeFenceRef.current && !producerOwnsFence) { show("实时连接校对完成前禁止写入", "err"); return; }
     if (busy) { show("已有任务在运行", "err"); return; }
     setBusy(true);
     try { await fn(); } finally { setBusy(false); }
@@ -396,7 +564,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- Change source for a single entry ----
   const handleSourceChange = useCallback(async (key: string, newSource: string) => {
-    if (!category || !field) return;
+    if (writeFenceRef.current || !category || !field) return;
     const entry = entries.find((e) => e.key === key);
     if (!entry) return;
     const generation = contextGenerationRef.current;
@@ -433,7 +601,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } catch (e) {
       if (contextIsCurrent(captured)) show(e instanceof Error ? e.message : "AI 翻译失败", "err");
     }
-  });
+  }, true);
 
   const promoteStory = () => withBusy(async () => {
     const captured = captureContext();
@@ -457,7 +625,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } catch (reason) {
       if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "重新获取失败", "err");
     }
-  });
+  }, true);
 
   const reorderStory = () => withBusy(async () => {
     const captured = captureContext();
@@ -468,7 +636,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } catch (reason) {
       if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "重排序失败", "err");
     }
-  });
+  }, true);
 
   const currentField = categories.find((c) => c.name === category)?.fields?.find((f) => f.name === field);
   const currentStory = isEventStory ? eventStories.find((s) => String(s.eventId) === field) : undefined;
@@ -496,17 +664,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             <div className="sidebar-icon-row">
               <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="用户设置" title="用户设置"><IconSettings /></button>
               {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} aria-label="管理设置" title="管理设置"><IconShield /></button>}
-              <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => { clearSession(); onLogout(); })} aria-label="退出登录" title="退出登录"><IconLogout /></button>
+              <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => {
+                void clearSession().then((cleared) => { if (cleared) onLogout(); }).catch((error) => show(error.message, "err"));
+              })} aria-label="退出登录" title="退出登录"><IconLogout /></button>
               <button className="icon-btn" onClick={() => setSidebarOpen(false)} aria-label="收起侧边栏" title="收起侧边栏"><IconChevronLeft /></button>
             </div>
           </div>
           <label className="locale-selector">
-            <span>编辑语言</span>
-            <select value={locale} onChange={(event) => requestLocaleChange(event.target.value as Locale)}>
+            <span>{isLyrics ? "其他内容编辑语言" : "编辑语言"}</span>
+            <select value={locale} onChange={(event) => requestLocaleChange(event.target.value as Locale)} disabled={isLyrics} aria-describedby={isLyrics ? "lyrics-locale-note" : undefined}>
               <option value="zh-CN">简体中文</option>
-              <option value="en-US">English</option>
-              <option value="ja-JP">日本語（只读）</option>
+              <option value="en-US">英文</option>
+              <option value="ja-JP">日文（只读）</option>
             </select>
+            {isLyrics && <span id="lyrics-locale-note" className="locale-note">歌词页同时编辑日文、简中和英文</span>}
           </label>
         </div>
 
@@ -564,6 +735,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       </aside>
 
       <main className="main">
+        {writesLocked && (
+          <div className="connection-fence" role="status" aria-live="assertive">
+            实时事件可能有缺口，正在载入服务器权威数据。校对完成前所有内容写入均已锁定。
+          </div>
+        )}
         {progress && (
           <div className="progress-line" role="status" aria-live="polite">
             <span>{progress.label}</span>
@@ -574,7 +750,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         )}
 
         {isLyrics ? (
-          <LyricsEditor ref={lyricsEditorRef} role={role} reloadGeneration={restoreGeneration} onDirtyChange={setLyricsDirty} />
+          <LyricsEditor ref={lyricsEditorRef} role={role} reloadGeneration={restoreGeneration} writeLocked={writesLocked} onDirtyChange={setLyricsDirty} />
         ) : !category || !field ? (
           <div className="center-state">
             <p>从左侧选择一个翻译类别</p>
@@ -598,10 +774,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     : <><span className="story-dot done" /> 已全部翻译</>}
                 </span>
                 {role === "admin" && <div className="story-toolbar-actions">
-                  <button className="btn btn-primary btn-sm" onClick={() => runOrGuard("运行 AI 剧情翻译", () => void doAIStory())} disabled={busy}>AI 补充剧情翻译</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
                   <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重新获取剧情", () => void retryStory())} disabled={busy}>重新获取剧情</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("重排序对话", () => void reorderStory())} disabled={busy}>重排序对话</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
                 </div>}
               </div>
             )}
@@ -640,12 +816,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       onKeyDown={onTextareaKey}
                       placeholder="输入翻译…"
                       rows={3}
-                      readOnly={isReadOnly}
+                      readOnly={isReadOnly || writesLocked}
                       aria-label="翻译校对内容"
                     />
                     <div className="proof-actions">
-                      <button className="btn btn-primary" onClick={() => save()} disabled={isReadOnly}>保存并下一条</button>
-                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")} disabled={isReadOnly}>锁定保存</button>}
+                      <button className="btn btn-primary" onClick={() => save()} disabled={isReadOnly || writesLocked}>保存并下一条</button>
+                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")} disabled={isReadOnly || writesLocked}>锁定保存</button>}
                       <button className="btn btn-ghost btn-sm" onClick={() => setEnterSaves(!enterSaves)} title="切换保存快捷键">
                         快捷键: {saveKeyLabel}
                       </button>
@@ -686,7 +862,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                             value={entry.source}
                             onChange={(e) => handleSourceChange(entry.key, e.target.value)}
                             className={`source-tag ${entry.source}`}
-                            disabled={isReadOnly}
+                            disabled={isReadOnly || writesLocked}
                             aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
                           >
                             {Object.entries(SOURCE_LABELS).map(([k, v]) => (
@@ -712,8 +888,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       </main>
 
       {/* Settings & Admin modals */}
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
-      {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} />}
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} guardProducerMutation={guardProducerMutation} />
+      {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} guardProducerMutation={guardProducerMutation} />}
       <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460}>
         <p className="dirty-guard-copy">当前内容有未保存修改。继续前请选择如何处理。</p>
         <div className="dirty-guard-actions">
@@ -721,6 +897,26 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)}>放弃修改</button>
           <button className="btn btn-ghost" onClick={closePendingAction}>取消</button>
         </div>
+      </Modal>
+      <Modal open={contentConflict != null} onClose={() => {}} title={contentConflict?.reason === "restore" ? "恢复数据与本地草稿冲突" : "实时事件缺口校对"} maxWidth={560} dismissible={false}>
+        {contentConflict && <>
+          <p className="dirty-guard-copy">
+            {contentConflict.reloadFailed
+              ? "服务器权威数据尚未完整载入。写入保持锁定，请重试；本地草稿不会由此流程写回服务器。"
+              : contentConflict.draft
+                ? "服务器权威数据已重新载入。旧缓冲区仅可导出后手动合并，不能直接保存或覆盖恢复后的数据。"
+                : "服务器权威数据已重新载入，可以继续。"}
+          </p>
+          <div className="dirty-guard-actions">
+            {contentConflict.draft && <button className="btn btn-secondary" onClick={() => exportConflictDraft(contentConflict)}>仅导出旧草稿</button>}
+            {contentConflict.reloadFailed ? (
+              <button className="btn btn-primary" onClick={() => void reconcileContent(contentConflict.reason, contentConflict.draft)}>重试权威载入</button>
+            ) : <>
+              {contentConflict.draft && <button className="btn btn-primary" onClick={() => { exportConflictDraft(contentConflict); resolveContentConflict(); }}>导出后手动合并</button>}
+              <button className="btn btn-ghost" onClick={resolveContentConflict}>舍弃旧缓冲区并继续</button>
+            </>}
+          </div>
+        </>}
       </Modal>
     </div>
   );

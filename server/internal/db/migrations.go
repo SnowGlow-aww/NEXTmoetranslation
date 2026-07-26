@@ -346,6 +346,61 @@ ALTER TABLE song_lyrics ADD COLUMN attribution TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1;
 DELETE FROM song_lyrics_publications;
 `,
+}, {
+	version: 8,
+	name:    "event_story_scenario_snapshots",
+	sql: `
+CREATE TABLE event_story_scenarios (
+	event_id       INTEGER NOT NULL,
+	episode_no     TEXT NOT NULL,
+	scenario_id    TEXT NOT NULL,
+	canonical_json TEXT NOT NULL,
+	sha256         TEXT NOT NULL,
+	PRIMARY KEY (event_id, episode_no),
+	UNIQUE (event_id, scenario_id),
+	CHECK (episode_no <> ''),
+	CHECK (scenario_id <> ''),
+	CHECK (canonical_json <> ''),
+	CHECK (length(sha256) = 64)
+);
+CREATE INDEX idx_event_story_scenarios_identity ON event_story_scenarios(event_id, scenario_id);
+`,
+}, {
+	version: 9,
+	name:    "retain_rolling_event_segment_recovery_rows",
+	sql: `
+CREATE TABLE event_story_segments_next (
+	segment_id  TEXT PRIMARY KEY,
+	event_id    INTEGER NOT NULL,
+	episode_no  TEXT NOT NULL,
+	scenario_id TEXT NOT NULL DEFAULT '',
+	kind        TEXT NOT NULL,
+	position    INTEGER NOT NULL,
+	jp_key      TEXT NOT NULL DEFAULT '',
+	source_text TEXT NOT NULL DEFAULT '',
+	source_hash TEXT NOT NULL DEFAULT ''
+);
+INSERT INTO event_story_segments_next SELECT * FROM event_story_segments;
+
+CREATE TABLE event_story_segment_localizations_next (
+	segment_id  TEXT NOT NULL,
+	locale      TEXT NOT NULL,
+	text        TEXT NOT NULL DEFAULT '',
+	source      TEXT NOT NULL DEFAULT 'unknown',
+	updated_at  INTEGER NOT NULL DEFAULT 0,
+	updated_by  TEXT NOT NULL DEFAULT '',
+	revision    INTEGER NOT NULL DEFAULT 1,
+	PRIMARY KEY (segment_id, locale),
+	FOREIGN KEY (segment_id) REFERENCES event_story_segments_next(segment_id) ON DELETE CASCADE
+);
+INSERT INTO event_story_segment_localizations_next SELECT * FROM event_story_segment_localizations;
+
+DROP TABLE event_story_segment_localizations;
+DROP TABLE event_story_segments;
+ALTER TABLE event_story_segments_next RENAME TO event_story_segments;
+ALTER TABLE event_story_segment_localizations_next RENAME TO event_story_segment_localizations;
+CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, episode_no, kind, jp_key);
+`,
 }}
 
 func (d *DB) pendingMigrations() ([]migration, error) {
@@ -362,6 +417,7 @@ func (d *DB) pendingMigrations() ([]migration, error) {
 	}
 	defer rows.Close()
 	applied := map[int]string{}
+	expectedVersion := 1
 	for rows.Next() {
 		var version int
 		var name, checksum string
@@ -371,11 +427,15 @@ func (d *DB) pendingMigrations() ([]migration, error) {
 		if version < 1 || version > len(migrations) {
 			return nil, fmt.Errorf("database migration version %d is newer than this binary", version)
 		}
+		if version != expectedVersion {
+			return nil, fmt.Errorf("database migration history is not a contiguous prefix: expected version %d, found %d", expectedVersion, version)
+		}
 		want := migrations[version-1]
 		if name != want.name || checksum != want.checksum() {
 			return nil, fmt.Errorf("migration %d checksum mismatch", version)
 		}
 		applied[version] = checksum
+		expectedVersion++
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -428,13 +488,6 @@ func (d *DB) createPreMigrationBackup(version int) (string, error) {
 		return "", nil
 	}
 	backupPath := fmt.Sprintf("%s.pre-migration-v%d.bak", d.path, version)
-	if _, err := os.Stat(backupPath); err == nil {
-		if err := verifySQLiteBackup(backupPath); err == nil {
-			return backupPath, nil
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
 	if err := os.MkdirAll(filepath.Dir(backupPath), 0o755); err != nil {
 		return "", err
 	}
@@ -447,6 +500,9 @@ func (d *DB) createPreMigrationBackup(version int) (string, error) {
 	}
 	defer os.Remove(tempPath)
 	if err := verifySQLiteBackup(tempPath); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(tempPath, 0o600); err != nil {
 		return "", err
 	}
 	backupFile, err := os.OpenFile(tempPath, os.O_RDWR, 0)

@@ -9,6 +9,15 @@ const (
 	SourceUnknown = "unknown"
 )
 
+func IsValidSource(source string) bool {
+	switch source {
+	case SourceCN, SourceHuman, SourcePinned, SourceLLM, SourceUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 const (
 	LocaleJapanese = "ja-JP"
 	LocaleChinese  = "zh-CN"
@@ -62,6 +71,23 @@ type EntryWithKey struct {
 	Ids    []string `json:"ids,omitempty"`
 }
 
+// CategoryLocaleSnapshot is an authenticated, point-in-time editing view of a
+// complete category. Revision is opaque to clients and must be echoed as the
+// baseRevision of a batch mutation.
+type CategoryLocaleSnapshot struct {
+	Category string                    `json:"category"`
+	Locale   string                    `json:"locale"`
+	Revision string                    `json:"revision"`
+	Fields   map[string][]EntryWithKey `json:"fields"`
+}
+
+type CategoryEntryUpdate struct {
+	Field  string `json:"field"`
+	Key    string `json:"key"`
+	Text   string `json:"text"`
+	Source string `json:"source"`
+}
+
 // FieldInfo holds per-field counts for the sidebar.
 type FieldInfo struct {
 	Name         string `json:"name"`
@@ -105,6 +131,7 @@ type EventStorySegment struct {
 	SourceHash string `json:"sourceHash"`
 	Text       string `json:"text"`
 	Source     string `json:"source"`
+	Revision   int    `json:"revision,omitempty"`
 }
 
 type EventStoryDetail struct {

@@ -6,6 +6,7 @@ package httpx
 import (
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -34,4 +35,36 @@ func NewClientWithTimeouts(timeout, dialTimeout, tlsTimeout, responseHeaderTimeo
 		Transport: transport,
 		Timeout:   timeout,
 	}
+}
+
+// NewHTTPSCredentialClient is for requests carrying API keys or signed
+// authorization. Redirects remain allowed only within the exact HTTPS origin;
+// a downgrade, userinfo, or cross-origin hop fails before credentials can be
+// forwarded.
+func NewHTTPSCredentialClient(timeout, dialTimeout, tlsTimeout, responseHeaderTimeout time.Duration) *http.Client {
+	client := NewClientWithTimeouts(timeout, dialTimeout, tlsTimeout, responseHeaderTimeout)
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 || len(via) == 0 || req.URL.User != nil {
+			return http.ErrUseLastResponse
+		}
+		original := via[0].URL
+		if req.URL.Scheme != original.Scheme || !equalHost(req.URL.Host, original.Host) ||
+			(req.URL.Scheme != "https" && !(req.URL.Scheme == "http" && isLoopbackHost(req.URL.Hostname()))) {
+			return http.ErrUseLastResponse
+		}
+		return nil
+	}
+	return client
+}
+
+func equalHost(left, right string) bool {
+	return strings.EqualFold(left, right)
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	address := net.ParseIP(host)
+	return address != nil && address.IsLoopback()
 }

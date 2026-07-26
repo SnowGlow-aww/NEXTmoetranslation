@@ -9,7 +9,10 @@ import (
 	"moesekai/server/internal/model"
 )
 
-var ErrEventSourceConflict = errors.New("event source identity conflict")
+var (
+	ErrEventSourceConflict   = errors.New("event source identity conflict")
+	ErrEventRevisionConflict = errors.New("event translation revision conflict")
+)
 
 func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryDetail, error) {
 	ordered, err := s.OrderedDetail(eventID)
@@ -25,8 +28,12 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 			TalkSources: map[string]string{}, SpeakerNames: episode.SpeakerNames,
 		}
 	}
-	rows, err := s.db.Query(`SELECT seg.segment_id, seg.episode_no, seg.kind, seg.position,
-		seg.jp_key, seg.source_text, seg.source_hash, loc.text, loc.source
+	canonicalSegmentIDs, err := currentEventCanonicalSegmentIDs(s.db, eventID)
+	if err != nil {
+		return model.EventStoryDetail{}, err
+	}
+	rows, err := s.db.Query(`SELECT seg.segment_id, seg.episode_no, seg.scenario_id, seg.kind, seg.position,
+		seg.jp_key, seg.source_text, seg.source_hash, loc.text, loc.source, COALESCE(loc.revision, 0)
 		FROM event_story_segments seg
 		LEFT JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id AND loc.locale=?
 		WHERE seg.event_id=? ORDER BY seg.episode_no, seg.position`, locale, eventID)
@@ -34,16 +41,23 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 		return model.EventStoryDetail{}, err
 	}
 	defer rows.Close()
-	seen := 0
+	seenByEpisode := map[string]int{}
 	for rows.Next() {
-		var id, episodeNo, kind, jpKey, sourceText, sourceHash string
+		var id, episodeNo, scenarioID, kind, jpKey, sourceText, sourceHash string
 		var position int
+		var revision int
 		var localizedText, localizedSource sql.NullString
-		if err := rows.Scan(&id, &episodeNo, &kind, &position, &jpKey, &sourceText, &sourceHash, &localizedText, &localizedSource); err != nil {
+		if err := rows.Scan(&id, &episodeNo, &scenarioID, &kind, &position, &jpKey, &sourceText, &sourceHash, &localizedText, &localizedSource, &revision); err != nil {
 			return model.EventStoryDetail{}, err
 		}
 		episode, ok := detail.Episodes[episodeNo]
 		if !ok {
+			continue
+		}
+		if scenarioID != baseByEpisode[episodeNo].ScenarioID {
+			continue
+		}
+		if canonicalIDs := canonicalSegmentIDs[episodeNo]; canonicalIDs != nil && !canonicalIDs[id] {
 			continue
 		}
 		text, source := "", model.SourceUnknown
@@ -61,7 +75,8 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 			}
 		}
 		segment := model.EventStorySegment{
-			ID: id, Kind: kind, Position: position, Japanese: sourceText, SourceHash: sourceHash, Text: text, Source: source,
+			ID: id, Kind: kind, Position: position, Japanese: sourceText, SourceHash: sourceHash,
+			Text: text, Source: source, Revision: revision,
 		}
 		episode.Segments = append(episode.Segments, segment)
 		if kind == "title" {
@@ -73,15 +88,16 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 			episode.TalkOrder = append(episode.TalkOrder, jpKey)
 		}
 		detail.Episodes[episodeNo] = episode
-		seen++
+		seenByEpisode[episodeNo]++
 	}
 	if err := rows.Err(); err != nil {
 		return model.EventStoryDetail{}, err
 	}
-	if seen == 0 {
-		// A previous binary can create stories while the new tables already exist.
-		// Serve a non-fabricated projection until the current binary next imports it.
-		for episodeNo, base := range baseByEpisode {
+	// A previous binary can replace individual episodes while leaving additive
+	// segments behind. Fall back episode-by-episode and never expose a segment
+	// whose scenario identity no longer matches its current parent.
+	for episodeNo, base := range baseByEpisode {
+		if seenByEpisode[episodeNo] == 0 {
 			episode := detail.Episodes[episodeNo]
 			if locale == model.LocaleJapanese {
 				for _, key := range base.TalkKeys {
@@ -117,9 +133,14 @@ func (s *EventStore) ListLocale(locale string) ([]model.EventStorySummary, error
 	rows, err := s.db.Query(`SELECT stories.event_id, stories.source,
 		(SELECT COUNT(*) FROM event_story_episodes e WHERE e.event_id=stories.event_id),
 		CASE WHEN ?='ja-JP' THEN
-			(SELECT COUNT(*) FROM event_story_segments seg WHERE seg.event_id=stories.event_id AND seg.source_text='')
+			(SELECT COUNT(*) FROM event_story_segments seg
+			 JOIN event_story_episodes episode
+			 ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no AND episode.scenario_id=seg.scenario_id
+			 WHERE seg.event_id=stories.event_id AND seg.source_text='')
 		ELSE
 			(SELECT COUNT(*) FROM event_story_segments seg
+			 JOIN event_story_episodes episode
+			 ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no AND episode.scenario_id=seg.scenario_id
 			 LEFT JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id AND loc.locale=?
 			 WHERE seg.event_id=stories.event_id AND (loc.segment_id IS NULL OR loc.text=''))
 		END,
@@ -141,6 +162,16 @@ func (s *EventStore) ListLocale(locale string) ([]model.EventStorySummary, error
 }
 
 func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user string) error {
+	return s.UpdateLineLocaleRevision(eventID, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user, nil)
+}
+
+// UpdateLineLocaleRevision conditionally applies a localized event edit. A nil
+// expectedRevision preserves the existing client contract; current clients can
+// echo the authenticated detail revision to reject competing translation edits.
+func (s *EventStore) UpdateLineLocaleRevision(eventID int, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user string, expectedRevision *int) error {
+	if !model.IsValidSource(source) {
+		return fmt.Errorf("invalid translation source: %q", source)
+	}
 	if locale == model.LocaleJapanese {
 		return ErrReadOnlyLocale
 	}
@@ -159,17 +190,30 @@ func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, 
 	if segmentID == "" {
 		return ErrEventSourceConflict
 	}
-	var storedEpisode, storedKind, storedJPKey, storedSourceHash string
-	if err := tx.QueryRow(`SELECT episode_no, kind, jp_key, source_hash FROM event_story_segments
-		WHERE segment_id=? AND event_id=?`, segmentID, eventID).
-		Scan(&storedEpisode, &storedKind, &storedJPKey, &storedSourceHash); err == sql.ErrNoRows {
+	var storedEpisode, storedScenario, parentScenario, storedKind, storedJPKey, storedSourceHash string
+	if err := tx.QueryRow(`SELECT seg.episode_no, seg.scenario_id, episode.scenario_id, seg.kind, seg.jp_key, seg.source_hash
+		FROM event_story_segments seg
+		JOIN event_story_episodes episode ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no
+		WHERE seg.segment_id=? AND seg.event_id=?`, segmentID, eventID).
+		Scan(&storedEpisode, &storedScenario, &parentScenario, &storedKind, &storedJPKey, &storedSourceHash); err == sql.ErrNoRows {
 		return ErrEventSourceConflict
 	} else if err != nil {
 		return err
 	}
-	if storedEpisode != episodeNo || storedKind != kind || storedSourceHash != sourceHash ||
+	if storedEpisode != episodeNo || storedScenario != parentScenario || storedKind != kind || storedSourceHash != sourceHash ||
 		(kind == "talk" && storedJPKey != jpKey) || (kind == "title" && jpKey != "") {
 		return ErrEventSourceConflict
+	}
+	var currentRevision int
+	err = tx.QueryRow(`SELECT revision FROM event_story_segment_localizations
+		WHERE segment_id=? AND locale=?`, segmentID, locale).Scan(&currentRevision)
+	if err == sql.ErrNoRows {
+		currentRevision = 0
+	} else if err != nil {
+		return err
+	}
+	if expectedRevision != nil && *expectedRevision != currentRevision {
+		return ErrEventRevisionConflict
 	}
 	now := time.Now().Unix()
 	if locale == model.LocaleChinese {
@@ -193,14 +237,25 @@ func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, 
 			return err
 		}
 	}
-	if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
-		(segment_id, locale, text, source, updated_at, updated_by, revision)
-		VALUES (?, ?, ?, ?, ?, ?, 1)
-		ON CONFLICT(segment_id, locale) DO UPDATE SET text=excluded.text, source=excluded.source,
-		updated_at=excluded.updated_at, updated_by=excluded.updated_by,
-		revision=event_story_segment_localizations.revision+1`,
-		segmentID, locale, text, source, now, user); err != nil {
-		return err
+	if currentRevision == 0 {
+		if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
+			(segment_id, locale, text, source, updated_at, updated_by, revision)
+			VALUES (?, ?, ?, ?, ?, ?, 1)`, segmentID, locale, text, source, now, user); err != nil {
+			return err
+		}
+	} else {
+		result, err := tx.Exec(`UPDATE event_story_segment_localizations
+			SET text=?, source=?, updated_at=?, updated_by=?, revision=revision+1
+			WHERE segment_id=? AND locale=? AND revision=?`,
+			text, source, now, user, segmentID, locale, currentRevision)
+		if err != nil {
+			return err
+		}
+		if affected, err := result.RowsAffected(); err != nil {
+			return err
+		} else if affected != 1 {
+			return ErrEventRevisionConflict
+		}
 	}
 	if locale != model.LocaleChinese {
 		if _, err := tx.Exec(`INSERT INTO event_story_locale_meta(event_id, locale, last_updated) VALUES (?, ?, ?)

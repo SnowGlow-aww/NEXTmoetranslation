@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -19,31 +22,85 @@ import (
 	"moesekai/server/internal/backup"
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/db"
+	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/filesvc"
+	"moesekai/server/internal/lifecycle"
 	"moesekai/server/internal/searchindex"
+	"moesekai/server/internal/singleinstance"
 	"moesekai/server/internal/sse"
 	"moesekai/server/internal/store"
 	"moesekai/server/internal/translator"
 	"moesekai/server/internal/upstream"
+	"moesekai/server/internal/workspaceverify"
 )
 
 func main() {
 	// Timestamped logs (UTC) on stdout so `docker logs` shows operational activity.
 	log.SetFlags(log.LstdFlags | log.LUTC)
 	log.SetPrefix("")
+	verifyWorkspaceOnly := len(os.Args) == 2 && os.Args[1] == "--verify-workspace"
+	if len(os.Args) > 1 && !verifyWorkspaceOnly {
+		fatal("arguments", errors.New("usage: moesekai-server [--verify-workspace]"))
+	}
 
 	port := envOr("PORT", "8080")
 	dbPath := envOr("DB_PATH", "./data/moesekai.db")
 	dataDir := envOr("DATA_DIR", "./data")
 	webDir := envOr("WEB_DIR", "./web")
+	workspaceWebDirRaw, workspaceConfigured := os.LookupEnv("WORKSPACE_WEB_DIR")
+	workspaceWebDir := strings.TrimSpace(workspaceWebDirRaw)
+	workspaceManifestSHARaw, workspaceManifestSHAConfigured := os.LookupEnv("WORKSPACE_MANIFEST_SHA256")
+	workspaceManifestSHA := strings.TrimSpace(workspaceManifestSHARaw)
 	masterKey := os.Getenv("MOESEKAI_MASTER_KEY")
 	jwtSecret := envOr("JWT_SECRET", "")
 	allowOrigin := envOr("CONSOLE_ORIGIN", "*")
+	shutdownConfig, err := shutdownConfigFromEnv()
+	if err != nil {
+		fatal("shutdown configuration", err)
+	}
+	production, err := parseProductionMode(os.Getenv("MOESEKAI_PRODUCTION"))
+	if err != nil {
+		fatal("MOESEKAI_PRODUCTION", err)
+	}
+	verifiedWorkspace, err := workspaceverify.Verify(workspaceverify.Config{
+		Root: workspaceWebDir, ManifestSHA256: workspaceManifestSHA, Production: production,
+		RootConfigured: workspaceConfigured, ManifestSHA256Configured: workspaceManifestSHAConfigured,
+	})
+	if err != nil {
+		fatal("workspace verification", err)
+	}
+	if verifyWorkspaceOnly {
+		if verifiedWorkspace == nil {
+			log.Println("workspace verification skipped: optional workspace is not configured")
+		} else {
+			log.Printf("workspace verified: %s at %s (%s)", verifiedWorkspace.Artifact.AppVersion, workspaceWebDir, verifiedWorkspace.Producer.SourceRevision)
+		}
+		return
+	}
+	if err := validateConsoleOrigin(production, allowOrigin); err != nil {
+		fatal("CONSOLE_ORIGIN", err)
+	}
+	if err := validateProductionMasterKey(production, masterKey); err != nil {
+		fatal("production startup validation", err)
+	}
 
 	if err := auth.ValidateJWTSecret(jwtSecret); err != nil {
 		fmt.Fprintf(os.Stderr, "Fatal: JWT_SECRET: %v\n", err)
 		os.Exit(1)
+	}
+
+	instanceOwner, err := singleinstance.Acquire(dbPath)
+	if err != nil {
+		fatal("acquire database ownership", err)
+	}
+	defer func() {
+		if err := instanceOwner.Close(); err != nil {
+			log.Printf("release database ownership: %v", err)
+		}
+	}()
+	if err := rejectIncompleteSeed(dbPath); err != nil {
+		fatal("validate seed publication", err)
 	}
 
 	database, err := db.Open(dbPath)
@@ -52,15 +109,28 @@ func main() {
 	}
 	defer database.Close()
 
+	tokenTTL, err := parseTTL(envOr("TOKEN_TTL_HOURS", "168"))
+	if err != nil {
+		fatal("TOKEN_TTL_HOURS", err)
+	}
+	authSvc := auth.New(database, jwtSecret, tokenTTL)
+	if err := authSvc.ValidatePersistedRoles(); err != nil {
+		fatal("validate persisted user roles", err)
+	}
+
 	cfg, err := config.New(database, masterKey)
 	if err != nil {
 		fatal("init config", err)
 	}
-	seedConfigFromEnv(cfg)
+	if err := seedConfigFromEnv(cfg); err != nil {
+		fatal("seed configuration", err)
+	}
 
-	authSvc := auth.New(database, jwtSecret, parseTTL(envOr("TOKEN_TTL_HOURS", "168")))
 	if err := seedAdminFromEnv(authSvc); err != nil {
 		fatal("seed initial admin", err)
+	}
+	if err := validateProductionAdmin(production, authSvc); err != nil {
+		fatal("production startup validation", err)
 	}
 
 	st := store.New(database)
@@ -68,19 +138,44 @@ func main() {
 	gen := files.NewGenerator(st, es, dataDir)
 
 	fileService := filesvc.New(st, es, gen)
-	fileService.Start()
 	// Regenerate public files whenever the DB changes (debounced inside).
 	st.OnChange(fileService.Trigger)
 
-	idx := searchindex.New(st, fileService, cfg,
-		parseDurMs(envOr("SEARCH_INDEX_DEBOUNCE_MS", "3600000")),
-		parseDurMs(envOr("SEARCH_INDEX_REFRESH_MS", "3600000")))
-	idx.Start()
+	searchDebounce, err := durationEnvMs("SEARCH_INDEX_DEBOUNCE_MS", time.Hour, time.Millisecond, 24*time.Hour)
+	if err != nil {
+		fatal("SEARCH_INDEX_DEBOUNCE_MS", err)
+	}
+	searchRefresh, err := durationEnvMs("SEARCH_INDEX_REFRESH_MS", time.Hour, time.Second, 24*time.Hour)
+	if err != nil {
+		fatal("SEARCH_INDEX_REFRESH_MS", err)
+	}
+	searchRetryMin, err := durationEnvMs("SEARCH_INDEX_RETRY_MIN_MS", 5*time.Second, time.Millisecond, 5*time.Minute)
+	if err != nil {
+		fatal("SEARCH_INDEX_RETRY_MIN_MS", err)
+	}
+	searchRetryMax, err := durationEnvMs("SEARCH_INDEX_RETRY_MAX_MS", 5*time.Minute, time.Millisecond, time.Hour)
+	if err != nil {
+		fatal("SEARCH_INDEX_RETRY_MAX_MS", err)
+	}
+	if searchRetryMax < searchRetryMin {
+		fatal("search index retry configuration", errors.New("SEARCH_INDEX_RETRY_MAX_MS must be greater than or equal to SEARCH_INDEX_RETRY_MIN_MS"))
+	}
+	idx := searchindex.New(st, fileService, cfg, searchDebounce, searchRefresh)
+	idx.SetRetryBounds(searchRetryMin, searchRetryMax)
+	if production {
+		idx.UseProductionCoverageFloors()
+	}
+	idx.SetCachePath(filepath.Join(dataDir, "search-index-cache.json"))
 	st.OnChange(idx.Trigger)
 
 	hub := sse.NewHub()
+	appLifecycle := &lifecycle.State{}
 
-	tr := translator.New(st, es, cfg)
+	editorGate, err := editorgate.New()
+	if err != nil {
+		fatal("init editor gate", err)
+	}
+	tr := translator.New(st, es, cfg, editorGate)
 	tr.SetProgress(func(stage, detail string, cur, total int) {
 		hub.Broadcast(stage, map[string]any{"detail": detail, "current": cur, "total": total})
 	})
@@ -88,8 +183,12 @@ func main() {
 	// Upstream watcher: polls current_version.json directly (not GitHub REST API),
 	// backs off on raw-content 429s, and triggers CN sync on change.
 	useGit := envOr("UPSTREAM_USE_GIT", "false") == "true"
-	watcher := upstream.New(cfg, func() error {
-		result, err := tr.SyncCNOnly()
+	upstreamPoll, err := durationEnvMs("UPSTREAM_POLL_MS", time.Hour, time.Second, 24*time.Hour)
+	if err != nil {
+		fatal("UPSTREAM_POLL_MS", err)
+	}
+	watcher := upstream.NewWithContext(cfg, func(ctx context.Context) error {
+		result, err := tr.SyncCNOnlyContext(ctx)
 		if err != nil {
 			return err
 		}
@@ -98,30 +197,23 @@ func main() {
 		}
 		return nil
 	}, upstream.Options{
-		Interval: parseDurMs(envOr("UPSTREAM_POLL_MS", "3600000")),
+		Interval: upstreamPoll,
 		GitDir:   filepath.Join(dataDir, "masterdata-mirror"),
 		UseGit:   useGit,
 	})
-	watcher.Start()
-
 	// Backup manager: daily + manual backup/restore to S3 and/or GitHub.
 	backupMgr := backup.NewManager(cfg, gen, st, es, filepath.Join(dataDir, "backup-work"))
-	backupMgr.StartScheduler()
 
-	apiServer := api.NewServer(st, es, authSvc, cfg, hub, tr, watcher, backupMgr)
+	apiServer := api.NewServer(st, es, authSvc, cfg, hub, tr, watcher, backupMgr, editorGate)
+	apiServer.SetProjectionStatus(fileService)
+	apiServer.SetSearchStatus(idx)
 
 	mux := http.NewServeMux()
 	apiServer.RegisterRoutes(mux)
-	mux.Handle("/files/", fileService.Handler())
+	registerPublicFileRoutes(mux, fileService)
 
-	// /translation/* is a backward-compatible alias for /files/translation/*.
-	// External sites (e.g. pjsk.moe) fetch translation JSON from this path.
-	mux.HandleFunc("/translation/", func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/files/translation/" + strings.TrimPrefix(r.URL.Path, "/translation/")
-		fileService.Handler().ServeHTTP(w, r)
-	})
-
-	registerOperationalRoutes(mux, database, authSvc)
+	registerOperationalRoutesWithSearch(mux, database, authSvc, appLifecycle, fileService, idx)
+	workspaceEnabled := registerWorkspaceRoutes(mux, workspaceWebDir)
 
 	// Catch-all: serve the statically-exported console SPA. More specific routes
 	// above (/api/, /files/, /healthz, /sse) take precedence in ServeMux, so "/"
@@ -133,8 +225,26 @@ func main() {
 		serveWeb = true
 	}
 
-	handler := corsMiddleware(mux, allowOrigin)
+	handler := preflightMiddleware(mux)
+	handler = lifecycleMiddleware(appLifecycle, handler)
+	handler = corsMiddleware(handler, allowOrigin)
 	handler = loggingMiddleware(handler)
+	httpServer := newHTTPServer(":"+port, handler)
+	listener, err := net.Listen("tcp", httpServer.Addr)
+	if err != nil {
+		fatal("listen", err)
+	}
+	defer listener.Close()
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+
+	// Do not launch work that can mutate remote or local state until the process
+	// has successfully claimed its TCP address.
+	fileService.Start()
+	idx.Start()
+	watcher.Start()
+	backupMgr.StartScheduler()
 
 	log.Printf("moesekai server starting on :%s", port)
 	log.Printf("  db:        %s", dbPath)
@@ -147,63 +257,227 @@ func main() {
 	} else {
 		log.Printf("  console:   not served (%s not found) — API-only mode", webDir)
 	}
+	if workspaceEnabled {
+		log.Printf("  workspace: /workspace/ (static SPA from %s)", workspaceWebDir)
+	} else {
+		log.Printf("  workspace: disabled (WORKSPACE_WEB_DIR absent)")
+	}
 	if !cfg.HasMasterKey() {
 		log.Println("  WARNING: MOESEKAI_MASTER_KEY not set — secrets cannot be stored")
 	}
-	httpServer := newHTTPServer(":"+port, handler)
 	serverErr := make(chan error, 1)
-	go func() { serverErr <- httpServer.ListenAndServe() }()
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(signals)
+	go func() { serverErr <- httpServer.Serve(listener) }()
+	var serveErr error
+	serveResultConsumed := false
 	select {
 	case err := <-serverErr:
-		if err != nil && err != http.ErrServerClosed {
-			fatal("listen", err)
-		}
+		serveErr = err
+		serveResultConsumed = true
 	case sig := <-signals:
 		log.Printf("shutdown requested by %s", sig)
-		watcher.Stop()
-		backupMgr.Stop()
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := httpServer.Shutdown(ctx); err != nil {
-			log.Printf("graceful shutdown failed: %v", err)
-			_ = httpServer.Close()
-		}
-		if err := <-serverErr; err != nil && err != http.ErrServerClosed {
-			log.Printf("server stopped with error: %v", err)
-		}
+	}
+
+	shutdownErr := lifecycle.RunShutdown(shutdownConfig, log.Printf, os.Exit,
+		func(ctx context.Context) error {
+			// Close every admission gate first. The HTTP listener then closes and
+			// already-admitted handlers receive only the short drain phase.
+			appLifecycle.Drain()
+			editorGate.Drain()
+			backupMgr.Drain()
+			return httpServer.Shutdown(ctx)
+		},
+		func() {
+			// Hard cancellation starts together so no worker loses the remaining
+			// total budget behind another component's Wait.
+			tr.Cancel()
+			backupMgr.Cancel()
+			watcher.Stop()
+			idx.Stop()
+			fileService.Stop()
+			hub.Close()
+			appLifecycle.StopProbes()
+			if err := httpServer.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Printf("force-close HTTP: %v", err)
+			}
+		},
+		func() error {
+			if !serveResultConsumed {
+				serveErr = <-serverErr
+			}
+			fileService.Wait()
+			idx.Wait()
+			watcher.Wait()
+			backupMgr.Wait()
+			tr.Wait()
+			appLifecycle.Wait()
+			return nil
+		})
+	if shutdownErr != nil {
+		log.Printf("shutdown completed after forced cancellation: %v", shutdownErr)
+	}
+	if serveErr != nil && serveErr != http.ErrServerClosed {
+		_ = database.Close()
+		_ = instanceOwner.Close()
+		fatal("listen", serveErr)
 	}
 }
 
-func registerOperationalRoutes(mux *http.ServeMux, database *db.DB, authSvc *auth.Auth) {
+func rejectIncompleteSeed(databasePath string) error {
+	marker := databasePath + ".seed-incomplete"
+	if _, err := os.Stat(marker); err == nil {
+		return fmt.Errorf("incomplete seed publication marker exists: %s", marker)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect incomplete seed publication marker: %w", err)
+	}
+	return nil
+}
+
+func registerPublicFileRoutes(mux *http.ServeMux, fileService *filesvc.Service) {
+	mux.Handle("/files/", fileService.Handler())
+	// /translation/* is a backward-compatible alias for /files/translation/*.
+	// External sites (e.g. pjsk.moe) fetch translation JSON from this path.
+	mux.HandleFunc("/translation/", func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/files/translation/" + strings.TrimPrefix(r.URL.Path, "/translation/")
+		fileService.Handler().ServeHTTP(w, r)
+	})
+}
+
+func registerOperationalRoutes(mux *http.ServeMux, database *db.DB, authSvc *auth.Auth, projections ...interface {
+	Status() filesvc.ProjectionStatus
+}) {
+	registerOperationalRoutesWithLifecycle(mux, database, authSvc, nil, projections...)
+}
+
+func registerOperationalRoutesWithLifecycle(mux *http.ServeMux, database *db.DB, authSvc *auth.Auth, draining interface {
+	IsDraining() bool
+}, projections ...interface {
+	Status() filesvc.ProjectionStatus
+}) {
+	var projection interface {
+		Status() filesvc.ProjectionStatus
+	}
+	if len(projections) > 0 {
+		projection = projections[0]
+	}
+	registerOperationalRoutesWithProviders(mux, database, authSvc, draining, projection, nil)
+}
+
+func registerOperationalRoutesWithSearch(mux *http.ServeMux, database *db.DB, authSvc *auth.Auth, draining interface {
+	IsDraining() bool
+}, projection interface {
+	Status() filesvc.ProjectionStatus
+}, search interface {
+	Status() searchindex.Status
+}) {
+	registerOperationalRoutesWithProviders(mux, database, authSvc, draining, projection, search)
+}
+
+func registerOperationalRoutesWithProviders(mux *http.ServeMux, database *db.DB, authSvc *auth.Auth, draining interface {
+	IsDraining() bool
+}, projection interface {
+	Status() filesvc.ProjectionStatus
+}, search interface {
+	Status() searchindex.Status
+}) {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		setOperationalHeaders(w.Header())
 		fmt.Fprint(w, `{"status":"ok"}`)
 	})
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if err := database.PingContext(ctx); err != nil {
-			w.Header().Set("Content-Type", "application/json")
+		setOperationalHeaders(w.Header())
+		if draining != nil && draining.IsDraining() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprint(w, `{"status":"not_ready"}`)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := database.PingContext(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready"}`)
+			return
+		}
+		if projection == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready"}`)
+			return
+		}
+		projectionStatus := projection.Status()
+		if projectionStatus.Generation == 0 || projectionStatus.Pending || projectionStatus.LastError != "" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready"}`)
+			return
+		}
+		if search != nil && !search.Status().Ready {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready"}`)
+			return
+		}
+		// Status can change while the database probe and provider checks run.
+		// Recheck every volatile readiness dependency immediately before 200.
+		projectionStatus = projection.Status()
+		if (draining != nil && draining.IsDraining()) || projectionStatus.Generation == 0 ||
+			projectionStatus.Pending || projectionStatus.LastError != "" ||
+			(search != nil && !search.Status().Ready) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready"}`)
+			return
+		}
 		fmt.Fprint(w, `{"status":"ready"}`)
 	})
-	mux.HandleFunc("/healthz/details", authSvc.RequireAdmin(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
+	details := authSvc.RequireAdmin(func(w http.ResponseWriter, r *http.Request) {
+		detail := map[string]any{
 			"status": "ok",
 			"requests": map[string]uint64{
 				"total": httpRequestTotal.Load(), "clientErrors": httpClientErrors.Load(),
 				"serverErrors": httpServerErrors.Load(),
 			},
-		})
-	}))
+		}
+		if search != nil {
+			detail["search"] = search.Status()
+		}
+		_ = json.NewEncoder(w).Encode(detail)
+	})
+	mux.HandleFunc("/healthz/details", func(w http.ResponseWriter, r *http.Request) {
+		setOperationalHeaders(w.Header())
+		details(w, r)
+	})
+}
+
+func lifecycleMiddleware(state *lifecycle.State, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isLifecycleProbe(r) {
+			done, admitted := state.BeginProbe()
+			if !admitted {
+				setOperationalHeaders(w.Header())
+				w.WriteHeader(http.StatusServiceUnavailable)
+				fmt.Fprint(w, `{"status":"draining"}`)
+				return
+			}
+			defer done()
+			next.ServeHTTP(w, r)
+			return
+		}
+		done, admitted := state.BeginRequest()
+		if !admitted {
+			setOperationalHeaders(w.Header())
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"draining"}`)
+			return
+		}
+		defer done()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isLifecycleProbe(r *http.Request) bool {
+	return (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
+		(r.URL.Path == "/healthz" || r.URL.Path == "/readyz")
+}
+
+func setOperationalHeaders(headers http.Header) {
+	headers.Set("Content-Type", "application/json; charset=utf-8")
+	headers.Set("Cache-Control", "no-store")
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {
@@ -219,7 +493,7 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 
 // seedConfigFromEnv writes settings from env vars on first run only, leaving the
 // admin UI authoritative thereafter.
-func seedConfigFromEnv(cfg *config.Config) {
+func seedConfigFromEnv(cfg *config.Config) error {
 	seed := map[string]string{
 		config.KeyLLMType:                         os.Getenv("LLM_TYPE"),
 		config.KeyGeminiAPIKey:                    os.Getenv("GEMINI_API_KEY"),
@@ -253,22 +527,21 @@ func seedConfigFromEnv(cfg *config.Config) {
 		config.KeyBackupS3AccessKey:               os.Getenv("BACKUP_S3_ACCESS_KEY"),
 		config.KeyBackupS3SecretKey:               os.Getenv("BACKUP_S3_SECRET_KEY"),
 	}
-	seeded := 0
-	for k, v := range seed {
-		if v == "" {
+	for key, value := range seed {
+		if config.IsSecret(key) && !cfg.HasMasterKey() {
+			delete(seed, key)
 			continue
 		}
-		// Secrets need a master key; skip silently if unavailable.
-		if config.IsSecret(k) && !cfg.HasMasterKey() {
-			continue
-		}
-		if ok, err := cfg.SetIfAbsent(k, v); err == nil && ok {
-			seeded++
-		}
+		seed[key] = value
+	}
+	seeded, err := cfg.SetManyIfAbsent(seed)
+	if err != nil {
+		return err
 	}
 	if seeded > 0 {
 		log.Printf("[config] seeded %d settings from environment", seeded)
 	}
+	return nil
 }
 
 // seedAdminFromEnv guarantees an administrator from TRANSLATOR_ACCOUNTS (legacy
@@ -320,6 +593,66 @@ func seedAdminFromEnv(a *auth.Auth) error {
 	return nil
 }
 
+func parseProductionMode(value string) (bool, error) {
+	if strings.TrimSpace(value) == "" {
+		return false, nil
+	}
+	production, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return false, fmt.Errorf("must be true or false")
+	}
+	return production, nil
+}
+
+func validateProductionAdmin(production bool, a *auth.Auth) error {
+	if !production {
+		return nil
+	}
+	admins, err := a.CountAdmins()
+	if err != nil {
+		return fmt.Errorf("count administrators: %w", err)
+	}
+	if admins == 0 {
+		return fmt.Errorf("an initialized administrator is required; provide ADMIN_PASSWORD or TRANSLATOR_ACCOUNTS for first boot")
+	}
+	return nil
+}
+
+func validateProductionMasterKey(production bool, masterKey string) error {
+	masterKey = strings.TrimSpace(masterKey)
+	if production && (len([]byte(masterKey)) < 32 || masterKey == "replace-with-at-least-32-random-bytes") {
+		return fmt.Errorf("MOESEKAI_MASTER_KEY must contain at least 32 bytes of non-template secret material")
+	}
+	return nil
+}
+
+func validateConsoleOrigin(production bool, origin string) error {
+	origin = strings.TrimSpace(origin)
+	if production && (origin == "" || origin == "*") {
+		return fmt.Errorf("production requires an explicit console origin")
+	}
+	if origin == "*" {
+		return nil
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" {
+		return fmt.Errorf("must be * or one absolute http(s) origin without credentials, path, query, fragment, or trailing slash")
+	}
+	if production && parsed.Scheme == "http" && !isLoopbackOriginHost(parsed.Hostname()) {
+		return fmt.Errorf("production console origin must use https unless it is a loopback host")
+	}
+	return nil
+}
+
+func isLoopbackOriginHost(host string) bool {
+	if strings.EqualFold(strings.TrimSpace(host), "localhost") {
+		return true
+	}
+	address := net.ParseIP(strings.TrimSpace(host))
+	return address != nil && address.IsLoopback()
+}
+
 func corsMiddleware(next http.Handler, origin string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// /files/* and /translation/* set their own permissive CORS; here we scope console API.
@@ -327,8 +660,14 @@ func corsMiddleware(next http.Handler, origin string) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Moe-Loaded-Producer-State")
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func preflightMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -344,20 +683,62 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-func parseTTL(hours string) time.Duration {
+func parseTTL(hours string) (time.Duration, error) {
+	const maxTokenTTLHours = 24 * 30
+	hours = strings.TrimSpace(hours)
 	n, err := strconv.Atoi(hours)
-	if err != nil || n <= 0 {
-		n = 168
+	if err != nil || n <= 0 || n > maxTokenTTLHours {
+		return 0, fmt.Errorf("must be a canonical integer from 1 to %d hours", maxTokenTTLHours)
 	}
-	return time.Duration(n) * time.Hour
+	if strconv.Itoa(n) != hours {
+		return 0, fmt.Errorf("must be a canonical integer from 1 to %d hours", maxTokenTTLHours)
+	}
+	return time.Duration(n) * time.Hour, nil
 }
 
-func parseDurMs(ms string) time.Duration {
-	n, err := strconv.Atoi(ms)
-	if err != nil || n <= 0 {
-		n = 3600000
+func durationEnvMs(name string, fallback, minimum, maximum time.Duration) (time.Duration, error) {
+	raw, configured := os.LookupEnv(name)
+	if !configured || strings.TrimSpace(raw) == "" {
+		return fallback, nil
 	}
-	return time.Duration(n) * time.Millisecond
+	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("must be a positive integer number of milliseconds")
+	}
+	if n > int64(^uint64(0)>>1)/int64(time.Millisecond) {
+		return 0, fmt.Errorf("duration overflows")
+	}
+	duration := time.Duration(n) * time.Millisecond
+	if duration < minimum || duration > maximum {
+		return 0, fmt.Errorf("must be between %d and %d milliseconds", minimum.Milliseconds(), maximum.Milliseconds())
+	}
+	return duration, nil
+}
+
+func shutdownConfigFromEnv() (lifecycle.ShutdownConfig, error) {
+	parse := func(name string, fallback int) (time.Duration, error) {
+		value := strings.TrimSpace(os.Getenv(name))
+		if value == "" {
+			value = strconv.Itoa(fallback)
+		}
+		milliseconds, err := strconv.Atoi(value)
+		if err != nil || milliseconds <= 0 {
+			return 0, fmt.Errorf("%s must be a positive integer number of milliseconds", name)
+		}
+		return time.Duration(milliseconds) * time.Millisecond, nil
+	}
+	budget, err := parse("SHUTDOWN_BUDGET_MS", 25000)
+	if err != nil {
+		return lifecycle.ShutdownConfig{}, err
+	}
+	drain, err := parse("SHUTDOWN_DRAIN_MS", 2000)
+	if err != nil {
+		return lifecycle.ShutdownConfig{}, err
+	}
+	if drain >= budget {
+		return lifecycle.ShutdownConfig{}, fmt.Errorf("SHUTDOWN_DRAIN_MS must be shorter than SHUTDOWN_BUDGET_MS")
+	}
+	return lifecycle.ShutdownConfig{Budget: budget, Drain: drain}, nil
 }
 
 func fatal(ctx string, err error) {

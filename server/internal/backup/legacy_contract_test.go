@@ -2,6 +2,9 @@ package backup
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -50,6 +53,16 @@ func setupLegacyBackup(t *testing.T) *legacyBackupHarness {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	for _, category := range model.SupportedCategories {
+		if category == "cards" {
+			continue
+		}
+		if _, err := s.ImportCategory(category, model.Category{"name": {
+			category + "-jp": {Text: category + "-zh", Source: model.SourceHuman},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := es.ImportOrdered(42, model.EventStoryMeta{
 		Source: "official_cn", Version: "1.0", LastUpdated: 1700000000,
 	}, []store.OrderedEpisode{{
@@ -58,6 +71,20 @@ func setupLegacyBackup(t *testing.T) *legacyBackupHarness {
 		TalkData:     map[string]string{"一": "第一句", "二": "第二句"},
 		TalkSources:  map[string]string{"一": model.SourcePinned, "二": model.SourceHuman},
 		SpeakerNames: map[string]string{"一": "角色"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	canonical, digest, err := store.CanonicalizeEventScenario(map[string]any{
+		"ScenarioId":        "scenario-1",
+		"Snippets":          []any{map[string]any{"Action": float64(1), "ReferenceIndex": float64(0)}},
+		"TalkData":          []any{map[string]any{"WindowDisplayName": "角色", "Body": "一", "Voices": []any{}}},
+		"SpecialEffectData": []any{}, "AppearCharacters": []any{},
+	}, "scenario-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := es.BackfillScenarios(42, []store.OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "scenario-1", ScenarioCanonicalJSON: canonical, ScenarioSHA256: digest,
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -83,6 +110,9 @@ func TestLegacyBackupRestoreRoundTrip(t *testing.T) {
 			t.Fatalf("missing backup payload %s: %v", path, err)
 		}
 	}
+	if _, err := os.Stat(filepath.Join(translations, "lyrics")); !os.IsNotExist(err) {
+		t.Fatalf("standalone legacy materialization unexpectedly included backup-only lyrics: %v", err)
+	}
 
 	destDB, err := db.Open(filepath.Join(t.TempDir(), "restored.db"))
 	if err != nil {
@@ -97,7 +127,7 @@ func TestLegacyBackupRestoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Categories != len(model.SupportedCategories) || result.Entries != 1 || result.EventStories != 1 {
+	if result.Categories != len(model.SupportedCategories) || result.Entries != len(model.SupportedCategories) || result.EventStories != 1 {
 		t.Fatalf("restore result = %+v", result)
 	}
 	if hooks != 1 {
@@ -136,6 +166,31 @@ func TestLegacyBackupRestoreRoundTrip(t *testing.T) {
 
 func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 	h := setupLegacyBackup(t)
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := h.store.SaveLyrics(model.SongLyrics{
+		MusicID: 10, Attribution: "MoeSeka translation team",
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.store.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantAssets, err := h.gen.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
 	type requestRecord struct {
 		method, path, auth, contentType string
 		body                            []byte
@@ -204,6 +259,19 @@ func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 	if !bytes.Equal(puts[0].body, puts[1].body) || len(puts[0].body) == 0 {
 		t.Fatal("timestamped and latest objects must contain the same non-empty tarball")
 	}
+	archiveRoot := t.TempDir()
+	if err := untarGz(puts[1].body, archiveRoot); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range wantAssets {
+		archived, err := os.ReadFile(filepath.Join(archiveRoot, filepath.FromSlash(strings.TrimPrefix(path, "translation/"))))
+		if err != nil {
+			t.Fatalf("S3 archive lyrics asset %s: %v", path, err)
+		}
+		if !bytes.Equal(archived, want) {
+			t.Fatalf("S3 archive lyrics asset %s changed\ngot: %q\nwant: %q", path, archived, want)
+		}
+	}
 
 	if _, err := h.store.UpdateEntry("cards", "prefix", "こんにちは", "被覆盖", model.SourceLLM, "test"); err != nil {
 		t.Fatal(err)
@@ -212,7 +280,7 @@ func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Entries != 1 || result.EventStories != 1 {
+	if result.Entries != len(model.SupportedCategories) || result.EventStories != 1 {
 		t.Fatalf("S3 restore result = %+v", result)
 	}
 	category, err := h.store.CategoryData("cards")
@@ -221,6 +289,18 @@ func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 	}
 	if got := category["prefix"]["こんにちは"]; got.Text != "你好" || got.Source != model.SourceHuman {
 		t.Fatalf("S3 restore entry = %+v", got)
+	}
+	gotAssets, err := h.gen.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gotAssets) != len(wantAssets) {
+		t.Fatalf("S3 restored lyrics asset count = %d, want %d", len(gotAssets), len(wantAssets))
+	}
+	for path, want := range wantAssets {
+		if got, ok := gotAssets[path]; !ok || !bytes.Equal(got, want) {
+			t.Fatalf("S3 restored lyrics asset %s changed\ngot: %q\nwant: %q", path, got, want)
+		}
 	}
 }
 
@@ -254,6 +334,173 @@ func TestLegacyGitBackupCommitsOnlyChangedProjection(t *testing.T) {
 	second := gitOutput(t, remote, "rev-parse", "refs/heads/legacy-backup")
 	if first != second {
 		t.Fatalf("unchanged backup created another commit: %s -> %s", first, second)
+	}
+}
+
+func TestBackupMaterializesPublishedLyricsWithoutChangingLegacyGenerator(t *testing.T) {
+	h := setupLegacyBackup(t)
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := h.store.SaveLyrics(model.SongLyrics{
+		MusicID: 10, Revision: 0, Attribution: "MoeSeka translation team",
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.store.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+
+	root := t.TempDir()
+	generator := files.NewGenerator(h.store, h.events, root)
+	written, err := generator.WriteAllContext(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if written == 0 {
+		t.Fatal("legacy projection wrote no files")
+	}
+	if _, err := os.Stat(filepath.Join(root, "translation", "cards.json")); err != nil {
+		t.Fatalf("legacy category projection missing: %v", err)
+	}
+	for _, path := range []string{
+		filepath.Join(root, "translation", "lyrics"),
+		filepath.Join(root, "v2"),
+		filepath.Join(root, "data", "search-index.json"),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("WriteAllContext unexpectedly materialized non-legacy public asset %s: %v", path, err)
+		}
+	}
+
+	assets, err := generator.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(assets) != 2 || len(assets["translation/lyrics/index.json"]) == 0 || len(assets["translation/lyrics/music_10.json"]) == 0 {
+		t.Fatalf("runtime lyrics generator assets = %v", assets)
+	}
+	backupRoot := t.TempDir()
+	translations, contentDir, err := h.manager.materializeBackupPayload(backupRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range assets {
+		archivedPath := filepath.Join(translations, filepath.FromSlash(strings.TrimPrefix(path, "translation/")))
+		got, err := os.ReadFile(archivedPath)
+		if err != nil {
+			t.Fatalf("backup lyrics asset %s: %v", path, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("backup lyrics asset %s differs from PublishedLyricsJSON\ngot: %q\nwant: %q", path, got, want)
+		}
+	}
+	lyricsBackup, err := os.ReadFile(filepath.Join(contentDir, "lyrics.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(lyricsBackup, []byte(`"publications"`)) || !bytes.Contains(lyricsBackup, []byte(`"musicId": 10`)) {
+		t.Fatalf("durable lyrics backup omitted publication snapshot: %s", lyricsBackup)
+	}
+}
+
+func TestGitBackupArchivesAndRestoresPublishedLyricsAssets(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable unavailable")
+	}
+	source := setupLegacyBackup(t)
+	if err := source.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, _, err := source.store.SaveImportedLyricsMutation(model.SongLyrics{
+		MusicID: 10, Revision: 0, Attribution: "MoeSeka translation team",
+		SourceURL: "https://legacy.invalid/wiki", SourcePageID: 12, SourceRevisionID: 34,
+		SourceSHA1: strings.Repeat("a", 40), SourceFetchedAt: "2026-07-22T12:00:00Z",
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.store.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantAssets, err := source.gen.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remote := filepath.Join(t.TempDir(), "lyrics-remote.git")
+	command := exec.Command("git", "init", "--bare", "--initial-branch=lyrics-backup", remote)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v: %s", err, output)
+	}
+	if err := source.cfg.Set(config.KeyBackupGitRepoURL, "file://"+remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.cfg.Set(config.KeyBackupGitBranch, "lyrics-backup"); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.manager.backupGit(); err != nil {
+		t.Fatal(err)
+	}
+	backupLyrics := gitOutput(t, remote, "show", "refs/heads/lyrics-backup:translation-content/lyrics.json")
+	if !strings.Contains(backupLyrics, `"publications"`) || !strings.Contains(backupLyrics, `"musicId": 10`) {
+		t.Fatalf("Git backup omitted published lyrics snapshot: %s", backupLyrics)
+	}
+	for path, want := range wantAssets {
+		archivePath := "translations/" + strings.TrimPrefix(filepath.ToSlash(path), "translation/")
+		archived := gitOutputBytes(t, remote, "show", "refs/heads/lyrics-backup:"+archivePath)
+		if !bytes.Equal(archived, want) {
+			t.Fatalf("Git backup lyrics asset %s changed\ngot: %q\nwant: %q", path, archived, want)
+		}
+	}
+
+	destination := setupLegacyBackup(t)
+	if err := destination.cfg.Set(config.KeyBackupGitRepoURL, "file://"+remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := destination.cfg.Set(config.KeyBackupGitBranch, "lyrics-backup"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := destination.manager.restoreGit(); err != nil {
+		t.Fatal(err)
+	}
+	gotAssets, err := destination.gen.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gotAssets) != len(wantAssets) {
+		t.Fatalf("regenerated lyrics asset count = %d, want %d", len(gotAssets), len(wantAssets))
+	}
+	for key, want := range wantAssets {
+		if got, ok := gotAssets[key]; !ok || !bytes.Equal(got, want) {
+			t.Fatalf("regenerated asset %s changed\ngot: %s\nwant: %s", key, got, want)
+		}
+	}
+	restoredLyrics, err := destination.store.GetLyrics(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restoredLyrics.SourceSHA1 != strings.Repeat("a", 40) || restoredLyrics.SourceRevisionID != 34 {
+		t.Fatalf("canonical provenance changed across Git backup restore: %+v", restoredLyrics)
 	}
 }
 
@@ -305,6 +552,12 @@ func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
 	if err != nil || !present {
 		t.Fatalf("read content present=%v err=%v", present, err)
 	}
+	if len(content.Events.Scenarios) != 1 || content.Events.Scenarios[0].ScenarioID != "scenario-1" {
+		t.Fatalf("backup scenarios = %+v", content.Events.Scenarios)
+	}
+	if !bytes.Contains(manifest, []byte(`"scenarioCount": 1`)) {
+		t.Fatalf("manifest omitted scenarioCount: %s", manifest)
+	}
 
 	destDB, err := db.Open(filepath.Join(t.TempDir(), "content-restore.db"))
 	if err != nil {
@@ -330,6 +583,39 @@ func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
 	if err != nil || restoredLyrics.Status != "published" || restoredLyrics.Attribution != "MoeSeka translation team" {
 		t.Fatalf("restored lyrics = %+v err=%v", restoredLyrics, err)
 	}
+	restoredEventContent, err := destStore.ExportEventContent()
+	if err != nil || len(restoredEventContent.Scenarios) != 1 || restoredEventContent.Scenarios[0].SHA256 != content.Events.Scenarios[0].SHA256 {
+		t.Fatalf("restored scenarios=%+v err=%v", restoredEventContent.Scenarios, err)
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func(*store.EventScenarioRecord)
+	}{
+		{"sha", func(record *store.EventScenarioRecord) { record.SHA256 = strings.Repeat("0", 64) }},
+		{"parent identity", func(record *store.EventScenarioRecord) {
+			canonical, digest, canonicalErr := store.CanonicalizeEventScenario(map[string]any{
+				"ScenarioId": "other", "Snippets": []any{}, "TalkData": []any{},
+				"SpecialEffectData": []any{}, "AppearCharacters": []any{},
+			}, "other")
+			if canonicalErr != nil {
+				t.Fatal(canonicalErr)
+			}
+			record.ScenarioID, record.CanonicalJSON, record.SHA256 = "other", canonical, digest
+		}},
+	} {
+		t.Run("invalid scenario "+test.name, func(t *testing.T) {
+			invalid := content
+			invalid.Events.Scenarios = append([]store.EventScenarioRecord(nil), content.Events.Scenarios...)
+			test.mutate(&invalid.Events.Scenarios[0])
+			if err := destStore.ImportTranslationContent(invalid.Entries, invalid.Events, invalid.Lyrics); err == nil {
+				t.Fatal("invalid scenario content unexpectedly imported")
+			}
+			after, err := destStore.ExportEventContent()
+			if err != nil || len(after.Scenarios) != 1 || after.Scenarios[0].SHA256 != restoredEventContent.Scenarios[0].SHA256 {
+				t.Fatalf("invalid scenario import was not atomic: scenarios=%+v err=%v", after.Scenarios, err)
+			}
+		})
+	}
 
 	entriesPath := filepath.Join(contentDir, "entries.json")
 	entriesBody, err := os.ReadFile(entriesPath)
@@ -354,6 +640,46 @@ func TestTranslationContentManifestRoundTripAndAtomicFailure(t *testing.T) {
 	if err != nil || len(english) != 1 || english[0].Text != "Hello" {
 		t.Fatalf("failed import was not atomic: entries=%+v err=%v", english, err)
 	}
+	invalidSegmentIdentity := content
+	invalidSegmentIdentity.Events.Segments = append([]store.EventSegmentRecord(nil), content.Events.Segments...)
+	invalidSegmentIdentity.Events.Segments[0].ScenarioID = "wrong-parent-scenario"
+	if err := destStore.ImportTranslationContent(invalidSegmentIdentity.Entries, invalidSegmentIdentity.Events, invalidSegmentIdentity.Lyrics); err == nil ||
+		!strings.Contains(err.Error(), "scenario identity") {
+		t.Fatalf("mismatched event segment error = %v", err)
+	}
+}
+
+func TestBackupPayloadSecuresSnapshotAndParentDirectory(t *testing.T) {
+	h := setupLegacyBackup(t)
+	parent := filepath.Join(t.TempDir(), "backup-payload")
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	backupSnapshotCreatedHook = func() error {
+		parentInfo, err := os.Stat(parent)
+		if err != nil {
+			return err
+		}
+		if got := parentInfo.Mode().Perm(); got != 0o700 {
+			return fmt.Errorf("backup parent mode=%#o want %#o", got, os.FileMode(0o700))
+		}
+		snapshotInfo, err := os.Stat(filepath.Join(parent, "backup-snapshot.db"))
+		if err != nil {
+			return err
+		}
+		if got := snapshotInfo.Mode().Perm(); got != 0o600 {
+			return fmt.Errorf("backup snapshot mode=%#o want %#o", got, os.FileMode(0o600))
+		}
+		return nil
+	}
+	t.Cleanup(func() { backupSnapshotCreatedHook = nil })
+	if _, _, err := h.manager.materializeBackupPayload(parent); err != nil {
+		t.Fatal(err)
+	}
+	backupSnapshotCreatedHook = nil
+	if _, err := os.Stat(filepath.Join(parent, "backup-snapshot.db")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backup snapshot remains after materialization: %v", err)
+	}
 }
 
 func TestBackupPayloadUsesSingleSQLiteSnapshot(t *testing.T) {
@@ -361,11 +687,45 @@ func TestBackupPayloadUsesSingleSQLiteSnapshot(t *testing.T) {
 	if _, err := h.store.UpdateEntryLocale("cards", "prefix", "こんにちは", "Old English", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
 		t.Fatal(err)
 	}
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := h.store.SaveLyrics(model.SongLyrics{
+		MusicID: 10, Attribution: "MoeSeka translation team",
+		Lines: []model.LyricLine{{
+			ID: "line-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
+			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
+		}},
+	}, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.store.PublishLyrics(10, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantAssets, err := h.gen.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
 	backupSnapshotCreatedHook = func() error {
 		if _, err := h.store.UpdateEntry("cards", "prefix", "こんにちは", "新中文", model.SourceHuman, "editor"); err != nil {
 			return err
 		}
-		_, err := h.store.UpdateEntryLocale("cards", "prefix", "こんにちは", "New English", model.SourceHuman, "editor", model.LocaleEnglish)
+		if _, err := h.store.UpdateEntryLocale("cards", "prefix", "こんにちは", "New English", model.SourceHuman, "editor", model.LocaleEnglish); err != nil {
+			return err
+		}
+		updated := saved
+		updated.Attribution = "Changed after snapshot"
+		updated, err := h.store.SaveLyrics(updated, "editor")
+		if err != nil {
+			return err
+		}
+		_, err = h.store.PublishLyrics(10, updated.Revision)
 		return err
 	}
 	t.Cleanup(func() { backupSnapshotCreatedHook = nil })
@@ -388,6 +748,199 @@ func TestBackupPayloadUsesSingleSQLiteSnapshot(t *testing.T) {
 	if len(content.Entries) != 1 || content.Entries[0].Text != "Old English" {
 		t.Fatalf("additive snapshot entries = %+v", content.Entries)
 	}
+	if len(content.Lyrics.Publications) != 1 || content.Lyrics.Publications[0].Revision != saved.Revision {
+		t.Fatalf("lyrics snapshot publications = %+v", content.Lyrics.Publications)
+	}
+	updatedAssets, err := h.gen.PublishedLyricsJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(updatedAssets["translation/lyrics/music_10.json"], wantAssets["translation/lyrics/music_10.json"]) {
+		t.Fatal("post-snapshot lyrics update did not change the live publication")
+	}
+
+	for path, want := range wantAssets {
+		got, err := os.ReadFile(filepath.Join(translations, filepath.FromSlash(strings.TrimPrefix(path, "translation/"))))
+		if err != nil {
+			t.Fatalf("snapshot backup lyrics asset %s: %v", path, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("snapshot backup lyrics asset %s changed\ngot: %q\nwant: %q", path, got, want)
+		}
+	}
+}
+
+func TestBackupAllUsesOneSnapshotForS3AndGit(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable unavailable")
+	}
+	h := setupLegacyBackup(t)
+	var mu sync.Mutex
+	var latest []byte
+	s3Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.tar.gz") {
+			mu.Lock()
+			latest = append([]byte(nil), body...)
+			mu.Unlock()
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer s3Server.Close()
+	remote := filepath.Join(t.TempDir(), "shared-snapshot.git")
+	command := exec.Command("git", "init", "--bare", "--initial-branch=shared-snapshot", remote)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v: %s", err, output)
+	}
+	for key, value := range map[string]string{
+		config.KeyBackupS3Enabled:   "true",
+		config.KeyBackupS3Endpoint:  s3Server.URL,
+		config.KeyBackupS3Region:    "test-region",
+		config.KeyBackupS3Bucket:    "test-bucket",
+		config.KeyBackupS3Prefix:    "snapshots",
+		config.KeyBackupS3AccessKey: "test-access",
+		config.KeyBackupS3SecretKey: "test-secret",
+		config.KeyBackupGitEnabled:  "true",
+		config.KeyBackupGitRepoURL:  "file://" + remote,
+		config.KeyBackupGitBranch:   "shared-snapshot",
+	} {
+		if err := h.cfg.Set(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshotCount := 0
+	backupSnapshotCreatedHook = func() error {
+		snapshotCount++
+		_, err := h.store.UpdateEntry("cards", "prefix", "こんにちは", "快照后修改", model.SourceHuman, "editor")
+		return err
+	}
+	t.Cleanup(func() { backupSnapshotCreatedHook = nil })
+	results, err := h.manager.BackupAll()
+	backupSnapshotCreatedHook = nil
+	if err != nil {
+		t.Fatalf("BackupAll error=%v results=%v", err, results)
+	}
+	if snapshotCount != 1 {
+		t.Fatalf("BackupAll snapshot count=%d, want 1", snapshotCount)
+	}
+	if results["s3"] != "ok" || results["git"] != "ok" {
+		t.Fatalf("BackupAll results=%v", results)
+	}
+	mu.Lock()
+	archive := append([]byte(nil), latest...)
+	mu.Unlock()
+	archiveRoot := t.TempDir()
+	if err := untarGz(archive, archiveRoot); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"cards.json", "cards.full.json", filepath.Join("translation-content", "entries.json")} {
+		s3Body, err := os.ReadFile(filepath.Join(archiveRoot, path))
+		if err != nil {
+			t.Fatalf("S3 archive %s: %v", path, err)
+		}
+		gitPath := filepath.ToSlash(filepath.Join("translations", path))
+		if strings.HasPrefix(path, "translation-content"+string(filepath.Separator)) {
+			gitPath = filepath.ToSlash(path)
+		}
+		gitBody := gitOutputBytes(t, remote, "show", "refs/heads/shared-snapshot:"+gitPath)
+		if !bytes.Equal(s3Body, gitBody) {
+			t.Fatalf("shared snapshot differs for %s\nS3: %s\nGit: %s", path, s3Body, gitBody)
+		}
+		if bytes.Contains(s3Body, []byte("快照后修改")) {
+			t.Fatalf("shared backup %s included post-snapshot mutation", path)
+		}
+	}
+}
+
+func TestTranslationContentDirectoryWithoutManifestIsRejected(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "translation-content")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, present, err := readTranslationContent(dir); err == nil || !present || !strings.Contains(err.Error(), "manifest is missing") {
+		t.Fatalf("missing manifest present=%v err=%v", present, err)
+	}
+}
+
+func TestS3RestoreSupportsRootAndNestedContentLayouts(t *testing.T) {
+	h := setupLegacyBackup(t)
+	translations, content, err := h.manager.materializeBackupPayload(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name          string
+		contentNested bool
+	}{
+		{name: "root translations and content"},
+		{name: "nested legacy content", contentNested: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			translationTarget := filepath.Join(root, "translations")
+			if err := copyDir(translations, translationTarget); err != nil {
+				t.Fatal(err)
+			}
+			contentTarget := filepath.Join(root, "translation-content")
+			if test.contentNested {
+				contentTarget = filepath.Join(translationTarget, "translation-content")
+			}
+			if err := copyDir(content, contentTarget); err != nil {
+				t.Fatal(err)
+			}
+			src, contentDir, err := s3RestoreDirs(t.Context(), root)
+			if err != nil || src != translationTarget || contentDir != contentTarget {
+				t.Fatalf("layout src=%q content=%q err=%v", src, contentDir, err)
+			}
+			if _, present, err := readTranslationContent(contentDir); err != nil || !present {
+				t.Fatalf("layout content present=%v err=%v", present, err)
+			}
+		})
+	}
+}
+
+func TestS3RestoreLayoutSelectionHonorsCancellationBeforeValidation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := s3RestoreDirs(ctx, t.TempDir()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled layout selection error = %v", err)
+	}
+}
+
+func TestS3RestoreRejectsAmbiguousRootAndNestedLayouts(t *testing.T) {
+	h := setupLegacyBackup(t)
+	translations, content, err := h.manager.materializeBackupPayload(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("legacy projections", func(t *testing.T) {
+		root := t.TempDir()
+		if err := copyDir(translations, root); err != nil {
+			t.Fatal(err)
+		}
+		if err := copyDir(translations, filepath.Join(root, "translations")); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := s3RestoreDirs(t.Context(), root); err == nil || !strings.Contains(err.Error(), "ambiguous root and nested translations") {
+			t.Fatalf("ambiguous projection error = %v", err)
+		}
+	})
+	t.Run("additive content", func(t *testing.T) {
+		root := t.TempDir()
+		nested := filepath.Join(root, "translations")
+		if err := copyDir(translations, nested); err != nil {
+			t.Fatal(err)
+		}
+		if err := copyDir(content, filepath.Join(root, "translation-content")); err != nil {
+			t.Fatal(err)
+		}
+		if err := copyDir(content, filepath.Join(nested, "translation-content")); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := s3RestoreDirs(t.Context(), root); err == nil || !strings.Contains(err.Error(), "ambiguous root and nested translation-content") {
+			t.Fatalf("ambiguous additive error = %v", err)
+		}
+	})
 }
 
 func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
@@ -414,6 +967,18 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	destinationEvents := store.NewEventStore(database)
 	if err := destinationEvents.ImportOrdered(99, model.EventStoryMeta{Source: model.SourceHuman}, []store.OrderedEpisode{{
 		EpisodeNo: "1", ScenarioID: "newer", Title: "must disappear", TalkData: map[string]string{},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	newerCanonical, newerDigest, err := store.CanonicalizeEventScenario(map[string]any{
+		"ScenarioId": "newer", "Snippets": []any{}, "TalkData": []any{},
+		"SpecialEffectData": []any{}, "AppearCharacters": []any{},
+	}, "newer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := destinationEvents.BackfillScenarios(99, []store.OrderedEpisode{{
+		EpisodeNo: "1", ScenarioID: "newer", ScenarioCanonicalJSON: newerCanonical, ScenarioSHA256: newerDigest,
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -448,6 +1013,20 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	if err := destination.RestoreBackup(payload.Categories, payload.Events, invalid.Entries, invalid.Events, invalid.Lyrics, true, "admin"); err == nil {
 		t.Fatal("invalid additive restore unexpectedly succeeded")
 	}
+	incomplete := content
+	incomplete.Events.Segments = append([]store.EventSegmentRecord(nil), content.Events.Segments...)
+	removedSegmentID := incomplete.Events.Segments[len(incomplete.Events.Segments)-1].SegmentID
+	incomplete.Events.Segments = incomplete.Events.Segments[:len(incomplete.Events.Segments)-1]
+	incomplete.Events.Localizations = nil
+	for _, localization := range content.Events.Localizations {
+		if localization.SegmentID != removedSegmentID {
+			incomplete.Events.Localizations = append(incomplete.Events.Localizations, localization)
+		}
+	}
+	if err := destination.RestoreBackup(payload.Categories, payload.Events, incomplete.Entries, incomplete.Events,
+		incomplete.Lyrics, true, "admin"); err == nil {
+		t.Fatal("incomplete canonical restore unexpectedly succeeded")
+	}
 	legacyBefore, err := destination.GetEntries("cards", "prefix", "")
 	if err != nil || len(legacyBefore) != 1 || legacyBefore[0].Text != "Before Chinese" {
 		t.Fatalf("failed restore changed legacy content: %+v err=%v", legacyBefore, err)
@@ -455,6 +1034,10 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	englishBefore, err := destination.GetEntriesLocale("cards", "prefix", "", model.LocaleEnglish)
 	if err != nil || len(englishBefore) != 1 || englishBefore[0].Text != "Before English" {
 		t.Fatalf("failed restore changed additive content: %+v err=%v", englishBefore, err)
+	}
+	beforeEventContent, err := destination.ExportEventContent()
+	if err != nil || len(beforeEventContent.Scenarios) != 1 || beforeEventContent.Scenarios[0].ScenarioID != "newer" {
+		t.Fatalf("failed restore changed scenario snapshots=%+v err=%v", beforeEventContent.Scenarios, err)
 	}
 
 	if err := destination.RestoreBackup(payload.Categories, payload.Events, nil, store.EventContentExport{}, store.LyricsContentExport{}, false, "admin"); err != nil {
@@ -466,6 +1049,10 @@ func TestRestoreIsAtomicAndOldBackupClearsAdditiveState(t *testing.T) {
 	}
 	if _, err := destination.GetLyrics(10); err != store.ErrLyricsNotFound {
 		t.Fatalf("old backup retained lyrics: %v", err)
+	}
+	afterEventContent, err := destination.ExportEventContent()
+	if err != nil || len(afterEventContent.Scenarios) != 0 {
+		t.Fatalf("old backup retained scenarios=%+v err=%v", afterEventContent.Scenarios, err)
 	}
 	if exists, err := destinationEvents.Exists(99); err != nil || exists {
 		t.Fatalf("complete restore retained newer event: exists=%v err=%v", exists, err)
@@ -500,7 +1087,66 @@ func TestRestoreRejectsCorruptOrIncompleteLegacyProjection(t *testing.T) {
 	}
 }
 
+func TestRestoreRejectsEmptyProjectionAndDuplicateCategoryKeys(t *testing.T) {
+	h := setupLegacyBackup(t)
+	t.Run("empty projection", func(t *testing.T) {
+		translations, err := h.manager.materializeTranslations(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, category := range model.SupportedCategories {
+			for _, suffix := range []string{".json", ".full.json"} {
+				if err := os.WriteFile(filepath.Join(translations, category+suffix), []byte(`{}`), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if _, _, err := importer.ReadDir(translations); err == nil || !strings.Contains(err.Error(), "restore category cards is empty") {
+			t.Fatalf("empty restore error = %v", err)
+		}
+	})
+	t.Run("incomplete event", func(t *testing.T) {
+		translations, err := h.manager.materializeTranslations(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := []byte(`{"meta":{},"episodes":{"1":{"scenarioId":"scenario-1","title":"title","talkData":{}}}}`)
+		if err := os.WriteFile(filepath.Join(translations, "eventStory", "event_42.json"), body, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := importer.ReadDir(translations); err == nil || !strings.Contains(err.Error(), "restore event 42 has incomplete metadata") {
+			t.Fatalf("incomplete event restore error = %v", err)
+		}
+	})
+	for _, test := range []struct {
+		name string
+		file string
+		body string
+	}{
+		{"flat", "cards.json", `{"prefix":{"こんにちは":"你好"},"prefix":{"こんにちは":"你好"}}`},
+		{"full", "cards.full.json", `{"prefix":{"こんにちは":{"text":"你好","source":"human"},"こんにちは":{"text":"你好","source":"human"}}}`},
+	} {
+		t.Run("duplicate "+test.name, func(t *testing.T) {
+			translations, err := h.manager.materializeTranslations(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(translations, test.file), []byte(test.body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := importer.ReadDir(translations); err == nil || !strings.Contains(err.Error(), "duplicate object key") {
+				t.Fatalf("duplicate %s error = %v", test.name, err)
+			}
+		})
+	}
+}
+
 func gitOutput(t *testing.T, gitDir string, args ...string) string {
+	t.Helper()
+	return strings.TrimSpace(string(gitOutputBytes(t, gitDir, args...)))
+}
+
+func gitOutputBytes(t *testing.T, gitDir string, args ...string) []byte {
 	t.Helper()
 	allArgs := append([]string{"--git-dir", gitDir}, args...)
 	cmd := exec.Command("git", allArgs...)
@@ -508,5 +1154,5 @@ func gitOutput(t *testing.T, gitDir string, args ...string) string {
 	if err != nil {
 		t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, out)
 	}
-	return strings.TrimSpace(string(out))
+	return out
 }

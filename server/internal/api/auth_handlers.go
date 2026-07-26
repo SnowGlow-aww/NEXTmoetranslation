@@ -120,6 +120,10 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 //
 // POST /api/auth/refresh -> {token, expiresAt}
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
 		writeErr(w, http.StatusUnauthorized, "unauthorized")

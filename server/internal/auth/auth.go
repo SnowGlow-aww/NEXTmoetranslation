@@ -40,6 +40,7 @@ var (
 	ErrInvalidCreds  = errors.New("invalid credentials")
 	ErrLastAdmin     = errors.New("cannot remove the last admin")
 	ErrSetupComplete = errors.New("setup already completed")
+	ErrInvalidRole   = errors.New("role must be editor or admin")
 	ErrWeakPassword  = errors.New("password must be 12-72 bytes and at least 12 characters")
 	ErrWeakJWTSecret = errors.New("JWT secret must contain at least 32 bytes")
 )
@@ -61,7 +62,7 @@ func New(database *db.DB, jwtSecret string, ttl time.Duration) *Auth {
 }
 
 func ValidateJWTSecret(secret string) error {
-	if len([]byte(secret)) < 32 {
+	if len([]byte(secret)) < 32 || strings.TrimSpace(secret) == "replace-with-at-least-32-random-bytes" {
 		return ErrWeakJWTSecret
 	}
 	return nil
@@ -86,7 +87,7 @@ func (a *Auth) CreateUser(username, password, role string) (*User, error) {
 		return nil, err
 	}
 	if !ValidRole(role) {
-		role = RoleEditor
+		return nil, ErrInvalidRole
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -161,6 +162,9 @@ func (a *Auth) ListUsers() ([]User, error) {
 		var u User
 		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt, &u.TokenVersion); err != nil {
 			return nil, err
+		}
+		if !ValidRole(u.Role) {
+			return nil, fmt.Errorf("invalid persisted role for user %q: %w", u.Username, ErrInvalidRole)
 		}
 		out = append(out, u)
 	}
@@ -271,6 +275,21 @@ func (a *Auth) CountAdmins() (int, error) {
 	return n, err
 }
 
+// ValidatePersistedRoles rejects databases containing principals outside the
+// closed editor/admin role vocabulary before startup can seed or serve users.
+func (a *Auth) ValidatePersistedRoles() error {
+	var username, role string
+	err := a.db.QueryRow(`SELECT username, role FROM users WHERE role NOT IN (?, ?) ORDER BY id LIMIT 1`,
+		RoleEditor, RoleAdmin).Scan(&username, &role)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("user %q has invalid persisted role %q: %w", username, role, ErrInvalidRole)
+}
+
 // ---- Authentication ----
 
 // Authenticate verifies credentials and returns the user.
@@ -289,6 +308,9 @@ func (a *Auth) Authenticate(username, password string) (*User, error) {
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
 		return nil, ErrInvalidCreds
 	}
+	if !ValidRole(u.Role) {
+		return nil, ErrInvalidCreds
+	}
 	return &u, nil
 }
 
@@ -304,6 +326,9 @@ func (a *Auth) GetUser(username string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !ValidRole(u.Role) {
+		return nil, fmt.Errorf("invalid persisted role for user %q: %w", u.Username, ErrInvalidRole)
+	}
 	return &u, nil
 }
 
@@ -318,10 +343,16 @@ type Claims struct {
 
 // IssueToken creates a signed JWT for the user.
 func (a *Auth) IssueToken(u *User) (string, time.Time, error) {
+	if u == nil || !ValidRole(u.Role) {
+		return "", time.Time{}, ErrInvalidRole
+	}
 	return a.issueToken(u.Username, u.Role, u.TokenVersion)
 }
 
 func (a *Auth) issueToken(username, role string, tokenVersion int) (string, time.Time, error) {
+	if !ValidRole(role) {
+		return "", time.Time{}, ErrInvalidRole
+	}
 	if err := ValidateJWTSecret(string(a.jwtSecret)); err != nil {
 		return "", time.Time{}, err
 	}
@@ -345,6 +376,9 @@ func (a *Auth) issueToken(username, role string, tokenVersion int) (string, time
 // successor. A replay or concurrent refresh cannot reuse the consumed version,
 // and a concurrent revocation either rejects refresh or invalidates its result.
 func (a *Auth) RefreshToken(claims *Claims) (string, time.Time, error) {
+	if claims == nil || !ValidRole(claims.Role) {
+		return "", time.Time{}, ErrInvalidCreds
+	}
 	tx, err := a.db.Begin()
 	if err != nil {
 		return "", time.Time{}, err
@@ -389,10 +423,13 @@ func (a *Auth) VerifyToken(tokenStr string) (*Claims, error) {
 	if err != nil || !token.Valid {
 		return nil, ErrInvalidCreds
 	}
+	if !ValidRole(claims.Role) {
+		return nil, ErrInvalidCreds
+	}
 	var currentRole string
 	var currentVersion int
 	if err := a.db.QueryRow(`SELECT role, token_version FROM users WHERE username=?`, claims.Username).
-		Scan(&currentRole, &currentVersion); err != nil || currentRole != claims.Role || currentVersion != claims.TokenVersion {
+		Scan(&currentRole, &currentVersion); err != nil || !ValidRole(currentRole) || currentRole != claims.Role || currentVersion != claims.TokenVersion {
 		return nil, ErrInvalidCreds
 	}
 	return claims, nil

@@ -1,9 +1,12 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
+	"moesekai/server/internal/backup"
+	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/sse"
 )
 
@@ -30,10 +33,10 @@ func (s *Server) handleBackupPush(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "backup not configured")
 		return
 	}
-	results, err := s.backup.BackupAll()
+	results, err := s.backup.BackupAllContext(r.Context())
 	if err != nil {
 		// Partial success still returns the per-target breakdown.
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
+		writeJSON(w, backupErrorStatus(err), map[string]any{
 			"error":   err.Error(),
 			"results": results,
 		})
@@ -44,7 +47,7 @@ func (s *Server) handleBackupPush(w http.ResponseWriter, r *http.Request) {
 
 // handleBackupRestore restores translations from a target ("s3" or "git").
 //
-// POST /api/backup/restore {target}
+// POST /api/backup/restore {target, confirmation:"RESTORE:<target>"}
 func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -55,7 +58,8 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Target string `json:"target"`
+		Target       string `json:"target"`
+		Confirmation string `json:"confirmation"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -64,9 +68,18 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "target required (s3 or git)")
 		return
 	}
-	res, err := s.backup.RestoreFromAs(req.Target, currentUser(r))
+	if req.Target != "s3" && req.Target != "git" {
+		writeErr(w, http.StatusBadRequest, "invalid restore target")
+		return
+	}
+	if req.Confirmation != "RESTORE:"+req.Target {
+		writeContractError(w, http.StatusBadRequest, "restore_confirmation_required",
+			[]string{"confirmation must exactly match RESTORE:" + req.Target}, nil)
+		return
+	}
+	res, err := s.backup.RestoreFromAsContext(r.Context(), req.Target, currentUser(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, backupErrorStatus(err), err.Error())
 		return
 	}
 	s.broadcast(sse.EventContentRestored, map[string]any{
@@ -79,4 +92,17 @@ func (s *Server) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
 		"eventStories": res.EventStories,
 		"warnings":     res.Warnings,
 	})
+}
+
+func backupErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, backup.ErrBusy), errors.Is(err, editorgate.ErrProducerRunning):
+		return http.StatusConflict
+	case errors.Is(err, backup.ErrDraining), errors.Is(err, editorgate.ErrDraining):
+		return http.StatusServiceUnavailable
+	case errors.Is(err, backup.ErrInvalidRestoreTarget):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
 }

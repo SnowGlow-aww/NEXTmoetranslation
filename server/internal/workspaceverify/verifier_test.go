@@ -1,0 +1,356 @@
+package workspaceverify
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	"golang.org/x/sys/unix"
+)
+
+func TestCheckedInProducerContractFixtureVerifies(t *testing.T) {
+	root := copyFixture(t)
+	manifest, err := verifyFixture(root, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Producer.SourceDirty || !manifest.Producer.SourceProduction || manifest.Artifact.AppVersion != "5.9.6" {
+		t.Fatalf("fixture producer = %+v artifact = %+v", manifest.Producer, manifest.Artifact)
+	}
+	if got := manifest.RequiredRoutes; !equalRoutes(got, RequiredRoutes()) {
+		t.Fatalf("fixture routes do not match server contract")
+	}
+}
+
+func TestWorkspaceConfigurationAndProductionDirtiness(t *testing.T) {
+	if manifest, err := Verify(Config{}); err != nil || manifest != nil {
+		t.Fatalf("optional development workspace manifest=%v err=%v", manifest, err)
+	}
+	if _, err := Verify(Config{Production: true}); err == nil || !strings.Contains(err.Error(), "required in production") {
+		t.Fatalf("production without workspace error = %v", err)
+	}
+	if _, err := Verify(Config{Root: t.TempDir()}); err == nil || !strings.Contains(err.Error(), "configured together") {
+		t.Fatalf("partial workspace config error = %v", err)
+	}
+	if _, err := Verify(Config{Root: t.TempDir(), ManifestSHA256: "ABC"}); err == nil || !strings.Contains(err.Error(), "lowercase hexadecimal") {
+		t.Fatalf("noncanonical lock error = %v", err)
+	}
+
+	root := copyFixture(t)
+	manifest := readTypedManifest(t, root)
+	manifest.Producer.SourceDirty = true
+	manifest.Producer.SourceProduction = false
+	writeTypedManifest(t, root, manifest)
+	if _, err := verifyFixture(root, true); err == nil || !strings.Contains(err.Error(), "sourceDirty=false and sourceProduction=true") {
+		t.Fatalf("dirty production error = %v", err)
+	}
+	if _, err := verifyFixture(root, false); err != nil {
+		t.Fatalf("dirty development workspace rejected: %v", err)
+	}
+
+	manifest.Producer.SourceDirty = false
+	writeTypedManifest(t, root, manifest)
+	if _, err := verifyFixture(root, true); err == nil || !strings.Contains(err.Error(), "sourceProduction=true") {
+		t.Fatalf("nonproduction producer error = %v", err)
+	}
+	if _, err := verifyFixture(root, false); err != nil {
+		t.Fatalf("nonproduction producer rejected in development: %v", err)
+	}
+}
+
+func TestManifestRejectsUnknownDuplicateAndUnsupportedContracts(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*testing.T, string)
+		message string
+	}{
+		{"unknown field", func(t *testing.T, root string) {
+			mutateRawManifest(t, root, func(contents string) string {
+				return strings.Replace(contents, "  \"schemaVersion\": 3,", "  \"schemaVersion\": 3,\n  \"unknown\": true,", 1)
+			})
+		}, "must contain exactly"},
+		{"duplicate key", func(t *testing.T, root string) {
+			mutateRawManifest(t, root, func(contents string) string {
+				return strings.Replace(contents, "  \"schemaVersion\": 3,", "  \"schemaVersion\": 3,\n  \"schemaVersion\": 3,", 1)
+			})
+		}, "duplicate object key"},
+		{"unsupported schema", func(t *testing.T, root string) {
+			manifest := readTypedManifest(t, root)
+			manifest.SchemaVersion++
+			writeTypedManifest(t, root, manifest)
+		}, "unsupported workspace schemaVersion"},
+		{"unsupported source contract", func(t *testing.T, root string) {
+			manifest := readTypedManifest(t, root)
+			manifest.SourceContract.Version++
+			writeTypedManifest(t, root, manifest)
+		}, "source contract is unsupported"},
+		{"unsupported editor gate", func(t *testing.T, root string) {
+			manifest := readTypedManifest(t, root)
+			manifest.EditorGateContract.MutationRejections.Missing = 400
+			writeTypedManifest(t, root, manifest)
+		}, "editor gate contract is unsupported"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := copyFixture(t)
+			test.mutate(t, root)
+			if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("error = %v, want %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestManifestRejectsNoncanonicalAndMismatchedRoutes(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func([]Route) []Route
+		message string
+	}{
+		{"ordering", func(routes []Route) []Route {
+			routes[0], routes[1] = routes[1], routes[0]
+			return routes
+		}, "canonical authorization order"},
+		{"duplicate", func(routes []Route) []Route {
+			return append(routes[:1], append([]Route{routes[0]}, routes[1:]...)...)
+		}, "duplicate required route"},
+		{"missing capability", func(routes []Route) []Route { return routes[:len(routes)-1] }, "does not match the server contract"},
+		{"extra capability", func(routes []Route) []Route {
+			return append(routes, Route{Method: "PUT", Path: "/api/editor/v1/other", Authentication: "bearer", ProducerProof: true, AllowedRoles: []string{"editor", "admin"}})
+		}, "does not match the server contract"},
+		{"query token authentication", func(routes []Route) []Route {
+			for index := range routes {
+				if routes[index].Path == "/sse" {
+					routes[index].Authentication = "query-token"
+				}
+			}
+			return routes
+		}, "required route"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := copyFixture(t)
+			manifest := readTypedManifest(t, root)
+			manifest.RequiredRoutes = test.mutate(manifest.RequiredRoutes)
+			writeTypedManifest(t, root, manifest)
+			if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("error = %v, want %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestWorkspaceRejectsMissingExtraTamperedSymlinkAndNonregularFiles(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*testing.T, string)
+		message string
+	}{
+		{"missing", func(t *testing.T, root string) { mustRemove(t, filepath.Join(root, "assets", "app.js")) }, "is missing"},
+		{"extra", func(t *testing.T, root string) { mustWrite(t, filepath.Join(root, "extra.txt"), []byte("extra")) }, "extra file"},
+		{"extra directory", func(t *testing.T, root string) {
+			if err := os.Mkdir(filepath.Join(root, "empty"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}, "extra directory"},
+		{"tampered size", func(t *testing.T, root string) {
+			mustWrite(t, filepath.Join(root, "assets", "app.js"), []byte("short"))
+		}, "size mismatch"},
+		{"tampered digest", func(t *testing.T, root string) {
+			mustWrite(t, filepath.Join(root, "assets", "app.js"), []byte("console.log('workspace altered')\n"))
+			manifest := readTypedManifest(t, root)
+			manifest.Files[0].Size = int64(len("console.log('workspace altered')\n"))
+			writeTypedManifest(t, root, manifest)
+		}, "SHA-256 mismatch"},
+		{"symlink", func(t *testing.T, root string) {
+			if err := os.Symlink("app.js", filepath.Join(root, "assets", "linked.js")); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+		}, "contains symlink"},
+		{"nonregular", func(t *testing.T, root string) {
+			if err := unix.Mkfifo(filepath.Join(root, "pipe"), 0o600); err != nil {
+				t.Skipf("FIFO unavailable: %v", err)
+			}
+		}, "nonregular file"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := copyFixture(t)
+			test.mutate(t, root)
+			if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("error = %v, want %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestManifestRejectsUnsafeInventoryAndResourceLimitViolations(t *testing.T) {
+	t.Run("path traversal", func(t *testing.T) {
+		root := copyFixture(t)
+		manifest := readTypedManifest(t, root)
+		manifest.Files[0].Path = "../outside"
+		writeTypedManifest(t, root, manifest)
+		if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), "unsafe") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("manifest bytes", func(t *testing.T) {
+		root := copyFixture(t)
+		path := filepath.Join(root, ManifestFilename)
+		mustWrite(t, path, []byte(strings.Repeat(" ", MaxManifestBytes+1)))
+		if _, err := Verify(Config{Root: root, ManifestSHA256: digestFile(t, path)}); err == nil || !strings.Contains(err.Error(), "exceeds") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("file count", func(t *testing.T) {
+		root := copyFixture(t)
+		manifest := readTypedManifest(t, root)
+		manifest.Files = make([]File, MaxFiles+1)
+		for index := range manifest.Files {
+			manifest.Files[index] = File{Path: fmt.Sprintf("assets/%04d.js", index), SHA256: strings.Repeat("0", 64)}
+		}
+		manifest.Files[len(manifest.Files)-1].Path = "index.html"
+		writeTypedManifest(t, root, manifest)
+		if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), "file count") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("single file bytes", func(t *testing.T) {
+		root := copyFixture(t)
+		manifest := readTypedManifest(t, root)
+		manifest.Files[0].Size = MaxFileBytes + 1
+		writeTypedManifest(t, root, manifest)
+		if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), "file bounds") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("total bytes", func(t *testing.T) {
+		root := copyFixture(t)
+		manifest := readTypedManifest(t, root)
+		manifest.Files = []File{
+			{Path: "assets/a", Size: MaxFileBytes, SHA256: strings.Repeat("0", 64)},
+			{Path: "assets/b", Size: MaxFileBytes, SHA256: strings.Repeat("0", 64)},
+			{Path: "assets/c", Size: MaxFileBytes, SHA256: strings.Repeat("0", 64)},
+			{Path: "assets/d", Size: MaxFileBytes, SHA256: strings.Repeat("0", 64)},
+			{Path: "index.html", Size: 1, SHA256: strings.Repeat("0", 64)},
+		}
+		writeTypedManifest(t, root, manifest)
+		if _, err := verifyFixture(root, false); err == nil || !strings.Contains(err.Error(), "total bytes") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+}
+
+func TestManifestSHA256IsAnExternalByteLock(t *testing.T) {
+	root := copyFixture(t)
+	if _, err := Verify(Config{Root: root, ManifestSHA256: strings.Repeat("0", 64)}); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("mismatched manifest lock error = %v", err)
+	}
+}
+
+func copyFixture(t *testing.T) string {
+	t.Helper()
+	destination := t.TempDir()
+	err := filepath.WalkDir(filepath.Join("testdata", "valid"), func(source string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(filepath.Join("testdata", "valid"), source)
+		if err != nil || relative == "." {
+			return err
+		}
+		target := filepath.Join(destination, relative)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o700)
+		}
+		contents, err := os.ReadFile(source)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, contents, 0o600)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return destination
+}
+
+func readTypedManifest(t *testing.T, root string) Manifest {
+	t.Helper()
+	contents, err := os.ReadFile(filepath.Join(root, ManifestFilename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest Manifest
+	if err := json.Unmarshal(contents, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	return manifest
+}
+
+func writeTypedManifest(t *testing.T, root string, manifest Manifest) {
+	t.Helper()
+	contents, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(root, ManifestFilename), append(contents, '\n'))
+}
+
+func mutateRawManifest(t *testing.T, root string, mutate func(string) string) {
+	t.Helper()
+	path := filepath.Join(root, ManifestFilename)
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, path, []byte(mutate(string(contents))))
+}
+
+func verifyFixture(root string, production bool) (*Manifest, error) {
+	return Verify(Config{Root: root, ManifestSHA256: digestPath(filepath.Join(root, ManifestFilename)), Production: production})
+}
+
+func digestFile(t *testing.T, path string) string {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(contents)
+	return hex.EncodeToString(digest[:])
+}
+
+func digestPath(path string) string {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return strings.Repeat("f", 64)
+	}
+	digest := sha256.Sum256(contents)
+	return hex.EncodeToString(digest[:])
+}
+
+func mustWrite(t *testing.T, path string, contents []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustRemove(t *testing.T, path string) {
+	t.Helper()
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func equalRoutes(left, right []Route) bool {
+	return reflect.DeepEqual(left, right)
+}

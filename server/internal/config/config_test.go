@@ -80,6 +80,34 @@ func TestSeedIfAbsent(t *testing.T) {
 	}
 }
 
+func TestSetManyIfAbsentIsAtomicAndPreservesExistingValues(t *testing.T) {
+	database := openTestDB(t)
+	configuration, err := New(database, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := configuration.SetManyIfAbsent(map[string]string{
+		KeyUpstreamRepo: "owner/repo", KeySchedulerOn: "ture",
+	}); err == nil {
+		t.Fatal("invalid seed group unexpectedly succeeded")
+	}
+	if got := configuration.Get(KeyUpstreamRepo); got != "" {
+		t.Fatalf("failed seed group partially changed cache: %q", got)
+	}
+	if err := configuration.Set(KeyUpstreamRepo, "admin/override"); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := configuration.SetManyIfAbsent(map[string]string{
+		KeyUpstreamRepo: "seed/value", KeySchedulerOn: "false",
+	})
+	if err != nil || changed != 1 {
+		t.Fatalf("seed group changed=%d err=%v", changed, err)
+	}
+	if configuration.Get(KeyUpstreamRepo) != "admin/override" || configuration.Get(KeySchedulerOn) != "false" {
+		t.Fatalf("seed group values repo=%q scheduler=%q", configuration.Get(KeyUpstreamRepo), configuration.Get(KeySchedulerOn))
+	}
+}
+
 func TestSecretWithoutMasterKey(t *testing.T) {
 	database := openTestDB(t)
 	c, _ := New(database, "") // no master key
@@ -120,5 +148,112 @@ func TestSetManyRejectsPatchAtomically(t *testing.T) {
 	var count int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM settings`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("failed patch changed database: count=%d err=%v", count, err)
+	}
+}
+
+func TestNewRejectsInvalidPersistedTypedSetting(t *testing.T) {
+	database := openTestDB(t)
+	if _, err := database.Exec(`INSERT INTO settings(key, value, encrypted) VALUES (?, ?, 0)`, KeySchedulerOn, "ture"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(database, ""); err == nil {
+		t.Fatal("invalid persisted typed setting was accepted")
+	}
+}
+
+func TestSetManyValidatesTypedSettingsAtomically(t *testing.T) {
+	database := openTestDB(t)
+	configuration, err := New(database, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := map[string]string{
+		KeySchedulerOn: "ture", KeyBackupS3Enabled: "1", KeyLLMType: "custom",
+		KeyLLMRequestTimeoutMS: "0", KeyLLMMaxRetries: "6", KeyBatchSize: "0",
+		KeyRateDelayMS: "-1", KeyUpstreamFetchConcurrency: "13",
+	}
+	for key, value := range invalid {
+		if _, err := configuration.SetMany(map[string]string{KeyUpstreamRepo: "owner/repo", key: value}); err == nil {
+			t.Fatalf("invalid setting %s=%q accepted", key, value)
+		}
+		if got := configuration.Get(KeyUpstreamRepo); got != "" {
+			t.Fatalf("invalid setting %s partially changed config: %q", key, got)
+		}
+	}
+	for key, value := range map[string]string{
+		KeySchedulerOn: "false", KeyBackupS3Enabled: "true", KeyLLMType: "openai",
+		KeyLLMRequestTimeoutMS: "1", KeyLLMMaxRetries: "5", KeyBatchSize: "200",
+		KeyRateDelayMS: "0", KeyUpstreamFetchConcurrency: "12",
+	} {
+		if err := configuration.Set(key, value); err != nil {
+			t.Fatalf("valid setting %s=%q rejected: %v", key, value, err)
+		}
+	}
+}
+
+func TestSecretBearingServiceEndpointsRequireAbsoluteHTTPS(t *testing.T) {
+	database := openTestDB(t)
+	configuration, err := New(database, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{KeyOpenAIBaseURL, KeyBackupS3Endpoint} {
+		for _, value := range []string{
+			"http://service.example", "http://192.0.2.10", "https://user:secret@service.example", "https://service.example?token=x",
+			"https://service.example/#fragment", "//service.example", "https://service.example/\nheader",
+		} {
+			if err := configuration.Set(key, value); err == nil {
+				t.Fatalf("%s accepted unsafe endpoint %q", key, value)
+			}
+		}
+		for _, value := range []string{"", "https://service.example", "https://service.example/v1", "http://127.0.0.1:8080", "http://[::1]:8080"} {
+			if err := configuration.Set(key, value); err != nil {
+				t.Fatalf("%s rejected safe endpoint %q: %v", key, value, err)
+			}
+		}
+	}
+}
+
+func TestNewRejectsUnsafePersistedServiceEndpoint(t *testing.T) {
+	database := openTestDB(t)
+	if _, err := database.Exec(`INSERT INTO settings(key, value, encrypted) VALUES (?, ?, 0)`, KeyOpenAIBaseURL, "http://service.example"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(database, ""); err == nil {
+		t.Fatal("unsafe persisted service endpoint was accepted")
+	}
+}
+
+func TestSetManyValidatesDailyHourAndKnownKeysAtomically(t *testing.T) {
+	database := openTestDB(t)
+	configuration, err := New(database, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{"", "-1", "24", "1.5", "01", "+1", " 1"} {
+		if _, err := configuration.SetMany(map[string]string{
+			KeyLLMType: "openai", KeyBackupDailyHour: value,
+		}); err == nil {
+			t.Fatalf("invalid daily hour %q accepted", value)
+		}
+		if got := configuration.Get(KeyLLMType); got != "" {
+			t.Fatalf("invalid daily hour %q partially changed config: %q", value, got)
+		}
+	}
+	if _, err := configuration.SetMany(map[string]string{
+		KeyBackupDailyHour: "7", "backup.unrecognized": "value",
+	}); err == nil {
+		t.Fatal("unknown setting accepted")
+	}
+	if got := configuration.Get(KeyBackupDailyHour); got != "" {
+		t.Fatalf("unknown-key patch partially changed daily hour: %q", got)
+	}
+	for _, value := range []string{"0", "7", "23"} {
+		if _, err := configuration.SetMany(map[string]string{KeyBackupDailyHour: value}); err != nil {
+			t.Fatalf("valid daily hour %q rejected: %v", value, err)
+		}
+		if got := configuration.Get(KeyBackupDailyHour); got != value {
+			t.Fatalf("daily hour = %q, want %q", got, value)
+		}
 	}
 }

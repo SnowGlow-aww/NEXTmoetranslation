@@ -164,7 +164,7 @@ func TestLegacyEntryUpdateContractGolden(t *testing.T) {
 	// currently selected destination field.
 	insert := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
 		"category": "cards", "field": "legacy-field", "key": "new-key",
-		"text": "legacy text", "source": "arbitrary-v1-source",
+		"text": "legacy text", "source": "human",
 	})
 	defer insert.Body.Close()
 	if insert.StatusCode != http.StatusConflict {
