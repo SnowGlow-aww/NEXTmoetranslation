@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const workflow = readFileSync(new URL('../.github/workflows/release-paired.yml', import.meta.url), 'utf8')
+const ciWorkflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8')
 const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8')
 const verifier = readFileSync(new URL('../server/cmd/paired-release/main.go', import.meta.url), 'utf8')
 const releaseDocumentation = readFileSync(new URL('../PAIRED_RELEASE.md', import.meta.url), 'utf8')
@@ -43,6 +44,20 @@ test('paired publication requires successful CI for the exact NEXT commit', () =
   assert.match(gate, /jq -r \.conclusion\)" = "success"/)
   assert.doesNotMatch(gate, /success_count|test "\$success_count" -ge 1/)
   assert.ok(workflow.indexOf('Require successful CI for the exact NEXT commit') < workflow.indexOf('Build and push default paired target'))
+})
+
+test('CI production startup probes isolate the intended fail-closed gates', () => {
+  const start = ciWorkflow.indexOf('      - name: Assert paired production startup fails closed\n')
+  const end = ciWorkflow.indexOf('      - name: Smoke paired entrypoint\n', start + 1)
+  assert.ok(start >= 0 && end > start, 'missing CI production startup assertion step')
+  const gate = ciWorkflow.slice(start, end)
+  const masterKeyAssertion = gate.indexOf("grep -F 'MOESEKAI_MASTER_KEY must contain at least 32 bytes'")
+  assert.ok(masterKeyAssertion > 0, 'missing master-key failure assertion')
+  const masterKeyProbe = gate.slice(0, masterKeyAssertion)
+  assert.match(masterKeyProbe, /-e CONSOLE_ORIGIN=http:\/\/127\.0\.0\.1/)
+  assert.doesNotMatch(masterKeyProbe, /-e JWT_SECRET=/)
+  assert.doesNotMatch(masterKeyProbe, /-e MOESEKAI_MASTER_KEY=/)
+  assert.match(gate, /grep -F 'an initialized administrator is required'/)
 })
 
 test('producer access uses one repository-scoped read-only GitHub App token', () => {
