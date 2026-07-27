@@ -19,3 +19,24 @@ node_modules/
 # Env
 .env
 .env.local
+
+.env.*
+!.env.example
+!.env.*.example
+local-dist/
+.vscode/
+.idea/
+.claude/
+.grok/
+.cursor/
+*.code-workspace
+.npmrc
+.netrc
+*.p12
+*.pfx
+*.pem
+*.key
+*.keystore
+*.jks
+*.mobileprovision
+coverage/
