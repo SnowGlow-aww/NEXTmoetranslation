@@ -401,6 +401,66 @@ ALTER TABLE event_story_segments_next RENAME TO event_story_segments;
 ALTER TABLE event_story_segment_localizations_next RENAME TO event_story_segment_localizations;
 CREATE INDEX idx_event_story_segments_lookup ON event_story_segments(event_id, episode_no, kind, jp_key);
 `,
+}, {
+	version: 10,
+	name:    "durable_lyrics_discovery_jobs",
+	sql: `
+CREATE TABLE lyrics_discovery_jobs (
+	job_id           INTEGER PRIMARY KEY AUTOINCREMENT,
+	idempotency_key  TEXT NOT NULL UNIQUE,
+	kind             TEXT NOT NULL,
+	state            TEXT NOT NULL,
+	music_id         INTEGER NOT NULL,
+	page_id          INTEGER,
+	revision_id      INTEGER,
+	artifact_id      INTEGER,
+	attempts         INTEGER NOT NULL DEFAULT 0,
+	max_attempts     INTEGER NOT NULL,
+	next_attempt_at  INTEGER NOT NULL,
+	lease_owner      TEXT,
+	lease_expires_at INTEGER,
+	last_error_code  TEXT,
+	created_at       INTEGER NOT NULL,
+	updated_at       INTEGER NOT NULL,
+	completed_at     INTEGER,
+	version          INTEGER NOT NULL DEFAULT 1,
+	CHECK (length(idempotency_key) = 64 AND idempotency_key = lower(idempotency_key) AND idempotency_key NOT GLOB '*[^0-9a-f]*'),
+	CHECK (kind IN ('discover', 'fetch_revision', 'revalidate_pinned', 'revalidate_head')),
+	CHECK (length(kind) <= 32),
+	CHECK (state IN ('queued', 'leased', 'retry_wait', 'succeeded', 'dead_letter', 'cancelled')),
+	CHECK (length(state) <= 16),
+	CHECK (music_id > 0),
+	CHECK (page_id IS NULL OR page_id > 0),
+	CHECK (revision_id IS NULL OR revision_id > 0),
+	CHECK (artifact_id IS NULL OR artifact_id > 0),
+	CHECK (attempts >= 0 AND attempts <= max_attempts),
+	CHECK (state <> 'leased' OR attempts > 0),
+	CHECK (state <> 'dead_letter' OR attempts = max_attempts),
+	CHECK (max_attempts BETWEEN 1 AND 100),
+	CHECK (next_attempt_at >= 0),
+	CHECK ((state = 'leased' AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL) OR
+		(state <> 'leased' AND lease_owner IS NULL AND lease_expires_at IS NULL)),
+	CHECK (lease_owner IS NULL OR (length(lease_owner) BETWEEN 1 AND 128 AND lease_owner = trim(lease_owner))),
+	CHECK (lease_expires_at IS NULL OR lease_expires_at > 0),
+	CHECK (last_error_code IS NULL OR (length(last_error_code) BETWEEN 1 AND 64 AND last_error_code = lower(last_error_code) AND last_error_code NOT GLOB '*[^a-z0-9_]*')),
+	CHECK (created_at >= 0 AND updated_at >= created_at),
+	CHECK ((state IN ('succeeded', 'dead_letter', 'cancelled')) = (completed_at IS NOT NULL)),
+	CHECK (completed_at IS NULL OR completed_at >= created_at),
+	CHECK (version > 0),
+	CHECK (
+		(kind = 'discover' AND page_id IS NULL AND revision_id IS NULL AND artifact_id IS NULL) OR
+		(kind = 'fetch_revision' AND page_id IS NOT NULL AND revision_id IS NOT NULL) OR
+		(kind = 'revalidate_pinned' AND page_id IS NOT NULL AND artifact_id IS NOT NULL) OR
+		(kind = 'revalidate_head' AND page_id IS NOT NULL AND revision_id IS NULL)
+	)
+);
+CREATE INDEX idx_lyrics_discovery_jobs_claim
+	ON lyrics_discovery_jobs(state, next_attempt_at, job_id);
+CREATE INDEX idx_lyrics_discovery_jobs_lease_expiry
+	ON lyrics_discovery_jobs(lease_expires_at, job_id) WHERE state = 'leased';
+CREATE INDEX idx_lyrics_discovery_jobs_music
+	ON lyrics_discovery_jobs(music_id, job_id);
+`,
 }}
 
 func (d *DB) pendingMigrations() ([]migration, error) {

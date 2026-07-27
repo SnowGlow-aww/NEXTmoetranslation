@@ -34,7 +34,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 9 || migrationCount != 9 || checksum != migrations[8].checksum() {
+	if version != 10 || migrationCount != 10 || checksum != migrations[9].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -368,6 +368,52 @@ func TestV9MigrationRetainsExistingSegmentsAndAllowsRecoveryIdentityAtSamePositi
 	if err := migrated.QueryRow(`SELECT COUNT(*) FROM event_story_segments WHERE segment_id IN (?, ?)`,
 		originalID, recoveryID).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("v9 segment preservation count=%d err=%v", count, err)
+	}
+}
+
+func TestV10MigrationCreatesDurableLyricsDiscoveryQueue(t *testing.T) {
+	path := legacyFixtureCopy(t, "v10-lyrics-discovery-queue.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:9]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var version int
+	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 10 {
+		t.Fatalf("migration version=%d err=%v", version, err)
+	}
+	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 1, 0, 3, 1, 1, 1, 1)`, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'unsupported', 'queued', 2, 0, 3, 1, 1, 1, 1)`, strings.Repeat("b", 64)); err == nil {
+		t.Fatal("v10 queue accepted unsupported job kind")
+	}
+	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'fetch_revision', 'queued', 2, 0, 3, 1, 1, 1, 1)`, strings.Repeat("c", 64)); err == nil {
+		t.Fatal("v10 queue accepted incomplete fetch_revision target")
+	}
+	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, lease_owner, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 3, 0, 3, 1, 'orphan_owner', 1, 1, 1)`, strings.Repeat("d", 64)); err == nil {
+		t.Fatal("v10 queue accepted lease owner outside leased state")
 	}
 }
 
