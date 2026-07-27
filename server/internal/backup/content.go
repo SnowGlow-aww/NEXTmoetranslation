@@ -15,6 +15,7 @@ import (
 
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/files"
+	"moesekai/server/internal/legacy"
 	"moesekai/server/internal/store"
 )
 
@@ -396,11 +397,23 @@ func (r *contextReader) Read(buffer []byte) (int, error) {
 }
 
 func decodeJSONContext(ctx context.Context, body []byte, target any) error {
+	if err := legacy.ValidateUniqueJSON(body); err != nil {
+		return err
+	}
 	decoder := json.NewDecoder(&contextReader{ctx: ctx, reader: bytes.NewReader(body)})
 	if err := decoder.Decode(target); err != nil {
 		return err
 	}
-	return ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("trailing JSON")
+		}
+		return err
+	}
+	return nil
 }
 
 func copyWithContext(ctx context.Context, destination io.Writer, source io.Reader) (int64, error) {
@@ -538,13 +551,20 @@ func consumeJSONValue(ctx context.Context, decoder *json.Decoder, value json.Tok
 	}
 	switch delimiter {
 	case '{':
+		seen := map[string]bool{}
 		for decoder.More() {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if _, err := decoder.Token(); err != nil {
+			keyToken, err := decoder.Token()
+			if err != nil {
 				return err
 			}
+			key, ok := keyToken.(string)
+			if !ok || seen[key] {
+				return fmt.Errorf("invalid or duplicate object field")
+			}
+			seen[key] = true
 			nested, err := decoder.Token()
 			if err != nil {
 				return err

@@ -451,32 +451,29 @@ func (t *Translator) SyncCNOnlyContext(ctx context.Context) (CNSyncResult, error
 
 	steps := []struct {
 		category string
-		fn       func() (map[string]store.CNApplyField, error)
+		fn       func() cnExtractedCategory
 	}{
-		{"cards", t.extractCards},
-		{"skills", t.extractSkills},
-		{"events", t.extractEvents},
-		{"information", t.extractInformation},
-		{"gacha", t.extractGacha},
-		{"virtualLive", t.extractVirtualLive},
-		{"sticker", t.extractStickers},
-		{"comic", t.extractComics},
-		{"mysekai", t.extractMysekai},
-		{"costumes", t.extractCostumes},
-		{"characters", t.extractCharacters},
-		{"units", t.extractUnits},
-		{"music", t.extractMusic},
+		{"cards", extractCNFields(t.extractCards)},
+		{"skills", extractCNFields(t.extractSkills)},
+		{"events", extractCNFields(t.extractEvents)},
+		{"information", extractCNFields(t.extractInformation)},
+		{"gacha", extractCNFields(t.extractGacha)},
+		{"virtualLive", extractCNFields(t.extractVirtualLive)},
+		{"sticker", extractCNFields(t.extractStickers)},
+		{"comic", extractCNFields(t.extractComics)},
+		{"mysekai", extractCNFields(t.extractMysekai)},
+		{"costumes", extractCNFields(t.extractCostumes)},
+		{"characters", t.extractCharactersCategory},
+		{"units", extractCNFields(t.extractUnits)},
+		{"music", t.extractMusicCategory},
 	}
 
 	// Remote extraction is read-only and independent per category. Fetch a
-	// bounded number in parallel, then apply results to SQLite in the stable
-	// category order below. This keeps database writes serialized while avoiding
-	// dozens of latency-bound HTTP requests running one after another.
-	type stepResult struct {
-		fields map[string]store.CNApplyField
-		err    error
-	}
-	fetched := make([]stepResult, len(steps))
+	// bounded number in parallel, then apply translations and their corresponding
+	// catalog snapshots to SQLite in the stable category order below. This keeps
+	// all database writes serialized while avoiding dozens of latency-bound HTTP
+	// requests running one after another.
+	fetched := make([]cnExtractedCategory, len(steps))
 	jobs := make(chan int)
 	done := make(chan int, len(steps))
 	workers := t.fetchConcurrency()
@@ -489,7 +486,7 @@ func (t *Translator) SyncCNOnlyContext(ctx context.Context) (CNSyncResult, error
 		go func() {
 			defer fetchWG.Done()
 			for i := range jobs {
-				fetched[i].fields, fetched[i].err = steps[i].fn()
+				fetched[i] = steps[i].fn()
 				done <- i
 			}
 		}()
@@ -518,16 +515,18 @@ func (t *Translator) SyncCNOnlyContext(ctx context.Context) (CNSyncResult, error
 		}
 		t.setNote(fmt.Sprintf("cn-sync %d/%d: %s", i+1, len(steps), step.category))
 		t.emit("sync.progress", "正在写入 "+step.category, len(steps)+i+1, progressTotal)
-		fields, err := fetched[i].fields, fetched[i].err
-		if err != nil {
-			if isTransientErr(err) {
-				result.addSkipped(step.category, err)
+		extracted := fetched[i]
+		if extracted.err != nil {
+			if isTransientErr(extracted.err) {
+				result.addSkipped(step.category, extracted.err)
 				continue
 			}
-			runErr = fmt.Errorf("%s: %w", step.category, err)
+			runErr = fmt.Errorf("%s: %w", step.category, extracted.err)
 			return result, runErr
 		}
-		updated, err := t.store.ApplyCNCategory(step.category, fields)
+		updated, err := t.store.ApplyCNCategoryWithCatalog(
+			step.category, extracted.fields, extracted.musicCatalog, extracted.performerCatalog,
+		)
 		if err != nil {
 			runErr = fmt.Errorf("apply %s: %w", step.category, err)
 			return result, runErr

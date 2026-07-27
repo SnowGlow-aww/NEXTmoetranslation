@@ -392,9 +392,11 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 			[]string{"catalog title or producer identity changed while the external source was being fetched; retry the preview"}, nil)
 		return
 	}
-	// Enforce the exact requested MediaWiki revision identity before issuing a
-	// grant, even when tests or alternate clients implement lyricsSourceClient.
-	if preview.PageID != request.PageID || preview.RevisionID != request.RevisionID || !lyricssource.HasCanonicalSHA1(preview.SHA1) {
+	// Enforce the exact requested MediaWiki revision identity and authoritative
+	// persisted-URL transport policy before issuing a grant, even when tests or
+	// alternate clients implement lyricsSourceClient.
+	if preview.PageID != request.PageID || preview.RevisionID != request.RevisionID ||
+		!lyricssource.HasCanonicalSHA1(preview.SHA1) || store.ValidateLyricsSourceRevisionURL(preview.CanonicalURL, preview.RevisionID) != nil {
 		writeLyricsSourceError(w, lyricssource.ErrMalformedResponse)
 		return
 	}

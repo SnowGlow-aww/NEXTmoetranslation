@@ -19,6 +19,8 @@ const (
 	maxLyricsDiscoveryJobAttempts        = 100
 	maxLyricsDiscoveryLeaseOwnerBytes    = 128
 	maxLyricsDiscoveryErrorCodeBytes     = 64
+	maxLyricsDiscoveryFingerprintBytes   = 64
+	maxLyricsDiscoveryPolicyVersionBytes = 64
 	maxLyricsDiscoveryLeaseDuration      = 24 * time.Hour
 	maxLyricsDiscoveryRetryDelay         = 30 * 24 * time.Hour
 )
@@ -47,7 +49,9 @@ func LyricsDiscoveryJobIdempotencyKey(kind model.LyricsDiscoveryJobKind, target 
 	if err := validateLyricsDiscoveryJobTarget(kind, target); err != nil {
 		return "", err
 	}
-	canonical := fmt.Sprintf("v1\x00%s\x00%d\x00%d\x00%d\x00%d", kind, target.MusicID, target.PageID, target.RevisionID, target.ArtifactID)
+	canonical := fmt.Sprintf("v2\x00%s\x00%d\x00%d\x00%d\x00%d\x00%s\x00%s",
+		kind, target.MusicID, target.PageID, target.RevisionID, target.ArtifactID,
+		target.CatalogFingerprint, target.PolicyVersion)
 	sum := sha256.Sum256([]byte(canonical))
 	return hex.EncodeToString(sum[:]), nil
 }
@@ -114,11 +118,12 @@ func (s *Store) EnqueueLyricsDiscoveryJob(ctx context.Context, params EnqueueLyr
 	defer tx.Rollback()
 	result, err := tx.ExecContext(ctx, `INSERT INTO lyrics_discovery_jobs
 		(idempotency_key, kind, state, music_id, page_id, revision_id, artifact_id,
-		 attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
-		VALUES (?, ?, 'queued', ?, ?, ?, ?, 0, ?, ?, ?, ?, 1)
+		 catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, ?, 'queued', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 1)
 		ON CONFLICT(idempotency_key) DO NOTHING`,
 		key, params.Kind, params.Target.MusicID, nullablePositiveInt(params.Target.PageID),
 		nullablePositiveInt(params.Target.RevisionID), nullablePositiveInt64(params.Target.ArtifactID),
+		params.Target.CatalogFingerprint, params.Target.PolicyVersion,
 		maxAttempts, notBefore.UnixMilli(), now.UnixMilli(), now.UnixMilli())
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, false, err
@@ -394,10 +399,13 @@ func validateLyricsDiscoveryJobTarget(kind model.LyricsDiscoveryJobKind, target 
 	if target.PageID < 0 || target.RevisionID < 0 || target.ArtifactID < 0 {
 		return errors.New("page, revision, and artifact IDs cannot be negative")
 	}
+	if len(target.CatalogFingerprint) > maxLyricsDiscoveryFingerprintBytes || len(target.PolicyVersion) > maxLyricsDiscoveryPolicyVersionBytes {
+		return errors.New("catalog fingerprint and policy version exceed safe limits")
+	}
 	switch kind {
 	case model.LyricsDiscoveryJobDiscover:
-		if target.PageID != 0 || target.RevisionID != 0 || target.ArtifactID != 0 {
-			return errors.New("discover jobs only target music ID")
+		if target.PageID != 0 || target.RevisionID != 0 || target.ArtifactID != 0 || target.CatalogFingerprint == "" || target.PolicyVersion == "" {
+			return errors.New("discover jobs require music ID, catalog fingerprint, and policy version only")
 		}
 	case model.LyricsDiscoveryJobFetchRevision:
 		if target.PageID == 0 || target.RevisionID == 0 {
@@ -452,7 +460,7 @@ type lyricsDiscoveryJobQuery interface {
 
 func loadLyricsDiscoveryJobContext(ctx context.Context, query lyricsDiscoveryJobQuery, suffix string, args ...any) (model.LyricsDiscoveryJob, error) {
 	const columns = `job_id, idempotency_key, kind, state, music_id, page_id, revision_id, artifact_id,
-		attempts, max_attempts, next_attempt_at, lease_owner, lease_expires_at, last_error_code,
+		catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, lease_owner, lease_expires_at, last_error_code,
 		created_at, updated_at, completed_at, version`
 	var job model.LyricsDiscoveryJob
 	var pageID, revisionID, artifactID sql.NullInt64
@@ -460,8 +468,9 @@ func loadLyricsDiscoveryJobContext(ctx context.Context, query lyricsDiscoveryJob
 	var nextAttemptAt, leaseExpiresAt, createdAt, updatedAt, completedAt sql.NullInt64
 	err := query.QueryRowContext(ctx, `SELECT `+columns+` FROM lyrics_discovery_jobs `+suffix, args...).Scan(
 		&job.ID, &job.IdempotencyKey, &job.Kind, &job.State, &job.Target.MusicID,
-		&pageID, &revisionID, &artifactID, &job.Attempts, &job.MaxAttempts, &nextAttemptAt,
-		&leaseOwner, &leaseExpiresAt, &errorCode, &createdAt, &updatedAt, &completedAt, &job.Version)
+		&pageID, &revisionID, &artifactID, &job.Target.CatalogFingerprint, &job.Target.PolicyVersion,
+		&job.Attempts, &job.MaxAttempts, &nextAttemptAt, &leaseOwner, &leaseExpiresAt, &errorCode,
+		&createdAt, &updatedAt, &completedAt, &job.Version)
 	if err == sql.ErrNoRows {
 		return model.LyricsDiscoveryJob{}, ErrLyricsDiscoveryJobNotFound
 	}

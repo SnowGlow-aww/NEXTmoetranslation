@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -168,6 +169,128 @@ func TestSavedLyricsRejectNumericOrderDrift(t *testing.T) {
 	}
 }
 
+func TestOrdinaryLyricsFirstSaveSourceURLPolicy(t *testing.T) {
+	tests := []struct {
+		name      string
+		sourceURL string
+		wantDrift bool
+	}{
+		{name: "no source URL"},
+		{name: "external reference", sourceURL: "https://example.invalid/source"},
+		{name: "other Fandom origin", sourceURL: "https://projectsekai.fandom.com/wiki/Song"},
+		{name: "other Wiki origin", sourceURL: "https://en.wikipedia.org/wiki/Song"},
+		{name: "managed origin", sourceURL: "https://vocaloid.fandom.com/wiki/Song", wantDrift: true},
+		{name: "managed origin with oldid", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=123", wantDrift: true},
+		{name: "managed origin case insensitive", sourceURL: "HTTPS://VOCALOID.FANDOM.COM/wiki/Song", wantDrift: true},
+		{name: "managed origin with explicit default port", sourceURL: "https://vocaloid.fandom.com:443/wiki/Song", wantDrift: true},
+		{name: "managed origin with trailing dot", sourceURL: "https://vocaloid.fandom.com./wiki/Song", wantDrift: true},
+		{name: "managed hostname with non-default port", sourceURL: "https://vocaloid.fandom.com:444/wiki/Song", wantDrift: true},
+		{name: "managed hostname over HTTP", sourceURL: "http://vocaloid.fandom.com/wiki/Song", wantDrift: true},
+		{name: "managed legacy alias", sourceURL: "https://vocaloid.wikia.com/wiki/Song", wantDrift: true},
+		{name: "managed legacy alias case insensitive", sourceURL: "HTTPS://VOCALOID.WIKIA.COM./wiki/Song", wantDrift: true},
+		{name: "managed legacy alias with non-default port", sourceURL: "https://vocaloid.wikia.com:444/wiki/Song", wantDrift: true},
+		{name: "managed legacy alias over HTTP", sourceURL: "http://vocaloid.wikia.com/wiki/Song", wantDrift: true},
+		{name: "managed-looking subdomain is external", sourceURL: "https://vocaloid.fandom.com.example.invalid/wiki/Song"},
+		{name: "managed-legacy-looking subdomain is external", sourceURL: "https://vocaloid.wikia.com.example.invalid/wiki/Song"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := setupLyricsStore(t)
+			input := validLyrics()
+			input.SourceURL = test.sourceURL
+			saved, err := s.SaveLyrics(input, "editor")
+			var contractErr *LyricsContractError
+			if test.wantDrift {
+				if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+					t.Fatalf("source URL %q error = %#v", test.sourceURL, err)
+				}
+				return
+			}
+			if err != nil || saved.Revision != 1 || saved.SourceURL != test.sourceURL {
+				t.Fatalf("source URL %q saved=%+v err=%v", test.sourceURL, saved, err)
+			}
+		})
+	}
+}
+
+func TestLegacyURLOnlyManagedLyricsDraftCanEditOnlyWithoutSourceDrift(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := validLyrics()
+	input.SourceURL = "https://vocaloid.fandom.com/wiki/Legacy_Song?oldid=123"
+	if _, err := s.db.Exec(`INSERT INTO song_lyrics
+		(music_id, revision, updated_at, updated_by, attribution, source_note, source_url, license_note, source_hash,
+		 source_page_id, source_revision_id, source_sha1, source_fetched_at)
+		VALUES (?, 1, ?, 'legacy', ?, ?, ?, ?, ?, 0, 0, '', 0)`,
+		input.MusicID, time.Now().Unix(), input.Attribution, input.SourceNote, input.SourceURL, input.LicenseNote,
+		lyricsSourceHash(input.Lines)); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range input.Lines {
+		stanzaBreak := 0
+		if line.StanzaBreakBefore {
+			stanzaBreak = 1
+		}
+		if _, err := s.db.Exec(`INSERT INTO song_lyric_lines
+			(music_id, line_id, position, japanese, zh_cn, en_us, stanza_break_before) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			input.MusicID, line.ID, line.Order, line.Japanese, line.Chinese, line.English, stanzaBreak); err != nil {
+			t.Fatal(err)
+		}
+		for position, segment := range line.Segments {
+			performerIDsJSON, err := json.Marshal(segment.PerformerIDs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.db.Exec(`INSERT INTO song_lyric_segments
+				(music_id, line_id, position, text, performer_ids_json) VALUES (?, ?, ?, ?, ?)`,
+				input.MusicID, line.ID, position, segment.Text, string(performerIDsJSON)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	legacy, err := s.GetLyrics(input.MusicID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.Lines[0].English = "Editable legacy translation"
+	updated, err := s.SaveLyrics(legacy, "editor")
+	if err != nil || updated.Revision != 2 || updated.Lines[0].English != "Editable legacy translation" {
+		t.Fatalf("legacy edit saved=%+v err=%v", updated, err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*model.SongLyrics)
+	}{
+		{name: "source URL", mutate: func(candidate *model.SongLyrics) {
+			candidate.SourceURL = "https://vocaloid.fandom.com/wiki/Legacy_Song?oldid=124"
+		}},
+		{name: "provenance", mutate: func(candidate *model.SongLyrics) {
+			candidate.SourcePageID = 123
+			candidate.SourceRevisionID = 124
+			candidate.SourceSHA1 = validSourceSHA1
+			candidate.SourceFetchedAt = "2026-07-22T12:34:56Z"
+		}},
+		{name: "Japanese source structure", mutate: func(candidate *model.SongLyrics) {
+			candidate.Lines[0].Japanese = "初音が歌う"
+			candidate.Lines[0].Segments[1].Text = "が歌う"
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := updated
+			candidate.Lines = append([]model.LyricLine(nil), updated.Lines...)
+			candidate.Lines[0].Segments = append([]model.LyricSegment(nil), updated.Lines[0].Segments...)
+			test.mutate(&candidate)
+			_, err := s.SaveLyrics(candidate, "editor")
+			var contractErr *LyricsContractError
+			if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+				t.Fatalf("legacy %s drift error = %#v", test.name, err)
+			}
+		})
+	}
+}
+
 func TestImportedLyricsPathRejectsNonzeroRevisionForNewDocument(t *testing.T) {
 	s := setupLyricsStore(t)
 	input := validLyrics()
@@ -176,6 +299,51 @@ func TestImportedLyricsPathRejectsNonzeroRevisionForNewDocument(t *testing.T) {
 	var contractErr *LyricsContractError
 	if !errors.As(err, &contractErr) || contractErr.Code != "revision_conflict" {
 		t.Fatalf("new imported save with nonzero revision error = %#v", err)
+	}
+}
+
+func TestVerifiedImportedLyricsManagedSourceTransportPolicy(t *testing.T) {
+	tests := []struct {
+		name      string
+		sourceURL string
+		wantDrift bool
+	}{
+		{name: "canonical HTTPS", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=456"},
+		{name: "canonical explicit default port", sourceURL: "https://vocaloid.fandom.com:443/wiki/Song?oldid=456"},
+		{name: "legacy HTTPS", sourceURL: "https://vocaloid.wikia.com/wiki/Song?oldid=456"},
+		{name: "legacy explicit default port", sourceURL: "https://vocaloid.wikia.com:443/wiki/Song?oldid=456"},
+		{name: "external HTTP remains supported", sourceURL: "http://example.invalid/source"},
+		{name: "canonical HTTP", sourceURL: "http://vocaloid.fandom.com/wiki/Song?oldid=456", wantDrift: true},
+		{name: "canonical non-default port", sourceURL: "https://vocaloid.fandom.com:444/wiki/Song?oldid=456", wantDrift: true},
+		{name: "canonical trailing dot", sourceURL: "https://vocaloid.fandom.com./wiki/Song?oldid=456", wantDrift: true},
+		{name: "canonical missing oldid", sourceURL: "https://vocaloid.fandom.com/wiki/Song", wantDrift: true},
+		{name: "canonical mismatched oldid", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=457", wantDrift: true},
+		{name: "canonical extra query", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=456&diff=prev", wantDrift: true},
+		{name: "legacy HTTP", sourceURL: "http://vocaloid.wikia.com/wiki/Song?oldid=456", wantDrift: true},
+		{name: "legacy non-default port", sourceURL: "https://vocaloid.wikia.com:444/wiki/Song?oldid=456", wantDrift: true},
+		{name: "managed credentials", sourceURL: "https://user:secret@vocaloid.fandom.com/wiki/Song?oldid=456", wantDrift: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := setupLyricsStore(t)
+			input := validLyrics()
+			input.SourceURL = test.sourceURL
+			input.SourcePageID = 123
+			input.SourceRevisionID = 456
+			input.SourceSHA1 = validSourceSHA1
+			input.SourceFetchedAt = "2026-07-22T12:34:56Z"
+			saved, changed, err := s.SaveImportedLyricsMutation(input, "editor")
+			var contractErr *LyricsContractError
+			if test.wantDrift {
+				if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+					t.Fatalf("verified source URL %q error = %#v", test.sourceURL, err)
+				}
+				return
+			}
+			if err != nil || !changed || saved.Revision != 1 || saved.SourceURL != input.SourceURL || saved.SourceRevisionID != input.SourceRevisionID {
+				t.Fatalf("verified source URL %q changed=%t saved=%+v err=%v", test.sourceURL, changed, saved, err)
+			}
+		})
 	}
 }
 
@@ -708,6 +876,55 @@ func TestLyricsSourceProvenanceRejectsMalformedSHA1(t *testing.T) {
 	}
 }
 
+func TestRestoreRejectsManagedSourceTransportPolicyWithoutChangingStoredContent(t *testing.T) {
+	s := setupLyricsStore(t)
+	existing, err := s.SaveLyrics(validLyrics(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	source := setupLyricsStore(t)
+	imported := validLyrics()
+	imported.SourceURL = "https://vocaloid.fandom.com/wiki/Song?oldid=456"
+	imported.SourcePageID = 123
+	imported.SourceRevisionID = 456
+	imported.SourceSHA1 = validSourceSHA1
+	imported.SourceFetchedAt = "2026-07-22T12:34:56Z"
+	if _, _, err := source.SaveImportedLyricsMutation(imported, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	exported, err := source.ExportLyricsContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, sourceURL := range map[string]string{
+		"canonical HTTP":             "http://vocaloid.fandom.com/wiki/Song?oldid=456",
+		"canonical non-default port": "https://vocaloid.fandom.com:444/wiki/Song?oldid=456",
+		"canonical trailing dot":     "https://vocaloid.fandom.com./wiki/Song?oldid=456",
+		"canonical missing oldid":    "https://vocaloid.fandom.com/wiki/Song",
+		"canonical mismatched oldid": "https://vocaloid.fandom.com/wiki/Song?oldid=457",
+		"legacy HTTP":                "http://vocaloid.wikia.com/wiki/Song?oldid=456",
+		"legacy non-default port":    "https://vocaloid.wikia.com:444/wiki/Song?oldid=456",
+		"managed credentials":        "https://user:secret@vocaloid.fandom.com/wiki/Song?oldid=456",
+	} {
+		t.Run(name, func(t *testing.T) {
+			invalid := exported
+			invalid.Documents = append([]LyricsDocumentBackupRecord(nil), exported.Documents...)
+			invalid.Documents[0].SourceURL = sourceURL
+			err := s.ImportTranslationContent(nil, EventContentExport{}, invalid)
+			var contractErr *LyricsContractError
+			if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+				t.Fatalf("restored source URL %q error = %#v", sourceURL, err)
+			}
+			loaded, loadErr := s.GetLyrics(existing.MusicID)
+			if loadErr != nil || loaded.Revision != existing.Revision || loaded.SourceURL != existing.SourceURL || loaded.Lines[0].Japanese != existing.Lines[0].Japanese {
+				t.Fatalf("failed restore changed existing lyrics: %+v err=%v", loaded, loadErr)
+			}
+		})
+	}
+}
+
 func TestRestoreRejectsMalformedLyricsSourceSHA1(t *testing.T) {
 	s := setupLyricsStore(t)
 	input := validLyrics()
@@ -1012,7 +1229,75 @@ func TestRestoreRejectsInvalidLyricsPublication(t *testing.T) {
 	}
 }
 
-func TestCatalogTitlesFollowLocaleEdits(t *testing.T) {
+func TestRestoreRejectsDuplicatePublicationJSONKeysWithoutChangingStoredContent(t *testing.T) {
+	source := setupLyricsStore(t)
+	sourceLyrics, err := source.SaveLyrics(validLyrics(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := source.PublishLyrics(sourceLyrics.MusicID, sourceLyrics.Revision); err != nil {
+		t.Fatal(err)
+	}
+	exported, err := source.ExportLyricsContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(exported.Publications) != 1 {
+		t.Fatalf("source publications = %+v", exported.Publications)
+	}
+
+	tests := []struct {
+		name        string
+		target      string
+		replacement string
+	}{
+		{name: "top level", target: `"musicId":10`, replacement: `"musicId":10,"musicId":999`},
+		{name: "nested line", target: `"japanese":"初音歌う"`, replacement: `"japanese":"初音歌う","japanese":"差し替え"`},
+		{name: "object in array", target: `"text":"初音"`, replacement: `"text":"初音","text":"差し替え"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			targetStore := setupLyricsStore(t)
+			existingInput := validLyrics()
+			existingInput.Lines[0].English = "Existing translation must survive"
+			existing, err := targetStore.SaveLyrics(existingInput, "editor")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := targetStore.PublishLyrics(existing.MusicID, existing.Revision); err != nil {
+				t.Fatal(err)
+			}
+			var existingPayload string
+			if err := targetStore.db.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, existing.MusicID).Scan(&existingPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			invalid := exported
+			invalid.Publications = append([]LyricsPublicationBackupRecord(nil), exported.Publications...)
+			duplicate := strings.Replace(invalid.Publications[0].PayloadJSON, test.target, test.replacement, 1)
+			if duplicate == invalid.Publications[0].PayloadJSON {
+				t.Fatalf("could not construct duplicate-key payload from %s", invalid.Publications[0].PayloadJSON)
+			}
+			invalid.Publications[0].PayloadJSON = duplicate
+			if err := targetStore.ImportTranslationContent(nil, EventContentExport{}, invalid); err == nil || !strings.Contains(err.Error(), "duplicate object key") {
+				t.Fatalf("duplicate-key restore error = %v", err)
+			}
+			loaded, err := targetStore.GetLyrics(existing.MusicID)
+			if err != nil || loaded.Revision != existing.Revision || loaded.Lines[0].English != existing.Lines[0].English {
+				t.Fatalf("failed restore changed existing lyrics: %+v err=%v", loaded, err)
+			}
+			var payloadAfter string
+			if err := targetStore.db.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, existing.MusicID).Scan(&payloadAfter); err != nil {
+				t.Fatal(err)
+			}
+			if payloadAfter != existingPayload {
+				t.Fatalf("failed restore changed publication payload\nbefore=%s\nafter=%s", existingPayload, payloadAfter)
+			}
+		})
+	}
+}
+
+func TestCatalogAndPublishedLyricsTitlesFollowLocaleEdits(t *testing.T) {
 	s := setupLyricsStore(t)
 	if _, err := s.ImportCategory("music", model.Category{"title": {
 		"新曲": {Text: "中文目录名", Source: model.SourceHuman},
@@ -1028,5 +1313,89 @@ func TestCatalogTitlesFollowLocaleEdits(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.Items[0].Title.Chinese != "中文目录名" || result.Items[0].Title.English != "English Catalog Title" {
 		t.Fatalf("localized catalog = %+v", result)
+	}
+
+	saved, err := s.SaveLyrics(validLyrics(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	index, _, err := s.PublishedLyrics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(index.Songs) != 1 || index.Songs[0].Title.Chinese != "中文目录名" || index.Songs[0].Title.English != "English Catalog Title" {
+		t.Fatalf("localized public index = %+v", index)
+	}
+}
+
+func TestPublishedLyricsRejectsWellFormedInvalidStoredPayload(t *testing.T) {
+	s := setupLyricsStore(t)
+	saved, err := s.SaveLyrics(validLyrics(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+
+	var payload string
+	if err := s.db.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, saved.MusicID).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	var candidate model.PublicSongLyrics
+	if err := json.Unmarshal([]byte(payload), &candidate); err != nil {
+		t.Fatal(err)
+	}
+	candidate.MusicID++
+	invalidPayload, err := json.Marshal(candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE song_lyrics_publications SET payload_json=? WHERE music_id=?`, string(invalidPayload), saved.MusicID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.PublishedLyrics(); err == nil || !strings.Contains(err.Error(), "identity does not match") {
+		t.Fatalf("well-formed invalid publication error = %v", err)
+	}
+}
+
+func TestPublishedLyricsRejectsStoredDuplicateJSONKeys(t *testing.T) {
+	tests := []struct {
+		name        string
+		target      string
+		replacement string
+	}{
+		{name: "top level", target: `"musicId":10`, replacement: `"musicId":10,"musicId":999`},
+		{name: "nested line", target: `"japanese":"初音歌う"`, replacement: `"japanese":"初音歌う","japanese":"差し替え"`},
+		{name: "object in array", target: `"text":"初音"`, replacement: `"text":"初音","text":"差し替え"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := setupLyricsStore(t)
+			saved, err := s.SaveLyrics(validLyrics(), "editor")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+				t.Fatal(err)
+			}
+			var payload string
+			if err := s.db.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, saved.MusicID).Scan(&payload); err != nil {
+				t.Fatal(err)
+			}
+			duplicate := strings.Replace(payload, test.target, test.replacement, 1)
+			if duplicate == payload {
+				t.Fatalf("could not construct duplicate-key payload from %s", payload)
+			}
+			if _, err := s.db.Exec(`UPDATE song_lyrics_publications SET payload_json=? WHERE music_id=?`, duplicate, saved.MusicID); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := s.PublishedLyrics(); err == nil || !strings.Contains(err.Error(), "duplicate object key") {
+				t.Fatalf("duplicate-key publication error = %v", err)
+			}
+		})
 	}
 }

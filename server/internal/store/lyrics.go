@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,18 @@ const (
 	maxLyricsMetadataBytes   = 16 << 10
 	maxLyricsURLBytes        = 2 << 10
 	maxLyricsDocumentBytes   = 4 << 20
+)
+
+var managedLyricsSourceHosts = map[string]struct{}{
+	"vocaloid.fandom.com": {},
+	"vocaloid.wikia.com":  {},
+}
+
+type lyricsSaveMode uint8
+
+const (
+	lyricsSaveOrdinary lyricsSaveMode = iota
+	lyricsSaveVerifiedImport
 )
 
 type LyricsContractError struct {
@@ -130,24 +143,25 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 
 // SaveLyricsMutation reports whether the successful call committed a change.
 func (s *Store) SaveLyricsMutation(input model.SongLyrics, user string) (model.SongLyrics, bool, error) {
-	return s.saveLyricsMutation(input, user, false, nil)
+	return s.saveLyricsMutation(input, user, lyricsSaveOrdinary, nil)
 }
 
-// SaveImportedLyricsMutation permits source provenance on the first save for
-// trusted internal callers and compatibility tests. All provenance-bearing saves
-// require the canonical lowercase 40-hex MediaWiki SHA1 representation.
+// SaveImportedLyricsMutation permits complete source provenance on the first
+// save for trusted internal callers and compatibility tests. All
+// provenance-bearing saves require the canonical lowercase 40-hex MediaWiki
+// SHA1 representation.
 func (s *Store) SaveImportedLyricsMutation(input model.SongLyrics, user string) (model.SongLyrics, bool, error) {
-	return s.saveLyricsMutation(input, user, true, nil)
+	return s.saveLyricsMutation(input, user, lyricsSaveVerifiedImport, nil)
 }
 
 // SaveImportedLyricsMutationWithCommit runs afterCommit immediately after the
 // first-save transaction commits and before synchronous change notifications.
 // The callback must be fast and must not call back into lyrics mutations.
 func (s *Store) SaveImportedLyricsMutationWithCommit(input model.SongLyrics, user string, afterCommit func()) (model.SongLyrics, bool, error) {
-	return s.saveLyricsMutation(input, user, true, afterCommit)
+	return s.saveLyricsMutation(input, user, lyricsSaveVerifiedImport, afterCommit)
 }
 
-func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, allowNewProvenance bool, afterCommit func()) (model.SongLyrics, bool, error) {
+func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, mode lyricsSaveMode, afterCommit func()) (model.SongLyrics, bool, error) {
 	unlock := s.lockLyrics(input.MusicID)
 	defer unlock()
 	normalized := input
@@ -188,13 +202,20 @@ func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, allowNew
 		if normalized.Revision != 0 {
 			return model.SongLyrics{}, false, &LyricsContractError{Code: "revision_conflict"}
 		}
-		if sourceFetchedAt > 0 && !allowNewProvenance {
-			return model.SongLyrics{}, false, &LyricsContractError{
-				Code: "source_drift", Details: []string{"new source provenance requires a verified server preview"},
+		if mode == lyricsSaveOrdinary {
+			if sourceFetchedAt > 0 {
+				return model.SongLyrics{}, false, &LyricsContractError{
+					Code: "source_drift", Details: []string{"new source provenance requires a verified server preview"},
+				}
+			}
+			if isManagedLyricsSourceURL(normalized.SourceURL) {
+				return model.SongLyrics{}, false, &LyricsContractError{
+					Code: "source_drift", Details: []string{"the managed lyrics source requires a verified server preview"},
+				}
 			}
 		}
 	} else {
-		if allowNewProvenance {
+		if mode == lyricsSaveVerifiedImport {
 			return model.SongLyrics{}, false, &LyricsContractError{
 				Code: "source_drift", Details: []string{"verified source previews may only be used for the first save of a new lyrics document"},
 			}
@@ -414,9 +435,17 @@ func publicLyricsLines(lines []model.LyricLine) []model.LyricLine {
 }
 
 func (s *Store) PublishedLyrics() (model.PublicLyricsIndex, map[int]model.PublicSongLyrics, error) {
+	performerIDs, err := s.performerIDs(s.db)
+	if err != nil {
+		return model.PublicLyricsIndex{}, nil, err
+	}
 	rows, err := s.db.Query(`SELECT p.music_id, p.revision, p.updated_at, p.payload_json,
-		m.title_ja, m.title_zh, m.title_en
-		FROM song_lyrics_publications p JOIN catalog_music m ON m.music_id=p.music_id
+		m.title_ja, COALESCE(NULLIF(zh.cn_text, ''), m.title_zh), COALESCE(NULLIF(en.text, ''), m.title_en)
+		FROM song_lyrics_publications p
+		JOIN catalog_music m ON m.music_id=p.music_id
+		LEFT JOIN entries zh ON zh.category='music' AND zh.field='title' AND zh.jp_key=m.title_ja
+		LEFT JOIN entry_localizations en ON en.category='music' AND en.field='title'
+		 AND en.jp_key=m.title_ja AND en.locale='en-US'
 		ORDER BY p.music_id`)
 	if err != nil {
 		return model.PublicLyricsIndex{}, nil, err
@@ -433,13 +462,16 @@ func (s *Store) PublishedLyrics() (model.PublicLyricsIndex, map[int]model.Public
 			return model.PublicLyricsIndex{}, nil, err
 		}
 		item.UpdatedAt = formatTimestamp(updatedAt)
-		var detail model.PublicSongLyrics
-		if err := json.Unmarshal([]byte(payload), &detail); err != nil {
+		record := LyricsPublicationBackupRecord{
+			MusicID: item.MusicID, Revision: item.Revision, UpdatedAt: updatedAt, PayloadJSON: payload,
+		}
+		if err := canonicalizeRestoredPublication(&record, performerIDs); err != nil {
 			return model.PublicLyricsIndex{}, nil, err
 		}
-		// Canonicalize legacy stored snapshots on read so a pre-upgrade payload
-		// can never expose private draft/source line identities publicly.
-		detail.Lines = publicLyricsLines(detail.Lines)
+		var detail model.PublicSongLyrics
+		if err := json.Unmarshal([]byte(record.PayloadJSON), &detail); err != nil {
+			return model.PublicLyricsIndex{}, nil, err
+		}
 		index.Songs = append(index.Songs, item)
 		details[item.MusicID] = detail
 	}
@@ -643,7 +675,7 @@ func validateLyricsProvenance(lyrics model.SongLyrics) (int64, error) {
 		strings.TrimSpace(lyrics.SourceSHA1) != "" || strings.TrimSpace(lyrics.SourceFetchedAt) != ""
 	if !provenanceSet {
 		if sourceURL := strings.TrimSpace(lyrics.SourceURL); sourceURL != "" {
-			if _, err := parseLyricsSourceURL(sourceURL); err != nil {
+			if err := ValidateLyricsSourceURL(sourceURL); err != nil {
 				return 0, err
 			}
 		}
@@ -661,8 +693,13 @@ func validateLyricsProvenance(lyrics model.SongLyrics) (int64, error) {
 			"sourceSha1 must be exactly 40 lowercase hexadecimal characters",
 		}}
 	}
-	if _, err := parseLyricsSourceURL(lyrics.SourceURL); err != nil {
+	if err := ValidateLyricsSourceURL(lyrics.SourceURL); err != nil {
 		return 0, err
+	}
+	if isManagedLyricsSourceURL(lyrics.SourceURL) {
+		if err := ValidateLyricsSourceRevisionURL(lyrics.SourceURL, lyrics.SourceRevisionID); err != nil {
+			return 0, err
+		}
 	}
 	fetchedAt, err := parseTimestamp(lyrics.SourceFetchedAt)
 	if err != nil {
@@ -686,14 +723,76 @@ func hasCanonicalLyricsSourceSHA1(value string) bool {
 	return true
 }
 
+// ValidateLyricsSourceURL applies the transport policy for every persisted
+// lyrics source URL. External absolute HTTP(S) references remain supported,
+// while managed Wiki hostnames require HTTPS and the default port. A trailing
+// DNS root dot is classified as managed here so it cannot bypass ordinary-save
+// protection, but it is not accepted as a canonical verified revision URL.
+func ValidateLyricsSourceURL(value string) error {
+	parsed, err := parseLyricsSourceURL(value)
+	if err != nil {
+		return err
+	}
+	if !isManagedLyricsSource(parsed) {
+		return nil
+	}
+	if !strings.EqualFold(parsed.Scheme, "https") || (parsed.Port() != "" && parsed.Port() != "443") {
+		return &LyricsContractError{Code: "source_drift", Details: []string{
+			"managed sourceUrl must use HTTPS with the default port",
+		}}
+	}
+	return nil
+}
+
+// ValidateLyricsSourceRevisionURL is the strict boundary for the Vocaloid Wiki
+// source client. It accepts only an exact managed hostname and a single oldid
+// query value matching the verified MediaWiki revision. Other callers may keep
+// using non-managed references, but they cannot receive a Wiki preview grant.
+func ValidateLyricsSourceRevisionURL(value string, revisionID int) error {
+	parsed, err := parseLyricsSourceURL(value)
+	if err != nil {
+		return err
+	}
+	if revisionID <= 0 || !isExactManagedLyricsSource(parsed) || !strings.EqualFold(parsed.Scheme, "https") ||
+		(parsed.Port() != "" && parsed.Port() != "443") || parsed.Fragment != "" {
+		return &LyricsContractError{Code: "source_drift", Details: []string{
+			"verified managed sourceUrl must use an exact HTTPS managed origin and revision",
+		}}
+	}
+	query := parsed.Query()
+	if len(query) != 1 || len(query["oldid"]) != 1 || query.Get("oldid") != strconv.Itoa(revisionID) {
+		return &LyricsContractError{Code: "source_drift", Details: []string{
+			"verified managed sourceUrl oldid must match sourceRevisionId",
+		}}
+	}
+	return nil
+}
+
 func parseLyricsSourceURL(value string) (*url.URL, error) {
 	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil {
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil {
 		return nil, &LyricsContractError{Code: "source_drift", Details: []string{
 			"sourceUrl must be an absolute http(s) URL without credentials",
 		}}
 	}
 	return parsed, nil
+}
+
+func isManagedLyricsSourceURL(value string) bool {
+	parsed, err := parseLyricsSourceURL(value)
+	return err == nil && isManagedLyricsSource(parsed)
+}
+
+func isManagedLyricsSource(parsed *url.URL) bool {
+	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	_, managed := managedLyricsSourceHosts[hostname]
+	return managed
+}
+
+func isExactManagedLyricsSource(parsed *url.URL) bool {
+	hostname := strings.ToLower(parsed.Hostname())
+	_, managed := managedLyricsSourceHosts[hostname]
+	return managed
 }
 
 func lyricsSourceHash(lines []model.LyricLine) string {

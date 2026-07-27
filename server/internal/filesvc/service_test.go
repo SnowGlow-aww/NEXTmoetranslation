@@ -2,7 +2,9 @@ package filesvc
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -319,6 +321,11 @@ func TestLegacyPublicFileHTTPContract(t *testing.T) {
 }
 
 func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
+	publicLocales := []string{"ja-JP", "zh-CN", "en-US"}
+	firstMusicID := 41001
+	laterMusicID := firstMusicID + 17
+	performerID := 601
+
 	database, err := db.Open(filepath.Join(t.TempDir(), "lyrics-files.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -326,30 +333,53 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 	defer database.Close()
 	s := store.New(database)
 	es := store.NewEventStore(database)
-	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{{
-		MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true,
-	}}); err != nil {
+	catalog := []store.MusicCatalogRecord{
+		{MusicID: firstMusicID, JapaneseTitle: "試験曲甲", ChineseTitle: "测试歌曲甲", EnglishTitle: "Test Song Alpha", IsNewlyWrittenMusic: true},
+		{MusicID: laterMusicID, JapaneseTitle: "試験曲乙", ChineseTitle: "测试歌曲乙", EnglishTitle: "Test Song Beta"},
+	}
+	if err := s.UpsertMusicCatalog(catalog); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
+	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: performerID, JapaneseName: "試験歌唱者"}}); err != nil {
 		t.Fatal(err)
 	}
-	saved, _, err := s.SaveImportedLyricsMutation(model.SongLyrics{
-		MusicID: 10, Revision: 0, Attribution: "MoeSeka translation team",
-		SourceNote: "must stay private", SourceURL: "https://private.invalid/wiki", LicenseNote: "private",
-		SourcePageID: 123, SourceRevisionID: 456, SourceSHA1: "0123456789abcdef0123456789abcdef01234567",
-		SourceFetchedAt: "2026-07-23T00:00:00Z",
-		Lines: []model.LyricLine{{
-			ID: "wiki-123-456-1", Order: 0, Japanese: "歌う", Chinese: "歌唱", English: "Sings",
-			Segments: []model.LyricSegment{{Text: "歌う", PerformerIDs: []int{1}}},
-		}},
-	}, "editor")
-	if err != nil {
-		t.Fatal(err)
+	inputs := []model.SongLyrics{
+		{
+			MusicID: firstMusicID, Revision: 0, Attribution: "Synthetic translation team alpha",
+			SourceNote: "private alpha note", SourceURL: fmt.Sprintf("https://source.invalid/wiki/%d", firstMusicID), LicenseNote: "private alpha license",
+			SourcePageID: 123, SourceRevisionID: 456, SourceSHA1: "0123456789abcdef0123456789abcdef01234567",
+			SourceFetchedAt: "2026-07-23T00:00:00Z",
+			Lines: []model.LyricLine{{
+				ID: "source-alpha-1", Order: 0, Japanese: "甲を歌う", Chinese: "歌唱甲", English: "Sings alpha",
+				Segments: []model.LyricSegment{{Text: "甲を歌う", PerformerIDs: []int{performerID}}},
+			}},
+		},
+		{
+			MusicID: laterMusicID, Revision: 0, Attribution: "Synthetic translation team beta",
+			SourceNote: "private beta note", SourceURL: fmt.Sprintf("https://source.invalid/wiki/%d", laterMusicID), LicenseNote: "private beta license",
+			SourcePageID: 789, SourceRevisionID: 987, SourceSHA1: "89abcdef0123456789abcdef0123456789abcdef",
+			SourceFetchedAt: "2026-07-24T00:00:00Z",
+			Lines: []model.LyricLine{{
+				ID: "source-beta-1", Order: 0, Japanese: "乙を歌う", Chinese: "歌唱乙", English: "Sings beta",
+				Segments: []model.LyricSegment{{Text: "乙を歌う", PerformerIDs: []int{performerID}}},
+			}},
+		},
 	}
-	if _, err := s.PublishLyrics(10, saved.Revision); err != nil {
-		t.Fatal(err)
+	if len(inputs) < 2 || inputs[0].MusicID >= inputs[1].MusicID {
+		t.Fatal("failed rebuild fixture requires at least two publications in query order")
 	}
+	savedLyrics := make([]model.SongLyrics, 0, len(inputs))
+	for _, input := range inputs {
+		saved, changed, err := s.SaveImportedLyricsMutation(input, "editor")
+		if err != nil || !changed {
+			t.Fatalf("save lyrics musicId=%d changed=%t err=%v", input.MusicID, changed, err)
+		}
+		if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+			t.Fatalf("publish lyrics musicId=%d: %v", saved.MusicID, err)
+		}
+		savedLyrics = append(savedLyrics, saved)
+	}
+
 	svc := New(s, es, files.NewGenerator(s, es, ""))
 	svc.Rebuild()
 
@@ -360,82 +390,283 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 		svc.Handler().ServeHTTP(rec, req)
 		return rec.Body.Bytes(), rec.Header().Get("ETag"), rec.Code
 	}
-	index, _, status := readAsset("/files/translation/lyrics/index.json")
-	if status != http.StatusOK || !bytes.Contains(index, []byte(`"musicId": 10`)) || !bytes.Contains(index, []byte(`"title"`)) {
+	type assetSnapshot struct {
+		body []byte
+		etag string
+	}
+	snapshotAllAssets := func() map[string]assetSnapshot {
+		svc.mu.RLock()
+		defer svc.mu.RUnlock()
+		snapshot := make(map[string]assetSnapshot, len(svc.assets))
+		for key, projected := range svc.assets {
+			snapshot[key] = assetSnapshot{body: append([]byte(nil), projected.body...), etag: projected.etag}
+		}
+		return snapshot
+	}
+	canonicalRoot := "/files/translation/lyrics"
+	localizedRoot := func(locale string) string { return "/files/v2/" + locale + "/translation/lyrics" }
+	indexPath := func(root string) string { return root + "/index.json" }
+	detailPath := func(root string, musicID int) string { return fmt.Sprintf("%s/music_%d.json", root, musicID) }
+	canonicalIndexPath := indexPath(canonicalRoot)
+
+	index, indexETag, status := readAsset(canonicalIndexPath)
+	var indexDocument model.PublicLyricsIndex
+	if status != http.StatusOK {
 		t.Fatalf("lyrics index status=%d body=%s", status, index)
 	}
-	detail, etag, status := readAsset("/files/translation/lyrics/music_10.json")
-	if status != http.StatusOK || !bytes.Contains(detail, []byte(`"version": 1`)) {
-		t.Fatalf("lyrics detail status=%d body=%s", status, detail)
+	if err := json.Unmarshal(index, &indexDocument); err != nil {
+		t.Fatalf("lyrics index JSON: %v\nbody=%s", err, index)
 	}
-	if !bytes.Contains(detail, []byte(`"attribution": "MoeSeka translation team"`)) {
-		t.Fatalf("public lyrics omitted attribution: %s", detail)
+	if indexDocument.Version != 1 || len(indexDocument.Songs) != len(savedLyrics) {
+		t.Fatalf("lyrics index document=%+v body=%s", indexDocument, index)
 	}
-	if !bytes.Contains(detail, []byte(`"id": "line-1"`)) || bytes.Contains(detail, []byte(`wiki-123-456-1`)) {
-		t.Fatalf("public lyrics did not replace private line identity: %s", detail)
-	}
-	for _, locale := range model.SupportedLocales {
-		localized, localizedETag, localizedStatus := readAsset("/files/v2/" + locale + "/translation/lyrics/music_10.json")
-		if localizedStatus != http.StatusOK || !bytes.Equal(localized, detail) || localizedETag != etag {
-			t.Fatalf("localized lyrics %s status=%d etag=%q body=%s", locale, localizedStatus, localizedETag, localized)
+	for position, saved := range savedLyrics {
+		if indexDocument.Songs[position].MusicID != saved.MusicID || indexDocument.Songs[position].Revision != saved.Revision {
+			t.Fatalf("lyrics index song[%d]=%+v saved=%+v", position, indexDocument.Songs[position], saved)
 		}
 	}
-	for _, privateField := range []string{"status", "updatedBy", "sourceNote", "sourceUrl", "licenseNote", "sourcePageId", "sourceRevisionId", "sourceSha1", "sourceFetchedAt", "must stay private", "private.invalid", "0123456789abcdef0123456789abcdef01234567"} {
-		if bytes.Contains(detail, []byte(privateField)) {
-			t.Fatalf("public lyrics leaked %q: %s", privateField, detail)
+
+	published := map[string]assetSnapshot{
+		canonicalIndexPath: {body: append([]byte(nil), index...), etag: indexETag},
+	}
+	canonicalDetails := make(map[int]assetSnapshot, len(savedLyrics))
+	for _, saved := range savedLyrics {
+		path := detailPath(canonicalRoot, saved.MusicID)
+		body, etag, detailStatus := readAsset(path)
+		if detailStatus != http.StatusOK || !bytes.Contains(body, []byte(`"version": 1`)) {
+			t.Fatalf("lyrics detail %s status=%d body=%s", path, detailStatus, body)
+		}
+		canonicalDetails[saved.MusicID] = assetSnapshot{body: append([]byte(nil), body...), etag: etag}
+		published[path] = canonicalDetails[saved.MusicID]
+	}
+	firstSaved := savedLyrics[0]
+	firstPrivateLineID := []byte(firstSaved.Lines[0].ID)
+	for _, saved := range savedLyrics {
+		detail := canonicalDetails[saved.MusicID].body
+		attributionJSON, err := json.Marshal(saved.Attribution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		attributionJSON = append([]byte(`"attribution": `), attributionJSON...)
+		privateLineID := []byte(saved.Lines[0].ID)
+		if !bytes.Contains(detail, attributionJSON) {
+			t.Fatalf("public lyrics musicId=%d omitted attribution: %s", saved.MusicID, detail)
+		}
+		if !bytes.Contains(detail, []byte(`"id": "line-1"`)) || bytes.Contains(detail, privateLineID) {
+			t.Fatalf("public lyrics musicId=%d did not replace private line identity: %s", saved.MusicID, detail)
+		}
+		for _, privateField := range []string{
+			"status", "updatedBy", "sourceNote", "sourceUrl", "licenseNote", "sourcePageId", "sourceRevisionId", "sourceSha1", "sourceFetchedAt",
+			saved.SourceNote, saved.SourceURL, saved.LicenseNote, saved.SourceSHA1,
+		} {
+			if bytes.Contains(detail, []byte(privateField)) {
+				t.Fatalf("public lyrics musicId=%d leaked %q: %s", saved.MusicID, privateField, detail)
+			}
+		}
+	}
+	for _, locale := range publicLocales {
+		root := localizedRoot(locale)
+		localizedIndexPath := indexPath(root)
+		localizedIndex, localizedIndexETag, localizedIndexStatus := readAsset(localizedIndexPath)
+		if localizedIndexStatus != http.StatusOK || !bytes.Equal(localizedIndex, index) || localizedIndexETag != indexETag {
+			t.Fatalf("localized lyrics index %s status=%d etag=%q body=%s", locale, localizedIndexStatus, localizedIndexETag, localizedIndex)
+		}
+		published[localizedIndexPath] = assetSnapshot{body: append([]byte(nil), localizedIndex...), etag: localizedIndexETag}
+		for _, saved := range savedLyrics {
+			localizedDetailPath := detailPath(root, saved.MusicID)
+			localized, localizedETag, localizedStatus := readAsset(localizedDetailPath)
+			canonical := canonicalDetails[saved.MusicID]
+			if localizedStatus != http.StatusOK || !bytes.Equal(localized, canonical.body) || localizedETag != canonical.etag {
+				t.Fatalf("localized lyrics %s musicId=%d status=%d etag=%q body=%s", locale, saved.MusicID, localizedStatus, localizedETag, localized)
+			}
+			published[localizedDetailPath] = assetSnapshot{body: append([]byte(nil), localized...), etag: localizedETag}
+		}
+	}
+	initialAssets := snapshotAllAssets()
+	actualLyricsKeys := make(map[string]bool, len(published))
+	for key := range initialAssets {
+		if strings.HasPrefix(key, "translation/lyrics/") || (strings.HasPrefix(key, "v2/") && strings.Contains(key, "/translation/lyrics/")) {
+			actualLyricsKeys["/files/"+key] = true
+		}
+	}
+	if len(actualLyricsKeys) != len(published) {
+		t.Fatalf("public locale contract projected %d lyrics paths, want %d: %v", len(actualLyricsKeys), len(published), actualLyricsKeys)
+	}
+	for path := range published {
+		if !actualLyricsKeys[path] {
+			t.Fatalf("public locale contract omitted %s: %v", path, actualLyricsKeys)
 		}
 	}
 
 	var storedPayload string
-	if err := database.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=10`).Scan(&storedPayload); err != nil {
+	if err := database.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, firstSaved.MusicID).Scan(&storedPayload); err != nil {
 		t.Fatal(err)
 	}
-	legacyPayload := strings.Replace(storedPayload, `"id":"line-1"`, `"id":"wiki-123-456-1"`, 1)
+	privateLineIDJSON, err := json.Marshal(firstSaved.Lines[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyPayload := strings.Replace(storedPayload, `"id":"line-1"`, `"id":`+string(privateLineIDJSON), 1)
 	if legacyPayload == storedPayload {
 		t.Fatalf("could not construct legacy publication payload: %s", storedPayload)
 	}
-	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json=? WHERE music_id=10`, legacyPayload); err != nil {
+	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json=? WHERE music_id=?`, legacyPayload, firstSaved.MusicID); err != nil {
 		t.Fatal(err)
 	}
 	svc.Rebuild()
-	legacyDetail, legacyETag, status := readAsset("/files/translation/lyrics/music_10.json")
-	if status != http.StatusOK || !bytes.Equal(legacyDetail, detail) || legacyETag != etag || bytes.Contains(legacyDetail, []byte(`wiki-123-456-1`)) {
-		t.Fatalf("legacy stored identity changed public bytes: status=%d etag=%q body=%s", status, legacyETag, legacyDetail)
-	}
-	for _, locale := range model.SupportedLocales {
-		localized, localizedETag, localizedStatus := readAsset("/files/v2/" + locale + "/translation/lyrics/music_10.json")
-		if localizedStatus != http.StatusOK || !bytes.Equal(localized, detail) || localizedETag != etag {
-			t.Fatalf("legacy localized lyrics %s status=%d etag=%q body=%s", locale, localizedStatus, localizedETag, localized)
+	for path, previous := range published {
+		current, currentETag, currentStatus := readAsset(path)
+		if currentStatus != http.StatusOK || !bytes.Equal(current, previous.body) || currentETag != previous.etag {
+			t.Fatalf("legacy stored identity changed %s: status=%d etag=%q body=%s", path, currentStatus, currentETag, current)
+		}
+		if strings.Contains(path, "/music_") && bytes.Contains(current, firstPrivateLineID) {
+			t.Fatalf("legacy source line identity leaked through %s: %s", path, current)
 		}
 	}
+	lastSuccessfulProjection := svc.Status()
+	if lastSuccessfulProjection.Generation == 0 || lastSuccessfulProjection.Pending || lastSuccessfulProjection.LastSuccessAt == "" || lastSuccessfulProjection.LastError != "" {
+		t.Fatalf("successful projection status = %+v", lastSuccessfulProjection)
+	}
+	lastSuccessfulAssets := snapshotAllAssets()
 
-	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json='not-json' WHERE music_id=10`); err != nil {
+	var validCandidate model.PublicSongLyrics
+	if err := json.Unmarshal([]byte(legacyPayload), &validCandidate); err != nil {
+		t.Fatal(err)
+	}
+	candidateAttribution := fmt.Sprintf("candidate-attribution-%d", firstSaved.MusicID)
+	candidateTitle := fmt.Sprintf("candidate-title-%d", firstSaved.MusicID)
+	validCandidate.Attribution = candidateAttribution
+	validCandidatePayload, err := json.Marshal(validCandidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json=? WHERE music_id=?`, string(validCandidatePayload), firstSaved.MusicID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE catalog_music SET title_en=? WHERE music_id=?`, candidateTitle, firstSaved.MusicID); err != nil {
+		t.Fatal(err)
+	}
+	laterSaved := savedLyrics[len(savedLyrics)-1]
+	var invalidCandidate model.PublicSongLyrics
+	if err := database.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, laterSaved.MusicID).Scan(&storedPayload); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(storedPayload), &invalidCandidate); err != nil {
+		t.Fatal(err)
+	}
+	invalidCandidate.Revision++
+	wellFormedInvalidPayload, err := json.Marshal(invalidCandidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json=? WHERE music_id=?`, string(wellFormedInvalidPayload), laterSaved.MusicID); err != nil {
 		t.Fatal(err)
 	}
 	svc.Rebuild()
-	afterFailure, afterETag, status := readAsset("/files/translation/lyrics/music_10.json")
-	if status != http.StatusOK || !bytes.Equal(afterFailure, detail) || afterETag != etag {
-		t.Fatalf("failed all-or-nothing rebuild changed published asset: status=%d etag=%q body=%s", status, afterETag, afterFailure)
+
+	afterFailedAssets := snapshotAllAssets()
+	if len(afterFailedAssets) != len(lastSuccessfulAssets) {
+		t.Fatalf("failed rebuild changed asset count: before=%d after=%d", len(lastSuccessfulAssets), len(afterFailedAssets))
+	}
+	for key, previous := range lastSuccessfulAssets {
+		current, ok := afterFailedAssets[key]
+		if !ok || !bytes.Equal(current.body, previous.body) || current.etag != previous.etag {
+			t.Fatalf("failed candidate generation changed asset %s: present=%t etag=%q body=%s", key, ok, current.etag, current.body)
+		}
+		if bytes.Contains(current.body, []byte(candidateAttribution)) || bytes.Contains(current.body, []byte(candidateTitle)) {
+			t.Fatalf("failed candidate generation leaked candidate data through %s: %s", key, current.body)
+		}
+	}
+	for path, previous := range published {
+		afterFailure, afterFailureETag, afterFailureStatus := readAsset(path)
+		if afterFailureStatus != http.StatusOK || !bytes.Equal(afterFailure, previous.body) || afterFailureETag != previous.etag {
+			t.Fatalf("failed candidate generation changed served %s: status=%d etag=%q body=%s", path, afterFailureStatus, afterFailureETag, afterFailure)
+		}
 	}
 	failedProjection := svc.Status()
-	if failedProjection.Generation != 2 || !failedProjection.Pending || failedProjection.LastError != "projection_generation_failed" {
-		t.Fatalf("failed projection status = %+v", failedProjection)
+	if failedProjection.Generation != lastSuccessfulProjection.Generation || !failedProjection.Pending || failedProjection.LastError != "projection_generation_failed" || failedProjection.LastSuccessAt != lastSuccessfulProjection.LastSuccessAt {
+		t.Fatalf("failed projection status = %+v, previous = %+v", failedProjection, lastSuccessfulProjection)
 	}
-	if _, err := s.UnpublishLyrics(10, saved.Revision, "admin"); err != nil {
-		t.Fatal(err)
+
+	for _, saved := range savedLyrics {
+		if _, err := s.UnpublishLyrics(saved.MusicID, saved.Revision, "admin"); err != nil {
+			t.Fatalf("unpublish musicId=%d: %v", saved.MusicID, err)
+		}
+	}
+	for path, previous := range published {
+		beforeRebuild, beforeRebuildETag, beforeRebuildStatus := readAsset(path)
+		if beforeRebuildStatus != http.StatusOK || !bytes.Equal(beforeRebuild, previous.body) || beforeRebuildETag != previous.etag {
+			t.Fatalf("unpublish changed served projection before rebuild %s: status=%d etag=%q body=%s", path, beforeRebuildStatus, beforeRebuildETag, beforeRebuild)
+		}
 	}
 	svc.Rebuild()
 	recoveredProjection := svc.Status()
-	if recoveredProjection.Generation != 3 || recoveredProjection.Pending || recoveredProjection.LastError != "" || recoveredProjection.LastSuccessAt == "" {
+	if recoveredProjection.Generation != lastSuccessfulProjection.Generation+1 || recoveredProjection.Pending || recoveredProjection.LastError != "" || recoveredProjection.LastSuccessAt == "" {
 		t.Fatalf("recovered projection status = %+v", recoveredProjection)
 	}
-	for _, path := range []string{
-		"/files/translation/lyrics/music_10.json",
-		"/files/v2/zh-CN/translation/lyrics/music_10.json",
-		"/files/v2/en-US/translation/lyrics/music_10.json",
-	} {
-		if _, _, status := readAsset(path); status != http.StatusNotFound {
-			t.Fatalf("unpublished mirror %s status=%d", path, status)
+
+	detailPaths := make([]string, 0, len(savedLyrics)*(len(publicLocales)+1))
+	indexPaths := []string{canonicalIndexPath}
+	for _, saved := range savedLyrics {
+		detailPaths = append(detailPaths, detailPath(canonicalRoot, saved.MusicID))
+	}
+	for _, locale := range publicLocales {
+		root := localizedRoot(locale)
+		indexPaths = append(indexPaths, indexPath(root))
+		for _, saved := range savedLyrics {
+			detailPaths = append(detailPaths, detailPath(root, saved.MusicID))
+		}
+	}
+	expectedUnpublishedKeys := make(map[string]bool, len(indexPaths))
+	for _, path := range indexPaths {
+		expectedUnpublishedKeys[strings.TrimPrefix(path, "/files/")] = true
+	}
+	unpublishedSnapshot := make(map[string]asset, len(indexPaths))
+	unexpectedLyricsKeys := make([]string, 0)
+	svc.mu.RLock()
+	for key, projected := range svc.assets {
+		if strings.HasPrefix(key, "translation/lyrics/") || (strings.HasPrefix(key, "v2/") && strings.Contains(key, "/translation/lyrics/")) {
+			if expectedUnpublishedKeys[key] {
+				unpublishedSnapshot["/files/"+key] = projected
+			} else {
+				unexpectedLyricsKeys = append(unexpectedLyricsKeys, key)
+			}
+		}
+	}
+	svc.mu.RUnlock()
+	if len(unexpectedLyricsKeys) != 0 || len(unpublishedSnapshot) != len(indexPaths) {
+		t.Fatalf("unpublish was not one complete asset swap: unexpected=%v indexes=%d/%d", unexpectedLyricsKeys, len(unpublishedSnapshot), len(indexPaths))
+	}
+	for _, path := range detailPaths {
+		if _, _, detailStatus := readAsset(path); detailStatus != http.StatusNotFound {
+			t.Fatalf("unpublished detail %s status=%d", path, detailStatus)
+		}
+	}
+	var emptyIndex []byte
+	var emptyIndexETag string
+	for _, path := range indexPaths {
+		projected := unpublishedSnapshot[path]
+		var document model.PublicLyricsIndex
+		if err := json.Unmarshal(projected.body, &document); err != nil {
+			t.Fatalf("unpublished index %s is invalid JSON: %v\nbody=%s", path, err, projected.body)
+		}
+		if document.Version != 1 || len(document.Songs) != 0 {
+			t.Fatalf("unpublished index %s = %+v", path, document)
+		}
+		body, bodyETag, indexStatus := readAsset(path)
+		if indexStatus != http.StatusOK || !bytes.Equal(body, projected.body) || bodyETag != projected.etag {
+			t.Fatalf("unpublished index %s status=%d etag=%q body=%s", path, indexStatus, bodyETag, body)
+		}
+		if path == canonicalIndexPath {
+			emptyIndex = append([]byte(nil), body...)
+			emptyIndexETag = bodyETag
+			if bodyETag == indexETag {
+				t.Fatalf("unpublished index retained published ETag %q", bodyETag)
+			}
+			continue
+		}
+		if !bytes.Equal(body, emptyIndex) || bodyETag != emptyIndexETag {
+			t.Fatalf("unpublished locale index %s differs from canonical: etag=%q body=%s", path, bodyETag, body)
 		}
 	}
 }

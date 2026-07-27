@@ -51,6 +51,7 @@ const (
 	KeyUpstreamCNAssetsFallbackURL     = "upstream.cn_assets_fallback_url"
 	KeyUpstreamFetchConcurrency        = "upstream.fetch_concurrency"
 	KeySchedulerOn                     = "scheduler.enabled"
+	KeyLyricsDiscoveryOn               = "lyrics_discovery.enabled"
 	KeyUpstreamLastDataVersion         = "upstream.state.last_data_version"
 	KeyUpstreamPendingDataVersion      = "upstream.state.pending_data_version"
 
@@ -88,7 +89,7 @@ var settingKeys = map[string]bool{
 	KeyUpstreamCNMasterdataFallbackURL: true, KeyUpstreamJPAssetsURL: true,
 	KeyUpstreamJPAssetsFallbackURL: true, KeyUpstreamCNAssetsURL: true,
 	KeyUpstreamCNAssetsFallbackURL: true, KeyUpstreamFetchConcurrency: true,
-	KeySchedulerOn: true, KeyUpstreamLastDataVersion: true, KeyUpstreamPendingDataVersion: true,
+	KeySchedulerOn: true, KeyLyricsDiscoveryOn: true, KeyUpstreamLastDataVersion: true, KeyUpstreamPendingDataVersion: true,
 	KeyBackupS3Enabled: true, KeyBackupS3Endpoint: true, KeyBackupS3Region: true,
 	KeyBackupS3Bucket: true, KeyBackupS3Prefix: true, KeyBackupS3AccessKey: true,
 	KeyBackupS3SecretKey: true, KeyBackupGitEnabled: true, KeyBackupGitRepoURL: true,
@@ -287,7 +288,7 @@ func validateSettingValue(key, value string) error {
 		return nil
 	}
 	switch key {
-	case KeySchedulerOn, KeyBackupS3Enabled, KeyBackupGitEnabled:
+	case KeySchedulerOn, KeyLyricsDiscoveryOn, KeyBackupS3Enabled, KeyBackupGitEnabled:
 		return canonicalBool()
 	case KeyLLMType:
 		if value != "gemini" && value != "openai" {

@@ -42,10 +42,12 @@ func IsTerminalLyricsDiscoveryJobState(state LyricsDiscoveryJobState) bool {
 }
 
 type LyricsDiscoveryJobTarget struct {
-	MusicID    int
-	PageID     int
-	RevisionID int
-	ArtifactID int64
+	MusicID            int
+	PageID             int
+	RevisionID         int
+	ArtifactID         int64
+	CatalogFingerprint string
+	PolicyVersion      string
 }
 
 type LyricsDiscoveryJob struct {

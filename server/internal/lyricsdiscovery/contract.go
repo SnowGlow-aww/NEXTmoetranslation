@@ -250,6 +250,7 @@ type JitterFunc func(upperBound time.Duration) time.Duration
 type Options struct {
 	ScanInterval  time.Duration
 	LeaseDuration time.Duration
+	JobTimeout    time.Duration
 	IdleWait      time.Duration
 	RetryMin      time.Duration
 	RetryMax      time.Duration
@@ -263,6 +264,12 @@ func (o Options) validate() error {
 	}
 	if o.LeaseDuration <= 0 {
 		return fmt.Errorf("lease duration must be positive")
+	}
+	if o.JobTimeout <= 0 {
+		return fmt.Errorf("job timeout must be positive")
+	}
+	if o.JobTimeout >= o.LeaseDuration {
+		return fmt.Errorf("job timeout must be shorter than lease duration")
 	}
 	if o.IdleWait <= 0 {
 		return fmt.Errorf("idle wait must be positive")

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"moesekai/server/internal/legacy"
 	"moesekai/server/internal/model"
 )
 
@@ -836,6 +837,9 @@ func validateRestoredLyricsDocuments(lyrics LyricsContentExport, performerIDs, d
 }
 
 func canonicalizeRestoredPublication(record *LyricsPublicationBackupRecord, performerIDs map[int]bool) error {
+	if err := legacy.ValidateUniqueJSON([]byte(record.PayloadJSON)); err != nil {
+		return fmt.Errorf("lyrics publication %d: %w", record.MusicID, err)
+	}
 	decoder := json.NewDecoder(bytes.NewBufferString(record.PayloadJSON))
 	decoder.DisallowUnknownFields()
 	var public model.PublicSongLyrics

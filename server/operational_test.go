@@ -203,6 +203,32 @@ func TestShutdownConfigurationUsesOneStrictTotalBudget(t *testing.T) {
 	}
 }
 
+func TestLyricsDiscoveryConfigurationIsFailClosedAndStrict(t *testing.T) {
+	for _, key := range []string{
+		"LYRICS_DISCOVERY_SCAN_MS", "LYRICS_DISCOVERY_LEASE_MS", "LYRICS_DISCOVERY_JOB_TIMEOUT_MS",
+		"LYRICS_DISCOVERY_IDLE_MS", "LYRICS_DISCOVERY_RETRY_MIN_MS", "LYRICS_DISCOVERY_RETRY_MAX_MS",
+	} {
+		t.Setenv(key, "")
+	}
+	options, err := lyricsDiscoveryOptionsFromEnv()
+	if err != nil || options.ScanInterval <= 0 || options.JobTimeout <= 0 || options.JobTimeout >= options.LeaseDuration ||
+		options.RetryMax < options.RetryMin {
+		t.Fatalf("default lyrics discovery options=%+v err=%v", options, err)
+	}
+	t.Setenv("LYRICS_DISCOVERY_LEASE_MS", "10000")
+	t.Setenv("LYRICS_DISCOVERY_JOB_TIMEOUT_MS", "10000")
+	if _, err := lyricsDiscoveryOptionsFromEnv(); err == nil {
+		t.Fatal("lyrics discovery accepted a job timeout equal to its lease")
+	}
+	t.Setenv("LYRICS_DISCOVERY_LEASE_MS", "20000")
+	t.Setenv("LYRICS_DISCOVERY_JOB_TIMEOUT_MS", "1000")
+	t.Setenv("LYRICS_DISCOVERY_RETRY_MIN_MS", "5000")
+	t.Setenv("LYRICS_DISCOVERY_RETRY_MAX_MS", "1000")
+	if _, err := lyricsDiscoveryOptionsFromEnv(); err == nil {
+		t.Fatal("lyrics discovery accepted retry maximum below minimum")
+	}
+}
+
 func TestDrainingAdmitsOnlyExactHealthAndReadinessProbes(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "draining.db"))
 	if err != nil {
@@ -424,7 +450,8 @@ func TestSeedConfigFromEnvRejectsInvalidGroupWithoutPartialWrites(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("TRANSLATE_SCHEDULER_ENABLED", "ture")
+	t.Setenv("TRANSLATE_SCHEDULER_ENABLED", "true")
+	t.Setenv("LYRICS_DISCOVERY_ENABLED", "ture")
 	t.Setenv("UPSTREAM_REPO", "owner/repo")
 	if err := seedConfigFromEnv(configuration); err == nil {
 		t.Fatal("invalid environment seed unexpectedly succeeded")

@@ -1,112 +1,21 @@
-==Lyrics==
-{| style="width:100%"
-! align="left" |''Japanese'' (日本語歌詞)
-! align="left" |''Romaji'' (ローマ字)
+== Lyrics ==
+{|
+! Japanese
+! Romaji
 |-
-|不完全な僕を生き写したような音色
-|fukanzenna boku o ikiutsushita you na neiro
+| 合成音色一
+| synthetic neiro one
 |-
-|いつか途絶えてしまった 歌えなくなっていった
-|itsuka todaite shimatta utaenaku natte itta
+| 合成音色二<br />合成音色三
+| synthetic neiro two<br />synthetic neiro three
 |-
-|不格好な声のみんな無視していた曲を
-|bukakkouna koe no minna mushi shiteita kyoku o
+| <br />
+|
 |-
-|今も覚えているはずさ あれを「ラブソング」って言うんだ
-|ima mo oboeteiru hazu sa, are o "rabusongu" tte iunda
+| [[合成音色四|合成表示四]]<ref>synthetic citation</ref>
+| synthetic display four
 |-
-|<br>
-|-
-|時代がワープして君は置いてかれるから
-|jidai ga waapu shite kimi wa oitekareru kara
-|-
-|そんな涙誰にも気づかれる訳ないだろう
-|sonna namida dare ni mo kizukareru wakenai darou
-|-
-|だったら泣き喚こうぜ マイクロフォンをひっさげて
-|dattara nakiwamekou ze maikurofon o hissagete
-|-
-|<br>
-|-
-|もう一回 強がって吐き出して胸を焦がして
-|mou ikkai tsuyogatte hakidashite mune o kogashite
-|-
-|限界に気がついたって足掻いてバカな君は歌う
-|genkai ni kiga tsuitatte agaite bakana kimi wa utau
-|-
-|何万回消えたって消えないで響いたあの曲を
-|nanmankai kietatte kienaide hibiita ano kyoku o
-|-
-|そうやって唄うんだよ 気づいたかい NEO
-|sou yatte utaunda yo kizuita kai NEO
-|-
-|「初めまして」は済ましたかい NEO
-|"hajimemashite" wa sumashita kai NEO
-|-
-|<br>
-|-
-|無観客の今日に埋もれていったような声色
-|mukankyaku no kyou ni umorete itta you na kowairo
-|-
-|いつか奪われてしまった聞こえなくなっていた
-|itsuka ubawarete shimatta kikoenaku natteita
-|-
-|覚えておきたいんだあの不確かな気持ちを
-|oboete okitain da ano futashikana kimochi o
-|-
-|いつか描いた理想をそれが勘違いとしても
-|itsuka egaita risou o sore ga kanchigai to shitemo
-|-
-|<br>
-|-
-|それなら今日から僕らで焼き直そうぜ
-|sore nara kyou kara bokura de yaki naosou ze
-|-
-|神様の目の前で！
-|kamisama no me no mae de!
-|-
-|<br>
-|-
-|もう一回 間違って傷ついて心壊して
-|mou ikkai machigatte kizutsuite kokoro kowashite
-|-
-|認められない道を選んでバカな君は笑う
-|mitomerarenai michi o erande baka na kimi wa warau
-|-
-|そうやって泣き声が絡まって出来たあの曲が
-|sou yatte nakigoe ga karamatte dekita ano kyoku ga
-|-
-|聞こえたんだろ応えてよNEO
-|kikoetan daro kotaete yo NEO
-|-
-|<br>
-|-
-|こんな四小節に願って夢を託して
-|konna yon shousetsu ni negatte yume o takushite
-|-
-|「当然」に抗って逆らってバカな君は歌う
-|"touzen" ni aragatte sakaratte bakana kimi wa utau
-|-
-|忘れられたって死なないで響いたその曲は
-|wasureraretatte shinanai de hibiita sono kyoku wa
-|-
-|「希望」って言うんだよ
-|"kibou" tte iunda yo
-|-
-|<br>
-|-
-|やっと気がついて高鳴った胸を焦がして
-|yatto kiga tsuite takanatta mune o kogashite
-|-
-|限界に気がついたって足掻いて僕と君は歌う
-|genkai ni kiga tsuitatte agaite boku to kimi wa utau
-|-
-|何万回消えたって消えないで響いたこの曲を
-|nanmankai kietatte kienaide hibiita kono kyoku o
-|-
-|こうやって唄うんだよ そうだろ NEO
-|kou yatte utaunda yo sou daro NEO
-|-
-|「初めまして」は届いたかい NEO
-|"hajimemashite" wa todoita kai NEO
+| 合成音色五 || synthetic neiro five
 |}
+== Other ==
+This section must not be extracted.

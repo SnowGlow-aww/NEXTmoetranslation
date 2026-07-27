@@ -21,6 +21,12 @@ func openLyricsDiscoveryJobStore(t *testing.T, path string) (*Store, *db.DB) {
 	return New(database), database
 }
 
+func discoveryTarget(musicID int) model.LyricsDiscoveryJobTarget {
+	return model.LyricsDiscoveryJobTarget{
+		MusicID: musicID, CatalogFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", PolicyVersion: "shadow-v1",
+	}
+}
+
 func enqueueLyricsDiscoveryJob(t *testing.T, s *Store, kind model.LyricsDiscoveryJobKind, target model.LyricsDiscoveryJobTarget, maxAttempts int) model.LyricsDiscoveryJob {
 	t.Helper()
 	job, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
@@ -48,7 +54,10 @@ func TestLyricsDiscoveryJobEnqueueDeduplicatesCanonicalTarget(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "enqueue-dedupe.db")
 	s, database := openLyricsDiscoveryJobStore(t, path)
 	defer database.Close()
-	target := model.LyricsDiscoveryJobTarget{MusicID: 41, PageID: 83, RevisionID: 127, ArtifactID: 169}
+	target := model.LyricsDiscoveryJobTarget{
+		MusicID: 41, PageID: 83, RevisionID: 127, ArtifactID: 169,
+		CatalogFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", PolicyVersion: "shadow-v1",
+	}
 
 	first, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
 		Kind: model.LyricsDiscoveryJobFetchRevision, Target: target, MaxAttempts: 5,
@@ -79,7 +88,7 @@ func TestLyricsDiscoveryJobClaimIsAtomic(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "atomic-claim.db")
 	s, database := openLyricsDiscoveryJobStore(t, path)
 	defer database.Close()
-	queued := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, model.LyricsDiscoveryJobTarget{MusicID: 7}, 3)
+	queued := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(7), 3)
 
 	start := make(chan struct{})
 	type result struct {
@@ -123,7 +132,7 @@ func TestLyricsDiscoveryJobLeaseOwnershipAndCompletion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "lease-ownership.db")
 	s, database := openLyricsDiscoveryJobStore(t, path)
 	defer database.Close()
-	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, model.LyricsDiscoveryJobTarget{MusicID: 11}, 3)
+	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(11), 3)
 	leased := claimLyricsDiscoveryJob(t, s, "worker_a", time.Minute)
 
 	if _, err := s.CompleteLyricsDiscoveryJob(context.Background(), leased.ID, "worker_b", leased.Version); !errors.Is(err, ErrLyricsDiscoveryLeaseNotOwned) {
@@ -188,7 +197,7 @@ func TestLyricsDiscoveryJobFailureRequeuesUntilAttemptsExhausted(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "failure-requeue.db")
 	s, database := openLyricsDiscoveryJobStore(t, path)
 	defer database.Close()
-	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, model.LyricsDiscoveryJobTarget{MusicID: 21}, 2)
+	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(21), 2)
 	first := claimLyricsDiscoveryJob(t, s, "worker_1", time.Minute)
 	retry, err := s.FailLyricsDiscoveryJob(context.Background(), first.ID, "worker_1", first.Version, "temporary upstream error")
 	if err != nil {
@@ -223,7 +232,7 @@ func TestLyricsDiscoveryJobExpiredLeaseRecovery(t *testing.T) {
 	path2 := filepath.Join(t.TempDir(), "expired-final-attempt.db")
 	s2, database2 := openLyricsDiscoveryJobStore(t, path2)
 	defer database2.Close()
-	enqueueLyricsDiscoveryJob(t, s2, model.LyricsDiscoveryJobDiscover, model.LyricsDiscoveryJobTarget{MusicID: 31}, 1)
+	enqueueLyricsDiscoveryJob(t, s2, model.LyricsDiscoveryJobDiscover, discoveryTarget(31), 1)
 	lastLease := claimLyricsDiscoveryJob(t, s2, "crashed_final_worker", 25*time.Millisecond)
 	time.Sleep(40 * time.Millisecond)
 	if _, err := s2.ClaimLyricsDiscoveryJob(context.Background(), LyricsDiscoveryJobLease{Owner: "cannot_recover", Duration: time.Minute}); !errors.Is(err, ErrLyricsDiscoveryJobNotFound) {
@@ -269,25 +278,25 @@ func TestLyricsDiscoveryJobValidationAndCancellation(t *testing.T) {
 	for _, params := range []EnqueueLyricsDiscoveryJobParams{
 		{Kind: "unknown", Target: model.LyricsDiscoveryJobTarget{MusicID: 1}},
 		{Kind: model.LyricsDiscoveryJobDiscover, Target: model.LyricsDiscoveryJobTarget{MusicID: 0}},
-		{Kind: model.LyricsDiscoveryJobDiscover, Target: model.LyricsDiscoveryJobTarget{MusicID: 1, PageID: 2}},
+		{Kind: model.LyricsDiscoveryJobDiscover, Target: model.LyricsDiscoveryJobTarget{MusicID: 1, PageID: 2, CatalogFingerprint: "fingerprint", PolicyVersion: "shadow-v1"}},
 		{Kind: model.LyricsDiscoveryJobFetchRevision, Target: model.LyricsDiscoveryJobTarget{MusicID: 1, PageID: 2}},
 		{Kind: model.LyricsDiscoveryJobRevalidatePinned, Target: model.LyricsDiscoveryJobTarget{MusicID: 1, PageID: 2}},
 		{Kind: model.LyricsDiscoveryJobRevalidateHead, Target: model.LyricsDiscoveryJobTarget{MusicID: 1, PageID: 2, RevisionID: 3}},
-		{Kind: model.LyricsDiscoveryJobDiscover, Target: model.LyricsDiscoveryJobTarget{MusicID: 1}, MaxAttempts: 101},
+		{Kind: model.LyricsDiscoveryJobDiscover, Target: discoveryTarget(1), MaxAttempts: 101},
 	} {
 		if _, _, err := s.EnqueueLyricsDiscoveryJob(context.Background(), params); err == nil {
 			t.Fatalf("invalid enqueue succeeded: %+v", params)
 		}
 	}
 	if _, _, err := s.EnqueueLyricsDiscoveryJob(nil, EnqueueLyricsDiscoveryJobParams{
-		Kind: model.LyricsDiscoveryJobDiscover, Target: model.LyricsDiscoveryJobTarget{MusicID: 1},
+		Kind: model.LyricsDiscoveryJobDiscover, Target: discoveryTarget(1),
 	}); err == nil {
 		t.Fatal("nil context enqueue succeeded")
 	}
 	cancelledContext, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, _, err := s.EnqueueLyricsDiscoveryJob(cancelledContext, EnqueueLyricsDiscoveryJobParams{
-		Kind: model.LyricsDiscoveryJobDiscover, Target: model.LyricsDiscoveryJobTarget{MusicID: 2},
+		Kind: model.LyricsDiscoveryJobDiscover, Target: discoveryTarget(2),
 	}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled enqueue error=%v", err)
 	}
@@ -295,7 +304,7 @@ func TestLyricsDiscoveryJobValidationAndCancellation(t *testing.T) {
 	if err := database.QueryRow(`SELECT COUNT(*) FROM lyrics_discovery_jobs`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("cancelled enqueue rows=%d err=%v", count, err)
 	}
-	queued := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, model.LyricsDiscoveryJobTarget{MusicID: 47}, 2)
+	queued := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(47), 2)
 	cancelled, err := s.CancelLyricsDiscoveryJob(context.Background(), queued.ID, queued.Version)
 	if err != nil {
 		t.Fatal(err)

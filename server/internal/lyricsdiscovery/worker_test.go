@@ -63,6 +63,40 @@ func TestNoClaimsAfterDrain(t *testing.T) {
 	}
 }
 
+func TestNoClaimsAfterDrainWhileClaimIsInFlight(t *testing.T) {
+	store := newFakeStore()
+	claimEntered := make(chan struct{})
+	releaseClaim := make(chan struct{})
+	store.claimFn = func(context.Context, ClaimRequest) (Job, bool, error) {
+		close(claimEntered)
+		<-releaseClaim
+		return Job{}, false, nil
+	}
+	worker := newTestWorker(t, store, discoverFunc(func(context.Context, Job) (Result, error) {
+		return Result{}, errors.New("unexpected discovery")
+	}), Options{})
+	if err := worker.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	<-claimEntered
+	drained := make(chan struct{})
+	go func() {
+		worker.Drain()
+		close(drained)
+	}()
+	select {
+	case <-drained:
+		t.Fatal("Drain returned while Claim admission was in progress")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(releaseClaim)
+	<-drained
+	waitDone(t, worker)
+	if got := store.claimCount(); got != 1 {
+		t.Fatalf("claim calls after drain = %d, want only the admitted claim", got)
+	}
+}
+
 func TestRetryAndTerminalResults(t *testing.T) {
 	t.Run("retry", func(t *testing.T) {
 		store := newFakeStore()
@@ -155,6 +189,31 @@ func TestStartAfterPreStartDrainOrCancel(t *testing.T) {
 		t.Fatalf("Start after Cancel error = %v, want %v", err, ErrCanceled)
 	}
 	canceled.Wait()
+}
+
+func TestPerJobTimeoutRetriesAndCancelsDiscovery(t *testing.T) {
+	store := newFakeStore()
+	store.jobs = []Job{{ID: "timeout-job", LeaseToken: "timeout-lease", Attempt: 1, MusicID: 16}}
+	canceled := make(chan struct{})
+	worker := newTestWorker(t, store, discoverFunc(func(ctx context.Context, _ Job) (Result, error) {
+		<-ctx.Done()
+		close(canceled)
+		return Result{}, ctx.Err()
+	}), Options{JobTimeout: 20 * time.Millisecond})
+	if err := worker.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, time.Second, func() bool { return store.retryCount() == 1 })
+	worker.Drain()
+	waitDone(t, worker)
+	select {
+	case <-canceled:
+	default:
+		t.Fatal("per-job timeout did not cancel discovery")
+	}
+	if retry := store.retryAt(0); retry.Failure.Code != CodeTimeout || !retry.Failure.Retryable {
+		t.Fatalf("timeout retry=%+v", retry)
+	}
 }
 
 func TestCancellationDuringWork(t *testing.T) {
@@ -293,6 +352,7 @@ type fakeStore struct {
 	retries     []Retry
 	failures    []TerminalFailure
 	scanFn      func(context.Context, ScanRequest) (ScanResult, error)
+	claimFn     func(context.Context, ClaimRequest) (Job, bool, error)
 }
 
 func newFakeStore() *fakeStore {
@@ -309,16 +369,21 @@ func (s *fakeStore) Scan(ctx context.Context, request ScanRequest) (ScanResult, 
 	return ScanResult{}, nil
 }
 
-func (s *fakeStore) Claim(_ context.Context, request ClaimRequest) (Job, bool, error) {
+func (s *fakeStore) Claim(ctx context.Context, request ClaimRequest) (Job, bool, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.claims = append(s.claims, request)
-	if len(s.jobs) == 0 {
-		return Job{}, false, nil
+	claimFn := s.claimFn
+	if claimFn == nil {
+		defer s.mu.Unlock()
+		if len(s.jobs) == 0 {
+			return Job{}, false, nil
+		}
+		job := s.jobs[0]
+		s.jobs = s.jobs[1:]
+		return job, true, nil
 	}
-	job := s.jobs[0]
-	s.jobs = s.jobs[1:]
-	return job, true, nil
+	s.mu.Unlock()
+	return claimFn(ctx, request)
 }
 
 func (s *fakeStore) Complete(_ context.Context, completion Completion) error {
@@ -390,6 +455,7 @@ func newTestWorker(t *testing.T, store Store, discovery Discovery, overrides Opt
 	opts := Options{
 		ScanInterval:  10 * time.Millisecond,
 		LeaseDuration: time.Minute,
+		JobTimeout:    30 * time.Second,
 		IdleWait:      time.Millisecond,
 		RetryMin:      time.Second,
 		RetryMax:      time.Minute,
@@ -400,6 +466,9 @@ func newTestWorker(t *testing.T, store Store, discovery Discovery, overrides Opt
 	}
 	if overrides.LeaseDuration != 0 {
 		opts.LeaseDuration = overrides.LeaseDuration
+	}
+	if overrides.JobTimeout != 0 {
+		opts.JobTimeout = overrides.JobTimeout
 	}
 	if overrides.IdleWait != 0 {
 		opts.IdleWait = overrides.IdleWait

@@ -436,6 +436,24 @@ func TestLargeTranslationContentDecodeHonorsCancellation(t *testing.T) {
 	}
 }
 
+func TestTranslationContentRejectsNestedDuplicateObjectKeys(t *testing.T) {
+	for name, body := range map[string][]byte{
+		"object in root array":   []byte(`[{"category":"cards","category":"events"}]`),
+		"nested object":          []byte(`{"documents":[{"musicId":10,"musicId":11}]}`),
+		"object in nested array": []byte(`{"publications":[{"payloadJson":"{}","payloadJson":"[]"}]}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var decoded any
+			if err := decodeJSONContext(context.Background(), body, &decoded); err == nil || !strings.Contains(err.Error(), "duplicate object key") {
+				t.Fatalf("duplicate JSON error = %v", err)
+			}
+			if _, _, _, err := topLevelJSONArrays(body, maxTranslationContentRecords); err == nil || !strings.Contains(err.Error(), "duplicate") {
+				t.Fatalf("duplicate JSON preflight error = %v", err)
+			}
+		})
+	}
+}
+
 func TestTranslationContentManifestSizeIsBounded(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "translation-content")
 	if err := os.Mkdir(dir, 0o700); err != nil {

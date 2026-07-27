@@ -1,7 +1,11 @@
 package store
 
 import (
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +36,21 @@ func (s *Store) UpsertMusicCatalog(records []MusicCatalogRecord) error {
 		return err
 	}
 	defer tx.Rollback()
-	now := time.Now().Unix()
+	changed, err := upsertMusicCatalogTx(tx, records, time.Now().Unix())
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if changed > 0 {
+		s.NotifyChange()
+	}
+	return nil
+}
+
+func upsertMusicCatalogTx(tx txExecer, records []MusicCatalogRecord, now int64) (int, error) {
+	changed := 0
 	for _, record := range records {
 		if record.MusicID <= 0 || strings.TrimSpace(record.JapaneseTitle) == "" {
 			continue
@@ -41,7 +59,7 @@ func (s *Store) UpsertMusicCatalog(records []MusicCatalogRecord) error {
 		if record.IsNewlyWrittenMusic {
 			newlyWritten = 1
 		}
-		if _, err := tx.Exec(`INSERT INTO catalog_music
+		result, err := tx.Exec(`INSERT INTO catalog_music
 			(music_id, title_ja, title_zh, title_en, jacket_url, newly_written, updated_at, producer_metadata)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(music_id) DO UPDATE SET title_ja=excluded.title_ja,
@@ -49,13 +67,25 @@ func (s *Store) UpsertMusicCatalog(records []MusicCatalogRecord) error {
 			title_en=CASE WHEN excluded.title_en<>'' THEN excluded.title_en ELSE catalog_music.title_en END,
 			jacket_url=CASE WHEN excluded.jacket_url<>'' THEN excluded.jacket_url ELSE catalog_music.jacket_url END,
 			newly_written=excluded.newly_written, updated_at=excluded.updated_at,
-			producer_metadata=CASE WHEN excluded.producer_metadata<>'' THEN excluded.producer_metadata ELSE catalog_music.producer_metadata END`,
+			producer_metadata=CASE WHEN excluded.producer_metadata<>'' THEN excluded.producer_metadata ELSE catalog_music.producer_metadata END
+			WHERE catalog_music.title_ja<>excluded.title_ja
+			 OR (excluded.title_zh<>'' AND catalog_music.title_zh<>excluded.title_zh)
+			 OR (excluded.title_en<>'' AND catalog_music.title_en<>excluded.title_en)
+			 OR (excluded.jacket_url<>'' AND catalog_music.jacket_url<>excluded.jacket_url)
+			 OR catalog_music.newly_written<>excluded.newly_written
+			 OR (excluded.producer_metadata<>'' AND catalog_music.producer_metadata<>excluded.producer_metadata)`,
 			record.MusicID, record.JapaneseTitle, record.ChineseTitle, record.EnglishTitle,
-			record.JacketURL, newlyWritten, now, record.ProducerMetadata); err != nil {
-			return err
+			record.JacketURL, newlyWritten, now, record.ProducerMetadata)
+		if err != nil {
+			return changed, err
 		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return changed, err
+		}
+		changed += int(affected)
 	}
-	return tx.Commit()
+	return changed, nil
 }
 
 func (s *Store) UpsertPerformerCatalog(records []PerformerCatalogRecord) error {
@@ -64,22 +94,45 @@ func (s *Store) UpsertPerformerCatalog(records []PerformerCatalogRecord) error {
 		return err
 	}
 	defer tx.Rollback()
-	now := time.Now().Unix()
+	changed, err := upsertPerformerCatalogTx(tx, records, time.Now().Unix())
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if changed > 0 {
+		s.NotifyChange()
+	}
+	return nil
+}
+
+func upsertPerformerCatalogTx(tx txExecer, records []PerformerCatalogRecord, now int64) (int, error) {
+	changed := 0
 	for _, record := range records {
 		if record.PerformerID <= 0 || strings.TrimSpace(record.JapaneseName) == "" {
 			continue
 		}
-		if _, err := tx.Exec(`INSERT INTO catalog_performers
+		result, err := tx.Exec(`INSERT INTO catalog_performers
 			(performer_id, name_ja, name_zh, name_en, updated_at) VALUES (?, ?, ?, ?, ?)
 			ON CONFLICT(performer_id) DO UPDATE SET name_ja=excluded.name_ja,
 			name_zh=CASE WHEN excluded.name_zh<>'' THEN excluded.name_zh ELSE catalog_performers.name_zh END,
 			name_en=CASE WHEN excluded.name_en<>'' THEN excluded.name_en ELSE catalog_performers.name_en END,
-			updated_at=excluded.updated_at`,
-			record.PerformerID, record.JapaneseName, record.ChineseName, record.EnglishName, now); err != nil {
-			return err
+			updated_at=excluded.updated_at
+			WHERE catalog_performers.name_ja<>excluded.name_ja
+			 OR (excluded.name_zh<>'' AND catalog_performers.name_zh<>excluded.name_zh)
+			 OR (excluded.name_en<>'' AND catalog_performers.name_en<>excluded.name_en)`,
+			record.PerformerID, record.JapaneseName, record.ChineseName, record.EnglishName, now)
+		if err != nil {
+			return changed, err
 		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return changed, err
+		}
+		changed += int(affected)
 	}
-	return tx.Commit()
+	return changed, nil
 }
 
 func (s *Store) CatalogMusic(query string, newlyWrittenOnly bool, limit, cursor int) (model.CatalogMusicResponse, error) {
@@ -165,6 +218,50 @@ type CatalogMusicIdentity struct {
 	MusicID          int
 	JapaneseTitle    string
 	ProducerMetadata string
+}
+
+type LyricsDiscoveryCatalogItem struct {
+	MusicID            int
+	JapaneseTitle      string
+	ProducerMetadata   string
+	CatalogFingerprint string
+}
+
+func (s *Store) LyricsDiscoveryCatalog() ([]LyricsDiscoveryCatalogItem, error) {
+	return s.LyricsDiscoveryCatalogContext(context.Background())
+}
+
+func (s *Store) LyricsDiscoveryCatalogContext(ctx context.Context) ([]LyricsDiscoveryCatalogItem, error) {
+	if ctx == nil {
+		return nil, errors.New("lyrics discovery catalog requires context")
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT music_id, title_ja, producer_metadata FROM catalog_music ORDER BY music_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LyricsDiscoveryCatalogItem{}
+	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		var item LyricsDiscoveryCatalogItem
+		if err := rows.Scan(&item.MusicID, &item.JapaneseTitle, &item.ProducerMetadata); err != nil {
+			return nil, err
+		}
+		item.CatalogFingerprint = lyricsDiscoveryCatalogFingerprint(item)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func lyricsDiscoveryCatalogFingerprint(item LyricsDiscoveryCatalogItem) string {
+	hash := sha256.New()
+	for _, value := range []string{strconv.Itoa(item.MusicID), strings.TrimSpace(item.JapaneseTitle), strings.TrimSpace(item.ProducerMetadata)} {
+		hash.Write([]byte(value))
+		hash.Write([]byte{0})
+	}
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 func (s *Store) CatalogMusicIdentity(musicID int) (CatalogMusicIdentity, error) {

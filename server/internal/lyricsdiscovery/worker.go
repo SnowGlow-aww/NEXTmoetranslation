@@ -318,7 +318,9 @@ func (w *Worker) claimAndRun() bool {
 	w.clearLastErrorLocked()
 	w.mu.Unlock()
 
-	result, discoverErr := w.discovery.Discover(w.ctx, job)
+	jobCtx, cancelJob := context.WithTimeout(w.ctx, w.opts.JobTimeout)
+	result, discoverErr := w.discovery.Discover(jobCtx, job)
+	cancelJob()
 	if discoverErr == nil && !validResult(result) {
 		discoverErr = NewError(CodeInvalidResult, nil)
 	}
@@ -510,10 +512,13 @@ func validResult(result Result) bool {
 	if !result.Outcome.valid() || result.CandidateCount < 0 {
 		return false
 	}
-	if result.Outcome == OutcomeCandidatesFound && result.CandidateCount == 0 {
+	if result.Outcome == OutcomeCandidatesFound && result.CandidateCount != 1 {
 		return false
 	}
-	if result.Outcome != OutcomeCandidatesFound && result.CandidateCount != 0 {
+	if result.Outcome == OutcomeNoCandidates && result.CandidateCount != 0 {
+		return false
+	}
+	if result.Outcome == OutcomeAmbiguous && result.CandidateCount <= 1 {
 		return false
 	}
 	return true

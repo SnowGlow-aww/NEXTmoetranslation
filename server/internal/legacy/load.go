@@ -89,6 +89,15 @@ func LoadCategory(src, cat string) (model.Category, []string, error) {
 // decoding. encoding/json otherwise silently keeps the final value, which can
 // make a reviewed flat/full backup mean something different after restore.
 func UnmarshalUnique(data []byte, target any) error {
+	if err := ValidateUniqueJSON(data); err != nil {
+		return err
+	}
+	return json.Unmarshal(data, target)
+}
+
+// ValidateUniqueJSON rejects duplicate object keys at every nesting level and
+// rejects additional top-level values without otherwise materializing the JSON.
+func ValidateUniqueJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if err := consumeUniqueJSONValue(decoder); err != nil {
 		return err
@@ -99,7 +108,7 @@ func UnmarshalUnique(data []byte, target any) error {
 		}
 		return err
 	}
-	return json.Unmarshal(data, target)
+	return nil
 }
 
 func consumeUniqueJSONValue(decoder *json.Decoder) error {

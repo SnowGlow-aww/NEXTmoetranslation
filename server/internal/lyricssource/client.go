@@ -22,6 +22,8 @@ const (
 	vocaloidWikiAPI       = "https://vocaloid.fandom.com/api.php"
 	maxResponseBytes      = 2 << 20
 	maxCacheEntries       = 128
+	maxInflightRequests   = 16
+	maxSourceRedirects    = 5
 	maxExtractedLines     = 1000
 	maxExtractedLineBytes = 8 << 10
 	maxExtractedTextBytes = 1 << 20
@@ -36,6 +38,16 @@ var (
 	ErrLyricsTooLarge    = errors.New("lyrics source exceeds safe limits")
 	ErrMalformedResponse = errors.New("malformed source response")
 )
+
+// HTTPError preserves only the upstream status class needed by the shadow
+// worker's stable retry policy. Response bodies and URLs are never retained.
+type HTTPError struct {
+	StatusCode int
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("lyrics source http %d", e.StatusCode)
+}
 
 type MusicIdentity struct {
 	MusicID          int
@@ -73,28 +85,69 @@ type cacheEntry struct {
 	createdAt time.Time
 }
 
+type inflightRequest struct {
+	done         chan struct{}
+	body         []byte
+	err          error
+	waiters      int
+	participants int
+	ctx          context.Context
+	cancel       context.CancelFunc
+}
+
 type Client struct {
 	endpoint    string
 	httpClient  *http.Client
 	minInterval time.Duration
 	cacheTTL    time.Duration
 
-	mu          sync.Mutex
+	mu           sync.Mutex
+	cache        map[string]cacheEntry
+	inflight     map[string]*inflightRequest
+	requestSlots chan struct{}
+
+	rateMu      sync.Mutex
 	lastRequest time.Time
-	cache       map[string]cacheEntry
+	rateToken   chan struct{}
 }
 
 func New() *Client {
-	return &Client{
-		endpoint:    vocaloidWikiAPI,
-		httpClient:  &http.Client{Timeout: 12 * time.Second},
-		minInterval: 300 * time.Millisecond,
-		cacheTTL:    2 * time.Minute,
-		cache:       map[string]cacheEntry{},
+	client := &Client{
+		endpoint:     vocaloidWikiAPI,
+		httpClient:   &http.Client{Timeout: 12 * time.Second},
+		minInterval:  300 * time.Millisecond,
+		cacheTTL:     2 * time.Minute,
+		cache:        map[string]cacheEntry{},
+		inflight:     map[string]*inflightRequest{},
+		requestSlots: make(chan struct{}, maxInflightRequests),
+		rateToken:    make(chan struct{}, 1),
 	}
+	client.rateToken <- struct{}{}
+	return client
+}
+
+type searchResult struct {
+	PageID int    `json:"pageid"`
+	Title  string `json:"title"`
+}
+
+func parseSearchResponse(data []byte) ([]searchResult, error) {
+	var response struct {
+		Error json.RawMessage `json:"error"`
+		Query *struct {
+			Search []searchResult `json:"search"`
+		} `json:"query"`
+	}
+	if err := json.Unmarshal(data, &response); err != nil || len(response.Error) > 0 || response.Query == nil || response.Query.Search == nil {
+		return nil, ErrMalformedResponse
+	}
+	return response.Query.Search, nil
 }
 
 func (c *Client) Search(ctx context.Context, identity MusicIdentity) ([]Candidate, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	params := url.Values{
 		"action": {"query"}, "format": {"json"}, "list": {"search"},
 		"srnamespace": {"0"}, "srlimit": {"8"}, "srsearch": {identity.JapaneseTitle},
@@ -103,41 +156,50 @@ func (c *Client) Search(ctx context.Context, identity MusicIdentity) ([]Candidat
 	if err != nil {
 		return nil, err
 	}
-	var response struct {
-		Error json.RawMessage `json:"error"`
-		Query *struct {
-			Search []struct {
-				PageID int    `json:"pageid"`
-				Title  string `json:"title"`
-			} `json:"search"`
-		} `json:"query"`
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	if err := json.Unmarshal(data, &response); err != nil || len(response.Error) > 0 || response.Query == nil {
-		return nil, ErrMalformedResponse
+	searchResults, err := parseSearchResponse(data)
+	if err != nil {
+		return nil, err
 	}
 	result := []Candidate{}
 	fetchFailures := 0
 	var lastFetchErr error
-	for _, search := range response.Query.Search {
+	for _, search := range searchResults {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		page, err := c.fetchPage(ctx, search.PageID, 0, true)
 		if err != nil {
+			if contextErr := ctx.Err(); contextErr != nil {
+				return nil, contextErr
+			}
 			fetchFailures++
 			lastFetchErr = err
 			continue
 		}
-		if page.pageID != search.PageID || hasReprintRestriction(page.content, page.categories) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if page.pageID != search.PageID {
+			fetchFailures++
+			lastFetchErr = ErrRevisionChanged
+			continue
+		}
+		if hasReprintRestriction(page.content, page.categories) {
 			continue
 		}
 		if verifyCandidate(identity, page.title, page.content, page.categories) {
 			result = append(result, Candidate{
-				PageID: search.PageID, Title: page.title, CanonicalURL: canonicalURL(page.title),
+				PageID: search.PageID, Title: page.title, CanonicalURL: canonicalURL(page.title, page.revisionID),
 				RevisionID: page.revisionID, SHA1: page.sha1, Categories: page.categories,
 			})
 		}
 	}
 	if fetchFailures > 0 {
 		if lastFetchErr != nil {
-			return nil, fmt.Errorf("fetch %d of %d source candidates: %w", fetchFailures, len(response.Query.Search), lastFetchErr)
+			return nil, fmt.Errorf("fetch %d of %d source candidates: %w", fetchFailures, len(searchResults), lastFetchErr)
 		}
 		return nil, ErrMalformedResponse
 	}
@@ -146,8 +208,14 @@ func (c *Client) Search(ctx context.Context, identity MusicIdentity) ([]Candidat
 }
 
 func (c *Client) Preview(ctx context.Context, identity MusicIdentity, pageID, revisionID int) (Preview, error) {
+	if err := ctx.Err(); err != nil {
+		return Preview{}, err
+	}
 	page, err := c.fetchPage(ctx, pageID, revisionID, revisionID == 0)
 	if err != nil {
+		return Preview{}, err
+	}
+	if err := ctx.Err(); err != nil {
 		return Preview{}, err
 	}
 	if revisionID > 0 && page.revisionID != revisionID {
@@ -167,7 +235,7 @@ func (c *Client) Preview(ctx context.Context, identity MusicIdentity, pageID, re
 		return Preview{}, err
 	}
 	return Preview{
-		CanonicalURL: canonicalURL(page.title), PageID: pageID, RevisionID: page.revisionID,
+		CanonicalURL: canonicalURL(page.title, page.revisionID), PageID: pageID, RevisionID: page.revisionID,
 		SHA1: page.sha1, Categories: page.categories, FetchedAt: time.Now().UTC().Format(time.RFC3339), Lines: lines,
 	}, nil
 }
@@ -182,6 +250,9 @@ type wikiPage struct {
 }
 
 func (c *Client) fetchPage(ctx context.Context, pageID, revisionID int, cacheable bool) (wikiPage, error) {
+	if err := ctx.Err(); err != nil {
+		return wikiPage{}, err
+	}
 	params := url.Values{
 		"action": {"query"}, "format": {"json"}, "prop": {"revisions|categories"},
 		"rvprop": {"ids|sha1|content"}, "rvslots": {"main"}, "cllimit": {"max"},
@@ -196,6 +267,13 @@ func (c *Client) fetchPage(ctx context.Context, pageID, revisionID int, cacheabl
 	if err != nil {
 		return wikiPage{}, err
 	}
+	if err := ctx.Err(); err != nil {
+		return wikiPage{}, err
+	}
+	return parsePageResponse(data)
+}
+
+func parsePageResponse(data []byte) (wikiPage, error) {
 	var response struct {
 		Query struct {
 			Pages map[string]struct {
@@ -246,56 +324,118 @@ func (c *Client) fetchPage(ctx context.Context, pageID, revisionID int, cacheabl
 }
 
 func (c *Client) request(ctx context.Context, action string, params url.Values, cacheable bool) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	key := params.Encode()
-	if cacheable {
-		c.mu.Lock()
-		if cached, ok := c.cache[key]; ok && time.Since(cached.createdAt) < c.cacheTTL {
-			body := append([]byte(nil), cached.body...)
-			c.mu.Unlock()
-			return body, nil
-		}
-		c.mu.Unlock()
+	if !cacheable {
+		return c.requestUncached(ctx, action, key)
 	}
-	if err := c.waitRateLimit(ctx); err != nil {
-		return nil, err
+	request, body := c.beginCachedRequest(key)
+	if body != nil {
+		return body, nil
 	}
-	requestURL := c.endpoint + "?" + key
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
-	if err != nil {
-		return nil, err
+	if request.owner {
+		go func() {
+			body, err := c.requestUncached(request.inflight.ctx, action, key)
+			if err == nil && (action == "search" || action == "page") {
+				err = validateActionResponse(action, body)
+			}
+			c.finishCachedRequest(key, request.inflight, body, err)
+		}()
 	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "moesekai-lyrics-source/1")
-	log.Printf("[lyrics-source] request action=%s", action)
-	client := *c.httpClient
-	originalHost := req.URL.Host
-	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
-		if len(via) >= 5 {
-			return fmt.Errorf("lyrics source redirect limit exceeded")
+	select {
+	case <-ctx.Done():
+		c.leaveCachedRequest(request.inflight, request.waiter)
+		return nil, ctx.Err()
+	case <-request.inflight.done:
+		return c.cachedParticipantResult(request.inflight, request.waiter)
+	}
+}
+
+type cachedRequest struct {
+	inflight *inflightRequest
+	owner    bool
+	waiter   bool
+}
+
+func (c *Client) beginCachedRequest(key string) (*cachedRequest, []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if cached, ok := c.cache[key]; ok {
+		if time.Since(cached.createdAt) < c.cacheTTL {
+			return nil, append([]byte(nil), cached.body...)
 		}
-		if next.URL.Scheme != req.URL.Scheme || !strings.EqualFold(next.URL.Host, originalHost) {
-			return fmt.Errorf("lyrics source redirect changed origin")
+		delete(c.cache, key)
+	}
+	if inflight := c.inflight[key]; inflight != nil {
+		inflight.waiters++
+		inflight.participants++
+		return &cachedRequest{inflight: inflight, waiter: true}, nil
+	}
+	workCtx, cancel := context.WithCancel(context.Background())
+	inflight := &inflightRequest{done: make(chan struct{}), participants: 1, ctx: workCtx, cancel: cancel}
+	c.inflight[key] = inflight
+	return &cachedRequest{inflight: inflight, owner: true}, nil
+}
+
+func (c *Client) leaveCachedRequest(inflight *inflightRequest, waiter bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if waiter && inflight.waiters > 0 {
+		inflight.waiters--
+	}
+	if inflight.participants > 0 {
+		inflight.participants--
+	}
+	if inflight.participants == 0 {
+		inflight.cancel()
+	}
+}
+
+func (c *Client) cachedParticipantResult(inflight *inflightRequest, waiter bool) ([]byte, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if waiter {
+		if inflight.waiters <= 0 {
+			return nil, ErrMalformedResponse
 		}
+		inflight.waiters--
+	}
+	if inflight.participants <= 0 {
+		return nil, ErrMalformedResponse
+	}
+	inflight.participants--
+	return append([]byte(nil), inflight.body...), inflight.err
+}
+
+func validateActionResponse(action string, body []byte) error {
+	switch action {
+	case "search":
+		_, err := parseSearchResponse(body)
+		return err
+	case "page":
+		_, err := parsePageResponse(body)
+		return err
+	default:
 		return nil
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
+}
+
+func (c *Client) finishCachedRequest(key string, inflight *inflightRequest, body []byte, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if current := c.inflight[key]; current != inflight {
+		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("lyrics source http %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
-	if err != nil {
-		return nil, err
-	}
-	if len(body) > maxResponseBytes {
-		return nil, fmt.Errorf("lyrics source response too large")
-	}
-	if cacheable {
-		c.mu.Lock()
-		if len(c.cache) >= maxCacheEntries {
+	if err == nil {
+		now := time.Now()
+		for cacheKey, cached := range c.cache {
+			if now.Sub(cached.createdAt) >= c.cacheTTL {
+				delete(c.cache, cacheKey)
+			}
+		}
+		if _, replacing := c.cache[key]; !replacing && len(c.cache) >= maxCacheEntries {
 			var oldestKey string
 			var oldest time.Time
 			for cacheKey, cached := range c.cache {
@@ -305,38 +445,133 @@ func (c *Client) request(ctx context.Context, action string, params url.Values, 
 			}
 			delete(c.cache, oldestKey)
 		}
-		c.cache[key] = cacheEntry{body: append([]byte(nil), body...), createdAt: time.Now()}
-		c.mu.Unlock()
+		c.cache[key] = cacheEntry{body: append([]byte(nil), body...), createdAt: now}
+	}
+	inflight.body = append([]byte(nil), body...)
+	inflight.err = err
+	delete(c.inflight, key)
+	close(inflight.done)
+	inflight.cancel()
+}
+
+func (c *Client) requestUncached(ctx context.Context, action, key string) ([]byte, error) {
+	if err := c.acquireRequestSlot(ctx); err != nil {
+		return nil, err
+	}
+	defer c.releaseRequestSlot()
+
+	separator := "?"
+	if strings.Contains(c.endpoint, "?") {
+		separator = "&"
+	}
+	requestURL := c.endpoint + separator + key
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "moesekai-lyrics-source/1")
+	if err := c.waitRateLimit(ctx); err != nil {
+		return nil, err
+	}
+	log.Printf("[lyrics-source] request action=%s", action)
+	client := *c.httpClient
+	originalScheme := req.URL.Scheme
+	originalHost := req.URL.Host
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if next.URL.Scheme != originalScheme || !strings.EqualFold(next.URL.Host, originalHost) {
+			return fmt.Errorf("lyrics source redirect changed origin")
+		}
+		if len(via) > maxSourceRedirects {
+			return fmt.Errorf("lyrics source redirect limit exceeded")
+		}
+		return nil
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, &HTTPError{StatusCode: resp.StatusCode}
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxResponseBytes {
+		return nil, fmt.Errorf("lyrics source response too large")
 	}
 	return body, nil
 }
 
-func (c *Client) waitRateLimit(ctx context.Context) error {
-	c.mu.Lock()
-	wait := c.minInterval - time.Since(c.lastRequest)
-	if wait < 0 {
-		wait = 0
-	}
-	c.lastRequest = time.Now().Add(wait)
-	c.mu.Unlock()
-	if wait == 0 {
-		return nil
-	}
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
+func (c *Client) acquireRequestSlot(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-timer.C:
+	case c.requestSlots <- struct{}{}:
 		return nil
 	}
 }
 
-func canonicalURL(title string) string {
+func (c *Client) releaseRequestSlot() {
+	<-c.requestSlots
+}
+
+func (c *Client) waitRateLimit(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.rateToken:
+	}
+	if err := ctx.Err(); err != nil {
+		c.rateToken <- struct{}{}
+		return err
+	}
+	defer func() { c.rateToken <- struct{}{} }()
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		c.rateMu.Lock()
+		wait := c.minInterval - time.Since(c.lastRequest)
+		c.rateMu.Unlock()
+		if wait <= 0 {
+			c.rateMu.Lock()
+			if err := ctx.Err(); err != nil {
+				c.rateMu.Unlock()
+				return err
+			}
+			c.lastRequest = time.Now()
+			c.rateMu.Unlock()
+			return nil
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func canonicalURL(title string, revisionID int) string {
 	canonical := url.URL{
 		Scheme: "https",
 		Host:   "vocaloid.fandom.com",
 		Path:   "/wiki/" + strings.ReplaceAll(title, " ", "_"),
+	}
+	if revisionID > 0 {
+		query := canonical.Query()
+		query.Set("oldid", fmt.Sprintf("%d", revisionID))
+		canonical.RawQuery = query.Encode()
 	}
 	return canonical.String()
 }
@@ -413,10 +648,13 @@ func containsIdentityField(value, wanted string, allowJapaneseSuffix bool) bool 
 
 var headingPattern = regexp.MustCompile(`(?im)^==+\s*Lyrics\s*==+\s*$`)
 var nextHeadingPattern = regexp.MustCompile(`(?m)^==+[^=].*==+\s*$`)
+var inactiveRestrictionMarkupPattern = regexp.MustCompile(`(?is)<!--.*?-->|<nowiki\b[^>]*>.*?</nowiki\s*>`)
 var markupPattern = regexp.MustCompile(`(?s)<!--.*?-->|<ref[^>]*>.*?</ref>|<[^>]+>`)
 var linkPattern = regexp.MustCompile(`\[\[(?:[^]|]+\|)?([^]]+)\]\]`)
 var sharedPlainLinePattern = regexp.MustCompile(`(?i)^\{\{\s*shared\s*\}\}\s*(?:\|\s*)?(.*)$`)
 var sharedTableCellPattern = regexp.MustCompile(`(?i)^\{\{\s*shared\s*\}\}\s*(?:\|\s*)?`)
+var noReprintTemplatePattern = regexp.MustCompile(`(?i)\{\{\s*(?:no[\s_-]*reprint|noreprint)\b`)
+var directReprintRestrictionPattern = regexp.MustCompile(`(?i)(?:no\s+(?:unauthorized\s+)?reprints?\b|(?:unauthorized\s+)?reprint(?:s|ing)?\s+(?:(?:are|is)\s+)?(?:prohibited|forbidden|not\s+allowed)\b|reposts?\s+(?:(?:are|is)\s+)?(?:prohibited|forbidden|not\s+allowed)\b|do\s+not\s+(?:repost|reprint)\b)`)
 var mediaWikiSHA1Pattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 // HasCanonicalSHA1 reports whether value is the lowercase 40-hex revision
@@ -448,16 +686,67 @@ func extractLyrics(content string) ([]ExtractedLine, error) {
 }
 
 func hasReprintRestriction(content string, categories []string) bool {
-	combined := strings.ToLower(content + "\n" + strings.Join(categories, "\n"))
-	for _, restriction := range []string{
-		"no unauthorized reprints", "unauthorized reprint", "転載禁止", "無断転載禁止", "do not repost",
-		"{{no reprint", "{{no-reprint", "{{noreprint", "reprint prohibited", "reprints prohibited",
-	} {
-		if strings.Contains(combined, strings.ToLower(restriction)) {
+	content = inactiveRestrictionMarkupPattern.ReplaceAllString(content, "")
+	if noReprintTemplatePattern.MatchString(content) {
+		return true
+	}
+	for _, category := range categories {
+		category = strings.ToLower(strings.TrimPrefix(category, "category:"))
+		if strings.Contains(category, "unauthorized reprint") || restrictionStatement(category) {
+			return true
+		}
+	}
+	for _, line := range strings.Split(strings.ReplaceAll(strings.ToLower(content), "\r", ""), "\n") {
+		line = stripRestrictionMarkup(line)
+		if !restrictionStatement(line) {
+			continue
+		}
+		if historicalRemovalStatement(line) {
+			line = stripHistoricalRemovalClauses(line)
+		}
+		if restrictionStatement(line) {
 			return true
 		}
 	}
 	return false
+}
+
+func historicalRemovalStatement(value string) bool {
+	return strings.Contains(value, "unauthorized reprint") &&
+		(strings.Contains(value, " removed") || strings.Contains(value, " deleted") || strings.Contains(value, " taken down"))
+}
+
+func stripHistoricalRemovalClauses(value string) string {
+	clauses := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ';' || r == '.' || r == '!' || r == '?' || r == '\n' || r == '\r'
+	})
+	active := clauses[:0]
+	for _, clause := range clauses {
+		clause = strings.TrimSpace(clause)
+		if clause == "" || historicalRemovalStatement(clause) {
+			continue
+		}
+		active = append(active, clause)
+	}
+	return strings.Join(active, "; ")
+}
+
+func stripRestrictionMarkup(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.TrimLeft(value, "*#:;!| ")
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, "'\"")
+	value = linkPattern.ReplaceAllString(value, "$1")
+	value = strings.Trim(value, "'\"")
+	return strings.Join(strings.Fields(value), " ")
+}
+
+func restrictionStatement(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	return strings.Contains(value, "転載禁止") || strings.Contains(value, "無断転載禁止") || directReprintRestrictionPattern.MatchString(value)
 }
 
 func extractPlainLyrics(section string) ([]ExtractedLine, error) {

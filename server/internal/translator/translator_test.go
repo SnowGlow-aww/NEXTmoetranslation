@@ -64,6 +64,20 @@ func openTestTranslator(t *testing.T) (*Translator, *store.EventStore, *config.C
 	return New(s, es, cfg), es, cfg
 }
 
+func openCatalogTestTranslator(t *testing.T) (*Translator, *db.DB, *config.Config) {
+	t.Helper()
+	database, err := db.Open(t.TempDir() + "/catalog-extraction.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	cfg, err := config.New(database, "test-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return New(store.New(database), nil, cfg), database, cfg
+}
+
 func configureRetryTestSources(t *testing.T, cfg *config.Config, baseURL string) {
 	t.Helper()
 	settings := map[string]string{
@@ -124,6 +138,119 @@ func TestCollectPairBlanksWhenEqual(t *testing.T) {
 	collectPair(m, "日本語", "中文")
 	if m["日本語"] != "中文" {
 		t.Errorf("expected translated value, got %q", m["日本語"])
+	}
+}
+
+func TestExtractMusicIsReadOnlyAndReturnsCatalog(t *testing.T) {
+	tr, database, cfg := openCatalogTestTranslator(t)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/musics.json":
+			fmt.Fprint(w, `[{"id":41,"title":"test-title","isNewlyWrittenMusic":true,"lyricist":"test-lyricist","composer":"test-composer","arranger":"-"}]`)
+		case "/musicVocals.json":
+			fmt.Fprint(w, `[{"id":41,"caption":"test-vocal-caption"}]`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+	if err := cfg.Set(config.KeyUpstreamJPMasterdataURL, upstream.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyUpstreamJPMasterdataFallbackURL, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	fields, catalog, err := tr.extractMusic()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fields["title"].Pairs["test-title"] != "" || fields["vocalCaption"].Pairs["test-vocal-caption"] != "" {
+		t.Fatalf("music extraction fields = %+v", fields)
+	}
+	if len(catalog) != 1 || catalog[0].MusicID != 41 || catalog[0].JapaneseTitle != "test-title" ||
+		catalog[0].ProducerMetadata != "test-lyricist | test-composer" || !catalog[0].IsNewlyWrittenMusic {
+		t.Fatalf("music extraction catalog = %+v", catalog)
+	}
+	var persisted int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM catalog_music WHERE music_id=41`).Scan(&persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted != 0 {
+		t.Fatalf("read-only extraction persisted %d catalog records", persisted)
+	}
+}
+
+func TestExtractCharactersSurfacesPerformerCatalogFetchFailure(t *testing.T) {
+	tr, _, cfg := openCatalogTestTranslator(t)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/characterProfiles.json":
+			fmt.Fprint(w, `[{"characterId":7,"hobby":"synthetic-hobby"}]`)
+		case "/gameCharacters.json":
+			http.NotFound(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+	for _, key := range []string{config.KeyUpstreamJPMasterdataURL, config.KeyUpstreamCNMasterdataURL} {
+		if err := cfg.Set(key, upstream.URL); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, key := range []string{config.KeyUpstreamJPMasterdataFallbackURL, config.KeyUpstreamCNMasterdataFallbackURL} {
+		if err := cfg.Set(key, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fields, catalog, err := tr.extractCharacters()
+	if err == nil || !strings.Contains(err.Error(), "gameCharacters.json") || fields != nil || catalog != nil {
+		t.Fatalf("performer fetch fields=%+v catalog=%+v err=%v", fields, catalog, err)
+	}
+}
+
+func TestMusicCategoryApplyRollsBackTranslationAndCatalogTogether(t *testing.T) {
+	tr, database, cfg := openCatalogTestTranslator(t)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/musics.json":
+			fmt.Fprint(w, `[{"id":41,"title":"first-test-title"},{"id":42,"title":"failing-test-title"}]`)
+		case "/musicVocals.json":
+			fmt.Fprint(w, `[]`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+	if err := cfg.Set(config.KeyUpstreamJPMasterdataURL, upstream.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyUpstreamJPMasterdataFallbackURL, ""); err != nil {
+		t.Fatal(err)
+	}
+	fields, catalog, err := tr.extractMusic()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TRIGGER fail_music_catalog_insert BEFORE INSERT ON catalog_music
+		WHEN NEW.music_id=42 BEGIN SELECT RAISE(ABORT, 'catalog insert failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := tr.store.ApplyCNCategoryWithCatalog("music", fields, catalog, nil); err == nil || !strings.Contains(err.Error(), "catalog insert failed") {
+		t.Fatalf("music category apply error = %v", err)
+	}
+	var persistedCatalog, persistedEntries int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM catalog_music WHERE music_id IN (41, 42)`).Scan(&persistedCatalog); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM entries WHERE category='music'`).Scan(&persistedEntries); err != nil {
+		t.Fatal(err)
+	}
+	if persistedCatalog != 0 || persistedEntries != 0 {
+		t.Fatalf("partial music apply persisted catalog=%d entries=%d", persistedCatalog, persistedEntries)
 	}
 }
 

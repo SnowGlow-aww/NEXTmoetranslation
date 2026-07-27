@@ -34,7 +34,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 10 || migrationCount != 10 || checksum != migrations[9].checksum() {
+	if version != 11 || migrationCount != 11 || checksum != migrations[10].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -392,12 +392,12 @@ func TestV10MigrationCreatesDurableLyricsDiscoveryQueue(t *testing.T) {
 	}
 	defer migrated.Close()
 	var version int
-	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 10 {
+	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
-		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
-		VALUES (?, 'discover', 'queued', 1, 0, 3, 1, 1, 1, 1)`, strings.Repeat("a", 64)); err != nil {
+		(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 1, ?, 'shadow-v1', 0, 3, 1, 1, 1, 1)`, strings.Repeat("a", 64), strings.Repeat("f", 64)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
@@ -414,6 +414,153 @@ func TestV10MigrationCreatesDurableLyricsDiscoveryQueue(t *testing.T) {
 		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, lease_owner, created_at, updated_at, version)
 		VALUES (?, 'discover', 'queued', 3, 0, 3, 1, 'orphan_owner', 1, 1, 1)`, strings.Repeat("d", 64)); err == nil {
 		t.Fatal("v10 queue accepted lease owner outside leased state")
+	}
+}
+
+func TestV11MigrationUpgradesExistingQueueAndConstrainsShadowResults(t *testing.T) {
+	path := legacyFixtureCopy(t, "v11-lyrics-discovery-shadow.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:10]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 7, 0, 3, 1, 1, 1, 1)`, strings.Repeat("e", 64)); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var fingerprint, policy string
+	if err := migrated.QueryRow(`SELECT catalog_fingerprint, policy_version FROM lyrics_discovery_jobs WHERE music_id=7`).Scan(&fingerprint, &policy); err != nil {
+		t.Fatal(err)
+	}
+	if fingerprint != "" || policy != "" {
+		t.Fatalf("v11 changed legacy queue generation fingerprint=%q policy=%q", fingerprint, policy)
+	}
+	fingerprint = strings.Repeat("f", 64)
+	if _, err := migrated.Exec(`UPDATE lyrics_discovery_jobs SET catalog_fingerprint=?, policy_version='shadow-v1' WHERE music_id=7`, fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_shadow_results
+		(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+		SELECT job_id, music_id, catalog_fingerprint, policy_version, 'candidates_found', 1, '{"candidates":[{"pageId":12}]}', 2
+		FROM lyrics_discovery_jobs WHERE music_id=7`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 8, ?, 'shadow-v1', 0, 3, 1, 1, 1, 1)`, strings.Repeat("d", 64), strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	for name, statement := range map[string]string{
+		"duplicate job": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, policy_version, 'no_candidates', 0, '{}', 3
+			FROM lyrics_discovery_jobs WHERE music_id=7`,
+		"invalid fingerprint": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, 'bad', policy_version, 'no_candidates', 0, '{}', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"invalid policy": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, ' shadow-v1 ', 'no_candidates', 0, '{}', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"invalid found count": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, policy_version, 'candidates_found', 2, '{}', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"invalid ambiguous count": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, policy_version, 'ambiguous', 0, '{}', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"invalid JSON": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, policy_version, 'no_candidates', 0, '{', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"non-object JSON": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, policy_version, 'no_candidates', 0, '[]', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"mismatched music": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, 999, catalog_fingerprint, policy_version, 'no_candidates', 0, '{}', 3
+			FROM lyrics_discovery_jobs WHERE music_id=8`,
+		"missing job": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			VALUES (999, 8, '` + strings.Repeat("a", 64) + `', 'shadow-v1', 'no_candidates', 0, '{}', 3)`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := migrated.Exec(statement); err == nil {
+				t.Fatalf("v11 accepted %s", name)
+			}
+		})
+	}
+}
+
+func TestV11MigrationFailureRollsBackBothQueueColumnsAndShadowTable(t *testing.T) {
+	path := legacyFixtureCopy(t, "v11-rollback.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:10]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	migrationBeforeCommitHook = func(version int) error {
+		if version == 11 {
+			return errors.New("injected v11 failure")
+		}
+		return nil
+	}
+	t.Cleanup(func() { migrationBeforeCommitHook = nil })
+	if _, err := database.pendingMigrations(); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := database.applyMigrations(migrations[10:]); err == nil || !strings.Contains(err.Error(), "injected v11 failure") {
+		raw.Close()
+		t.Fatalf("v11 migration error=%v", err)
+	}
+	migrationBeforeCommitHook = nil
+	var tableCount, columnCount int
+	if err := raw.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='lyrics_discovery_shadow_results'`).Scan(&tableCount); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('lyrics_discovery_jobs') WHERE name IN ('catalog_fingerprint','policy_version')`).Scan(&columnCount); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if tableCount != 0 || columnCount != 0 {
+		raw.Close()
+		t.Fatalf("failed v11 left table=%d columns=%d", tableCount, columnCount)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	var version int
+	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
+		t.Fatalf("v11 retry version=%d err=%v", version, err)
 	}
 }
 

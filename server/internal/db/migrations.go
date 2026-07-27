@@ -461,6 +461,41 @@ CREATE INDEX idx_lyrics_discovery_jobs_lease_expiry
 CREATE INDEX idx_lyrics_discovery_jobs_music
 	ON lyrics_discovery_jobs(music_id, job_id);
 `,
+}, {
+	version: 11,
+	name:    "lyrics_discovery_shadow_results",
+	sql: `
+ALTER TABLE lyrics_discovery_jobs ADD COLUMN catalog_fingerprint TEXT NOT NULL DEFAULT '';
+ALTER TABLE lyrics_discovery_jobs ADD COLUMN policy_version TEXT NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX idx_lyrics_discovery_jobs_shadow_identity
+	ON lyrics_discovery_jobs(job_id, music_id, catalog_fingerprint, policy_version);
+
+CREATE TABLE lyrics_discovery_shadow_results (
+	result_id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	job_id               INTEGER NOT NULL UNIQUE,
+	music_id             INTEGER NOT NULL,
+	catalog_fingerprint  TEXT NOT NULL,
+	policy_version       TEXT NOT NULL,
+	outcome              TEXT NOT NULL,
+	candidate_count      INTEGER NOT NULL,
+	result_json          TEXT NOT NULL,
+	created_at           INTEGER NOT NULL,
+	CHECK (music_id > 0),
+	CHECK (length(catalog_fingerprint) = 64 AND catalog_fingerprint = lower(catalog_fingerprint) AND catalog_fingerprint NOT GLOB '*[^0-9a-f]*'),
+	CHECK (length(policy_version) BETWEEN 1 AND 64 AND policy_version = trim(policy_version)),
+	CHECK (outcome IN ('candidates_found', 'no_candidates', 'ambiguous')),
+	CHECK (candidate_count >= 0),
+	CHECK ((outcome = 'candidates_found' AND candidate_count = 1) OR
+		(outcome = 'no_candidates' AND candidate_count = 0) OR
+		(outcome = 'ambiguous' AND candidate_count > 1)),
+	CHECK (length(result_json) BETWEEN 2 AND 1048576 AND json_valid(result_json) AND json_type(result_json) = 'object'),
+	CHECK (created_at >= 0),
+	FOREIGN KEY (job_id, music_id, catalog_fingerprint, policy_version)
+		REFERENCES lyrics_discovery_jobs(job_id, music_id, catalog_fingerprint, policy_version) ON DELETE CASCADE
+);
+CREATE INDEX idx_lyrics_discovery_shadow_results_music
+	ON lyrics_discovery_shadow_results(music_id, result_id);
+`,
 }}
 
 func (d *DB) pendingMigrations() ([]migration, error) {

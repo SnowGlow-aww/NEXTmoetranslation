@@ -1,219 +1,23 @@
-==Lyrics==
+== Lyrics ==
 <tabber>
-|-|Japanese lyrics = 
-{| style="width:100%"
-! align="left" |''Japanese'' (日本語歌詞)
-! align="left" |''Romaji'' (ローマ字)
+Japanese=
+{|
+! Japanese
+! Translation
 |-
-| {{shared}} | Journey
+| {{shared}} | Synthetic Journey
+| Synthetic Journey
 |-
-|<br />
+| <br />
+|
 |-
-|溜めてきた　“なんとかなる”は
-|tamete kita “nantoka naru” wa
+| 合成旅路一
+| Synthetic journey one
 |-
-|いつまで経っても　なくならないな
-|itsu made tatte mo nakunaranai na
+| 合成旅路二<br />合成旅路三
+| Synthetic journey two<br />Synthetic journey three
 |-
-|チクっとしちゃうおいかけっこに参っちゃって
-|chikutto shichau oikakekko ni maicchatte
-|-
-|<br />
-|-
-|変わらなきゃ　壁壊さなきゃ
-|kawaranakya kabe kowasanakya 
-|-
-|間違い建設の後始末を
-|machigai kensetsu no atoshimatsu o
-|-
-|目一杯の深呼吸したら殴っちゃって
-|meippai no shinkokyuu shitara nagucchatte
-|-
-|<br />
-|-
-|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
-|kitai aratame puresshaa no naka shureddaa kaketa damedameron
-|-
-|ひとりでもできる　それはもうやめる　だから助けて　お願いします
-|hitori demo dekiru sore wa mou yameru dakara tasukete onegaishimasu
-|-
-|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
-|kitai aratame puresshaa no naka shureddaa kaketa damedameron
-|-
-|ひとりでもできる　それはもうやめる　だって叶えたいもん
-|hitori demo dekiru sore wa mou yameru datte kanaetai mon
-|-
-|<br />
-|-
-|ぼくにない想いも　ぼくにない強さも
-|boku ni nai omoi mo boku ni nai tsuyosa mo
-|-
-|きみは持ってるんだよ　きっと　セカイが待ってる
-|kimi wa motteru nda yo kitto sekai ga matteru
-|-
-|きみにない涙も　きみにない弱さも
-|kimi ni nai namida mo kimi ni nai yowasa mo
-|-
-|ぼくは持ってるけど　ずっと　セカイで待ってる
-|boku wa motteru kedo zutto sekai de matteru
-|-
-|<br />
-|-
-|悩みながらだって大丈夫　立ち止まったって大丈夫
-|nayami nagara datte daijoubu tachidomatta tte daijoubu
-|-
-|ぼくらはまだここから歩いていける
-|bokura wa mada koko kara aruite ikeru
-|-
-|泣き顔もなんかいい感じ　笑えたらもっといい感じ
-|nakigao mo nanka ii kanji waraetara motto ii kanji
-|-
-|行こうよ　きみとぼくで
-|ikou yo kimi to boku de
-|-
-|<br />
-|-
-|大きくなる不安は期待の裏返し
-|ookiku naru fuan wa kitai no uragaeshi
-|-
-|じゃあぼくを裏返すとどうだ　気になって眠れないよ
-|jaa boku o uragaesu to dou da ki ni natte nemurenai yo
-|-
-|違った　きみとぼくのダメな部分は　背中合わせで隠しちゃえば
-|chigatta kimi to boku no dame na bubun wa senakaawase de kakushichaeba
-|-
-|裏なんてなくなるでしょ
-|ura nante naku naru desho
-|-
-|<br />
-|-
-|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
-|kitai aratame puresshaa no naka shureddaa kaketa damedameron
-|-
-|ひとりでもできる　それはもうやめる　だから助けて　お願いします
-|hitori demo dekiru sore wa mou yameru dakara tasukete onegaishimasu
-|-
-|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
-|kitai aratame puresshaa no naka shureddaa kaketa damedameron
-|-
-|ひとりでもできる　それはもうやめる　だって叶えたいもん
-|hitori demo dekiru sore wa mou yameru datte kanaetai mon 
-|-
-|<br />
-|-
-|“なにもない”とかじゃない　“きみ以外”とかじゃない
-|“nani mo nai” toka janai “kimi igai” toka janai
-|-
-|きみはちゃんとぼくの“救い”になってる
-|kimi wa chanto boku no “sukui” ni natteru
-|-
-|<br />
-|-
-|ぼくにない想いも　ぼくにない強さも
-|boku ni nai omoi mo boku ni nai tsuyosa mo
-|-
-|きみは持ってるんだよ　きっと　セカイが待ってる
-|kimi wa motteru nda yo kitto sekai ga matteru
-|-
-|きみにない涙も　きみにない弱さも
-|kimi ni nai namida mo kimi ni nai yowasa mo
-|-
-|ぼくは持ってるけど　ずっと　セカイで待ってる
-|boku wa motteru kedo zutto sekai de matteru
-|-
-|<br />
-|-
-|悩みながらだって大丈夫　立ち止まったって大丈夫
-|nayami nagara datte daijoubu tachidomatta tte daijoubu
-|-
-|ぼくらはまだここから歩いていける
-|bokura wa mada koko kara aruite ikeru
-|-
-|泣き顔もなんかいい感じ　笑えたらもっといい感じ
-|nakigao mo nanka ii kanji waraetara motto ii kanji
-|-
-|行こうよ　きみとぼくで
-|ikou yo kimi to boku de
-|-
-|<br />
-|-
-|変わらなきゃ　壁壊さなきゃ
-|kawaranakya kabe kowasanakya
-|-
-|間違い建設の後始末を
-|machigai kensetsu no atoshimatsu o
-|-
-|目一杯の深呼吸したら殴っちゃって
-|meippai no shinkokyuu shitara nagucchatte
-|-
-|<br />
-|-
-|走り出せ　夢、音に乗せ
-|hashiridase yume, oto ni nose
-|-
-|ぼくら団結の旗立てるんだ
-|bokura danketsu no hata tateru nda
-|-
-|笑って生きていくためのJourney　奏でるMelody
-|waratte ikite iku tame no Journey kanaderu Melody
+| {{Shared}}|Synthetic refrain
+| Synthetic refrain
 |}
-|-|Official English lyrics = 
-{{Translation|jpn|official English|Producer}}
-<poem style="margin-left:1em;">
-Journey
-
-My growing pile of, “It’ll figure itself out”
-Just doesn’t seem to ever go away
-The pangs and aches from all that chasing is wearing me down
-
-I must change, must knock down walls
-Clean up the mess made by Blunder & CO
-Breathing in my fullest before going for that KO
-
-Changing expectations, under pressure, leaving in shreds that bankrupt ideology
-The can-do-it-alone attitude, no more of that, so help me, I’m asking you
-Changing expectations, under pressure, leaving in shreds that bankrupt ideology
-The can-do-it-alone attitude, no more of that, cuz I want our dreams to come true
-
-That hope that I don’t have, that strength that I don’t have
-You have them, and no doubt, SEKAI is waiting for you
-Those tears that you don’t have, that weakness that you don’t have
-Even though I have them, always, I’ll be waiting for you in SEKAI
-
-It’s ok if you’re not sure, it’s ok even to stop and pause
-We can still keep walking forward from here
-Your crying face is charming, if you smiled, it’d be even more charming
-Let’s go, the two of us, you and me.
-
-The growing anxiety is the flip side of hope
-So if you flip me, what would you find? I can’t sleep thinking over it
-No wait! If the no-good parts of you and me, we hide, by standing back to back
-Then there’s no such thing as the flip side
-
-Changing expectations, under pressure, leaving in shreds that bankrupt ideology
-The can-do-it-alone attitude, no more of that, so help me, I’m asking you
-Changing expectations, under pressure, leaving in shreds that bankrupt ideology
-The can-do-it-alone attitude, no more of that, cuz I want our dreams to come true
-
-It’s not like, “there’s nothing there”, I’m not saying, “anyone but you”
-You really truly are my Saving Grace
-
-That hope that I don’t have, that strength that I don’t have
-You have them, and no doubt, SEKAI is waiting for you
-Those tears that you don’t have, that weakness that you don’t have
-Even though I have them, always, I’ll be waiting for you in SEKAI
-
-It’s ok if you’re not sure, it’s ok even to stop and pause
-We can still keep walking forward from here
-Your crying face is charming, if you smiled, it’d be even more charming
-Let’s go, the two of us, you and me.
-
-I must change, must knock down walls
-Clean up the mess made by Blunder & CO
-Breathing in my fullest before going for that KO
-
-Break away! Ride your dreams to that harmony
-Plant a flag for our solidarity
-A journey to laugh and live life to the fullest ringing out that melody
-</poem>
 </tabber>

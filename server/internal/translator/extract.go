@@ -11,6 +11,30 @@ const jpInformationURL = "https://baijing.exmeaning.com/jp/information"
 // extractResult is the per-category output: field -> {pairs, trace}.
 type extractResult map[string]store.CNApplyField
 
+type cnExtractedCategory struct {
+	fields           map[string]store.CNApplyField
+	musicCatalog     []store.MusicCatalogRecord
+	performerCatalog []store.PerformerCatalogRecord
+	err              error
+}
+
+func extractCNFields(fn func() (map[string]store.CNApplyField, error)) func() cnExtractedCategory {
+	return func() cnExtractedCategory {
+		fields, err := fn()
+		return cnExtractedCategory{fields: fields, err: err}
+	}
+}
+
+func (t *Translator) extractMusicCategory() cnExtractedCategory {
+	fields, catalog, err := t.extractMusic()
+	return cnExtractedCategory{fields: fields, musicCatalog: catalog, err: err}
+}
+
+func (t *Translator) extractCharactersCategory() cnExtractedCategory {
+	fields, catalog, err := t.extractCharacters()
+	return cnExtractedCategory{fields: fields, performerCatalog: catalog, err: err}
+}
+
 func newExtractResult(fields ...string) extractResult {
 	r := make(extractResult, len(fields))
 	for _, f := range fields {
@@ -159,12 +183,15 @@ func (t *Translator) extractComics() (map[string]store.CNApplyField, error) {
 	return out.withTrace(tm), nil
 }
 
-func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
+func (t *Translator) extractMusic() (map[string]store.CNApplyField, []store.MusicCatalogRecord, error) {
 	musics, err := t.fetchMasterdata("musics.json", "jp")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	vocals, _ := t.fetchMasterdata("musicVocals.json", "jp")
+	vocals, err := t.fetchMasterdata("musicVocals.json", "jp")
+	if err != nil {
+		return nil, nil, err
+	}
 	out := newExtractResult("title", "artist", "vocalCaption")
 	tm := newTraceMap("title", "artist", "vocalCaption")
 	catalog := make([]store.MusicCatalogRecord, 0, len(musics))
@@ -186,9 +213,6 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
 			}
 		}
 	}
-	if t.store != nil {
-		_ = t.store.UpsertMusicCatalog(catalog)
-	}
 	for _, v := range vocals {
 		vocalID := getInt(v, "id")
 		if vocalID == 0 {
@@ -199,7 +223,7 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
 			tm.add("vocalCaption", caption, vocalID)
 		}
 	}
-	return out.withTrace(tm), nil
+	return out.withTrace(tm), catalog, nil
 }
 
 func musicProducerMetadata(music map[string]any) string {
@@ -309,17 +333,17 @@ func (t *Translator) extractCostumes() (map[string]store.CNApplyField, error) {
 	return out.withTrace(tm), nil
 }
 
-func (t *Translator) extractCharacters() (map[string]store.CNApplyField, error) {
+func (t *Translator) extractCharacters() (map[string]store.CNApplyField, []store.PerformerCatalogRecord, error) {
 	fields := []string{"hobby", "specialSkill", "favoriteFood", "hatedFood", "weak", "introduction"}
 	out := newExtractResult(fields...)
 	tm := newTraceMap(fields...)
 	jp, err := t.fetchMasterdata("characterProfiles.json", "jp")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cn, err := t.fetchMasterdata("characterProfiles.json", "cn")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cnByID := byIntID(cn, "characterId")
 	for _, profile := range jp {
@@ -331,27 +355,25 @@ func (t *Translator) extractCharacters() (map[string]store.CNApplyField, error) 
 			collectPair(out[field].Pairs, jpText, safeText(getString(cnProfile, field)))
 		}
 	}
-	// Catalog refresh is additive and best-effort: failure never changes the
-	// established character-profile sync result.
-	jpCharacters, jpCharactersErr := t.fetchMasterdata("gameCharacters.json", "jp")
-	cnCharacters, cnCharactersErr := t.fetchMasterdata("gameCharacters.json", "cn")
-	if jpCharactersErr == nil && t.store != nil {
-		cnCharactersByID := map[int]map[string]any{}
-		if cnCharactersErr == nil {
-			cnCharactersByID = byIntID(cnCharacters, "id")
-		}
-		records := make([]store.PerformerCatalogRecord, 0, len(jpCharacters))
-		for _, character := range jpCharacters {
-			id := getInt(character, "id")
-			records = append(records, store.PerformerCatalogRecord{
-				PerformerID:  id,
-				JapaneseName: characterName(character),
-				ChineseName:  characterName(cnCharactersByID[id]),
-			})
-		}
-		_ = t.store.UpsertPerformerCatalog(records)
+	jpCharacters, err := t.fetchMasterdata("gameCharacters.json", "jp")
+	if err != nil {
+		return nil, nil, err
 	}
-	return out.withTrace(tm), nil
+	cnCharacters, err := t.fetchMasterdata("gameCharacters.json", "cn")
+	if err != nil {
+		return nil, nil, err
+	}
+	cnCharactersByID := byIntID(cnCharacters, "id")
+	records := make([]store.PerformerCatalogRecord, 0, len(jpCharacters))
+	for _, character := range jpCharacters {
+		id := getInt(character, "id")
+		records = append(records, store.PerformerCatalogRecord{
+			PerformerID:  id,
+			JapaneseName: characterName(character),
+			ChineseName:  characterName(cnCharactersByID[id]),
+		})
+	}
+	return out.withTrace(tm), records, nil
 }
 
 func characterName(character map[string]any) string {

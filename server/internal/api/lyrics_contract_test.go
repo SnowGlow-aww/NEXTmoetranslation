@@ -169,6 +169,41 @@ func TestLyricsAPIContractAndRBAC(t *testing.T) {
 	}
 }
 
+func TestLyricsAPIOrdinarySaveRejectsManagedSourceURLWithoutImportGrant(t *testing.T) {
+	h := setupLegacyAPI(t)
+	seedLyricsCatalog(t, h)
+	for _, sourceURL := range []string{
+		"https://vocaloid.fandom.com/wiki/Song",
+		"https://vocaloid.fandom.com/wiki/Song?oldid=123",
+		"https://vocaloid.wikia.com/wiki/Song",
+		"HTTP://VOCALOID.WIKIA.COM./wiki/Song",
+	} {
+		draft := apiLyrics()
+		draft.SourceURL = sourceURL
+		response := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", draft)
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusUnprocessableEntity {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("managed source URL %q status=%d body=%s", sourceURL, response.StatusCode, body)
+		}
+		var contract struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&contract); err != nil || contract.Error != "source_drift" {
+			t.Fatalf("managed source URL %q body=%+v err=%v", sourceURL, contract, err)
+		}
+	}
+
+	external := apiLyrics()
+	external.SourceURL = "https://projectsekai.fandom.com/wiki/Song"
+	response := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", external)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("other Fandom source status=%d body=%s", response.StatusCode, body)
+	}
+}
+
 func TestLyricsAPIConflictAndValidationShapes(t *testing.T) {
 	h := setupLegacyAPI(t)
 	seedLyricsCatalog(t, h)
@@ -227,7 +262,7 @@ func TestLyricsSourcePreviewContract(t *testing.T) {
 	h.api.lyricsSrc = fakeLyricsSource{
 		candidates: []lyricssource.Candidate{{PageID: 12, Title: "新曲", RevisionID: 34, SHA1: sourceSHA1}},
 		preview: lyricssource.Preview{
-			CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+			CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 			FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 		},
 	}
@@ -341,7 +376,7 @@ func TestLyricsSourcePreviewRejectsMismatchedRequestedIdentityBeforeGrant(t *tes
 				t.Fatal(err)
 			}
 			preview := lyricssource.Preview{
-				CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+				CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 				FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 			}
 			mutate(&preview)
@@ -371,6 +406,59 @@ func TestLyricsSourcePreviewRejectsMismatchedRequestedIdentityBeforeGrant(t *tes
 	}
 }
 
+func TestLyricsSourcePreviewRejectsUnsafeCanonicalURLBeforeGrant(t *testing.T) {
+	const sourceSHA1 = "0123456789abcdef0123456789abcdef01234567"
+	for name, canonicalURL := range map[string]string{
+		"external origin":          "https://example.invalid/source?oldid=34",
+		"managed subdomain":        "https://vocaloid.fandom.com.example.invalid/wiki/Song?oldid=34",
+		"managed trailing dot":     "https://vocaloid.fandom.com./wiki/Song?oldid=34",
+		"managed HTTP":             "http://vocaloid.fandom.com/wiki/Song?oldid=34",
+		"managed non-default port": "https://vocaloid.fandom.com:444/wiki/Song?oldid=34",
+		"managed missing oldid":    "https://vocaloid.fandom.com/wiki/Song",
+		"managed mismatched oldid": "https://vocaloid.fandom.com/wiki/Song?oldid=35",
+		"managed duplicate oldid":  "https://vocaloid.fandom.com/wiki/Song?oldid=34&oldid=34",
+		"managed extra query":      "https://vocaloid.fandom.com/wiki/Song?oldid=34&diff=prev",
+		"managed fragment":         "https://vocaloid.fandom.com/wiki/Song?oldid=34#Lyrics",
+		"legacy HTTP":              "http://vocaloid.wikia.com/wiki/Song?oldid=34",
+		"legacy non-default port":  "https://vocaloid.wikia.com:444/wiki/Song?oldid=34",
+		"credential URL":           "https://user:secret@vocaloid.fandom.com/wiki/Song?oldid=34",
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := setupLegacyAPI(t)
+			if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+				MusicID: 10, JapaneseTitle: "新曲", IsNewlyWrittenMusic: true, ProducerMetadata: "producer",
+			}}); err != nil {
+				t.Fatal(err)
+			}
+			h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
+				CanonicalURL: canonicalURL, PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+				FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
+			}}
+			response := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
+				"musicId": 10, "pageId": 12, "revisionId": 34,
+			})
+			defer response.Body.Close()
+			if response.StatusCode != http.StatusBadGateway {
+				body, _ := io.ReadAll(response.Body)
+				t.Fatalf("unsafe canonical URL %q status=%d body=%s", canonicalURL, response.StatusCode, body)
+			}
+			h.api.lyricsImportMu.Lock()
+			grantCount := len(h.api.lyricsImports)
+			h.api.lyricsImportMu.Unlock()
+			if grantCount != 0 {
+				t.Fatalf("unsafe canonical URL %q issued %d grants", canonicalURL, grantCount)
+			}
+			var auditCount int
+			if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='lyrics.source.preview'`).Scan(&auditCount); err != nil {
+				t.Fatal(err)
+			}
+			if auditCount != 0 {
+				t.Fatalf("unsafe canonical URL %q recorded %d preview audits", canonicalURL, auditCount)
+			}
+		})
+	}
+}
+
 func TestLyricsSourcePreviewRejectsNoncanonicalFakeSHA1BeforeGrant(t *testing.T) {
 	for name, sha1 := range map[string]string{
 		"opaque":    "source-sha1",
@@ -385,7 +473,7 @@ func TestLyricsSourcePreviewRejectsNoncanonicalFakeSHA1BeforeGrant(t *testing.T)
 				t.Fatal(err)
 			}
 			h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-				CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sha1,
+				CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sha1,
 				FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 			}}
 			response := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -415,11 +503,11 @@ func TestLyricsSaveRejectsUnverifiedOrTamperedSourceProvenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	draft := apiLyrics()
-	draft.SourceURL = "https://example.invalid/source"
+	draft.SourceURL = "https://vocaloid.fandom.com/wiki/Song?oldid=34"
 	draft.SourcePageID = 12
 	draft.SourceRevisionID = 34
 	draft.SourceSHA1 = sourceSHA1
@@ -511,7 +599,7 @@ func TestLyricsImportGrantRejectsCatalogIdentityDriftAfterPreview(t *testing.T) 
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	previewResponse := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -572,7 +660,7 @@ func TestLyricsImportValidationFailureReleasesGrantForRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	previewResponse := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -633,7 +721,7 @@ func TestLyricsImportPostSaveCommitInvariantIsReportedWithoutFalseFailure(t *tes
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	previewResponse := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -724,7 +812,7 @@ func TestLyricsImportGrantIsConsumedBeforeBlockingChangeHook(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	previewResponse := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -787,7 +875,7 @@ func TestLyricsImportDatabaseFailureReleasesGrantForRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	previewResponse := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -849,7 +937,7 @@ func TestLyricsImportStoreSourceDriftConsumesGrant(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	previewResponse := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/source/preview", map[string]int{
@@ -921,7 +1009,7 @@ func TestConcurrentLyricsImportGrantsForSameMusicHaveOneWinner(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 
@@ -943,7 +1031,7 @@ func TestConcurrentLyricsImportGrantsForSameMusicHaveOneWinner(t *testing.T) {
 	}
 	payload := func(token, lineID string) map[string]any {
 		draft := apiLyrics()
-		draft.SourceURL = "https://example.invalid/source"
+		draft.SourceURL = "https://vocaloid.fandom.com/wiki/Song?oldid=34"
 		draft.SourcePageID = 12
 		draft.SourceRevisionID = 34
 		draft.SourceSHA1 = sourceSHA1
@@ -1027,7 +1115,7 @@ func TestLyricsImportGrantIsFirstSaveOnlyAndBoundToUserMusicAndTTL(t *testing.T)
 		t.Fatal(err)
 	}
 	h.api.lyricsSrc = fakeLyricsSource{preview: lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}}
 	if err := h.store.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 1, JapaneseName: "初音ミク"}}); err != nil {
@@ -1062,7 +1150,7 @@ func TestLyricsImportGrantIsFirstSaveOnlyAndBoundToUserMusicAndTTL(t *testing.T)
 		draft := apiLyrics()
 		draft.MusicID = musicID
 		draft.Revision = revision
-		draft.SourceURL = "https://example.invalid/source"
+		draft.SourceURL = "https://vocaloid.fandom.com/wiki/Song?oldid=34"
 		draft.SourcePageID = 12
 		draft.SourceRevisionID = 34
 		draft.SourceSHA1 = sourceSHA1
@@ -1145,7 +1233,7 @@ func TestLyricsSourcePreviewRejectsDocumentCreatedDuringFetchWithoutGrant(t *tes
 			t.Fatal(err)
 		}
 		return lyricssource.Preview{
-			CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+			CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 			FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 		}, nil
 	}}
@@ -1199,7 +1287,7 @@ func TestLyricsSourcePreviewRejectsCatalogIdentityChangeDuringFetch(t *testing.T
 			t.Fatal(err)
 		}
 		return lyricssource.Preview{
-			CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+			CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 			FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 		}, nil
 	}}
@@ -1243,7 +1331,7 @@ func TestLyricsSourcePreviewRejectsProducerStateChangeDuringFetch(t *testing.T) 
 		}
 		release()
 		return lyricssource.Preview{
-			CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+			CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 			FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 		}, nil
 	}}
@@ -1268,7 +1356,7 @@ func TestLyricsImportGrantClaimReleaseCommitAndProducerBinding(t *testing.T) {
 	h := setupLegacyAPI(t)
 	status := h.api.editorGate.Status()
 	preview := lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}
 	token, err := h.api.issueLyricsImportGrant("alice", 10, preview, status)
@@ -1321,7 +1409,7 @@ func TestLyricsImportGrantCapacityNeverEvictsClaimedEntries(t *testing.T) {
 	h := setupLegacyAPI(t)
 	status := h.api.editorGate.Status()
 	preview := lyricssource.Preview{
-		CanonicalURL: "https://example.invalid/source", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
 		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
 	}
 	claims := make([]lyricsImportClaim, 0, maxLyricsImportTokens)
