@@ -129,6 +129,7 @@ jobs:
         run: |
           image="moesekai-paired-ci:$GITHUB_SHA"
           if docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+            -e JWT_SECRET=ci-synthetic-jwt-secret-at-least-32-bytes \
             -e CONSOLE_ORIGIN=http://127.0.0.1 \
             "$image" >/tmp/moesekai-missing-secrets.log 2>&1; then
             cat /tmp/moesekai-missing-secrets.log
