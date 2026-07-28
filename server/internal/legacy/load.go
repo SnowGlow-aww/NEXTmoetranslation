@@ -207,6 +207,9 @@ func LoadEventStory(path string) (*EventStory, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := ValidateUniqueJSON(raw); err != nil {
+		return nil, err
+	}
 	// First a normal decode for meta + non-ordered fields.
 	var plain struct {
 		Meta     model.EventStoryMeta `json:"meta"`

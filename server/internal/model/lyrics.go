@@ -1,5 +1,11 @@
 package model
 
+const (
+	PublicLyricsMaxArtifactBytes = 4 << 20
+	PublicLyricsMaxIndexEntries  = 100_000
+	PublicLyricsMaxTitleBytes    = 64 << 10
+)
+
 type LocalizedTitle struct {
 	Japanese string `json:"ja-JP"`
 	Chinese  string `json:"zh-CN,omitempty"`

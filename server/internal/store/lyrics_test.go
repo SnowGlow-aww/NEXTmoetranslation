@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -309,6 +310,7 @@ func TestVerifiedImportedLyricsManagedSourceTransportPolicy(t *testing.T) {
 		wantDrift bool
 	}{
 		{name: "canonical HTTPS", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=456"},
+		{name: "canonical escaped subpage", sourceURL: "https://vocaloid.fandom.com/wiki/%E5%88%9D%E9%9F%B3%E3%83%9F%E3%82%AF/Song?oldid=456"},
 		{name: "canonical explicit default port", sourceURL: "https://vocaloid.fandom.com:443/wiki/Song?oldid=456"},
 		{name: "legacy HTTPS", sourceURL: "https://vocaloid.wikia.com/wiki/Song?oldid=456"},
 		{name: "legacy explicit default port", sourceURL: "https://vocaloid.wikia.com:443/wiki/Song?oldid=456"},
@@ -319,6 +321,15 @@ func TestVerifiedImportedLyricsManagedSourceTransportPolicy(t *testing.T) {
 		{name: "canonical missing oldid", sourceURL: "https://vocaloid.fandom.com/wiki/Song", wantDrift: true},
 		{name: "canonical mismatched oldid", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=457", wantDrift: true},
 		{name: "canonical extra query", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=456&diff=prev", wantDrift: true},
+		{name: "canonical empty port", sourceURL: "https://vocaloid.fandom.com:/wiki/Song?oldid=456", wantDrift: true},
+		{name: "canonical empty fragment", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=456#", wantDrift: true},
+		{name: "canonical raw Unicode path", sourceURL: "https://vocaloid.fandom.com/wiki/初音ミク/Song?oldid=456", wantDrift: true},
+		{name: "canonical lowercase path escapes", sourceURL: "https://vocaloid.fandom.com/wiki/%e5%88%9d%e9%9f%b3%e3%83%9f%e3%82%af/Song?oldid=456", wantDrift: true},
+		{name: "canonical space instead of underscore", sourceURL: "https://vocaloid.fandom.com/wiki/Song%20Title?oldid=456", wantDrift: true},
+		{name: "canonical wrong path", sourceURL: "https://vocaloid.fandom.com/api.php?oldid=456", wantDrift: true},
+		{name: "canonical empty page", sourceURL: "https://vocaloid.fandom.com/wiki/?oldid=456", wantDrift: true},
+		{name: "canonical encoded oldid", sourceURL: "https://vocaloid.fandom.com/wiki/Song?oldid=%34%35%36", wantDrift: true},
+		{name: "canonical surrounding whitespace", sourceURL: " https://vocaloid.fandom.com/wiki/Song?oldid=456 ", wantDrift: true},
 		{name: "legacy HTTP", sourceURL: "http://vocaloid.wikia.com/wiki/Song?oldid=456", wantDrift: true},
 		{name: "legacy non-default port", sourceURL: "https://vocaloid.wikia.com:444/wiki/Song?oldid=456", wantDrift: true},
 		{name: "managed credentials", sourceURL: "https://user:secret@vocaloid.fandom.com/wiki/Song?oldid=456", wantDrift: true},
@@ -781,6 +792,41 @@ func TestLyricsValidationRejectsOversizedFields(t *testing.T) {
 	_, err = s.SaveLyrics(oversized, "editor")
 	if !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" {
 		t.Fatalf("oversized URL error = %#v", err)
+	}
+}
+
+func TestLyricsPublicationRejectsEncodedArtifactOverConsumerLimit(t *testing.T) {
+	s := setupLyricsStore(t)
+	candidate := validLyrics()
+	candidate.Attribution = strings.Repeat("\\", maxLyricsMetadataBytes)
+	quoted := strings.Repeat("\\", maxLyricsLineTextBytes)
+	candidate.Lines = make([]model.LyricLine, 32)
+	for index := range candidate.Lines {
+		candidate.Lines[index] = model.LyricLine{
+			ID:       fmt.Sprintf("source-%d", index),
+			Order:    index,
+			Japanese: quoted,
+			Chinese:  quoted,
+			English:  quoted,
+			Segments: []model.LyricSegment{{Text: quoted, PerformerIDs: []int{1}}},
+		}
+	}
+	saved, err := s.SaveLyrics(candidate, "editor")
+	if err != nil {
+		t.Fatalf("raw-size-valid lyrics save: %v", err)
+	}
+	_, err = s.PublishLyrics(saved.MusicID, saved.Revision)
+	var contractErr *LyricsContractError
+	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" ||
+		!strings.Contains(strings.Join(contractErr.Details, "; "), "public artifact size limit") {
+		t.Fatalf("encoded artifact publication error = %#v", err)
+	}
+	var publications int
+	if queryErr := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_publications WHERE music_id=?`, saved.MusicID).Scan(&publications); queryErr != nil {
+		t.Fatal(queryErr)
+	}
+	if publications != 0 {
+		t.Fatalf("oversized publication rows = %d", publications)
 	}
 }
 

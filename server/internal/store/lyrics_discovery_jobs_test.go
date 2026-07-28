@@ -165,8 +165,9 @@ func TestLyricsDiscoveryJobRetrySchedulingAndTerminalState(t *testing.T) {
 	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobFetchRevision,
 		model.LyricsDiscoveryJobTarget{MusicID: 13, PageID: 17, RevisionID: 19}, 2)
 	leased := claimLyricsDiscoveryJob(t, s, "worker", time.Minute)
-	notBefore := time.Now().UTC().Add(300 * time.Millisecond)
-	retry, err := s.RetryLyricsDiscoveryJob(context.Background(), leased.ID, "worker", leased.Version, notBefore, "HTTP 503: retry later")
+	failedAt := time.Now().UTC()
+	notBefore := failedAt.Add(300 * time.Millisecond)
+	retry, err := s.RetryLyricsDiscoveryJob(context.Background(), leased.ID, "worker", leased.Version, leased.Attempts, failedAt, notBefore, "HTTP 503: retry later")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,6 +245,109 @@ func TestLyricsDiscoveryJobExpiredLeaseRecovery(t *testing.T) {
 	}
 	if dead.State != model.LyricsDiscoveryJobDeadLetter || dead.LastErrorCode != "lease_expired" || dead.CompletedAt.IsZero() || dead.Attempts != 1 {
 		t.Fatalf("expired final attempt=%+v", dead)
+	}
+}
+
+func TestLyricsDiscoveryJobExpiredLeaseRejectsTerminalMutationsBeforeRecovery(t *testing.T) {
+	for index, test := range []struct {
+		name   string
+		mutate func(*Store, model.LyricsDiscoveryJob) error
+	}{
+		{name: "complete", mutate: func(s *Store, job model.LyricsDiscoveryJob) error {
+			_, err := s.CompleteLyricsDiscoveryJob(context.Background(), job.ID, job.LeaseOwner, job.Version)
+			return err
+		}},
+		{name: "retry", mutate: func(s *Store, job model.LyricsDiscoveryJob) error {
+			failedAt := time.Now().UTC()
+			_, err := s.RetryLyricsDiscoveryJob(context.Background(), job.ID, job.LeaseOwner, job.Version, job.Attempts, failedAt, failedAt.Add(time.Minute), "temporary")
+			return err
+		}},
+		{name: "fail", mutate: func(s *Store, job model.LyricsDiscoveryJob) error {
+			_, err := s.FailLyricsDiscoveryJob(context.Background(), job.ID, job.LeaseOwner, job.Version, "temporary")
+			return err
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "expired-terminal-mutation.db")
+			s, database := openLyricsDiscoveryJobStore(t, path)
+			defer database.Close()
+			queued := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(100+index), 3)
+			leased, err := s.ClaimLyricsDiscoveryJob(context.Background(), LyricsDiscoveryJobLease{
+				Owner: test.name, Duration: time.Minute, Kind: model.LyricsDiscoveryJobDiscover,
+			})
+			if err != nil || leased.ID != queued.ID {
+				t.Fatalf("claim job=%+v queued=%+v err=%v", leased, queued, err)
+			}
+			if _, err := database.Exec(`UPDATE lyrics_discovery_jobs SET lease_expires_at=? WHERE job_id=?`, time.Now().UTC().Add(-time.Second).UnixMilli(), leased.ID); err != nil {
+				t.Fatal(err)
+			}
+			if err := test.mutate(s, leased); !errors.Is(err, ErrLyricsDiscoveryLeaseNotOwned) {
+				t.Fatalf("expired %s error=%v", test.name, err)
+			}
+			stored, err := s.GetLyricsDiscoveryJob(context.Background(), leased.ID)
+			if err != nil || stored.State != model.LyricsDiscoveryJobLeased || stored.Version != leased.Version {
+				t.Fatalf("expired %s changed job=%+v err=%v", test.name, stored, err)
+			}
+		})
+	}
+}
+
+func TestLyricsDiscoveryJobTerminalMutationRechecksExpiryAfterWriterWait(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lease-writer-wait.db")
+	s, database := openLyricsDiscoveryJobStore(t, path)
+	defer database.Close()
+	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(59), 3)
+	leased := claimLyricsDiscoveryJob(t, s, "worker", 250*time.Millisecond)
+
+	blocker, err := database.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := blocker.Exec(`UPDATE lyrics_discovery_jobs SET updated_at=updated_at WHERE job_id=?`, leased.ID); err != nil {
+		_ = blocker.Rollback()
+		t.Fatal(err)
+	}
+	result := make(chan error, 1)
+	go func() {
+		_, err := s.CompleteLyricsDiscoveryJob(context.Background(), leased.ID, leased.LeaseOwner, leased.Version)
+		result <- err
+	}()
+	time.Sleep(time.Until(leased.LeaseExpiresAt) + 75*time.Millisecond)
+	if err := blocker.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-result; !errors.Is(err, ErrLyricsDiscoveryLeaseNotOwned) {
+		t.Fatalf("post-wait expired completion error=%v", err)
+	}
+	stored, err := s.GetLyricsDiscoveryJob(context.Background(), leased.ID)
+	if err != nil || stored.State != model.LyricsDiscoveryJobLeased || stored.Version != leased.Version {
+		t.Fatalf("post-wait expired completion changed job=%+v err=%v", stored, err)
+	}
+}
+
+func TestLyricsDiscoveryJobClaimFiltersKindAndUsesSuppliedTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "claim-kind-time.db")
+	s, database := openLyricsDiscoveryJobStore(t, path)
+	defer database.Close()
+	base := time.Now().UTC().Add(time.Hour)
+	other := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobFetchRevision,
+		model.LyricsDiscoveryJobTarget{MusicID: 61, PageID: 67, RevisionID: 71}, 3)
+	discover := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(73), 3)
+	if _, err := database.Exec(`UPDATE lyrics_discovery_jobs SET next_attempt_at=?`, base.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ClaimLyricsDiscoveryJob(context.Background(), LyricsDiscoveryJobLease{
+		Owner: "discover-worker", Duration: time.Minute, Kind: model.LyricsDiscoveryJobDiscover, Now: base.Add(time.Second),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed.ID != discover.ID || claimed.Kind != model.LyricsDiscoveryJobDiscover || !claimed.UpdatedAt.Equal(canonicalLyricsDiscoveryTime(base.Add(time.Second))) || !claimed.LeaseExpiresAt.Equal(canonicalLyricsDiscoveryTime(base.Add(time.Minute+time.Second))) {
+		t.Fatalf("kind-filtered claim=%+v discover=%+v", claimed, discover)
+	}
+	untouched, err := s.GetLyricsDiscoveryJob(context.Background(), other.ID)
+	if err != nil || untouched.State != model.LyricsDiscoveryJobQueued || untouched.Attempts != 0 || untouched.Version != other.Version {
+		t.Fatalf("unsupported kind changed=%+v err=%v", untouched, err)
 	}
 }
 

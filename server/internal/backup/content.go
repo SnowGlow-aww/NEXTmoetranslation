@@ -278,7 +278,7 @@ func readTranslationContentContext(ctx context.Context, dir string) (translation
 		return translationContent{}, true, err
 	}
 	var manifest contentManifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+	if err := decodeJSONContext(ctx, manifestBytes, &manifest); err != nil {
 		return translationContent{}, true, fmt.Errorf("translation content manifest: %w", err)
 	}
 	if manifest.SchemaVersion != translationContentSchemaVersion {

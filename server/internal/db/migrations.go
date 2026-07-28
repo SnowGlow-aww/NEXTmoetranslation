@@ -496,7 +496,114 @@ CREATE TABLE lyrics_discovery_shadow_results (
 CREATE INDEX idx_lyrics_discovery_shadow_results_music
 	ON lyrics_discovery_shadow_results(music_id, result_id);
 `,
+}, {
+	version: 12,
+	name:    "enforce_lyrics_discovery_integer_types",
+	sql: `
+CREATE TRIGGER lyrics_discovery_jobs_integer_types_insert
+BEFORE INSERT ON lyrics_discovery_jobs
+WHEN typeof(NEW.job_id) <> 'integer'
+	OR typeof(NEW.music_id) <> 'integer'
+	OR typeof(NEW.page_id) NOT IN ('null', 'integer')
+	OR typeof(NEW.revision_id) NOT IN ('null', 'integer')
+	OR typeof(NEW.artifact_id) NOT IN ('null', 'integer')
+	OR typeof(NEW.attempts) <> 'integer'
+	OR typeof(NEW.max_attempts) <> 'integer'
+	OR typeof(NEW.next_attempt_at) <> 'integer'
+	OR typeof(NEW.lease_expires_at) NOT IN ('null', 'integer')
+	OR typeof(NEW.created_at) <> 'integer'
+	OR typeof(NEW.updated_at) <> 'integer'
+	OR typeof(NEW.completed_at) NOT IN ('null', 'integer')
+	OR typeof(NEW.version) <> 'integer'
+BEGIN
+	SELECT RAISE(ABORT, 'lyrics discovery job integer fields must be integers');
+END;
+
+CREATE TRIGGER lyrics_discovery_jobs_integer_types_update
+BEFORE UPDATE ON lyrics_discovery_jobs
+WHEN typeof(NEW.job_id) <> 'integer'
+	OR typeof(NEW.music_id) <> 'integer'
+	OR typeof(NEW.page_id) NOT IN ('null', 'integer')
+	OR typeof(NEW.revision_id) NOT IN ('null', 'integer')
+	OR typeof(NEW.artifact_id) NOT IN ('null', 'integer')
+	OR typeof(NEW.attempts) <> 'integer'
+	OR typeof(NEW.max_attempts) <> 'integer'
+	OR typeof(NEW.next_attempt_at) <> 'integer'
+	OR typeof(NEW.lease_expires_at) NOT IN ('null', 'integer')
+	OR typeof(NEW.created_at) <> 'integer'
+	OR typeof(NEW.updated_at) <> 'integer'
+	OR typeof(NEW.completed_at) NOT IN ('null', 'integer')
+	OR typeof(NEW.version) <> 'integer'
+BEGIN
+	SELECT RAISE(ABORT, 'lyrics discovery job integer fields must be integers');
+END;
+
+CREATE TRIGGER lyrics_discovery_shadow_results_integer_types_insert
+BEFORE INSERT ON lyrics_discovery_shadow_results
+WHEN typeof(NEW.result_id) <> 'integer'
+	OR typeof(NEW.job_id) <> 'integer'
+	OR typeof(NEW.music_id) <> 'integer'
+	OR typeof(NEW.candidate_count) <> 'integer'
+	OR typeof(NEW.created_at) <> 'integer'
+BEGIN
+	SELECT RAISE(ABORT, 'lyrics discovery shadow result integer fields must be integers');
+END;
+
+CREATE TRIGGER lyrics_discovery_shadow_results_integer_types_update
+BEFORE UPDATE ON lyrics_discovery_shadow_results
+WHEN typeof(NEW.result_id) <> 'integer'
+	OR typeof(NEW.job_id) <> 'integer'
+	OR typeof(NEW.music_id) <> 'integer'
+	OR typeof(NEW.candidate_count) <> 'integer'
+	OR typeof(NEW.created_at) <> 'integer'
+BEGIN
+	SELECT RAISE(ABORT, 'lyrics discovery shadow result integer fields must be integers');
+END;
+`,
+	after: validateLyricsDiscoveryIntegerTypes,
 }}
+
+func validateLyricsDiscoveryIntegerTypes(tx *sql.Tx) error {
+	checks := []struct {
+		table     string
+		predicate string
+	}{
+		{
+			table: "lyrics_discovery_jobs",
+			predicate: `typeof(job_id) <> 'integer'
+				OR typeof(music_id) <> 'integer'
+				OR typeof(page_id) NOT IN ('null', 'integer')
+				OR typeof(revision_id) NOT IN ('null', 'integer')
+				OR typeof(artifact_id) NOT IN ('null', 'integer')
+				OR typeof(attempts) <> 'integer'
+				OR typeof(max_attempts) <> 'integer'
+				OR typeof(next_attempt_at) <> 'integer'
+				OR typeof(lease_expires_at) NOT IN ('null', 'integer')
+				OR typeof(created_at) <> 'integer'
+				OR typeof(updated_at) <> 'integer'
+				OR typeof(completed_at) NOT IN ('null', 'integer')
+				OR typeof(version) <> 'integer'`,
+		},
+		{
+			table: "lyrics_discovery_shadow_results",
+			predicate: `typeof(result_id) <> 'integer'
+				OR typeof(job_id) <> 'integer'
+				OR typeof(music_id) <> 'integer'
+				OR typeof(candidate_count) <> 'integer'
+				OR typeof(created_at) <> 'integer'`,
+		},
+	}
+	for _, check := range checks {
+		var invalid int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM ` + check.table + ` WHERE ` + check.predicate).Scan(&invalid); err != nil {
+			return err
+		}
+		if invalid != 0 {
+			return fmt.Errorf("%s contains %d rows with non-integer numeric fields", check.table, invalid)
+		}
+	}
+	return nil
+}
 
 func (d *DB) pendingMigrations() ([]migration, error) {
 	var exists int
@@ -557,7 +664,7 @@ func (d *DB) applyMigrations(pending []migration) error {
 		if m.after != nil {
 			if err := m.after(tx); err != nil {
 				tx.Rollback()
-				return fmt.Errorf("migration %d backfill: %w", m.version, err)
+				return fmt.Errorf("migration %d post-step: %w", m.version, err)
 			}
 		}
 		if _, err := tx.Exec(`INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)`,

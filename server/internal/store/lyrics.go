@@ -348,6 +348,9 @@ func (s *Store) PublishLyricsMutation(musicID, revision int, users ...string) (m
 		Version: 1, MusicID: musicID, Revision: revision,
 		UpdatedAt: current.lyrics.UpdatedAt, Attribution: current.lyrics.Attribution, Lines: publicLyricsLines(current.lyrics.Lines),
 	}
+	if err := validatePublicLyricsArtifactSize(public); err != nil {
+		return model.SongLyrics{}, false, &LyricsContractError{Code: "incomplete_publication", Details: []string{err.Error()}}
+	}
 	payload, err := json.Marshal(public)
 	if err != nil {
 		return model.SongLyrics{}, false, err
@@ -434,6 +437,17 @@ func publicLyricsLines(lines []model.LyricLine) []model.LyricLine {
 	return public
 }
 
+func validatePublicLyricsArtifactSize(public model.PublicSongLyrics) error {
+	encoded, err := json.MarshalIndent(public, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode public lyrics document: %w", err)
+	}
+	if len(encoded)+1 > model.PublicLyricsMaxArtifactBytes {
+		return errors.New("encoded public lyrics document exceeds the public artifact size limit")
+	}
+	return nil
+}
+
 func (s *Store) PublishedLyrics() (model.PublicLyricsIndex, map[int]model.PublicSongLyrics, error) {
 	performerIDs, err := s.performerIDs(s.db)
 	if err != nil {
@@ -462,6 +476,10 @@ func (s *Store) PublishedLyrics() (model.PublicLyricsIndex, map[int]model.Public
 			return model.PublicLyricsIndex{}, nil, err
 		}
 		item.UpdatedAt = formatTimestamp(updatedAt)
+		if len(item.Title.Japanese) == 0 || len(item.Title.Japanese) > model.PublicLyricsMaxTitleBytes ||
+			len(item.Title.Chinese) > model.PublicLyricsMaxTitleBytes || len(item.Title.English) > model.PublicLyricsMaxTitleBytes {
+			return model.PublicLyricsIndex{}, nil, fmt.Errorf("lyrics publication %d title exceeds the public index contract", item.MusicID)
+		}
 		record := LyricsPublicationBackupRecord{
 			MusicID: item.MusicID, Revision: item.Revision, UpdatedAt: updatedAt, PayloadJSON: payload,
 		}
@@ -749,20 +767,41 @@ func ValidateLyricsSourceURL(value string) error {
 // query value matching the verified MediaWiki revision. Other callers may keep
 // using non-managed references, but they cannot receive a Wiki preview grant.
 func ValidateLyricsSourceRevisionURL(value string, revisionID int) error {
+	if value != strings.TrimSpace(value) {
+		return &LyricsContractError{Code: "source_drift", Details: []string{
+			"verified managed sourceUrl must be canonical",
+		}}
+	}
 	parsed, err := parseLyricsSourceURL(value)
 	if err != nil {
 		return err
 	}
 	if revisionID <= 0 || !isExactManagedLyricsSource(parsed) || !strings.EqualFold(parsed.Scheme, "https") ||
-		(parsed.Port() != "" && parsed.Port() != "443") || parsed.Fragment != "" {
+		(parsed.Port() != "" && parsed.Port() != "443") || parsed.Fragment != "" ||
+		!strings.HasPrefix(parsed.EscapedPath(), "/wiki/") || len(strings.TrimPrefix(parsed.EscapedPath(), "/wiki/")) == 0 {
 		return &LyricsContractError{Code: "source_drift", Details: []string{
-			"verified managed sourceUrl must use an exact HTTPS managed origin and revision",
+			"verified managed sourceUrl must use an exact HTTPS managed Wiki revision",
 		}}
 	}
-	query := parsed.Query()
-	if len(query) != 1 || len(query["oldid"]) != 1 || query.Get("oldid") != strconv.Itoa(revisionID) {
+	expectedQuery := "oldid=" + strconv.Itoa(revisionID)
+	if parsed.RawQuery != expectedQuery || parsed.ForceQuery {
 		return &LyricsContractError{Code: "source_drift", Details: []string{
 			"verified managed sourceUrl oldid must match sourceRevisionId",
+		}}
+	}
+	canonicalHost := strings.ToLower(parsed.Hostname())
+	if parsed.Port() == "443" {
+		canonicalHost += ":443"
+	}
+	canonicalURL := (&url.URL{
+		Scheme:   "https",
+		Host:     canonicalHost,
+		Path:     parsed.Path,
+		RawQuery: expectedQuery,
+	}).String()
+	if strings.Contains(parsed.Path, " ") || value != canonicalURL {
+		return &LyricsContractError{Code: "source_drift", Details: []string{
+			"verified managed sourceUrl must use the canonical encoded Wiki revision URL",
 		}}
 	}
 	return nil

@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,17 @@ func legacyFixtureCopy(t *testing.T, name string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestDurableLyricsDiscoveryMigrationChecksumsRemainImmutable(t *testing.T) {
+	for version, want := range map[int]string{
+		10: "0337eb9ab9698b464a1cba88e282f7f14771572af0ae0a99b61e67920fce25b3",
+		11: "b396a5365098bb08f83557cb7e5029df9abbf139825b993a4673eb2c69b1ea78",
+	} {
+		if got := migrations[version-1].checksum(); got != want {
+			t.Fatalf("migration v%d checksum=%s want=%s", version, got, want)
+		}
+	}
 }
 
 func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
@@ -34,7 +46,7 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 11 || migrationCount != 11 || checksum != migrations[10].checksum() {
+	if version != 12 || migrationCount != 12 || checksum != migrations[11].checksum() {
 		database.Close()
 		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
 	}
@@ -392,7 +404,7 @@ func TestV10MigrationCreatesDurableLyricsDiscoveryQueue(t *testing.T) {
 	}
 	defer migrated.Close()
 	var version int
-	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
+	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
@@ -559,8 +571,245 @@ func TestV11MigrationFailureRollsBackBothQueueColumnsAndShadowTable(t *testing.T
 	}
 	defer reopened.Close()
 	var version int
-	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
-		t.Fatalf("v11 retry version=%d err=%v", version, err)
+	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+		t.Fatalf("v11 retry plus pending v12 version=%d err=%v", version, err)
+	}
+}
+
+func TestV12MigrationRejectsNonIntegerDiscoveryValuesOnInsertAndUpdate(t *testing.T) {
+	path := legacyFixtureCopy(t, "v12-lyrics-discovery-integer-types.db")
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	fingerprint := strings.Repeat("a", 64)
+	key := strings.Repeat("b", 64)
+	if _, err := database.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 7, ?, 'shadow-v1', 0, 3, 1, 1, 1, 1)`, key, fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	var jobID int64
+	if err := database.QueryRow(`SELECT job_id FROM lyrics_discovery_jobs WHERE idempotency_key=?`, key).Scan(&jobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE lyrics_discovery_jobs
+		SET state='leased', attempts=1, lease_owner='worker', lease_expires_at=100, version=2
+		WHERE job_id=?`, jobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO lyrics_discovery_shadow_results
+		(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+		VALUES (?, 7, ?, 'shadow-v1', 'ambiguous', 2, '{}', 2)`, jobID, fingerprint); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, statement := range map[string]string{
+		"job insert music": `INSERT INTO lyrics_discovery_jobs
+			(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+			VALUES ('` + strings.Repeat("c", 64) + `', 'discover', 'queued', 'not-a-music-id', '` + fingerprint + `', 'shadow-v1', 0, 3, 1, 1, 1, 1)`,
+		"job insert next attempt": `INSERT INTO lyrics_discovery_jobs
+			(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+			VALUES ('` + strings.Repeat("d", 64) + `', 'discover', 'queued', 8, '` + fingerprint + `', 'shadow-v1', 0, 3, 'not-a-time', 1, 1, 1)`,
+		"job insert version": `INSERT INTO lyrics_discovery_jobs
+			(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+			VALUES ('` + strings.Repeat("e", 64) + `', 'discover', 'queued', 9, '` + fingerprint + `', 'shadow-v1', 0, 3, 1, 1, 1, 'not-a-version')`,
+		"job update": `UPDATE lyrics_discovery_jobs SET next_attempt_at='not-a-time' WHERE job_id=` + fmt.Sprint(jobID),
+		"result insert count": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			VALUES (` + fmt.Sprint(jobID) + `, 7, '` + fingerprint + `', 'shadow-v1', 'ambiguous', 'not-a-count', '{}', 2)`,
+		"result update": `UPDATE lyrics_discovery_shadow_results SET created_at='not-a-time' WHERE job_id=` + fmt.Sprint(jobID),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := database.Exec(statement); err == nil {
+				t.Fatalf("v12 accepted %s", name)
+			}
+		})
+	}
+}
+
+func TestV12MigrationRejectsExistingNonIntegerDiscoveryValuesAndRollsBack(t *testing.T) {
+	for name, statement := range map[string]string{
+		"job": `INSERT INTO lyrics_discovery_jobs
+			(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+			VALUES ('` + strings.Repeat("c", 64) + `', 'discover', 'queued', 7, '` + strings.Repeat("a", 64) + `', 'shadow-v1', 0, 3, 1.5, 1, 1, 1)`,
+		"result": `INSERT INTO lyrics_discovery_shadow_results
+			(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
+			SELECT job_id, music_id, catalog_fingerprint, policy_version, 'ambiguous', 2.5, '{}', 2
+			FROM lyrics_discovery_jobs LIMIT 1`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := legacyFixtureCopy(t, "v12-existing-non-integer.db")
+			raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+			if err != nil {
+				t.Fatal(err)
+			}
+			database := &DB{DB: raw, path: path}
+			if err := database.applyMigrations(migrations[:11]); err != nil {
+				raw.Close()
+				t.Fatal(err)
+			}
+			if name == "result" {
+				if _, err := raw.Exec(`INSERT INTO lyrics_discovery_jobs
+					(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+					VALUES (?, 'discover', 'queued', 7, ?, 'shadow-v1', 0, 3, 1, 1, 1, 1)`, strings.Repeat("b", 64), strings.Repeat("a", 64)); err != nil {
+					raw.Close()
+					t.Fatal(err)
+				}
+			}
+			if _, err := raw.Exec(statement); err != nil {
+				raw.Close()
+				t.Fatalf("seed non-integer %s: %v", name, err)
+			}
+			if err := database.applyMigrations(migrations[11:]); err == nil || !strings.Contains(err.Error(), "non-integer numeric fields") {
+				raw.Close()
+				t.Fatalf("v12 existing %s error=%v", name, err)
+			}
+			var version, triggers int
+			if err := raw.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
+				raw.Close()
+				t.Fatalf("failed v12 version=%d err=%v", version, err)
+			}
+			if err := raw.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'lyrics_discovery_%_integer_types_%'`).Scan(&triggers); err != nil || triggers != 0 {
+				raw.Close()
+				t.Fatalf("failed v12 triggers=%d err=%v", triggers, err)
+			}
+			if err := raw.Close(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestV12MigrationRejectsExistingNonIntegerValuesThroughOpenAndPreservesBackup(t *testing.T) {
+	path := legacyFixtureCopy(t, "v12-open-existing-non-integer.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:11]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO lyrics_discovery_jobs
+		(idempotency_key, kind, state, music_id, catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
+		VALUES (?, 'discover', 'queued', 7, ?, 'shadow-v1', 0, 3, CAST('not-an-integer' AS TEXT), 1, 1, 1)`, strings.Repeat("d", 64), strings.Repeat("a", 64)); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	var storageClass string
+	if err := raw.QueryRow(`SELECT typeof(next_attempt_at) FROM lyrics_discovery_jobs`).Scan(&storageClass); err != nil || storageClass != "text" {
+		raw.Close()
+		t.Fatalf("seed storage class=%q err=%v", storageClass, err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(path); err == nil || !strings.Contains(err.Error(), "non-integer numeric fields") {
+		t.Fatalf("Open accepted existing non-integer v11 data: %v", err)
+	}
+	backupPath := path + ".pre-migration-v12.bak"
+	if err := verifySQLiteBackup(backupPath); err != nil {
+		t.Fatalf("v12 pre-migration backup: %v", err)
+	}
+	for label, databasePath := range map[string]string{"database": path, "backup": backupPath} {
+		check, err := sql.Open("sqlite", "file:"+databasePath+"?mode=ro")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var version, triggers int
+		if err := check.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
+			check.Close()
+			t.Fatalf("%s version=%d err=%v", label, version, err)
+		}
+		if err := check.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'lyrics_discovery_%_integer_types_%'`).Scan(&triggers); err != nil || triggers != 0 {
+			check.Close()
+			t.Fatalf("%s triggers=%d err=%v", label, triggers, err)
+		}
+		if err := check.QueryRow(`SELECT typeof(next_attempt_at) FROM lyrics_discovery_jobs`).Scan(&storageClass); err != nil || storageClass != "text" {
+			check.Close()
+			t.Fatalf("%s storage class=%q err=%v", label, storageClass, err)
+		}
+		if err := check.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestV12MigrationFailureRollsBackIntegerTypeTriggers(t *testing.T) {
+	path := legacyFixtureCopy(t, "v12-rollback.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:11]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	migrationBeforeCommitHook = func(version int) error {
+		if version == 12 {
+			return errors.New("injected v12 failure")
+		}
+		return nil
+	}
+	t.Cleanup(func() { migrationBeforeCommitHook = nil })
+	if err := database.applyMigrations(migrations[11:]); err == nil || !strings.Contains(err.Error(), "injected v12 failure") {
+		raw.Close()
+		t.Fatalf("v12 migration error=%v", err)
+	}
+	migrationBeforeCommitHook = nil
+	var version, triggers int
+	if err := raw.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 11 {
+		raw.Close()
+		t.Fatalf("failed v12 version=%d err=%v", version, err)
+	}
+	if err := raw.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'lyrics_discovery_%_integer_types_%'`).Scan(&triggers); err != nil || triggers != 0 {
+		raw.Close()
+		t.Fatalf("failed v12 triggers=%d err=%v", triggers, err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+		t.Fatalf("retried v12 version=%d err=%v", version, err)
+	}
+}
+
+func TestV12MigrationUpgradesV11AndCreatesIntegerTypeTriggers(t *testing.T) {
+	path := legacyFixtureCopy(t, "v12-upgrade.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:11]); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var version, triggers int
+	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+		t.Fatalf("migration version=%d err=%v", version, err)
+	}
+	if err := migrated.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'lyrics_discovery_%_integer_types_%'`).Scan(&triggers); err != nil || triggers != 4 {
+		t.Fatalf("integer type triggers=%d err=%v", triggers, err)
 	}
 }
 

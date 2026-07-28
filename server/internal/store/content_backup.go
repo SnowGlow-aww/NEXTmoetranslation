@@ -862,6 +862,9 @@ func canonicalizeRestoredPublication(record *LyricsPublicationBackupRecord, perf
 		return fmt.Errorf("lyrics publication %d violates %s: %s", record.MusicID, code, strings.Join(details, "; "))
 	}
 	public.Lines = publicLyricsLines(public.Lines)
+	if err := validatePublicLyricsArtifactSize(public); err != nil {
+		return fmt.Errorf("lyrics publication %d: %w", record.MusicID, err)
+	}
 	payload, err := json.Marshal(public)
 	if err != nil {
 		return fmt.Errorf("lyrics publication %d: %w", record.MusicID, err)

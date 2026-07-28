@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -26,11 +27,12 @@ import (
 )
 
 type legacyBackupHarness struct {
-	manager *Manager
-	store   *store.Store
-	events  *store.EventStore
-	cfg     *config.Config
-	gen     *files.Generator
+	manager  *Manager
+	store    *store.Store
+	events   *store.EventStore
+	cfg      *config.Config
+	gen      *files.Generator
+	database *db.DB
 }
 
 func setupLegacyBackup(t *testing.T) *legacyBackupHarness {
@@ -90,7 +92,7 @@ func setupLegacyBackup(t *testing.T) *legacyBackupHarness {
 	}
 	gen := files.NewGenerator(s, es, "")
 	manager := NewManager(cfg, gen, s, es, filepath.Join(t.TempDir(), "work"))
-	return &legacyBackupHarness{manager: manager, store: s, events: es, cfg: cfg, gen: gen}
+	return &legacyBackupHarness{manager: manager, store: s, events: es, cfg: cfg, gen: gen, database: database}
 }
 
 func TestLegacyBackupRestoreRoundTrip(t *testing.T) {
@@ -501,6 +503,102 @@ func TestGitBackupArchivesAndRestoresPublishedLyricsAssets(t *testing.T) {
 	}
 	if restoredLyrics.SourceSHA1 != strings.Repeat("a", 40) || restoredLyrics.SourceRevisionID != 34 {
 		t.Fatalf("canonical provenance changed across Git backup restore: %+v", restoredLyrics)
+	}
+}
+
+func TestGitRestoreRejectsNestedEventDuplicateBeforeApply(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable unavailable")
+	}
+	source := setupLegacyBackup(t)
+	remote := filepath.Join(t.TempDir(), "duplicate-event-remote.git")
+	command := exec.Command("git", "init", "--bare", "--initial-branch=duplicate-event", remote)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v: %s", err, output)
+	}
+	if err := source.cfg.Set(config.KeyBackupGitRepoURL, "file://"+remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.cfg.Set(config.KeyBackupGitBranch, "duplicate-event"); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.manager.backupGit(); err != nil {
+		t.Fatal(err)
+	}
+
+	clone := filepath.Join(t.TempDir(), "tamper")
+	command = exec.Command("git", "clone", "--branch", "duplicate-event", "file://"+remote, clone)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("git clone: %v: %s", err, output)
+	}
+	eventPath := filepath.Join(clone, "translations", "eventStory", "event_42.json")
+	event, err := os.ReadFile(eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event = bytes.Replace(event, []byte(`"title": "人工标题"`), []byte(`"title": "人工标题", "title": "篡改标题"`), 1)
+	if err := os.WriteFile(eventPath, event, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"-C", clone, "config", "user.name", "test"},
+		{"-C", clone, "config", "user.email", "test@example.invalid"},
+		{"-C", clone, "add", "translations/eventStory/event_42.json"},
+		{"-C", clone, "commit", "-m", "tamper nested duplicate event"},
+		{"-C", clone, "push", "origin", "duplicate-event"},
+	} {
+		command = exec.Command("git", args...)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, output)
+		}
+	}
+
+	destination := setupLegacyBackup(t)
+	beforeCategory, err := destination.store.CategoryData("cards")
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeEvent, err := destination.events.OrderedDetail(42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeStatus := destination.manager.Status()
+	var beforeAudits int
+	if err := destination.database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='backup.restore'`).Scan(&beforeAudits); err != nil {
+		t.Fatal(err)
+	}
+	changeNotifications := 0
+	destination.store.OnChange(func() { changeNotifications++ })
+	if err := destination.cfg.Set(config.KeyBackupGitRepoURL, "file://"+remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := destination.cfg.Set(config.KeyBackupGitBranch, "duplicate-event"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := destination.manager.RestoreFromAs("git", "operator"); err == nil || !strings.Contains(err.Error(), "duplicate object key") {
+		t.Fatalf("duplicate event restore error = %v", err)
+	}
+	afterCategory, err := destination.store.CategoryData("cards")
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterEvent, err := destination.events.OrderedDetail(42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(afterCategory, beforeCategory) || !reflect.DeepEqual(afterEvent, beforeEvent) {
+		t.Fatalf("duplicate event restore changed destination\ncategory before=%+v\ncategory after=%+v\nevent before=%+v\nevent after=%+v", beforeCategory, afterCategory, beforeEvent, afterEvent)
+	}
+	var afterAudits int
+	if err := destination.database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='backup.restore'`).Scan(&afterAudits); err != nil {
+		t.Fatal(err)
+	}
+	afterStatus := destination.manager.Status()
+	if afterAudits != beforeAudits || changeNotifications != 0 || afterStatus.LastRestore != beforeStatus.LastRestore {
+		t.Fatalf("duplicate event restore committed side effects: audits %d->%d notifications=%d lastRestore %q->%q", beforeAudits, afterAudits, changeNotifications, beforeStatus.LastRestore, afterStatus.LastRestore)
+	}
+	if afterStatus.Running || afterStatus.LastOperation != "restore:git" || afterStatus.LastFinished == "" || !strings.Contains(afterStatus.LastError, "duplicate object key") {
+		t.Fatalf("duplicate event restore terminal status = %+v", afterStatus)
 	}
 }
 

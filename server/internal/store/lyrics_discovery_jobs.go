@@ -43,6 +43,8 @@ type EnqueueLyricsDiscoveryJobParams struct {
 type LyricsDiscoveryJobLease struct {
 	Owner    string
 	Duration time.Duration
+	Kind     model.LyricsDiscoveryJobKind
+	Now      time.Time
 }
 
 func LyricsDiscoveryJobIdempotencyKey(kind model.LyricsDiscoveryJobKind, target model.LyricsDiscoveryJobTarget) (string, error) {
@@ -93,6 +95,22 @@ func (s *Store) EnqueueLyricsDiscoveryJob(ctx context.Context, params EnqueueLyr
 	if ctx == nil {
 		return model.LyricsDiscoveryJob{}, false, errors.New("lyrics discovery enqueue requires context")
 	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return model.LyricsDiscoveryJob{}, false, err
+	}
+	defer tx.Rollback()
+	job, created, err := enqueueLyricsDiscoveryJobTx(ctx, tx, params, time.Now().UTC())
+	if err != nil {
+		return model.LyricsDiscoveryJob{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.LyricsDiscoveryJob{}, false, err
+	}
+	return job, created, nil
+}
+
+func enqueueLyricsDiscoveryJobTx(ctx context.Context, tx *sql.Tx, params EnqueueLyricsDiscoveryJobParams, now time.Time) (model.LyricsDiscoveryJob, bool, error) {
 	key, err := LyricsDiscoveryJobIdempotencyKey(params.Kind, params.Target)
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, false, err
@@ -104,18 +122,12 @@ func (s *Store) EnqueueLyricsDiscoveryJob(ctx context.Context, params EnqueueLyr
 	if maxAttempts < 1 || maxAttempts > maxLyricsDiscoveryJobAttempts {
 		return model.LyricsDiscoveryJob{}, false, fmt.Errorf("max attempts must be between 1 and %d", maxLyricsDiscoveryJobAttempts)
 	}
-	now := time.Now().UTC()
+	now = now.UTC()
 	notBefore := params.NotBefore
 	if notBefore.IsZero() {
 		notBefore = now
 	}
 	notBefore = canonicalLyricsDiscoveryTime(notBefore)
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return model.LyricsDiscoveryJob{}, false, err
-	}
-	defer tx.Rollback()
 	result, err := tx.ExecContext(ctx, `INSERT INTO lyrics_discovery_jobs
 		(idempotency_key, kind, state, music_id, page_id, revision_id, artifact_id,
 		 catalog_fingerprint, policy_version, attempts, max_attempts, next_attempt_at, created_at, updated_at, version)
@@ -134,9 +146,6 @@ func (s *Store) EnqueueLyricsDiscoveryJob(ctx context.Context, params EnqueueLyr
 	}
 	job, err := loadLyricsDiscoveryJobContext(ctx, tx, `WHERE idempotency_key=?`, key)
 	if err != nil {
-		return model.LyricsDiscoveryJob{}, false, err
-	}
-	if err := tx.Commit(); err != nil {
 		return model.LyricsDiscoveryJob{}, false, err
 	}
 	return job, rowsAffected == 1, nil
@@ -160,8 +169,16 @@ func (s *Store) ClaimLyricsDiscoveryJob(ctx context.Context, lease LyricsDiscove
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}
-	now := time.Now().UTC()
-	expiresAt := now.Add(lease.Duration)
+	if lease.Kind != "" && !model.IsValidLyricsDiscoveryJobKind(lease.Kind) {
+		return model.LyricsDiscoveryJob{}, fmt.Errorf("invalid lyrics discovery claim kind %q", lease.Kind)
+	}
+	now := lease.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	now = canonicalLyricsDiscoveryTime(now)
+	expiresAt := canonicalLyricsDiscoveryTime(now.Add(lease.Duration))
+	kind := string(lease.Kind)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, err
@@ -174,15 +191,16 @@ func (s *Store) ClaimLyricsDiscoveryJob(ctx context.Context, lease LyricsDiscove
 			last_error_code='lease_expired', updated_at=?,
 			completed_at=CASE WHEN attempts >= max_attempts THEN ? ELSE NULL END,
 			version=version+1
-		WHERE state='leased' AND lease_expires_at<=?`,
-		now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()); err != nil {
+		WHERE state='leased' AND lease_expires_at<=? AND (?='' OR kind=?)`,
+		now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), kind, kind); err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}
 
 	var jobID int64
 	err = tx.QueryRowContext(ctx, `SELECT job_id FROM lyrics_discovery_jobs
 		WHERE state IN ('queued', 'retry_wait') AND next_attempt_at<=? AND attempts<max_attempts
-		ORDER BY next_attempt_at, job_id LIMIT 1`, now.UnixMilli()).Scan(&jobID)
+			AND (?='' OR kind=?)
+		ORDER BY next_attempt_at, job_id LIMIT 1`, now.UnixMilli(), kind, kind).Scan(&jobID)
 	if err == sql.ErrNoRows {
 		if err := tx.Commit(); err != nil {
 			return model.LyricsDiscoveryJob{}, err
@@ -195,8 +213,9 @@ func (s *Store) ClaimLyricsDiscoveryJob(ctx context.Context, lease LyricsDiscove
 	result, err := tx.ExecContext(ctx, `UPDATE lyrics_discovery_jobs
 		SET state='leased', attempts=attempts+1, lease_owner=?, lease_expires_at=?,
 			updated_at=?, completed_at=NULL, version=version+1
-		WHERE job_id=? AND state IN ('queued', 'retry_wait') AND next_attempt_at<=? AND attempts<max_attempts`,
-		owner, expiresAt.UnixMilli(), now.UnixMilli(), jobID, now.UnixMilli())
+		WHERE job_id=? AND state IN ('queued', 'retry_wait') AND next_attempt_at<=? AND attempts<max_attempts
+			AND (?='' OR kind=?)`,
+		owner, expiresAt.UnixMilli(), now.UnixMilli(), jobID, now.UnixMilli(), kind, kind)
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}
@@ -218,20 +237,25 @@ func (s *Store) ClaimLyricsDiscoveryJob(ctx context.Context, lease LyricsDiscove
 }
 
 func (s *Store) CompleteLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOwner string, expectedVersion int64) (model.LyricsDiscoveryJob, error) {
-	return s.transitionLeasedLyricsDiscoveryJob(ctx, jobID, leaseOwner, expectedVersion, model.LyricsDiscoveryJobSucceeded, time.Time{}, "")
+	return s.transitionLeasedLyricsDiscoveryJob(ctx, jobID, leaseOwner, expectedVersion, 0, model.LyricsDiscoveryJobSucceeded, time.Now().UTC(), time.Time{}, "")
 }
 
-func (s *Store) RetryLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOwner string, expectedVersion int64, notBefore time.Time, errorCode string) (model.LyricsDiscoveryJob, error) {
+func (s *Store) RetryLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOwner string, expectedVersion int64, expectedAttempt int, failedAt, notBefore time.Time, errorCode string) (model.LyricsDiscoveryJob, error) {
+	if failedAt.IsZero() || failedAt.After(time.Now().UTC().Add(maxLyricsDiscoveryClockSkew)) {
+		return model.LyricsDiscoveryJob{}, errors.New("invalid retry failure time")
+	}
+	failedAt = canonicalLyricsDiscoveryTime(failedAt)
 	if notBefore.IsZero() {
 		return model.LyricsDiscoveryJob{}, errors.New("retry time is required")
 	}
-	if !notBefore.After(time.Now().UTC()) {
-		return model.LyricsDiscoveryJob{}, errors.New("retry time must be in the future")
+	notBefore = canonicalLyricsDiscoveryTime(notBefore)
+	if !notBefore.After(failedAt) {
+		return model.LyricsDiscoveryJob{}, errors.New("retry time must be after failure time")
 	}
-	if notBefore.After(time.Now().UTC().Add(maxLyricsDiscoveryRetryDelay)) {
+	if notBefore.After(failedAt.Add(maxLyricsDiscoveryRetryDelay)) {
 		return model.LyricsDiscoveryJob{}, fmt.Errorf("retry time must be within %s", maxLyricsDiscoveryRetryDelay)
 	}
-	return s.transitionLeasedLyricsDiscoveryJob(ctx, jobID, leaseOwner, expectedVersion, model.LyricsDiscoveryJobRetryWait, canonicalLyricsDiscoveryTime(notBefore), errorCode)
+	return s.transitionLeasedLyricsDiscoveryJob(ctx, jobID, leaseOwner, expectedVersion, expectedAttempt, model.LyricsDiscoveryJobRetryWait, failedAt, notBefore, errorCode)
 }
 
 func (s *Store) FailLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOwner string, expectedVersion int64, errorCode string) (model.LyricsDiscoveryJob, error) {
@@ -249,16 +273,16 @@ func (s *Store) FailLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOw
 		return model.LyricsDiscoveryJob{}, errors.New("error code is required")
 	}
 	errorCode = SanitizeLyricsDiscoveryErrorCode(errorCode)
-	now := time.Now().UTC()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}
 	defer tx.Rollback()
+	now := canonicalLyricsDiscoveryTime(time.Now().UTC())
 	var attempts, maxAttempts int
 	if err := tx.QueryRowContext(ctx, `SELECT attempts, max_attempts FROM lyrics_discovery_jobs
-		WHERE job_id=? AND state='leased' AND lease_owner=? AND version=?`,
-		jobID, owner, expectedVersion).Scan(&attempts, &maxAttempts); err == sql.ErrNoRows {
+		WHERE job_id=? AND state='leased' AND lease_owner=? AND version=? AND lease_expires_at>?`,
+		jobID, owner, expectedVersion, now.UnixMilli()).Scan(&attempts, &maxAttempts); err == sql.ErrNoRows {
 		var state model.LyricsDiscoveryJobState
 		if stateErr := tx.QueryRowContext(ctx, `SELECT state FROM lyrics_discovery_jobs WHERE job_id=?`, jobID).Scan(&state); stateErr == sql.ErrNoRows {
 			return model.LyricsDiscoveryJob{}, ErrLyricsDiscoveryJobNotFound
@@ -278,11 +302,15 @@ func (s *Store) FailLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOw
 		nextState = model.LyricsDiscoveryJobDeadLetter
 		completedAt = now.UnixMilli()
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE lyrics_discovery_jobs
+	result, err := tx.ExecContext(ctx, `UPDATE lyrics_discovery_jobs
 		SET state=?, next_attempt_at=?, lease_owner=NULL, lease_expires_at=NULL,
 			last_error_code=?, updated_at=?, completed_at=?, version=version+1
-		WHERE job_id=? AND state='leased' AND lease_owner=? AND version=?`,
-		nextState, now.UnixMilli(), errorCode, now.UnixMilli(), completedAt, jobID, owner, expectedVersion); err != nil {
+		WHERE job_id=? AND state='leased' AND lease_owner=? AND version=? AND lease_expires_at>?`,
+		nextState, now.UnixMilli(), errorCode, now.UnixMilli(), completedAt, jobID, owner, expectedVersion, now.UnixMilli())
+	if err != nil {
+		return model.LyricsDiscoveryJob{}, err
+	}
+	if err := requireLyricsDiscoveryJobTransition(ctx, tx, result, jobID); err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}
 	job, err := loadLyricsDiscoveryJobContext(ctx, tx, `WHERE job_id=?`, jobID)
@@ -329,13 +357,13 @@ func (s *Store) CancelLyricsDiscoveryJob(ctx context.Context, jobID, expectedVer
 	return job, nil
 }
 
-func (s *Store) transitionLeasedLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOwner string, expectedVersion int64, nextState model.LyricsDiscoveryJobState, notBefore time.Time, errorCode string) (model.LyricsDiscoveryJob, error) {
+func (s *Store) transitionLeasedLyricsDiscoveryJob(ctx context.Context, jobID int64, leaseOwner string, expectedVersion int64, expectedAttempt int, nextState model.LyricsDiscoveryJobState, transitionedAt, notBefore time.Time, errorCode string) (model.LyricsDiscoveryJob, error) {
 	if ctx == nil {
 		return model.LyricsDiscoveryJob{}, errors.New("lyrics discovery transition requires context")
 	}
 	owner := strings.TrimSpace(leaseOwner)
-	if jobID <= 0 || expectedVersion <= 0 {
-		return model.LyricsDiscoveryJob{}, errors.New("job ID and expected version must be positive")
+	if jobID <= 0 || expectedVersion <= 0 || expectedAttempt < 0 {
+		return model.LyricsDiscoveryJob{}, errors.New("job ID and expected version must be positive and expected attempt cannot be negative")
 	}
 	if owner == "" || len(owner) > maxLyricsDiscoveryLeaseOwnerBytes {
 		return model.LyricsDiscoveryJob{}, fmt.Errorf("lease owner must contain 1-%d bytes", maxLyricsDiscoveryLeaseOwnerBytes)
@@ -354,25 +382,30 @@ func (s *Store) transitionLeasedLyricsDiscoveryJob(ctx context.Context, jobID in
 	} else {
 		errorCode = ""
 	}
-	now := time.Now().UTC()
-	nextAttemptAt := now
+	transitionedAt = canonicalLyricsDiscoveryTime(transitionedAt)
+	nextAttemptAt := transitionedAt
 	var completedAt any
 	if nextState == model.LyricsDiscoveryJobRetryWait {
 		nextAttemptAt = notBefore
 	} else {
-		completedAt = now.UnixMilli()
+		completedAt = transitionedAt.UnixMilli()
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}
 	defer tx.Rollback()
+	leaseCheckedAt := canonicalLyricsDiscoveryTime(time.Now().UTC())
+	if transitionedAt.IsZero() || transitionedAt.After(leaseCheckedAt.Add(maxLyricsDiscoveryClockSkew)) {
+		return model.LyricsDiscoveryJob{}, errors.New("invalid lyrics discovery transition time")
+	}
 	result, err := tx.ExecContext(ctx, `UPDATE lyrics_discovery_jobs
 		SET state=?, next_attempt_at=?, lease_owner=NULL, lease_expires_at=NULL,
 			last_error_code=?, updated_at=?, completed_at=?, version=version+1
-		WHERE job_id=? AND state='leased' AND lease_owner=? AND version=?`,
-		nextState, nextAttemptAt.UnixMilli(), nullableString(errorCode), now.UnixMilli(), completedAt,
-		jobID, owner, expectedVersion)
+		WHERE job_id=? AND state='leased' AND lease_owner=? AND version=? AND lease_expires_at>?
+			AND (?=0 OR attempts=?)`,
+		nextState, nextAttemptAt.UnixMilli(), nullableString(errorCode), transitionedAt.UnixMilli(), completedAt,
+		jobID, owner, expectedVersion, leaseCheckedAt.UnixMilli(), expectedAttempt, expectedAttempt)
 	if err != nil {
 		return model.LyricsDiscoveryJob{}, err
 	}

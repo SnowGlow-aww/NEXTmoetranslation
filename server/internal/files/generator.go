@@ -176,6 +176,9 @@ func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
 		return nil, err
 	}
 	indexJSON = append(indexJSON, '\n')
+	if len(index.Songs) > model.PublicLyricsMaxIndexEntries || len(indexJSON) > model.PublicLyricsMaxArtifactBytes {
+		return nil, fmt.Errorf("published lyrics index exceeds the public artifact contract")
+	}
 	assets["translation/lyrics/index.json"] = indexJSON
 	for musicID, detail := range details {
 		body, err := MarshalIndentCompat(detail)
@@ -183,6 +186,9 @@ func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
 			return nil, err
 		}
 		body = append(body, '\n')
+		if len(body) > model.PublicLyricsMaxArtifactBytes {
+			return nil, fmt.Errorf("published lyrics detail %d exceeds the public artifact contract", musicID)
+		}
 		assets[fmt.Sprintf("translation/lyrics/music_%d.json", musicID)] = body
 	}
 	return assets, nil

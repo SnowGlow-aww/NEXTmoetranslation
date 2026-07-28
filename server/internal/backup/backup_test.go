@@ -454,6 +454,26 @@ func TestTranslationContentRejectsNestedDuplicateObjectKeys(t *testing.T) {
 	}
 }
 
+func TestTranslationContentManifestRejectsDuplicateObjectKeys(t *testing.T) {
+	for name, manifest := range map[string]string{
+		"top level":   `{"schemaVersion":1,"schemaVersion":1,"files":[]}`,
+		"nested file": `{"schemaVersion":1,"files":[{"path":"entries.json","path":"entries.json"}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "translation-content")
+			if err := os.Mkdir(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(manifest), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, present, err := readTranslationContent(dir); err == nil || !present || !strings.Contains(err.Error(), "duplicate object key") {
+				t.Fatalf("duplicate manifest present=%v err=%v", present, err)
+			}
+		})
+	}
+}
+
 func TestTranslationContentManifestSizeIsBounded(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "translation-content")
 	if err := os.Mkdir(dir, 0o700); err != nil {

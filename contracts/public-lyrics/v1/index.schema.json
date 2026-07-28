@@ -9,6 +9,7 @@
     "version": { "const": 1 },
     "songs": {
       "type": "array",
+      "maxItems": 100000,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -22,9 +23,9 @@
             "additionalProperties": false,
             "required": ["ja-JP"],
             "properties": {
-              "ja-JP": { "type": "string" },
-              "zh-CN": { "type": "string" },
-              "en-US": { "type": "string" }
+              "ja-JP": { "type": "string", "minLength": 1, "maxLength": 65536 },
+              "zh-CN": { "type": "string", "minLength": 1, "maxLength": 65536 },
+              "en-US": { "type": "string", "minLength": 1, "maxLength": 65536 }
             }
           }
         }
