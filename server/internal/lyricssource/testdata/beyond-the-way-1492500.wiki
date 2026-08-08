@@ -1,0 +1,519 @@
+{{Epileptic Warning}}
+<tabber>
+Vivid BAD SQUAD Version =
+{{Song box 2
+  |color     = black; color:#9F1826
+  |image     = Beyond The Way Vivid BAD SQUAD.png
+  |title     = "'''Beyond the way'''"
+  |date      = December 8, 2023
+  |views     = {{v|nn|1,202,588}} and {{v|yt|10,076,933}}
+  |singers   = {{IW|projectsekai|Azusawa Kohane}}, {{IW|projectsekai|Shiraishi An}}, {{IW|projectsekai|Shinonome Akito}}, {{IW|projectsekai|Aoyagi Toya}}, and [[Hatsune Miku]] V4X Solid
+* <small>[[Kagamine Len]] (chorus)</small>
+  |producers = [[Giga]] (music, arrangement)
+* [[q*Left]] (lyrics)
+* NOZ (illustration)
+* Usumizu (Shiroiro Mode) (video)
+* Tamano Hazuki (design)
+  |links     = {{l|nn|so43083696}} {{l|yt|UAzw5B-35kI}}
+}}
+|-|
+VOCALOID Version =
+{{Song box 2
+  |color     = black; color:#9F1826
+  |image     = Beyond The Way Vocaloid.png
+  |title     = "'''Beyond the way'''"
+  |date      = January 5, 2024
+  |views     = {{v|yt|12,689,862}} and {{v|nn|598,317}}
+  |singers   = [[Hatsune Miku]] V4X Dark and Solid, [[Kagamine Rin]] V4X Power and Sweet, and [[Kagamine Len]] V4X Power and Serious
+  |producers = [[Giga]] (music, arrangement)
+* [[q*Left]] (lyrics)
+* Rolua (illustration)
+* ohissya (3DCG)
+* [[Okiku]] (2D animation)
+* Sena Kiryuin (special thanks)
+  |links     = {{l|yt|SJcgOWsDwi4}} {{l|nn|sm43244916}}
+}}
+</tabber>
+
+==Background==
+"'''Beyond the way'''" is an original song by Giga. It was uploaded to Niconico on January 6, 2024. This song is a continuation of "[[Ready Steady]]". It was commissioned as the second unit song for {{IW|projectsekai|Vivid BAD SQUAD}} from the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+The Vivid BAD SQUAD version has entered the ''[[Hall of Legend]]''.
+
+The VOCALOID version quickly became popular, entering the ''Hall of Fame'' and exceeding 1 million YouTube views 15 days after its upload.
+
+Both versions exceeded over 10 million YouTube views. Hence, this is one of Giga's most notable songs.
+
+==Preceding and succeeding versions==
+{{Derivative
+  |color       = #EE1166; color:white
+  |thumb       = Games - Project SEKAI - Beyond the way.png
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |singers     = {{IW|projectsekai|Vivid BAD SQUAD}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Azusawa Kohane}} (CV: {{IW|projectsekai|Akina}}), {{IW|projectsekai|Shiraishi An}} (CV: {{IW|projectsekai|Sumi Tomomi Jiena}}), {{IW|projectsekai|Shinonome Akito}} (CV: {{IW|projectsekai|Imai Fumiya}}), {{IW|projectsekai|Aoyagi Toya}} (CV: {{IW|projectsekai|Itou Kent}}), {{IW|projectsekai|Kagamine Len}}
+  |producers   = TACCHI (choreography), Jakko, Atarashi Maimi, Okuyama Keito, TACCHI, Kasuga Mari  (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture), [https://www.marza.com/ MARZA ANIMATION PLANET] (overall direction, staging, camerawork supervision, animation supervision)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Vocal; Human Vocal; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so43075637; yt BqFyfOIdRYM
+}}
+{{Derivative
+  |color       = black; color:#9F1826
+  |title       = Giga's Self-cover
+  |singers     = Giga (feat. Kagamine Len)
+  |producers   = Giga (music, arrangement), q*Left (lyrics), Rolua (illustration), ohissya (3DCG), Okiku (2D animation), Sena Kiryuin (special thanks)
+  |categories  = Human cover; Self-cover
+  |links       = yt 5aibNxvGPEE
+}}
+
+==Lyrics==
+<tabber>
+|-|Vivid BAD SQUAD Version =
+{{lrc legend|black; color:#9F1826
+|Kohane:#FF679A 
+|An:#00BBDC
+|Akito:#FF7721
+|Toya:#0077DD
+|Miku:#33CCBA
+|Len:#FFEE12
+|All|n7=y}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{Shared}}|{{lrc color|len|(Giga)}}
+|-
+|{{lrc color|kohane|息つまるばかりで 温い退屈な夜道で}}
+|{{lrc color|kohane|ikitsumaru bakari de nukui taikutsu na yomichi de}}
+|-
+|{{Shared}}|{{lrc color|kohane|(mellow mellow mellow)}}
+|-
+|{{lrc color|an|ルールは無視で行きたいね}}
+|{{lrc color|an|ruuru wa mushi de ikitai ne}}
+|-
+|{{Shared}}|{{lrc color|an|So burn my burn my heart}}
+|-
+|<br>
+|-
+|uh 悟られそう {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}}
+|uh satoraresou {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}}
+|-
+|uh {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} {{lrc color|akito|可か不可 Get down now}}
+|uh {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} {{lrc color|akito|ka ka fuka Get down now}}
+|-
+|uh あーあ {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} もうきっと 優等ぶった {{lrc color|kohane|■}}{{lrc color|an|■}}
+|uh aaa {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} mou kitto yuutou butta {{lrc color|kohane|■}}{{lrc color|an|■}}
+|-
+|"I"じゃ居られないくらい {{lrc color|kohane|■}}{{lrc color|an|■}}
+|"I" ja irarenai kurai {{lrc color|kohane|■}}{{lrc color|an|■}}
+|-
+|{{lrc color|an|どうしようもない}}
+|{{lrc color|an|doushiyou mo nai}}
+|-
+|<br>
+|-
+|{{lrc color|toya|yuh 無理目のクエスチョン}}
+|{{lrc color|toya|yuh muri me no kuesuchon}}
+|-
+|{{lrc color|toya|ha 実存？フィクション？}}
+|{{lrc color|toya|ha jitsuzon? fikushon?}}
+|-
+|{{lrc color|toya|You make me サゲなの何で？}}
+|{{lrc color|toya|You make me sage na no nande?}}
+|-
+|{{Shared}}|{{lrc color|toya|I know the way}}
+|-
+|{{lrc color|akito|願ってるばっかじゃ叶わない}}
+|{{lrc color|akito|negatteru bakka ja kanawanai}}
+|-
+|{{lrc color|akito|めちゃくちゃにされたって変わらない}}
+|{{lrc color|akito|mechakucha ni saretatte kawaranai}}
+|-
+|{{lrc color|akito|まあね 喰らえ 覚醒}}
+|{{lrc color|akito|maa ne kurae kakusei}}
+|-
+|{{Shared}}|{{lrc color|akito|Find the way}}
+|-
+|<br>
+|-
+|{{lrc color|kohane|待ってライトあびる感覚甘い罠}}
+|{{lrc color|kohane|matte raito abiru kankaku amai wana}}
+|-
+|{{lrc color|an|見当違いdisも聞き飽きたわ}}
+|{{lrc color|an|kentou chigai dis mo kikiakita wa}}
+|-
+|{{lrc color|miku|そりゃねいけるところまでTake the higher}}
+|{{lrc color|miku|sorya ne ikeru tokoro made Take the higher}}
+|-
+|{{lrc color|kohane|どう？ Turning back無理って とっくに分かってんでしょ}}
+|{{lrc color|kohane|dou? Turning back muri tte tokku ni wakatten desho}}
+|-
+|<br>
+|-
+|uh 悟られそう {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}}
+|uh satoraresou {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}}
+|-
+|uh {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} {{lrc color|akito|可か不可 Get down now}}
+|uh {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} {{lrc color|akito|ka ka fuka Get down now}}
+|-
+|uh あーあ {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} もうずっとしゃんと居られないや {{lrc color|kohane|■}}{{lrc color|an|■}}
+|uh aaa {{lrc color|akito|■}}{{lrc color|toya|■}}{{lrc color|miku|■}} mou zutto shanto irarenai ya {{lrc color|kohane|■}}{{lrc color|an|■}}
+|-
+|{{lrc color|miku|それは誰のせい？}}
+|{{lrc color|miku|sore wa dare no sei?}}
+|-
+|<br>
+|-
+|終わらない夢を描こう {{lrc color|an|■}}{{lrc color|toya|■}} {{lrc color|an|描いて}}
+|owaranai yume o egakou {{lrc color|an|■}}{{lrc color|toya|■}} {{lrc color|an|egaite}}
+|-
+|願ったまま欲しがった {{lrc color|an|■}}{{lrc color|toya|■}} その先へ {{lrc color|akito|■}}{{lrc color|toya|■}}
+|negatta mama hoshigatta {{lrc color|an|■}}{{lrc color|toya|■}} sono saki e {{lrc color|akito|■}}{{lrc color|toya|■}}
+|-
+|終わらない夜を超えていこう 超えていこう {{lrc color|kohane|■}}{{lrc color|akito|■}}
+|owaranai yoru o koete ikou koete ikou {{lrc color|kohane|■}}{{lrc color|akito|■}}
+|-
+|このまま {{lrc color|kohane|■}}{{lrc color|akito|■}} {{lrc color|miku|焦がれた向こう側へ}}
+|kono mama {{lrc color|kohane|■}}{{lrc color|akito|■}} {{lrc color|miku|kogareta mukougawa e}}
+|-
+|<br>
+|-
+|{{lrc color|kohane|はあぶっちゃけ解せないや}}
+|{{lrc color|kohane|haa bucchake gesenai ya}}
+|-
+|{{lrc color|kohane|勝算なくても行っちゃえ！とか (#^ω^)}}
+|{{lrc color|kohane|shousan nakutemo icchae! toka (#^ω^)}}
+|-
+|{{lrc color|kohane|運命感じる感受性は否めない}}
+|{{lrc color|kohane|unmei kanjiru kanjusei wa inamenai}} 
+|-
+|{{lrc color|kohane|#ウチら負けない}}
+|{{lrc color|kohane|#uchira makenai}}
+|-
+|{{lrc color|an|跳べ 吠え 目で 追って いつでもNO.1}}
+|{{lrc color|an|tobe hoe me de otte itsudemo NO.1}}
+|-
+|{{lrc color|an|そこどけ 速攻揺らせ 攻め}}
+|{{lrc color|an|soko doke sokkou yurase zeme}}
+|-
+|{{lrc color|an|甘美な時 Ride on now}}
+|{{lrc color|an|kanbi na toki Ride on now}}
+|-
+|<br>
+|-
+|{{lrc color|toya|Shake it up,まだまだ}}
+|{{lrc color|toya|Shake it up, mada mada}}
+|-
+|{{Shared}}|{{lrc color|akito|Go beyond the way! yuh}}
+|-
+|<br>
+|-
+|{{lrc color|miku|行き詰まるばかりで ずるい言葉を探して}}
+|{{lrc color|miku|ikizumaru bakari de zurui kotoba o sagashite}}
+|-
+|{{Shared}}|{{lrc color|miku|(mellow mellow mellow)}}
+|-
+|{{lrc color|akito|I am me 研ぎ澄まし}}{{lrc color|toya|本能に従って}}行け {{lrc color|akito|■}}{{lrc color|toya|■}}
+|{{lrc color|akito|I am me togisumashi}} {{lrc color|toya|honnou ni shitagatte}} ike {{lrc color|akito|■}}{{lrc color|toya|■}}
+|-
+|{{Shared}}|Holla "We are the winners!" {{lrc color|akito|■}}{{lrc color|toya|■}}
+|-
+|{{Shared}}|So burn my burn my heart {{lrc color|kohane|■}}{{lrc color|an|■}}
+|-
+|<br>
+|-
+|終わらない夢を描こう {{lrc color|kohane|■}}{{lrc color|akito|■}} {{lrc color|kohane|描いて}}
+|owaranai yume o egakou {{lrc color|kohane|■}}{{lrc color|akito|■}} {{lrc color|kohane|egaite}}
+|-
+|願ったまま欲しがった {{lrc color|kohane|■}}{{lrc color|akito|■}} その先へ {{lrc color|akito|■}}{{lrc color|toya|■}}
+|negatta mama hoshigatta {{lrc color|kohane|■}}{{lrc color|akito|■}} sono saki e {{lrc color|akito|■}}{{lrc color|toya|■}}
+|-
+|終わらない夜を超えていこう 超えていこう {{lrc color|an|■}}{{lrc color|toya|■}}
+|owaranai yoru o koete ikou koete ikou {{lrc color|an|■}}{{lrc color|toya|■}}
+|-
+|このまま {{lrc color|an|■}}{{lrc color|toya|■}} {{lrc color|miku|焦がれた向こう側へ}}
+|kono mama {{lrc color|an|■}}{{lrc color|toya|■}} {{lrc color|miku|kogareta mukougawa e}}
+|-
+|<br>
+|-
+|uh 張り裂けそう
+|uh harisakesou
+|-
+|{{lrc color|toya|追いかけて合わせた背が熱くて}}
+|{{lrc color|toya|oikakete awaseta se ga atsukute}}
+|-
+|uh 張り裂けそう
+|uh harisakesou
+|-
+|{{lrc color|akito|もう一生鳴り止まない}}
+|{{lrc color|akito|mou isshou nariyamanai}}
+|-
+|{{lrc color|an|限界の向こう側へ}}
+|{{lrc color|an|genkai no mukougawa e}}
+|-
+|<br>
+|-
+|{{Shared}}|{{lrc color|kohane|Ready Steady? Get out the way.}}
+|}
+|-|VOCALOID Version =
+{{lrc legend|black; color:#9F1826
+|Miku
+|Rin:#E5C100
+|Len:orange
+|All}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{Shared}}|{{lrc color|len|(Giga)}}
+|-
+|{{lrc color|miku|息つまるばかりで 温い退屈な夜道で}}
+|{{lrc color|miku|ikitsumaru bakari de nukui taikutsu na yomichi de}}
+|-
+|{{Shared}}|{{lrc color|miku|(mellow mellow mellow)}}
+|-
+|{{lrc color|rin|ルールは無視で行きたいね}}
+|{{lrc color|rin|ruuru wa mushi de ikitai ne}}
+|-
+|{{Shared}}|{{lrc color|rin|So burn my burn my heart}}
+|-
+|<br>
+|-
+|uh 悟られそう {{lrc color|miku|■}}{{lrc color|len|■}}
+|uh satoraresou {{lrc color|miku|■}}{{lrc color|len|■}}
+|-
+|uh {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|len|可か不可 Get down now}}
+|uh {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|len|ka ka fuka Get down now}}
+|-
+|uh あーあ {{lrc color|miku|■}}{{lrc color|len|■}} もうきっと 優等ぶった {{lrc color|miku|■}}{{lrc color|rin|■}}
+|uh aaa {{lrc color|miku|■}}{{lrc color|len|■}} mou kitto yuutou butta {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|"I"じゃ居られないくらい {{lrc color|miku|■}}{{lrc color|rin|■}}
+|"I" ja irarenai kurai {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|miku|どうしようもない}}
+|{{lrc color|miku|doushiyou mo nai}}
+|-
+|<br>
+|-
+|{{lrc color|len|yuh 無理目のクエスチョン}}
+|{{lrc color|len|yuh muri me no kuesuchon}}
+|-
+|{{lrc color|len|ha 実存？フィクション？}}
+|{{lrc color|len|ha jitsuzon? fikushon?}}
+|-
+|{{lrc color|len|You make me サゲなの何で？}}
+|{{lrc color|len|You make me sage na no nande?}}
+|-
+|{{Shared}}|{{lrc color|len|I know the way}}
+|-
+|{{lrc color|rin|願ってるばっかじゃ叶わない}}
+|{{lrc color|rin|negatteru bakka ja kanawanai}}
+|-
+|{{lrc color|rin|めちゃくちゃにされたって変わらない}}
+|{{lrc color|rin|mechakucha ni saretatte kawaranai}}
+|-
+|{{lrc color|rin|まあね 喰らえ 覚醒}}
+|{{lrc color|rin|maa ne kurae kakusei}}
+|-
+|{{Shared}}|{{lrc color|rin|Find the way}}
+|-
+|<br>
+|-
+|{{lrc color|miku|待ってライトあびる感覚甘い罠}}
+|{{lrc color|miku|matte raito abiru kankaku amai wana}}
+|-
+|{{lrc color|miku|見当違いdisも聞き飽きたわ}}
+|{{lrc color|miku|kentou chigai dis mo kikiakita wa}}
+|-
+|そりゃねいけるところまでTake the higher {{lrc color|miku|■}}{{lrc color|rin|■}}
+|sorya ne ikeru tokoro made Take the higher {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|rin|どう？ Turning back無理って とっくに分かってんでしょ}}
+|{{lrc color|rin|dou? Turning back muri tte tokku ni wakatten desho}}
+|-
+|<br>
+|-
+|uh 悟られそう {{lrc color|miku|■}}{{lrc color|len|■}}
+|uh satoraresou {{lrc color|miku|■}}{{lrc color|len|■}}
+|-
+|uh {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|len|可か不可 Get down now}}
+|uh {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|len|ka ka fuka Get down now}}
+|-
+|uh あーあ {{lrc color|miku|■}}{{lrc color|len|■}} もうずっとしゃんと居られないや {{lrc color|miku|■}}{{lrc color|rin|■}}
+|uh aaa {{lrc color|miku|■}}{{lrc color|len|■}} mou zutto shanto irarenai ya {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|len|それは誰のせい？}}
+|{{lrc color|len|sore wa dare no sei?}}
+|-
+|<br>
+|-
+|終わらない夢を描こう {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|miku|描いて}}
+|owaranai yume o egakou {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|miku|egaite}}
+|-
+|願ったまま欲しがった {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|その先へ}}
+|negatta mama hoshigatta {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|sono saki e}}
+|-
+|終わらない夜を超えていこう 超えていこう {{lrc color|len|■}}{{lrc color|rin|■}}
+|owaranai yoru o koete ikou koete ikou {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|このまま {{lrc color|len|■}}{{lrc color|rin|■}} {{lrc color|rin|焦がれた向こう側へ}}
+|kono mama {{lrc color|len|■}}{{lrc color|rin|■}} {{lrc color|rin|kogareta mukougawa e}}
+|-
+|<br>
+|-
+|{{lrc color|miku|はあぶっちゃけ解せないや}}
+|{{lrc color|miku|haa bucchake gesenai ya}}
+|-
+|{{lrc color|miku|勝算なくても行っちゃえ！とか (#^ω^)}}
+|{{lrc color|miku|shousan nakutemo icchae! toka (#^ω^)}}
+|-
+|{{lrc color|miku|運命感じる感受性は否めない}}
+|{{lrc color|miku|unmei kanjiru kanjusei wa inamenai}} 
+|-
+|{{lrc color|miku|#ウチら負けない}}
+|{{lrc color|miku|#uchira makenai}}
+|-
+|{{lrc color|rin|跳べ 吠え 目で 追って いつでもNO.1}}
+|{{lrc color|rin|tobe hoe me de otte itsudemo NO.1}}
+|-
+|{{lrc color|rin|そこどけ 速攻揺らせ 攻め}}
+|{{lrc color|rin|soko doke sokkou yurase zeme}}
+|-
+|{{lrc color|rin|甘美な時 Ride on now}}
+|{{lrc color|rin|kanbi na toki Ride on now}}
+|-
+|<br>
+|-
+|{{lrc color|len|Shake it up,まだまだ}}
+|{{lrc color|len|Shake it up, mada mada}}
+|-
+|{{Shared}}|{{lrc color|len|Go beyond the way! yuh}}
+|-
+|<br>
+|-
+|{{lrc color|miku|行き詰まるばかりで ずるい言葉を探して}}
+|{{lrc color|miku|ikizumaru bakari de zurui kotoba o sagashite}}
+|-
+|{{Shared}}|{{lrc color|miku|(mellow mellow mellow)}}
+|-
+|{{lrc color|len|I am me 研ぎ澄まし}}{{lrc color|rin|本能に従って}}行け {{lrc color|len|■}}{{lrc color|rin|■}}
+|{{lrc color|len|I am me togisumashi}} {{lrc color|rin|honnou ni shitagatte}} ike {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|{{Shared}}|Holla "We are the winners!" {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|{{Shared}}|{{lrc color|miku|So burn my burn my heart}}
+|-
+|<br>
+|-
+|終わらない夢を描こう {{lrc color|len|■}}{{lrc color|rin|■}} {{lrc color|rin|描いて}}
+|owaranai yume o egakou {{lrc color|len|■}}{{lrc color|rin|■}} {{lrc color|rin|egaite}}
+|-
+|願ったまま欲しがった {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|その先へ}}
+|negatta mama hoshigatta {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|sono saki e}}
+|-
+|終わらない夜を超えていこう 超えていこう {{lrc color|miku|■}}{{lrc color|len|■}}
+|owaranai yoru o koete ikou koete ikou {{lrc color|miku|■}}{{lrc color|len|■}}
+|-
+|このまま {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|miku|焦がれた向こう側へ}}
+|kono mama {{lrc color|miku|■}}{{lrc color|len|■}} {{lrc color|miku|kogareta mukougawa e}}
+|-
+|<br>
+|-
+|uh 張り裂けそう
+|uh harisakesou
+|-
+|{{lrc color|len|追いかけて合わせた背が熱くて}}
+|{{lrc color|len|oikakete awaseta se ga atsukute}}
+|-
+|uh 張り裂けそう
+|uh harisakesou
+|-
+|もう一生鳴り止まない {{lrc color|miku|■}}{{lrc color|rin|■}}
+|mou isshou nariyamanai {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|限界の向こう側へ {{lrc color|len|■}}{{lrc color|rin|■}}
+|genkai no mukougawa e {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|<br>
+|-
+|{{Shared}}|{{lrc color|miku|Ready Steady? Get out the way.}}
+|}
+</tabber>
+
+==Derivatives==
+{{Derivative
+  |color      = black; color:#9F1826
+  |title      = Earthy X6's Cover ft. Crypton VOCALOIDs
+  |singers    = Hatsune Miku, Kagamine Rin, Kagamine Len, [[Megurine Luka]], [[MEIKO]], [[KAITO]]
+  |producers  = Earthy X6 (tuning), Thai1210 (english translation)
+  |categories = VOCALOID Cover
+  |links      = nn sm43249523; yt vG4knpYFF-M; bb BV1Pc411t7yH
+}}
+{{Derivative
+  |color      = black; color:#9F1826
+  |title      = SIXFONIA's Cover
+  |singers    = {{UIW|SIXFONIA}}: {{UIW|Ameno Kosame}}, {{UIW|Illma}}, {{UIW|Suchi}}
+  |producers  = Illma (rap lyrics), Akatin (mixing), Shun (illust), Kuuru (video), Suchi (thumbnail)
+  |categories = Human Cover; Fanmade PV
+  |links      = yt Eeq1s5wrhk4
+}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song is featured on the following albums:
+* ''Beyond the way (single)'' (VOCALOID version)
+* ''Beyond the way / blender'' (Vivid BAD SQUAD version)
+
+===Video games===
+This song is featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku, Kagamine Rin, and Kagamine Len; SEKAI version by Vivid BAD SQUAD, Hatsune Miku, and Kagamine Len).
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#04051A">
+Games - Project SEKAI - Beyond the way.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#04051A">
+Giga - Beyond the way (single).jpg|Cover art of the digital single<br>''Beyond the way''
+GigaRSDKome - Beyond the way-blender (single).jpg|Cover art of the single<br>''Beyond the way / blender''
+</gallery>
+|-|Misc =
+<gallery position="center" hideaddbutton="true" bordercolor="#04051A">
+Beyond the way 1M Views.jpg|Beyond the way 1 million views celebratory post
+Beyond the way 5M Views.jpg|Beyond the way 5 million views celebratory post
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |media = Illustration: [https://www.pixiv.net/en/artworks/115011405 pixiv]
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://karent.jp/album/4339 KARENT] (Vivid BAD SQUAD version)
+** [https://giga.lnk.to/Beyond_the_way Linkfire] (VOCALOID version)
+  |dwlds = [https://www.dropbox.com/scl/fi/a35zl8k7jmqf7b0zxffi9/Beyond-the-way_inst.wav?rlkey=d35dbg9ew8h3ogy9sdgopyc9t&dl=0 Off-vocal] — Dropbox
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 57653
+  |nico    = sm43244916
+  |vocadb  = 560323 Vivid BAD SQUAD Version -
+  |vocadb2 = 571496 VOCALOID Version -
+  |mgp     = Beyond_the_way
+  |tag     = Beyond_the_way
+  |vlw     = Beyond the way
+  |url     = {{IW|projectsekai|Beyond the way|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese trio songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Self-covers]]
+[[Category:Mobile game songs]]
+[[ru:Beyond_the_way]]

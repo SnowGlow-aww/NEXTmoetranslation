@@ -1,0 +1,728 @@
+{{Song box 2
+  |color     = #709aaf; color:white
+  |image     = kz - Hand in hand.png
+  |title     = "'''Hand in Hand'''"
+  |date      = July 7, 2015
+  |views     = {{v|yt|14,568,957}} and {{v|nn|1,142,719}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[kz]] (music, lyrics)
+* Hoshima (illustration)
+  |links     = {{l|yt|RKtoreimcQ8}} {{l|nn|1436252961}}
+}}
+
+==Background==
+"'''Hand in Hand'''" is a song featuring Hatsune Miku by kz. It is the official theme song for [[Hatsune Miku Magical Mirai 2015|Magical Mirai 2015]].
+
+This song has entered the ''[[Hall of Fame|Hall of Legend]]'' and has exceeded over 10 million YouTube views.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #709aaf; color:white
+  |title       = Hachioji-P's Remix
+  |singers     = Hatsune Miku
+  |producers   = [[Hachioji-P]] (remix), Hachipuyo (illust)
+  |categories  = Remix
+  |description = The full version of the Hand in Hand remix from マジカルミライ SPECIAL MEGAMIX.
+  |links       = nn sm29561020;yt 2tDkxoQVOug
+  |thumb       = yt
+}}
+{{Derivative
+  |color       = #709aaf; color:white
+  |title       = Lize Helesta's cover
+  |singers     = {{IW|VirtualYoutuber|Lize Helesta}}
+  |categories  = Human Cover
+  |description = This cover was officially featured on the Nijisanji album ''Prismatic Colors''.
+  |links       = yt h5ewNeJPDxM
+  |thumb       = yt
+}}
+{{clr}}
+{{Derivative
+  |color       = #709aaf; color:white
+  |title       = Piapro Characters Version
+  |thumb       = Magical Mirai 2024.jpg
+  |singers     = Hatsune Miku, [[Kagamine Rin]], [[Kagamine Len]], [[Megurine Luka]], [[MEIKO]], [[KAITO]]
+  |categories  = VOCALOID Cover
+  |description = This version was featured in the Magical Mirai series of concerts, starting with Magical Mirai 2024.
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>Japanese lyrics =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|目を閉じて　視えるその
+|me o tojite mieru sono
+|-
+|指先へ　めがけた
+|yubisaki e megaketa
+|-
+|口ずさむ　その歌を
+|kuchizusamu sono uta o
+|-
+|続けて
+|tsuzukete
+|-
+|<br>
+|-
+|そう
+|sou
+|-
+|Hand in hand　君のその手は
+|Hand in hand kimi no sono te wa
+|-
+|知らない誰かの手も
+|shiranai dareka no te mo
+|-
+|Hand in hand　握ってるんだ
+|Hand in hand nigitteru nda
+|-
+|ずっと　ずっと
+|zutto zutto
+|-
+|ミライまで
+|mirai made
+|-
+|<br>
+|-
+|まだ　泣かないで
+|mada nakanai de
+|-
+|気付かないだけだよ
+|kizukanai dake da yo
+|-
+|言葉や想い
+|kotoba ya omoi
+|-
+|見えづらいからね
+|miezurai kara ne
+|-
+|<br>
+|-
+|好きな人　好きなこと
+|suki na hito suki na koto
+|-
+|好きな場所　めがけた
+|suki na basho megaketa
+|-
+|優しさが　変えるんだ
+|yasashisa ga kaeru nda
+|-
+|明日を
+|ashita o
+|-
+|<br>
+|-
+|そう
+|sou
+|-
+|Hand in hand　君が叫んだ
+|Hand in hand kimi ga sakenda
+|-
+|歌は誰かの手も
+|uta wa dareka no te mo
+|-
+|Hand in hand　包みこむから
+|Hand in hand tsutsumi komu kara
+|-
+|途切れないで
+|togirenai de
+|-
+|<br>
+|-
+|だからね
+|dakara ne
+|-
+|Hand in hand　強い気持ちは
+|Hand in hand tsuyoi kimochi wa
+|-
+|誰かの肩を抱く
+|dareka no kata o daku
+|-
+|Hand in hand　覚えていてね
+|Hand in hand oboeteite ne
+|-
+|ずっと　ずっと
+|zutto zutto
+|-
+|ミライまで
+|mirai made
+|-
+|<br>
+|-
+|何気ない言葉
+|nanigenai kotoba
+|-
+|覚えてないメロディー
+|oboetenai merodii
+|-
+|知らないうちに
+|shiranai uchi ni
+|-
+|笑顔を作ってる
+|egao o tsukutteru
+|-
+|<br>
+|-
+|その声で　その指で
+|sono koe de sono yubi de
+|-
+|その胸で　描いた
+|sono mune de egaita
+|-
+|愛しさは　伝わるよ
+|itoshisa wa tsutawaru yo
+|-
+|明日へ
+|ashita e
+|-
+|<br>
+|-
+|そう
+|sou
+|-
+|Hand in hand　君が掴んだ
+|Hand in hand kimi ga tsukanda
+|-
+|その手は遠くまで
+|sono te wa tooku made
+|-
+|Hand in hand　違う誰かの
+|Hand in hand chigau dareka no
+|-
+|涙拭う
+|namida nuguu
+|-
+|<br>
+|-
+|だからね
+|dakara ne
+|-
+|Hand in hand　強い気持ちは
+|Hand in hand tsuyoi kimochi wa
+|-
+|誰かの肩を抱く
+|dareka no kata o daku
+|-
+|Hand in hand　覚えていてね
+|Hand in hand oboeteite ne
+|-
+|ずっと　ずっと
+|zutto zutto
+|-
+|ミライまで
+|mirai made
+|-
+|<br>
+|-
+|目を閉じて　視えるその
+|me o tojite mieru sono
+|-
+|指先へ　めがけた
+|yubisaki e megaketa
+|-
+|口ずさむ　その歌を
+|kuchizusamu sono uta o
+|-
+|続けて
+|tsuzukete
+|-
+|<br>
+|-
+|そう
+|sou
+|-
+|Hand in hand　君が掴んだ
+|Hand in hand kimi ga tsukanda
+|-
+|その手は遠くまで
+|sono te wa tooku made
+|-
+|Hand in hand　違う誰かの
+|Hand in hand chigau dareka no
+|-
+|涙拭う
+|namida nuguu
+|-
+|<br>
+|-
+|だからね
+|dakara ne
+|-
+|Hand in hand　君が叫んだ
+|Hand in hand kimi ga sakenda
+|-
+|歌は誰かの手も
+|uta wa dareka no te mo
+|-
+|Hand in hand　包みこむから
+|Hand in hand tsutsumi komu kara
+|-
+|途切れないで
+|togirenai de
+|-
+|<br>
+|-
+|だからね
+|dakara ne
+|-
+|Hand in hand　強い気持ちは
+|Hand in hand tsuyoi kimochi wa
+|-
+|誰かの肩を抱く
+|dareka no kata o daku
+|-
+|Hand in hand　覚えていてね
+|Hand in hand oboeteite ne
+|-
+|ずっと　ずっと
+|zutto zutto
+|-
+|ミライまで
+|mirai made
+|}
+|-|Piapro Characters Version =
+{{lrc legend|#709aaf; color:white
+|Miku
+|Rin
+|Len
+|Luka
+|MEIKO
+|KAITO
+|All|n7=y}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|miku|目を閉じて　視えるその}}
+|{{lrc color|miku|me o tojite mieru sono}}
+|-
+|{{lrc color|miku|指先へ　めがけた}}
+|{{lrc color|miku|yubisaki e megaketa}}
+|-
+|{{lrc color|miku|口ずさむ　その歌を}}
+|{{lrc color|miku|kuchizusamu sono uta o}}
+|-
+|{{lrc color|miku|続けて}}
+|{{lrc color|miku|tsuzukete}}
+|-
+|<br>
+|-
+|{{lrc color|miku|そう}}
+|{{lrc color|miku|sou}}
+|-
+|{{lrc color|miku|Hand in hand　君のその手は}}
+|{{lrc color|miku|Hand in hand kimi no sono te wa}}
+|-
+|{{lrc color|miku|知らない誰かの手も}}
+|{{lrc color|miku|shiranai dareka no te mo}}
+|-
+|{{lrc color|miku|Hand in hand　握ってるんだ}}
+|{{lrc color|miku|Hand in hand nigitteru n da}}
+|-
+|{{lrc color|miku|ずっと　ずっと}}
+|{{lrc color|miku|zutto zutto}}
+|-
+|{{lrc color|miku|ミライまで}}
+|{{lrc color|miku|mirai made}}
+|-
+|<br>
+|-
+|{{lrc color|miku|まだ　泣かないで}}
+|{{lrc color|miku|mada nakanai de}}
+|-
+|{{lrc color|miku|気付かないだけだよ}}
+|{{lrc color|miku|kizukanai dake da yo}}
+|-
+|{{lrc color|miku|言葉や想い}}
+|{{lrc color|miku|kotoba ya omoi}}
+|-
+|{{lrc color|miku|見えづらいからね}}
+|{{lrc color|miku|miezurai kara ne}}
+|-
+|<br>
+|-
+|{{lrc color|miku|好きな人　好きなこと}}
+|{{lrc color|miku|suki na hito suki na koto}}
+|-
+|{{lrc color|miku|好きな場所　めがけた}}
+|{{lrc color|miku|suki na basho megaketa}}
+|-
+|{{lrc color|miku|優しさが　変えるんだ}}
+|{{lrc color|miku|yasashisa ga kaeru nda}}
+|-
+|{{lrc color|miku|明日を}}
+|{{lrc color|miku|ashita o}}
+|-
+|<br>
+|-
+|{{lrc color|miku|そう}}
+|{{lrc color|miku|sou}}
+|-
+|{{lrc color|miku|Hand in hand　君が叫んだ}}
+|{{lrc color|miku|Hand in hand kimi ga sakenda}}
+|-
+|{{lrc color|miku|歌は誰かの手も}}
+|{{lrc color|miku|uta wa dareka no te mo}}
+|-
+|{{lrc color|miku|Hand in hand　包みこむから}}
+|{{lrc color|miku|Hand in hand tsutsumi komu kara}}
+|-
+|{{lrc color|miku|途切れないで}}
+|{{lrc color|miku|togirenai de}}
+|-
+|<br>
+|-
+|{{lrc color|miku|だからね}}
+|{{lrc color|miku|dakara ne}}
+|-
+|{{lrc color|miku|Hand in hand　強い気持ちは}}
+|{{lrc color|miku|Hand in hand tsuyoi kimochi wa}}
+|-
+|{{lrc color|miku|誰かの肩を抱く}}
+|{{lrc color|miku|dareka no kata o daku}}
+|-
+|{{lrc color|miku|Hand in hand　覚えていてね}}
+|{{lrc color|miku|Hand in hand oboeteite ne}}
+|-
+|{{lrc color|miku|ずっと　ずっと}}
+|{{lrc color|miku|zutto zutto}}
+|-
+|{{lrc color|miku|ミライまで}}
+|{{lrc color|miku|mirai made}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|何気ない言葉}}
+|{{lrc color|meiko|nanigenai kotoba}}
+|-
+|{{lrc color|meiko|覚えてないメロディー}}
+|{{lrc color|meiko|oboetenai merodii}}
+|-
+|{{lrc color|meiko|知らないうちに}}
+|{{lrc color|meiko|shiranai uchi ni}}
+|-
+|{{lrc color|meiko|笑顔を作ってる}}
+|{{lrc color|meiko|egao o tsukutteru}}
+|-
+|<br>
+|-
+|{{lrc color|kaito|その声で　その指で}}
+|{{lrc color|kaito|sono koe de sono yubi de}}
+|-
+|{{lrc color|kaito|その胸で　描いた}}
+|{{lrc color|kaito|sono mune de egaita}}
+|-
+|{{lrc color|kaito|愛しさは　伝わるよ}}
+|{{lrc color|kaito|itoshisa wa tsutawaru yo}}
+|-
+|{{lrc color|kaito|明日へ}}
+|{{lrc color|kaito|ashita e}}
+|-
+|<br>
+|-
+|{{lrc color|rin|そう}}
+|{{lrc color|rin|sou}}
+|-
+|{{lrc color|rin|Hand in hand　君が掴んだ}}
+|{{lrc color|rin|Hand in hand kimi ga tsukanda}}
+|-
+|{{lrc color|rin|その手は遠くまで}}
+|{{lrc color|rin|sono te wa tooku made}}
+|-
+|{{lrc color|len|Hand in hand　違う誰かの}}
+|{{lrc color|len|Hand in hand chigau dareka no}}
+|-
+|{{lrc color|len|涙拭う}}
+|{{lrc color|len|namida nuguu}}
+|-
+|<br>
+|-
+|{{lrc color|luka|だからね}}
+|{{lrc color|luka|dakara ne}}
+|-
+|{{lrc color|luka|Hand in hand　強い気持ちは}}
+|{{lrc color|luka|Hand in hand tsuyoi kimochi wa}}
+|-
+|{{lrc color|luka|誰かの肩を抱く}}
+|{{lrc color|luka|dareka no kata o daku}}
+|-
+|{{lrc color|luka|Hand in hand　覚えていてね}}
+|{{lrc color|luka|Hand in hand oboeteite ne}}
+|-
+|{{lrc color|luka|ずっと　ずっと}}
+|{{lrc color|luka|zutto zutto}}
+|-
+|{{lrc color|luka|ミライまで}}
+|{{lrc color|luka|mirai made}}
+|-
+|<br>
+|-
+|{{lrc color|miku|目を閉じて　視えるその}}
+|{{lrc color|miku|me o tojite mieru sono}}
+|-
+|{{lrc color|miku|指先へ　めがけた}}
+|{{lrc color|miku|yubisaki e megaketa}}
+|-
+|{{lrc color|miku|口ずさむ　その歌を}}
+|{{lrc color|miku|kuchizusamu sono uta o}}
+|-
+|{{lrc color|miku|続けて}}
+|{{lrc color|miku|tsuzukete}}
+|-
+|<br>
+|-
+|{{lrc color|miku|そう}}
+|{{lrc color|miku|sou}}
+|-
+|{{lrc color|miku|Hand in hand　君が掴んだ}}
+|{{lrc color|miku|Hand in hand kimi ga tsukanda}}
+|-
+|{{lrc color|miku|その手は遠くまで}}
+|{{lrc color|miku|sono te wa tooku made}}
+|-
+|{{lrc color|miku|Hand in hand　違う誰かの}}
+|{{lrc color|miku|Hand in hand chigau dareka no}}
+|-
+|{{lrc color|miku|涙拭う}}
+|{{lrc color|miku|namida nuguu}}
+|-
+|<br>
+|-
+|だからね
+|dakara ne
+|-
+|Hand in hand　君が叫んだ
+|Hand in hand kimi ga sakenda
+|-
+|歌は誰かの手も
+|uta wa dareka no te mo
+|-
+|Hand in hand　包みこむから
+|Hand in hand tsutsumi komu kara
+|-
+|途切れないで
+|togirenai de
+|-
+|<br>
+|-
+|だからね
+|dakara ne
+|-
+|Hand in hand　強い気持ちは
+|Hand in hand tsuyoi kimochi wa
+|-
+|誰かの肩を抱く
+|dareka no kata o daku
+|-
+|Hand in hand　覚えていてね
+|Hand in hand oboeteite ne
+|-
+|ずっと　ずっと
+|zutto zutto
+|-
+|ミライまで
+|mirai made
+|}
+|-|Unofficial English lyrics = 
+{{Translation|Japanese|unofficial English|Project DIVA|notes=Featured in [[Hatsune Miku -Project DIVA- X]], the writer is uncredited.}}
+<poem style="margin-left:1em;">
+You closed your eyes and headed for what you saw
+Beyond your fingerprints
+That song of yours
+Keep humming away
+
+That's right
+Hand in hand, your hand
+and the hand of someone new
+Hand in hand, grasped together,
+Forever and ever
+Into the future
+
+Hold back your tears
+You just haven't realized
+That words and thoughts
+Are hard to see
+
+The people you love, the things you love
+The places you love are where you're headed
+Kindness will change
+The days ahead
+
+That's right
+Hand in hand, the song you shouted to the sky
+The hand of someone new
+Hand in hand, I'll hold on,
+so don't let go
+
+And that's why
+Hand in hand, your powerful feelings
+can pull somebody in
+Hand in hand, remember it,
+Forever and ever
+Into the future
+
+You closed your eyes and headed for what you saw
+Beyond your fingerprints
+That song of yours
+Keep humming away
+
+That's right
+Hand in hand, the hand you found
+On into the distance
+Hand in hand, wipe someone's tears away
+
+And that's why
+Hand in hand, the song you shouted to the sky
+The hand of someone new
+Hand in hand, I'll hold on,
+so don't let go
+
+And that's why
+Hand in hand, your powerful feelings
+can pull somebody in
+Hand in hand, remember it,
+Forever and ever
+Into the future
+</poem>
+</tabber>
+
+{{clr}}
+
+==Derivatives==
+{{Derivative
+  |color      = utau
+  |title      = Matsuda Toki's cover ft. Shiine Ama
+  |singers    = {{UW|Ama Shiine|Shiine Ama}}
+  |producers  = Matsuda Toki
+  |categories = UTAU Cover
+  |links      = nn sm28935710
+  |thumb      = nn
+}}
+{{Derivative
+  |color      = utau
+  |title      = Arieru The Fox's cover ft. Kasane Teto
+  |singers    = [[Kasane Teto]]
+  |producers  = Arieru The Fox's
+  |categories = UTAU Cover
+  |links      = yt eNbF0uMFtpc
+}}
+{{Derivative
+  |color      = #709aaf; color:white
+  |title      = Natsuki's MMD PV
+  |producers  = Natsuki
+  |categories = Fanmade PV
+  |links      = nn sm30689486;yt unRmHe6-P0U
+  |thumb      = yt
+}}
+{{Derivative
+  |color      = #709aaf; color:white
+  |title      = 2mk's MMD PV
+  |producers  = 2mk
+  |categories = Fanmade PV
+  |links      = yt G-aXglGlbYY
+  |thumb      = yt
+}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song was featured in the following albums:
+* Last Dance Refrain (Hachioji-P Remix)
+* Hand in Hand
+
+This song was featured in the following compilation albums:
+* [[初音ミク「マジカルミライ 2015」OFFICIAL ALBUM (Hatsune Miku "Magical Mirai 2015" OFFICIAL ALBUM)|Hatsune Miku "Magical Mirai 2015" OFFICIAL ALBUM]]
+* [[初音ミク「マジカルミライ 2017」OFFICIAL ALBUM (Hatsune Miku "Magical Mirai 2017" OFFICIAL ALBUM)|Hatsune Miku "Magical Mirai 2017" OFFICIAL ALBUM]] <small>(In the "Magical Mirai SPECIAL MEGAMIX")</small>
+* Hatsune Miku Project DIVA MEGA39's 10th Anniversary Collection
+* [[初音ミク「マジカルミライ」10th Anniversary OFFICIAL ALBUM (Hatsune Miku "Magical Mirai" 10th Anniversary OFFICIAL ALBUM)|Hatsune Miku "Magical Mirai" 10th Anniversary OFFICIAL ALBUM]]
+
+===Concerts===
+This song was featured in the following concerts:
+{{Col-2b|
+* [[Hatsune Miku Magical Mirai 2015|Magical Mirai 2015]]
+* [[Hatsune Miku Magical Mirai 2016|Magical Mirai 2016]]
+* [[Hatsune Miku Magical Mirai 2017|Magical Mirai 2017]]
+* [[Hatsune Miku Magical Mirai 2018|Magical Mirai 2018]]
+* [[BILIBILI MACRO LINK - VISUAL RELEASE 2019]]
+* [[Hatsune Miku Magical Mirai 2019|Magical Mirai 2019]]
+* [[HATSUNE MIKU LIVE - UNTITLED 0 -]]
+* [[Hatsune Miku Magical Mirai 2020|Magical Mirai 2020]] (Osaka, Day 2/Tokyo, Day 3)
+* [[MIKU WITH YOU 2020]]
+|
+* {{wp|ABU TV Song Festival 2020}}
+* [[Hatsune Miku Magical Mirai 2021|Magical Mirai 2021]]
+* [[MIKU WITH YOU 2021]]
+* [[Hatsune Miku Magical Mirai 10th Anniversary|Magical Mirai 10th Anniversary]]
+* [[Hatsune Miku Magical Mirai 2023|Magical Mirai 2023]]
+* [[Miku FES'24 (Haru) ~Happy 16th Birthday~]]
+* [[Hatsune Miku Magical Mirai 2024|Magical Mirai 2024]] (performed with Rin, Len, Luka, MEIKO, & KAITO)
+* [[Hatsune Miku Magical Mirai 2025|Magical Mirai 2025]] (performed with Rin, Len, Luka, MEIKO, & KAITO)
+* [[Hatsune Miku Magical Mirai 2026|Magical Mirai 2026]] (performed with Rin, Len, Luka, MEIKO, & KAITO)
+}}
+
+===Video games===
+This song was featured in the following video games:
+{{Col-2b|
+* {{IW|bravefrontierglobal|Brave Frontier}} ({{IW|bravefrontierglobal|Maestro Goddess Miku}})
+* [[Hatsune Miku -Project DIVA- X]] (DLC)
+* [[Hatsune Miku -Project DIVA- Arcade Future Tone]]
+* [[Hatsune Miku: Project DIVA Mega Mix]]
+* {{IW|projectsekai|Hand in Hand|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}
+* CHUNITHM
+|
+* maimai
+* O.N.G.E.K.I.
+* {{IW|musedash|Muse Dash Wiki|Muse Dash}}
+* {{IW|groovecoaster|Groove Coaster: Wai Wai Party!!!!}}
+* {{wp|Fitness Boxing|Fitness Boxing feat. HATSUNE MIKU}} (Instrumental; DLC)
+* Castle & Dragon (Hatsune Miku Collaboration)
+}}
+
+==Gallery==
+<tabber>Games =
+<gallery hideaddbutton="true" position="center" bordercolor="#709aaf">
+Mega39s My Dear Bunny.png|thumb|center|Hatsune Miku's ''My Dear Bunny'' module for the song ''Hand in Hand'', which appears in the game ''Project DIVA: Mega Mix''
+Magical Mirai 2015 album.jpg|Cover artwork for the compilation ''Hatsune Miku "Magical Mirai 2015" OFFICIAL ALBUM'', also featured as the music jacket in ''-Project DIVA- Arcade Future Tone'' and ''Mega Mix''
+Games - Muse Dash - Hand in Hand.png|Music jacket featured in ''Muse Dash''
+</gallery>
+|-|Concerts =
+<gallery hideaddbutton="true" position="center" bordercolor="#709aaf">
+Bml 2019 3.jpg|Miku performing Hand in Hand in the ''BILIBILI MACRO LINK - VISUAL RELEASE 2019'' concert
+MM2019 Hand in Hand.png|Miku performing Hand in Hand in the ''Magical Mirai 2019'' concert.
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = [http://magicalmirai.com/2015/goods_cd.php Album CD purchase]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 32426
+  |nico   = so26654381
+  |vocadb = 89726
+  |utadb  = 40705
+  |pixiv  = Hand_in_Hand
+  |tag    = Hand in Hand
+  |vlw    = Hand in Hand
+  |url    = {{IW|projectsekai|Hand in Hand|Project SEKAI Wiki}}
+* {{IW|project-diva|Hand in Hand|Project DIVA Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring KAITO]]
+[[Category:Japanese group rendition songs]]
+[[Category:Concert songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]

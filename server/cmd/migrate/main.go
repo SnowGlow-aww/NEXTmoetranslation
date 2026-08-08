@@ -23,6 +23,10 @@ import (
 
 var errTargetExists = errors.New("target database already exists")
 
+// migrationOwnershipAcquiredHook is used by command-package tests to pause a
+// migration immediately after it owns the target database path.
+var migrationOwnershipAcquiredHook func()
+
 // migrationObjectImportedHook is used by command-package tests to inject a
 // failure between staging imports. The staging database remains unpublished.
 var migrationObjectImportedHook func(int) error
@@ -59,6 +63,9 @@ func runContext(ctx context.Context, src, dbPath string, verify bool) error {
 		return fmt.Errorf("acquire database ownership: %w", err)
 	}
 	defer owner.Close()
+	if migrationOwnershipAcquiredHook != nil {
+		migrationOwnershipAcquiredHook()
+	}
 	parent := filepath.Dir(dbPath)
 	incompletePath := dbPath + ".seed-incomplete"
 	if _, markerErr := os.Stat(incompletePath); markerErr == nil {

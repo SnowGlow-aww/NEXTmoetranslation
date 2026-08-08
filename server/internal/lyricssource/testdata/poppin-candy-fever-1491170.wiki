@@ -1,0 +1,717 @@
+{{Song box 2
+  |color     = #FF7BAC; color: #FFFFFF
+  |image     = Poppin' Candy☆Fever! Kinoshita.jpg
+  |title     = "'''ポッピンキャンディ☆フィーバー！'''"
+* Romaji: Poppin Kyandi☆Fiibaa!
+* Official English: Poppin' Candy☆Fever!
+  |date      = October 28, 2019
+  |views     = {{v|yt|14,863,288}}, {{v|nn|1,085,971}}, and {{v|bb|177,000}}
+  |singers   = [[Otomachi Una]] Spicy and [[Kagamine Rin]] V4X Power
+* <small>[[Kagamine Len]] (chorus)</small>
+  |producers = [[kinoshita]] (music, lyrics, illustration, video)
+  |links     = {{l|yt|JCZCz0XQfRk}} {{l|nn|sm35880454}} {{l|bb|BV1mE411h78C}}
+}}
+
+==Background==
+{{Quote|That moment is the best treasure in the world.|Author's comment}}
+'''Poppin' Candy☆Fever!''' is an original electropop, J-pop song by kinoshita. It was uploaded to Niconico and bilibili on October 29, 2019.
+
+This song has enterend the ''[[Hall of Legend]]'' and exceeded over 10 million YouTube views. Hence, this is one of kinoshita's most notable songs.
+
+==Preceding and succeeding versions==
+{{Derivative
+  |color       = otomachi una
+  |title       = Una's Version
+  |thumb       = Colorful Story Album Cover.jpeg
+  |singers     = Otomachi Una
+  |producers   = kinoshita
+  |categories  = VOCALOID Cover; Album-exclusive Content
+  |description = This version is featured on the Colorful Story album
+  |links       = db 200005}}
+{{Derivative
+  |color       = #6CCB20; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size)
+  |thumb       = Games - Project SEKAI - ポッピンキャンディ☆フィーバー！.png
+  |singers     = {{IW|projectsekai|MORE MORE JUMP!}}: {{IW|projectsekai|Kagamine Rin}}, {{IW|projectsekai|Hanasato Minori}} (CV: {{IW|projectsekai|Ogura Yui}}), {{IW|projectsekai|Kiritani Haruka}} (CV: {{IW|projectsekai|Yoshioka Mayu}}), {{IW|projectsekai|Momoi Airi}} (CV: {{IW|projectsekai|Furihata Ai}}), {{IW|projectsekai|Hinomori Shizuku}} (CV: {{IW|projectsekai|Honnizumi Rina}})
+  |producers   = [[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Piapro Studio Cover; Human Cover; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #6CCB20; color: white
+  |thumb       = Games - Project SEKAI - ポッピンキャンディ☆フィーバー！.png
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |singers     = MORE MORE JUMP!: Kagamine Rin, Hanasato Minori (CV: Ogura Yui), Kiritani Haruka (CV: Yoshioka Mayu), Momoi Airi (CV: Furihata Ai), Hinomori Shizuku (CV: Honnizumi Rina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; Human Cover; Album-exclusive Content
+  |description = Full version, featured in MORE MORE JUMP!'s 3rd full album ''MORE MORE JUMP! SEKAI ALBUM Vol.3'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt aruLJRyBE60
+}}
+{{Clr}}
+
+==Lyrics ==
+<tabber>
+|-|Una Version =
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|いくよ！
+|iku yo!
+|-
+|<br> 
+|-
+|あの日忘れた夢色も
+|ano hi wasureta yumeiro mo
+|-
+|昨日謳った涙色も
+|kinou utatta namidairo mo
+|-
+|有り体に言えないね
+|aritei ni ienai ne
+|-
+|だからとっておきの魔法をかけよう
+|dakara totteoki no mahou o kakeyou
+|-
+|<br>
+|-
+|キャラメル・キャンディ・チョコレート
+|kyarameru kyandi chokoreeto
+|-
+|お洒落でかわいいティータイムは
+|oshare de kawaii tiitaimu wa
+|-
+|なんか疲れちゃいそうだし
+|nanka tsukarechaisou dashi
+|-
+|アゲアゲでいこうよ (アゲアゲ！)
+|ageage de ikou yo (ageage!)
+|-
+|<br>
+|-
+|コツは楽しんで楽しもう
+|kotsu wa tanoshinde tanoshimou
+|-
+|もちろん何でもアリです 当然でしょ？
+|mochiron nan demo ari desu touzen desho?
+|-
+|ていうか振りかぶるくらいがストライク
+|te iu ka furikaburu kurai ga sutoraiku
+|-
+|嗚呼、無敵になれちゃうね！
+|aa, muteki ni narechau ne!
+|-
+|<br>
+|-
+|チントンシャンで刻むような
+|chin ton shan de kizamu you na
+|-
+|忘れないで君のBPM
+|wasurenaide kimi no BPM
+|-
+|甘い匂いにつられたなら
+|amai nioi ni tsurareta nara
+|-
+|それじゃみんな！宴の幕開けだ！
+|sore ja minna! utage no makuake da!
+|-
+|(じゃーん！パクッ！ちょっ！パクッ！こらーっ！)
+|(jaan! paku! cho! pak! koraa!)
+|-
+|<br>
+|-
+|ポッピンキャンディ☆フィーバー！
+|poppin kyandi fiibaa!
+|-
+|はじけちゃえフレーバー
+|hajikechae fureebaa
+|-
+|Party Party なんです！
+|Party Party nan desu!
+|-
+|{{Shared}}|Shall We Dance? (Dance!)
+|-
+|なんなんちゃってフィーバー！？
+|nan nanchatte fiibaa!?
+|-
+|兎も角もさぁ
+|usagi mo tsuno mo saa
+|-
+|わっしょいわっしょい踊り明かそう
+|wasshoi wasshoi odoriakasou
+|-
+|(あそれよいよい)
+|(a sore yoi yoi)
+|-
+|<br>
+|-
+|ポッピンキャンディ☆アップル！？
+|poppin kyandi appuru!?
+|-
+|ねえ聞いてよDreamer!
+|nee kiite yo Dreamer!
+|-
+|Check it! Check it! なんです！
+|Check it! Check it! nan desu!
+|-
+|{{Shared}}|Shall We Dance! (Dance!)
+|-
+|なんてたって☆フィーバー！
+|nantetatte fiibaa!
+|-
+|テンションはMAXで
+|tenshon wa MAX de
+|-
+|もっともっと 溶けちゃうくらい
+|motto motto tokechau kurai
+|-
+|<br>
+|-
+|(いっせーの)
+|(issee no)
+|-
+|歌え！ちゃちゃちゃ！ 踊れ！いぇいいぇい！
+|utae! chachacha! odore! yei yei!
+|-
+|笑え！ハッハッハ！ 嗚呼いい感じ！
+|warae! hahhahha! aa ii kanji!
+|-
+|ねえもう一回！ちゃちゃちゃ！ もういいかい？よいしょ！
+|nee mou ikkai! chachacha! mou ii kai? yoisho!
+|-
+|無問題！？ぎゃー！！で
+|moumantai!? gyaa!! de
+|-
+|はい優勝！イェー！
+|hai yuushou! yee!
+|-
+|<br>
+|-
+|煌めく空をなぞったら
+|kirameku sora o nazottara
+|-
+|ほんのちょっと寂しくなるね
+|honno chotto sabishiku naru ne
+|-
+|それじゃあケーキもおひとつどう？
+|sore jaa keeki mo ohitotsu dou?
+|-
+|なんだか笑えてきたね
+|nandaka waraete kita ne
+|-
+|<br>
+|-
+|ディンドンダンが響くような
+|dindondan ga hibiku you na
+|-
+|耳澄ませば君のBGM
+|mimi sumaseba kimi no BGM
+|-
+|お腹の合図が聞こえたら
+|onaka no aizu ga kikoetara
+|-
+|それじゃみんな！宴の再開だ！
+|sore ja minna! utage no saikai da!
+|-
+|準備は！(いただきます！) はあああ！？！？
+|junbi wa! (itadakimasu!) haaa!?!?
+|-
+|<br>
+|-
+|ポッピンキャンディ☆フィーバー！
+|poppin kyandi fiibaa!
+|-
+|しゅわしゅわフレーバー
+|shuwashuwa fureebaa
+|-
+|Pachi Pachi なんです！
+|Pachi Pachi nan desu!
+|-
+|{{Shared}}|Shall We Dance? (Dance!)
+|-
+|なんなんちゃってフィーバー！？
+|nan nanchatte fiibaa!?
+|-
+|夢見がち君も
+|yumemigachi kimi mo
+|-
+|わっしょいわっしょい踊り明かそう
+|wasshoi wasshoi odoriakasou
+|-
+|(あそれよいよい)
+|(a sore yoi yoi)
+|-
+|<br>
+|-
+| ポッピンキャンディ☆グレープ！？	
+|poppin kyandi gureepu!?
+|-
+|こっち向いてDreamer!
+|kocchi muite Dreamer!
+|-
+|Hurry! Hurry! あっぷっぷ！
+|Hurry! Hurry! appuppu!<
+|-
+|{{Shared} |Shall We Smile! (Smile)
+|-
+|なんてたってフィーバー！
+|nante tatte fiibaa!
+|-
+|お味はMIXで
+|oaji wa MIX de
+|-
+|もっともっと 楽しんじゃって
+|motto motto tanoshinjatte
+|-
+|もういっちょいけるね
+|mou iccho ikeru ne
+|-
+|はいおかわり！
+|hai okawari!
+|-
+|<br>
+|-
+|(いっくぞー！)
+|(ikku zoo!)
+|-
+|ポッピンキャンディ☆フィーバー！
+|poppin kyandi fiibaa!
+|-
+|はじけちゃえフレーバー
+|hajikechae fureebaa
+|-
+|Party Party なんです！
+|Party Party nan desu!
+|-
+|{{Shared}}|Shall We Dance? (Dance!)
+|-
+|なんなんちゃって☆フィーバー！？
+|nan nanchatte fiibaa!?
+|-
+|恥ずかしがり屋も わっしょいわっしょい
+|hazukashigariya mo wasshoi wasshoi
+|-
+|踊り明かそう
+|odoriakasou
+|-
+|(あそれよいよい)
+|(a sore yoi yoi)
+|-
+|<br>
+|-
+|ポッピンキャンディ☆ピーチ！？
+|poppin kyandi piichi!?
+|-
+|ねぇ聞いてよDreamer!
+|nee kiite yo Dreamer!
+|-
+|Check it! Check it! なんです！
+|Check it! Check it! nan desu!
+|-
+|{{Shared}}|Shall We Dance! (Dance)
+|-
+|なんてたって☆フィーバー！
+|nante tatte fiibaa!
+|-
+|テンションはMAXで
+|tenshon wa MAX de
+|-
+|もっともっとうるさいくらい
+|motto motto urusai kurai
+|-
+|<br>
+|-
+|(いっせーの)
+|(issee no)
+|-
+|歌え！ちゃちゃちゃ！踊れ！いぇいいぇい！
+|utae! chachacha! odore! yei yei!
+|-
+|笑え！ハッハッハ！ 嗚呼いい感じ！
+|warae! hahhahha! aa ii kanji!
+|-
+|ねぇもう一回！ちゃちゃちゃ！ もういいかい？おまえかー！！
+|nee mou ikkai! chachacha! mou ii kai? omae kaa!!
+|-
+|無問題！？ うわーい！！で
+|moumantai!? uwaai!! de
+|-
+|はい優勝！
+|hai yuushou!
+|}
+|-|Una and Rin Version =
+{{Lrc legend|#FF7BAC; color: #FFFFFF
+|Una
+|Rin:#E5C100
+|Len:orange
+|Rin and Una}}
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|{{lrc color|una|いくよ！}}
+|{{lrc color|una|iku yo!}}
+|-
+|<br> 
+|-
+|{{lrc color|una|あの日忘れた夢色も}}
+|{{lrc color|una|ano hi wasureta yumeiro mo}}
+|-
+|{{lrc color|una|昨日謳った涙色も}}
+|{{lrc color|una|kinou utatta namidairo mo}}
+|-
+|{{lrc color|una|有り体に言えないね}}
+|{{lrc color|una|aritei ni ienai ne}}
+|-
+|{{lrc color|una|だからとっておきの魔法をかけよう}}
+|{{lrc color|una|dakara totteoki no mahou o kakeyou}}
+|-
+|<br>
+|-
+|{{lrc color|rin|キャラメル・キャンディ・チョコレート}}
+|{{lrc color|rin|kyarameru kyandi chokoreeto}}
+|-
+|{{lrc color|rin|お洒落でかわいいティータイムは}}
+|{{lrc color|rin|oshare de kawaii tiitaimu wa}}
+|-
+|{{lrc color|rin|なんか疲れちゃいそうだし}}
+|{{lrc color|rin|nanka tsukarechaisou dashi}}
+|-
+|{{lrc color|rin|アゲアゲでいこうよ (アゲアゲ！) }}
+|{{Lrc color|rin|ageage de ikou yo (ageage!) }}
+|-
+|<br>
+|-
+|{{lrc color|una|コツは楽しんで楽しもう}}
+|{{lrc color|una|kotsu wa tanoshinde tanoshimou}}
+|-
+|{{lrc color|una|もちろん何でもアリです 当然でしょ？}}
+|{{lrc color|una|mochiron nan demo ari desu touzen desho?}}
+|-
+|{{lrc color|rin|ていうか振りかぶるくらいがストライク}}
+|{{Lrc color|rin|te iu ka furikaburu kurai ga sutoraiku}}
+|-
+|嗚呼、無敵になれちゃうね！
+|aa, muteki ni narechau ne!
+|-
+|<br>
+|-
+|{{lrc color|rin|チントンシャンで刻むような}}
+|{{lrc color|rin|chin ton shan de kizamu you na}}
+|-
+|{{lrc color|rin|忘れないで君のBPM}}
+|{{lrc color|rin|wasurenaide kimi no BPM}}
+|-
+|{{lrc color|una|甘い匂いにつられたなら}}
+|{{lrc color|una|amai nioi ni tsurareta nara}}
+|-
+|それじゃみんな！宴の幕開けだ！
+|sore ja minna! utage no makuake da!
+|-
+|{{lrc color|una|(じゃーん！パクッ！ちょっ！パクッ！こらーっ！) }}
+|{{lrc color|una|(jaan! paku! cho! pak! koraa!) }}
+|-
+|<br>
+|-
+|{{lrc color|una|ポッピンキャンディ☆フィーバー！}}
+|{{lrc color|una|poppin kyandi fiibaa!}}
+|-
+|{{lrc color|una|はじけちゃえフレーバー}}
+|{{lrc color|una|hajikechae fureebaa}}
+|-
+|{{lrc color|una|Party Party なんです！}}
+|{{lrc color|una|Party Party nan desu!}}
+|-
+|{{Shared}}|{{lrc color|una|Shall We Dance? (Dance!) }}
+|-
+|{{lrc color|una|なんなんちゃってフィーバー！？}}
+|{{lrc color|una|nan nanchatte fiibaa!?}}
+|-
+|{{lrc color|una|兎も角もさぁ}}
+|{{lrc color|una|usagi mo tsuno mo saa}}
+|-
+|{{lrc color|una|わっしょいわっしょい踊り明かそう}}
+|{{lrc color|una|wasshoi wasshoi odoriakasou}}
+|-
+|{{lrc color|una|(あそれよいよい) }}
+|{{lrc color|una|(a sore yoi yoi) }}
+|-
+|<br>
+|-
+|{{lrc color|rin|ポッピンキャンディ☆アップル！？}}
+|{{lrc color|rin|poppin kyandi appuru!?}}
+|-
+|{{lrc color|rin|ねえ聞いてよDreamer!}}
+|{{lrc color|rin|nee kiite yo Dreamer!}}
+|-
+|{{lrc color|rin|Check it! Check it! なんです！}}
+|{{lrc color|rin|Check it! Check it! nan desu!}}
+|-
+|{{Shared}}|{{lrc color|rin|Shall We Dance!}} {{lrc color|una|(Dance!) }}
+|-
+|{{lrc color|rin|なんてたって☆フィーバー！}}
+|{{lrc color|rin|nantetatte fiibaa!}}
+|-
+|{{lrc color|rin|テンションはMAXで}}
+|{{lrc color|rin|tenshon wa MAX de}}
+|-
+|{{lrc color|rin|もっともっと 溶けちゃうくらい}}
+|{{lrc color|rin|motto motto tokechau kurai}}
+|-
+|<br>
+|-
+|{{lrc color|una|(いっせーの) }}
+|{{lrc color|una|(issee no) }}
+|-
+|{{lrc color|una|歌え！ちゃちゃちゃ！ 踊れ！いぇいいぇい！}}
+|{{lrc color|una|utae! chachacha! odore! yei yei!}}
+|-
+|{{lrc color|una|笑え！ハッハッハ！ 嗚呼いい感じ！}}
+|{{lrc color|una|warae! hahhahha! aa ii kanji!}}
+|-
+|{{lrc color|rin|ねえもう一回！}}{{lrc color|una|ちゃちゃちゃ！}}{{lrc color|rin|もういいかい？}}{{lrc color|una|よいしょ！}}
+|{{lrc color|rin|nee mou ikkai!}} {{lrc color|una|chachacha! }}{{lrc color|rin|mou ii kai?}} {{lrc color|una|yoisho!}}
+|-
+|{{lrc color|rin|無問題！？}}{{lrc color|una|ぎゃー！！で}}
+|{{lrc color|rin|moumantai!?}} {{lrc color|una|gyaa!! de}}
+|-
+|{{lrc color|una|はい優勝！イェー！}}
+|{{lrc color|una|hai yuushou! yee!}}
+|-
+|<br>
+|-
+|{{lrc color|una|煌めく空をなぞったら}}
+|{{lrc color|una|kirameku sora o nazottara}}
+|-
+|{{lrc color|una|ほんのちょっと寂しくなるね}}
+|{{lrc color|una|honno chotto sabishiku naru ne}}
+|-
+|{{lrc color|rin|それじゃあケーキもおひとつどう？}}
+|{{lrc color|rin|sore jaa keeki mo ohitotsu dou?}}
+|-
+|{{lrc color|una|なんだか笑えてきたね}}
+|{{lrc color|una|nandaka waraete kita ne}}
+|-
+|<br>
+|-
+|{{lrc color|una|ディンドンダンが響くような}}
+|{{lrc color|una|dindondan ga hibiku you na}}
+|-
+|{{lrc color|una|耳澄ませば君のBGM}}
+|{{lrc color|una|mimi sumaseba kimi no BGM}}
+|-
+|{{lrc color|rin|お腹の合図が聞こえたら}}
+|{{lrc color|rin|onaka no aizu ga kikoetara}}
+|-
+|それじゃみんな！宴の再開だ！
+|sore ja minna! utage no saikai da!
+|-
+|{{lrc color|una|準備は！}}{{lrc color|len|(いただきます！)}} {{lrc color|una|はあああ！？！？}}
+|{{lrc color|una|junbi wa!}} {{lrc color|len|(itadakimasu!)}} {{lrc color|una|haaa!?!?}}
+|-
+|<br>
+|-
+|{{lrc color|rin|ポッピンキャンディ☆フィーバー！}}
+|{{lrc color|rin|poppin kyandi fiibaa!}}
+|-
+|{{lrc color|rin|しゅわしゅわフレーバー}}
+|{{lrc color|rin|shuwashuwa fureebaa}}
+|-
+|{{lrc color|rin|Pachi Pachi なんです！}}
+|{{lrc color|rin|Pachi Pachi nan desu!}}
+|-
+|{{Shared}}|{{lrc color|rin|Shall We Dance?}} {{lrc color|una|(Dance!)}}
+|-
+|{{lrc color|rin|なんなんちゃってフィーバー！？}}
+|{{lrc color|rin|nan nanchatte fiibaa!?}}
+|-
+|{{lrc color|rin|夢見がち君も}}
+|{{lrc color|rin|yumemigachi kimi mo}}
+|-
+|{{lrc color|rin|わっしょいわっしょい踊り明かそう}}
+|{{lrc color|rin|wasshoi wasshoi odoriakasou}}
+|-
+|{{lrc color|una|(あそれよいよい)}}
+|{{lrc color|una|(a sore yoi yoi)}}
+|-
+|<br>
+|-
+|{{lrc color|una|ポッピンキャンディ☆グレープ！？}}	
+|{{lrc color|una|poppin kyandi gureepu!?}}
+|-
+|{{lrc color|una|こっち向いてDreamer!}}
+|{{lrc color|una|kocchi muite Dreamer!}}
+|-
+|{{lrc color|una|Hurry! Hurry! あっぷっぷ！}}
+|{{lrc color|una|Hurry! Hurry! appuppu!}}
+|-
+|{{Shared}}|{{lrc color|una|Shall We Smile! (Smile) }}
+|-
+|{{lrc color|una|なんてたってフィーバー！}}
+|{{lrc color|una|nante tatte fiibaa!}}
+|-
+|{{lrc color|una|お味はMIXで}}
+|{{lrc color|una|oaji wa MIX de}}
+|-
+|{{lrc color|una|もっともっと 楽しんじゃって}}
+|{{lrc color|una|motto motto tanoshinjatte}}
+|-
+|{{lrc color|una|もういっちょいけるね}}
+|{{lrc color|una|mou iccho ikeru ne}}
+|-
+|{{lrc color|una|はいおかわり！}}
+|{{lrc color|una|hai okawari!}}
+|-
+|<br>
+|-
+|{{lrc color|una|(いっくぞー！) }}
+|{{lrc color|una|(ikku zoo!) }}
+|-
+|{{lrc color|una|ポッピンキャンディ☆フィーバー！}}
+|{{lrc color|una|poppin kyandi fiibaa!}}
+|-
+|{{lrc color|rin|はじけちゃえフレーバー}}
+|{{lrc color|rin|hajikechae fureebaa}}
+|-
+|{{lrc color|una|Party Party なんです！}}
+|{{lrc color|una|Party Party nan desu!}}
+|-
+|{{Shared}}|{{lrc color|una|Shall We Dance? (Dance!) }}
+|-
+|{{lrc color|una|なんなんちゃって☆フィーバー！？}}
+|{{lrc color|una|nan nanchatte fiibaa!?}}
+|-
+|{{lrc color|una|恥ずかしがり屋も わっしょいわっしょい}}
+|{{lrc color|una|hazukashigariya mo wasshoi wasshoi}}
+|-
+|{{lrc color|una|踊り明かそう}}
+|{{lrc color|una|odoriakasou}}
+|-
+|{{lrc color|una|(あそれよいよい) }}
+|{{lrc color|una|(a sore yoi yoi) }}
+|-
+|<br>
+|-
+|{{lrc color|rin|ポッピンキャンディ☆ピーチ！？}}
+|{{lrc color|rin|poppin kyandi piichi!?}}
+|-
+|{{lrc color|rin|ねぇ聞いてよDreamer!}}
+|{{lrc color|rin|nee kiite yo Dreamer!}}
+|-
+|{{lrc color|rin|Check it! Check it! なんです！}}
+|{{lrc color|rin|Check it! Check it! nan desu!}}
+|-
+|{{Shared}}|{{lrc color|rin|Shall We Dance!}} {{lrc color|una|(Dance!) }}
+|-
+|{{lrc color|rin|なんてたって☆フィーバー！}}
+|{{lrc color|rin|nante tatte fiibaa!}}
+|-
+|{{lrc color|rin|テンションはMAXで}}
+|{{lrc color|rin|tenshon wa MAX de}}
+|-
+|{{lrc color|rin|もっともっとうるさいくらい}}
+|{{lrc color|rin|motto motto urusai kurai}}
+|-
+|<br>
+|-
+|{{lrc color|una|(いっせーの)}}
+|{{lrc color|una|(issee no)}}
+|-
+|{{lrc color|una|歌え！ちゃちゃちゃ！踊れ！いぇいいぇい！}}
+|{{lrc color|una|utae! chachacha! odore! yei yei!}}
+|-
+|{{lrc color|una|笑え！ハッハッハ！ 嗚呼いい感じ！}}
+|{{lrc color|una|warae! hahhahha! aa ii kanji!}}
+|-
+|{{lrc color|rin|ねぇもう一回！}} {{lrc color|una|ちゃちゃちゃ！}} {{lrc color|rin|もういいかい？}} {{lrc color|una|おまえかー！！}}
+|{{lrc color|rin|nee mou ikkai!}} {{lrc color|una|chachacha!}} {{lrc color|rin|mou ii kai?}}{{lrc color|una|omae kaa!!}}
+|-
+|{{lrc color|rin|無問題！？}} {{lrc color|una|うわーい！！で}}
+|{{lrc color|rin|moumantai!?}} {{lrc color|una|uwaai!! de}}
+|-
+|はい優勝！
+|hai yuushou!
+|}
+</tabber>
+
+==Derivatives==
+{{Derivative
+|color=#FF7BAC; color: #FFFFFF
+|title=SSS-gumi's cover
+|links=yt JJo-zUi9E5U
+|singers={{IW|Virtualyoutuber|Hoshikawa Sara}} & {{IW|Virtualyoutuber|Sasaki Saku}}
+|producers=Yamabukiiro (illust), Narumiya Yuki (movie), PIROPARU (mixing)
+|categories=Human Cover}}
+
+{{Derivative
+|color=#FF7BAC; color: #FFFFFF
+|title=akkkkiy and na_na's cover
+|links=yt Yj13VElL2hs
+|singers=akkkkiy & na_na
+|producers=Stun Gun (mixing), noritama (illust)
+|categories=Human Cover}}
+
+{{Clr}}
+
+==Other media appearances==
+===Discography===
+This song is featured in the following albums:
+*Colorful Story (Una's Version)
+*CRAYON ADVENTURE (Una & Rin's Version)
+*Poppin' Candy☆Fever! (single) (Una & Rin's Version)
+
+===Concerts===
+A version of this song featuring [[GUMI]] and [[Camui Gackpo]]'s vocals in place of Rin and Len's is featured in the following concerts:
+*[[Lively Paradise 2025]]
+
+===Video games===
+This song was featured in the following video games:
+*DanceDanceRevolution A3 and DanceDanceRevolution WORLD
+*SOUND VOLTEX EXCEED GEAR
+*maimai
+*{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by Otomachi Una and Kagamine Rin; SEKAI version by MORE MORE JUMP! and Kagamine Rin)
+*MUSIC DIVER
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#FF7BAC">
+Games - Project SEKAI - ポッピンキャンディ☆フィーバー！.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#FF7BAC">
+kinoshita - Poppin' Candy Fever (single).jpg|Cover art of the digital single<br>''ポッピンキャンディ☆フィーバー！ (Poppin' Candy☆Fever!)''
+</gallery>
+</tabber>
+
+==External Links==
+===Official===
+{{Official
+  |media = [https://piapro.jp/t/8tQS Lyrics] - piapro
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://music.apple.com/jp/album/poppin-candy-fever-feat-otomachi-una-kagamine-rin-single/1498893173 Apple Music]
+** [https://music.line.me/webapp/album/mb0000000001b5a248 LINE MUSIC]
+  |dwlds = [https://piapro.jp/t/fT1l Off-Vocal] - piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 40300
+  |nico    = sm35880454
+  |vocadb  = 200005 Una Version -
+  |vocadb2 = 259021 Una and Rin's Version -
+  |mgp     = Poppin%27_Candy_Fever!
+  |vlw     = ポッピンキャンディ☆フィーバー！ (Poppin' Candy☆Fever!)
+  |url     = {{IW|projectsekai|Poppin' Candy☆Fever!|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese duet songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Otomachi Una]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Self-covers]]
+[[Category:Concert songs]]
+[[Category:Mobile game songs]]
+[[Category:Video game songs]]

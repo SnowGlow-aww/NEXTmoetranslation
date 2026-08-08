@@ -401,6 +401,7 @@ func decodeJSONContext(ctx context.Context, body []byte, target any) error {
 		return err
 	}
 	decoder := json.NewDecoder(&contextReader{ctx: ctx, reader: bytes.NewReader(body)})
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return err
 	}
@@ -445,7 +446,12 @@ func preflightTranslationContentJSONContext(ctx context.Context, path string, bo
 			return 0, 0, 0, fmt.Errorf("top level must be an object")
 		}
 		return counts["music"] + counts["performers"] + counts["documents"] + counts["lines"] +
-			counts["segments"] + counts["publications"], 0, total, nil
+			counts["segments"] + counts["publications"] + counts["sourceDocuments"] + counts["sourceArtifacts"] +
+			counts["sourceIndexEvidence"] + counts["sourceArtifactEvidence"] + counts["sourceContributions"] +
+			counts["renditionLocalizations"] + counts["renditionTranslationLines"] +
+			counts["recoveryBatches"] + counts["recoveryItems"] + counts["recoverySourceEvidence"] +
+			counts["recoveryArtifacts"] + counts["recoveryArtifactEvidence"] + counts["recoveryContributions"] +
+			counts["availabilityDocuments"], 0, total, nil
 	default:
 		return 0, 0, 0, fmt.Errorf("unexpected content path")
 	}
@@ -607,7 +613,13 @@ func eventContentCount(content store.EventContentExport) int {
 
 func lyricsContentCount(content store.LyricsContentExport) int {
 	return len(content.Music) + len(content.Performers) + len(content.Documents) +
-		len(content.Lines) + len(content.Segments) + len(content.Publications)
+		len(content.Lines) + len(content.Segments) + len(content.Publications) +
+		len(content.SourceDocuments) + len(content.SourceArtifacts) + len(content.SourceIndexEvidence) +
+		len(content.SourceArtifactEvidence) + len(content.SourceContributions) +
+		len(content.RenditionLocalizations) + len(content.RenditionTranslationLines) +
+		len(content.RecoveryBatches) + len(content.RecoveryItems) + len(content.RecoverySourceEvidence) +
+		len(content.RecoveryArtifacts) + len(content.RecoveryArtifactEvidence) +
+		len(content.RecoveryContributions) + len(content.AvailabilityDocuments)
 }
 
 func (m *Manager) importTranslationContent(content translationContent, present bool) error {

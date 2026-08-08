@@ -61,9 +61,13 @@ func TestEditorGateStatusAndStrictHeaderContract(t *testing.T) {
 		}
 	}
 
+	overSafe := strconv.FormatUint(editorgate.MaxSafeCounter+1, 10)
 	malformed := []string{
-		"", "***:0", status.InstanceID, status.InstanceID + ":", status.InstanceID + ":00",
-		status.InstanceID + ":+1", status.InstanceID + ":" + strconv.FormatUint(editorgate.MaxSafeCounter+1, 10),
+		"", "***:0:0", status.InstanceID, status.InstanceID + ":", status.InstanceID + ":0",
+		status.InstanceID + "::0", status.InstanceID + ":0:", status.InstanceID + ":00:0",
+		status.InstanceID + ":+1:0", status.InstanceID + ":0:00", status.InstanceID + ":0:+1",
+		status.InstanceID + ":" + overSafe + ":0", status.InstanceID + ":0:" + overSafe,
+		status.InstanceID + ":0:0:0",
 	}
 	for _, value := range malformed {
 		response := strictRequest(t, h, http.MethodPut, "/api/editor/v1/entry", map[string]string{}, []string{value})
@@ -80,7 +84,7 @@ func TestEditorGateStatusAndStrictHeaderContract(t *testing.T) {
 		t.Fatalf("duplicate header status = %d", duplicate.StatusCode)
 	}
 	restarted := strictRequest(t, h, http.MethodPut, "/api/editor/v1/entry", map[string]string{}, []string{
-		base64.RawURLEncoding.EncodeToString([]byte("different-process")) + ":0",
+		base64.RawURLEncoding.EncodeToString([]byte("different-process")) + ":0:0",
 	})
 	restarted.Body.Close()
 	if restarted.StatusCode != http.StatusConflict {
@@ -117,6 +121,42 @@ func TestStrictEditorMutationCarriesAtomicallyAcceptedStatusInContext(t *testing
 	}
 	if accepted != loaded {
 		t.Fatalf("accepted context status = %+v, want %+v", accepted, loaded)
+	}
+}
+
+func TestStrictEditorRevisionOnlyMismatchReturns409WithoutMutation(t *testing.T) {
+	h := setupLegacyAPI(t)
+	loaded := h.api.editorGate.Status()
+	var auditsBefore int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log`).Scan(&auditsBefore); err != nil {
+		t.Fatal(err)
+	}
+	staleRevision := loaded
+	staleRevision.Revision++
+	response := strictRequest(t, h, http.MethodPut, "/api/editor/v1/entry", map[string]string{
+		"category": "cards", "field": "prefix", "key": "cn-key", "text": "must not persist", "source": model.SourceHuman,
+	}, []string{loadedState(staleRevision)})
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("revision-only mismatch status=%d", response.StatusCode)
+	}
+	var current editorgate.Status
+	if err := json.NewDecoder(response.Body).Decode(&current); err != nil {
+		t.Fatal(err)
+	}
+	if current != loaded {
+		t.Fatalf("revision-only mismatch status body=%+v want=%+v", current, loaded)
+	}
+	var text string
+	if err := h.db.QueryRow(`SELECT cn_text FROM entries WHERE category='cards' AND field='prefix' AND jp_key='cn-key'`).Scan(&text); err != nil {
+		t.Fatal(err)
+	}
+	var auditsAfter int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM audit_log`).Scan(&auditsAfter); err != nil {
+		t.Fatal(err)
+	}
+	if text != "官方" || auditsAfter != auditsBefore {
+		t.Fatalf("revision-only mismatch mutated text=%q audits=%d want=%d", text, auditsAfter, auditsBefore)
 	}
 }
 
@@ -245,7 +285,8 @@ func TestInvalidTranslationSourcesNeverPersist(t *testing.T) {
 }
 
 func loadedState(status editorgate.Status) string {
-	return status.InstanceID + ":" + strconv.FormatUint(status.CompletedGeneration, 10)
+	return status.InstanceID + ":" + strconv.FormatUint(status.Revision, 10) + ":" +
+		strconv.FormatUint(status.CompletedGeneration, 10)
 }
 
 func strictRequest(t *testing.T, h *legacyAPIHarness, method, path string, body any, headerValues []string) *http.Response {

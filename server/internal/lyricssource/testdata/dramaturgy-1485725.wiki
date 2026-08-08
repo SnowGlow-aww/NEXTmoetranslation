@@ -1,0 +1,576 @@
+{{SongWIP/Background}}
+{{NoReprint}}
+{{Song box 2
+  |color     = black; color:white
+  |image     = Eve-Dramaturgy.png
+  |title     = "'''ドラマツルギー'''"
+* Romaji: Doramatsurugii
+* Official English: Dramaturgy
+  |date      = October 10, 2017
+  |views     = {{v|nn|5,234,120}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[Eve (producer)|Eve]] (music, lyrics)
+* [[Numa]] (arrangement)
+* Tanahashi "UNA" Nobuhito, [[KaiseiP]] (mixing)
+* [[Mah]] (illustration, video)
+  |links     = {{l|nn|sm32076378}}
+}}
+
+==Background==
+"'''Dramaturgy'''" is an original song by Eve featuring Hatsune Miku.
+
+This song entered ''[[Hall of Legend]]''.
+
+==Succeeding versions==
+{{derivative
+  |color       = black; color:white
+  |title       = Eve's Version
+  |singers     = {{UIW|Eve}}
+  |producers   = Eve (music, lyrics), Numa (arrangement), Tanahashi "UNA" Shinnito (mixing), KaiseiP (vocals mixing), Mah (illust, video)
+  |categories  = Human Version
+  |links       = yt jJzw1h5CR-I; bb av52749757
+  |description = Eve's self-cover, featured on his album '''Bunka'''.
+}}
+{{Derivative
+  |color       = #4455DD; color:white
+  |thumb       = Games - Project SEKAI - ドラマツルギー.png
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |singers     = {{IW|projectsekai|Leo/need}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Hoshino Ichika}} (CV: {{IW|projectsekai|Noguchi Ruriko}})
+  |producers   = Kisumi Reika, Tsukigami Hiyu, Hirakawa Moe, Ushitani Kotone, [[Magical Mirai (band)|chloe]] (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Human Cover; Piapro Studio Cover; Original MV; In-game Content
+  |links       = nn so45526593; yt ph_ikp5_HQ0; yt Cp7NtlISR4g
+  |comments    = NND MV; chart preview; 3DMV
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''. The 3DMV for the song was later added on October 20, 2025.
+}}
+{{Derivative
+  |color       = #4455DD; color:white
+  |thumb       = Games - Project SEKAI - ドラマツルギー.png
+  |title       = Project SEKAI Version [Another Vocal]
+  |singers     = Leo/need: Hoshino Ichika (CV: Noguchi Ruriko)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured on the compilation album ''{{IW|projectsekai|Leo/need Another Vocal Album}}'', from the game ''Project SEKAI Colorful Stage! feat. Hatsune Miku''.
+  |links       = yt 44aKEe5gyI4
+}}
+{{derivative
+  |color       = #E53344; color:white
+  |title       = Bandori Version (Game size)
+  |thumb       = Games - BanG Dream - Dramaturgy.png
+  |singers     = {{MH|bandori|Afterglow}} x {{MH|bandori|Toyama Kasumi}}: {{MH|bandori|Mitake Ran}} (CV: {{MH|bandori|Sakura Ayane}}) and Toyama Kasumi (CV: {{MH|bandori|Aimi}})
+  |producers   = Hidaka Yuki (arrangement),<br>{{wp|Bushiroad}}
+  |categories  = Human Cover; Arrangement; In-game Content
+  |links       = yt vn0yaSW24CA
+  |description = Featured in the game ''{{MH|bandori|BanG Dream! Girls Band Party!}}''.
+}}
+{{clr}}
+{{derivative
+  |color       = #E53344; color:white
+  |title       = Bandori Version (Full)
+  |thumb       = Games - BanG Dream - Dramaturgy.png
+  |singers     = Afterglow X Toyama Kasumi: Mitake Ran (CV: Sakura Ayane) and Toyama Kasumi (CV: Aimi)
+  |producers   = Hidaka Yuki (arrangement),<br>Bushiroad
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |links       = yt wFqN8fUMosg
+  |description = Full version, featured in the album ''{{MH|bandori|BanG Dream! Girls Band Party! Cover Collection Vol.5}}'' from the game ''BanG Dream! Girls Band Party!''
+}}
+{{derivative
+  |color       = black; color:white
+  |title       = Live Film ver.
+  |singers     = Eve
+  |producers   = Genki Kawamura (planning, production), Yoshiharu Ota / Satoshi Tani (director), Masashi Katsuta (director of photography), Yuki Nakamura（Gonshiro）(technical director / camera), Koji Matsuura / Hideyuki Terado / Yao Takeshi / Yujiro Tokushige / Taku Tatewaki (camera), Daisuke Nanri / Kenta Watanabe（Grip Associate CO.,LTD） (grip), Kazuma Maeta（Gonshiro）/ Hou Yuten（Gonshiro） (video engineer), Masahiko Tsuruo / Takumi Yoneda（EIZO-TSUSHIN） (online editor), Hiroki Inui（TETRAPOT FILMS）/ Mayo Kinugawa（TETRAPOT FILMS） (production producer), Nobutaka Yoda (10 GAUGE) (motion graphic director), Mah (original graphics), Takashi Masuda（HIPLAND MUSIC）/ Satoshi Kawano（BOATMAN） (stage director), Kengo Ueda（NIHON STAGE Co.,Ltd） (stage construction), Yasuhiro Nishi（Acoustic） (sound engineer), Takahito Yoshimaru（WILL LIGHTING DESIGN） (lighting operator), Isamu Hamanaka（TRANSWORK） (VTR projector operator), Katsunori Haruna（Team Active） (instrumental technician), Takumi Abe（BLAZE） (special effects), Fumio Sato（Ryogoku glass） (stage carpenter), Takayuki Wada（WEED'S ENTERPRISE） (transport), Yasuhisa Matsuishi（AIR FLAG Inc） (production manager), Hayato Takada (stylist), Yuko Iitsuka / Kasumi Mukai (hair, makeup)
+  |categories  = Original MV
+  |links       = yt O8IhTEi3U9U
+  |description = Eve's self-cover, featured on his album '''Bunka'''.
+}}
+{{clr}}
+{{derivative
+  |color       = #EE1166; color:white
+  |title       = Vivid BAD SQUAD Archives Version
+  |singers     = {{IW|projectsekai|Vivid BAD SQUAD}}: {{IW|projectsekai|Imai Fumiya}} (as {{IW|projectsekai|Shinonome Akito}}), {{IW|projectsekai|Itou Kent}} (as {{IW|projectsekai|Aoyagi Touya}})
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; Arrangement
+  |links       = yt iQwSADwcsG4
+  |description = Released as part of the ''Vivid BAD SQUAD Archives'' web series for ''Project SEKAI: COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{derivative
+  |color       = #4455DD; color:white
+  |thumb       = Games - Project SEKAI - ドラマツルギー.png
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |singers     = Leo/need: Hatsune Miku, Hoshino Ichika (CV: Noguchi Ruriko)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; Piapro Studio Cover; Album-exclusive content
+  |description = Full version, featured in Leo/need's 1st full album ''Leo/need SEKAI ALBUM Vol.1'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt Cgn2wAiWv4E
+}}
+{{Clr}}
+
+==Lyrics==
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|頭でわかっては嘆いた
+|atama de wakatte wa nageita
+|-
+|転がってく様子を嗤った
+|korogatteku yousu o waratta
+|-
+|寂しいとか愛とかわかんない
+|sabishii to ka ai to ka wakannai
+|-
+|人間の形は投げだしたんだ
+|ningen no katachi wa nagedashitan da
+|-
+|<br />
+|-
+|抱えきれない　言葉だらけの存在証明を
+|kakaekirenai kotobadarake no sonzai shoumei o
+|-
+|<br />
+|-
+|この小さな{{ruby|劇場|はこ}}から出らんない
+|kono chiisana hako kara derannai
+|-
+|気づいたら最後逃げ出したい
+|kizuitara saigo nigedashitai
+|-
+|僕ら全員演じていたんだ
+|bokura zenin enjite itan da
+|-
+|エンドロールに向かってゆくんだ
+|endorooru ni mukatte yukun da
+|-
+|<br />
+|-
+|さあ皆必死に役を演じて
+|saa minna hisshi ni yaku o enjite
+|-
+|傍観者なんていないのさ
+|boukansha nante inai no sa
+|
+|-
+|<br />
+|-
+|"ワタシ"なんてないの
+|"watashi" nante nai no
+|-
+|どこにだって居ないよ
+|doko ni datte inai yo
+|-
+|ずっと僕は 何者にもなれないで
+|zutto boku wa nanimono ni mo narenaide
+|-
+|<br />
+|-
+|僕ら今　さあさあ　喰らいあって
+|bokura ima saa saa kuraiatte
+|-
+|延長戦 サレンダーして
+|enchousen sarendaa shite
+|-
+|メーデー 淡い愛想
+|meedee awai aiso
+|-
+|垂れ流し　言の愛憎
+|tarenagashi koto no aizou
+|-
+|<br />
+|-
+|ドラマチックな展開をどっか期待してんだろう
+|doramachikku na tenkai o dokka kitai shiten darou
+|-
+|<br />
+|-
+|君も YES YES　息を呑んで
+|kimi mo YES YES iki o nonde
+|-
+|采配は そこにあんだ
+|saihai wa soko ni an da
+|-
+|ヘッドショット 騒ぐ想いも
+|heddoshotto sawagu omoi mo
+|-
+|その心　撃ち抜いて さあ
+|sono kokoro uchinuite saa
+|-
+|まだ見ぬ糸を引いて 黒幕のお出ましさ
+|mada minu ito o hiite kuromaku no odemashi sa
+|-
+|その目に映るのは
+|sono me ni utsuru no wa
+|-
+|<br />
+|-
+|触れたら壊れてしまった
+|furetara kowarete shimatta
+|-
+|間違ってく様子を黙った
+|machigatteku yousu o damatta
+|-
+|僕ら全員無垢でありました
+|bokura zenin muku de arimashita
+|-
+|いつまにやら怪物になったんだ
+|itsu no ma ni yara kaibutsu ni nattan da
+|-
+|<br />
+|-
+|その全てを肯定しないと前に進めないかい
+|sono subete o koutei shinai to mae ni susumenaikai
+|-
+|<br />
+|-
+|『まあ君にはきっと無理なんだ』
+|“maa kimi ni wa kitto muri nan da”
+|-
+|「だから君にはきっと無理なんだ」
+|"dakara kimi ni wa kitto muri nan da"
+|-
+|いつのまにやら外野にいたんだ
+|itsu no ma ni yara gaiya ni itan da
+|-
+|そんなガヤばっかり飛ばしてきたんだ
+|sonna gaya bakkari tobashite kitan da
+|-
+|<br />
+|-
+|皆必死に自分を守って救いの手を待ってるのさ
+|minna hisshi ni jibun o mamotte sukui no te o matteru no sa
+|-
+|<br />
+|-
+|考えたくはないよ
+|kangaetaku wa nai yo
+|-
+|馬鹿になっていたいもん
+|baka ni natte itai mon
+|-
+|ずっと僕は 何者にもなれないで
+|zutto boku wa nanimono ni mo narenaide
+|-
+|<br />
+|-
+|だから今　前線上に立って
+|dakara ima zensen jou ni tatte
+|-
+|その旗は高く舞って
+|sono hata wa takaku matte
+|-
+|劣勢 頼る相棒
+|ressei tayoru aibou
+|-
+|言葉すら必要ないよ
+|kotoba sura hitsuyou nai yo
+|-
+|<br />
+|-
+|ドラマチックな展開はドットヒートしてくだろう
+|doramachikkuna tenkai wa dottohiito shiteku darou
+|
+|-
+|<br />
+|-
+|君も YES YES 息を呑んで
+|kimi mo YES YES iki o nonde
+|-
+|再会を誓いあって
+|saikai o chikaiatte
+|-
+|ワンチャンスしかない僕の
+|wanchansu shika nai boku no
+|-
+|一瞬をかけるのさ
+|isshun o kakeru no sa
+|-
+|クライマックスみたいな 手に汗を握るのさ
+|kuraimakkusu mitaina te ni ase o nigiru no sa
+|-
+|ぽつりと鳴いた
+|potsuri to naita
+|-
+|<br />
+|-
+|隠してきた{{ruby|真実|ほんとう}}はどこにもない
+|kakushitekita hontou wa doko ni mo nai
+|-
+|嗤ってきた奴らに居場所はない
+|waratte kita yatsura ni ibasho wa nai
+|-
+|思い出してぽいってして感情はない
+|omoidashite poitte shite kanjou wa nai
+|-
+|流した涙　理由なんてない
+|nagashita namida riyuu nante nai
+|-
+|<br />
+|-
+|優しさに温度も感じられない
+|yasashisa ni ondo mo kanji rarenai
+|-
+|差し伸べた手に疑いしかない
+|sashinobeta te ni utagai shika nai
+|-
+|穴が空いて愛は垂れてしまいになったんだ
+|ana ga aite ai wa tarete shimai ni nattan da
+|-
+|倒れそうな僕を覗き込んだんだ
+|taoresou na boku o nozoki kondan da
+|-
+|<br />
+|-
+|諦めかけた人の前にアンタは
+|akiramekaketa hito no mae ni anta wa
+|-
+|いつも嘲笑うようにおでましさ
+|itsumo azawarau you ni odemashi sa
+|-
+|君にはどんな風に見えてるんだい
+|kimi ni wa donna fuu ni mieterun dai
+|-
+|呼吸を整えて　さあ　さあ
+|kokyuu o totonoete saa saa
+|-
+|<br />
+|-
+|ずっと僕は 何者にもなれないで
+|zutto boku wa nanimono ni mo narenaide
+|-
+|<br />
+|-
+|僕ら今　さあさあ　喰らいあって
+|bokura ima saa saa kuraiatte
+|-
+|延長戦 サレンダーして
+|enchousen sarendaa shite
+|-
+|メーデー 淡い愛想
+|meedee awai aiso
+|-
+|垂れ流し　言の愛憎
+|tarenagashi koto no aizou
+|-
+|<br />
+|-
+|ドラマチックな展開をどっか期待してんだろう
+|doramachikkuna tenkai o dokka kitai shiten darou
+|-
+|<br />
+|-
+|君も YES YES　息を呑んで
+|kimi mo YES YES iki o nonde
+|-
+|采配は そこにあんだ
+|saihai wa soko ni anda
+|-
+|ヘッドショット 騒ぐ想いも
+|heddoshotto sawagu omoi mo
+|-
+|その心　撃ち抜いて さあ
+|sono kokoro uchinuite saa
+|-
+|まだ見ぬ糸を引いて 黒幕のお出ましさ
+|mada minu ito o hiite kuromaku no odemashi sa
+|-
+|<br />
+|-
+|"その目に映るのは"
+|"sono me ni utsuru no wa"
+|}
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{derivative
+  |color       = kagamine rin
+  |title       = Sammi-P's Cover ft. Kagamine Rin
+  |singers     = [[Kagamine Rin]]
+  |producers   = [[Sammi-P]] (cover)
+  |categories  = VOCALOID Cover
+  |links       = nn sm32157900; bb av15717022
+}}
+{{derivative
+  |color       = camui gackpo
+  |title       = Kalfina-P's Cover ft. Camui Gackpo
+  |singers     = [[Camui Gackpo]] V4
+  |producers   = Kalfina-P (cover)
+  |categories  = VOCALOID Cover
+  |links       = yt 4u2Al9az6KQ; sc kalfina-p/gakupo-v4dramaturgy
+}}
+{{derivative
+  |color       = kaito
+  |title       = Ju-hachi's Cover ft. KAITO
+  |singers     = KAITO V3<br><small>[[MEIKO]] V3 (chorus)</small>
+  |producers   = Ju-hachi (cover, video)
+  |categories  = VOCALOID Cover
+  |links       = nn sm33233349
+}}
+{{derivative
+  |color       = hatsune miku
+  |title       = Alekz's Cover ft. Hatsune Miku
+  |singers     = [[Hatsune Miku]] V4
+  |producers   = Alekz (cover, mixing, VPR)
+  |categories  = VOCALOID Cover; Alternative Language
+  |links       = yt E9dmXrOcdjg; sc mr-alekz-aedrix-v2/tuning-dramaturgy-like-some-producers-my-shitty-tuning
+  |description = The user tried tuning like some VOCALOID producers, including Eve, [[wowaka]], [[NayutalieN]], [[AVTechNO!]].
+}}
+  |utau = 
+{{derivative
+  |color       = utau
+  |title       = suzurei's Cover ft. Gekiyaku
+  |singers     = {{UW2.0|Gekiyaku}} 偽薬
+  |producers   = suzurei (UST)
+  |categories  = UTAU Cover
+  |links       = nn sm32142329
+}}
+{{derivative
+  |color       = utau|thumb = yt
+  |title       = akem's Cover ft. Utayume Kana♂
+  |singers     = {{UW2.0|kana-utayume|Utayume Kana}}♂
+  |producers   = akem (cover, harmonies edit, adlibs, mixing), Kana (illust), suzurei (UST)
+  |categories  = UTAU Cover
+  |links       = nn sm32436947; yt PhQpmZcO-Xs; sc akemiyuyu2/utau-dramaturgy-utayume-kana
+}}
+  |human = 
+{{derivative
+  |color       = black; color:white|thumb = yt
+  |title       = Rib's Cover
+  |singers     = {{UIW|Rib}}
+  |producers   = Rib (mixing, encode)
+  |categories  = Human Cover
+  |links       = nn sm32103696; yt hC22VEFRM4Q
+}}
+{{derivative
+  |color       = black; color:white|thumb = yt
+  |title       = Amatsuki's Cover
+  |singers     = {{UIW|Amatsuki (male)|Amatsuki}}
+  |producers   = kain (mixing)
+  |categories  = Human Cover
+  |links       = nn sm32095809; yt csdFKrJ2b-c; bb BV19b41127af
+}}
+{{derivative
+  |color       = black; color:white|thumb = yt
+  |title       = Soraru's Cover
+  |singers     = {{UIW|Soraru}}
+  |producers   = Soraru (mixing, mastering, encode)
+  |categories  = Human Cover
+  |links       = nn sm32128334; yt pgk413AERBU
+}}
+{{derivative
+  |color       = black; color:white|thumb = yt
+  |title       = Umikun's Cover
+  |singers     = Umikun
+  |categories  = Human Cover
+  |links       = yt -rZrBExo2l4
+}}
+{{Derivative
+  |color      = black; color:white
+  |title      = SIXFONIA's Cover
+  |singers    = {{UIW|SIXFONIA}}: {{UIW|Hima72}}, {{UIW|LAN}}, {{UIW|Suchi}}
+  |producers  = Akatin (mixing), to/garashi (illust), Poko (video), Suchi (thumbnail)
+  |categories = Human Cover; Fanmade PV
+  |links      = yt DyLugCCunYo
+}}
+  |arrangement = 
+{{derivative
+  |color       = black; color:white|thumb = yt
+  |title       = Ska Band Arrange
+  |singers     = [[flower]]
+  |producers   = kahimi (arrangement), Newo (illust), Suya (video), hyouzan (tuning)
+  |categories  = VOCALOID Cover; Arrangement
+  |links       = nn sm35966356; yt O5f8RwWhSb0; bb av76022995
+}}
+}}
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* [[Eve Vocaloid 01]]
+
+===Video games===
+This song was featured in the following video games:
+
+===={{Wp|Chunithm|CHUNITHM}} Series====
+* CHUNITHM PARADISE / PARADISE LOST (Eve's Version)
+* CHUNITHM NEW / NEW PLUS (Eve's Version)
+
+===={{Wp:ja|オンゲキ|O.N.G.E.K.I.}} Series====
+{{col-2b|
+* O.N.G.E.K.I. SUMMER PLUS (Eve's Version)
+* O.N.G.E.K.I. R.E.D. / R.E.D. PLUS (Eve's Version)
+|
+* O.N.G.E.K.I. bright / bright MEMORY (Eve's Version)}}
+
+===={{Wp|Groove Coaster}} Series====
+{{col-2b|
+* GROOVE COASTER 4EX INFINITY HIGHWAY (Eve's Version)
+* GROOVE COASTER 4MAX DIAMOND GALAXY (Eve's Version)
+|
+* {{IW|groovecoaster|Groove Coaster: Wai Wai Party!!!!}} (Eve's Version)}}
+
+===={{Wp|jubeat}} Series====
+{{col-2b|
+* jubeat festo (Eve's Version)
+* jubeat Ave. (Eve's Version)
+|
+* jubeat (app) (Eve's Version)}}
+
+===={{Wp|Pop'n Music}} Series====
+* {{IW|popnmusic|pop'n Music peace}} (Eve's Version)
+* {{IW|popnmusic|pop'n Music Kaimei Riddles}} (Eve's Version)
+
+====[[Hatsune Miku -Project DIVA- (series)|Hatsune Miku -Project DIVA-]] Series====
+{{col-2b|
+* [[Hatsune Miku: Project DIVA Mega Mix]]
+* {{IW|project-diva|Hatsune Miku: Project DIVA Future Tone}} (DLC)
+|
+* {{IW|project-diva|Hatsune Miku: Project DIVA MegaMix+}}}}
+
+===={{Wp|Taiko no Tatsujin}} Series====
+{{col-2b|
+* {{IW|taiko|Taiko no Tatsujin Plus: Shinkyoku Tori Houdai!}} (Eve's Version)
+* {{IW|taiko|Taiko no Tatsujin: Drum 'n' Fun!}} (Eve's Version)
+* {{IW|taiko|Taiko no Tatsujin: Green Version}} (Eve's Version)
+|
+* {{IW|taiko|Taiko no Tatsujin (2020)|Taiko no Tatsujin: Nijiiro Ver. 2020}} (Eve's Version)
+* Taiko no Tatsujin: Nijiiro Ver. 2021 (Eve's Version)
+* Taiko no Tatsujin: Nijiiro Ver. 2022 (Eve's Version)}}
+
+====Other games====
+* {{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by Hatsune Miku; SEKAI version by Leo/need and Hatsune Miku)
+* {{MH|bandori|BanG Dream! Girls Band Party!}} (covered by Afterglow and Toyama Kasumi)
+* Tetote x Connect (Eve's Version)
+* QQQbeats (Eve’s version)
+
+==Gallery==
+<gallery hideaddbutton="true" position="center" bordercolor=black>
+Games - Project SEKAI - ドラマツルギー.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+Games - BanG Dream - Dramaturgy.png|Music jacket featured in ''BanG Dream! Girls Band Party!''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [http://piapro.jp/t/Z3h0 Off-vocal] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 36818
+  |nico   = sm32076378
+  |vocadb = 170110
+  |mgp    = 拟剧论
+  |pixiv  = ドラマツルギー
+  |tag    = ドラマツルギー
+  |vlw    = ドラマツルギー (Dramaturgy)
+  |url    =   {{MH|bandori|Dramaturgy|BanG Dream! Wiki}}
+* {{IW|projectsekai|Dramaturgy|Project SEKAI Wiki}}
+* {{IW|project-diva|Dramaturgy|Project DIVA Wiki}}
+* {{IW|kara-no-kioku-eve|Dramaturgy|Kara No Kioku/ Eve Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Partially bilingual songs]]
+[[Category:Mobile game songs]]
+[[Category:Video game songs]]
+[[Category:Self-covers]]

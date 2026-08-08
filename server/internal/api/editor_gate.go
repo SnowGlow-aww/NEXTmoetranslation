@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,11 +46,11 @@ func (s *Server) strictContentMutation(next http.HandlerFunc) http.HandlerFunc {
 
 func (s *Server) strictEditorMutation(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		instanceID, generation, ok := parseLoadedProducerState(w, r)
+		instanceID, revision, generation, ok := parseLoadedProducerState(w, r)
 		if !ok {
 			return
 		}
-		release, status, current := s.editorGate.BeginStrictEditor(instanceID, generation)
+		release, status, current := s.editorGate.BeginStrictEditor(instanceID, revision, generation)
 		if !current {
 			writeJSON(w, http.StatusConflict, status)
 			return
@@ -59,30 +60,43 @@ func (s *Server) strictEditorMutation(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func parseLoadedProducerState(w http.ResponseWriter, r *http.Request) (string, uint64, bool) {
+func parseLoadedProducerState(w http.ResponseWriter, r *http.Request) (string, uint64, uint64, bool) {
 	values := r.Header.Values(loadedProducerStateHeader)
 	if len(values) == 0 {
 		writeErr(w, http.StatusPreconditionRequired, "loaded producer state required")
-		return "", 0, false
+		return "", 0, 0, false
 	}
 	if len(values) != 1 {
 		writeErr(w, http.StatusBadRequest, "invalid loaded producer state")
-		return "", 0, false
+		return "", 0, 0, false
 	}
 	parts := strings.Split(values[0], ":")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
 		writeErr(w, http.StatusBadRequest, "invalid loaded producer state")
-		return "", 0, false
+		return "", 0, 0, false
 	}
 	decoded, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil || len(decoded) == 0 || base64.RawURLEncoding.EncodeToString(decoded) != parts[0] {
 		writeErr(w, http.StatusBadRequest, "invalid loaded producer state")
-		return "", 0, false
+		return "", 0, 0, false
 	}
-	completedGeneration, err := strconv.ParseUint(parts[1], 10, 64)
-	if err != nil || completedGeneration > editorgate.MaxSafeCounter || strconv.FormatUint(completedGeneration, 10) != parts[1] {
+	revision, err := parseLoadedProducerCounter(parts[1])
+	if err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid loaded producer state")
-		return "", 0, false
+		return "", 0, 0, false
 	}
-	return parts[0], completedGeneration, true
+	completedGeneration, err := parseLoadedProducerCounter(parts[2])
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid loaded producer state")
+		return "", 0, 0, false
+	}
+	return parts[0], revision, completedGeneration, true
+}
+
+func parseLoadedProducerCounter(value string) (uint64, error) {
+	counter, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || counter > editorgate.MaxSafeCounter || strconv.FormatUint(counter, 10) != value {
+		return 0, errors.New("invalid loaded producer counter")
+	}
+	return counter, nil
 }

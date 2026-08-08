@@ -1,10 +1,18 @@
 package config
 
 import (
+	"os"
 	"testing"
 
 	"moesekai/server/internal/db"
+	"moesekai/server/internal/httpx"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Setenv("MOESEKAI_PRODUCTION", "false")
+	_ = os.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "true")
+	os.Exit(m.Run())
+}
 
 func openTestDB(t *testing.T) *db.DB {
 	t.Helper()
@@ -168,7 +176,7 @@ func TestSetManyValidatesTypedSettingsAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	invalid := map[string]string{
-		KeySchedulerOn: "ture", KeyLyricsDiscoveryOn: "1", KeyBackupS3Enabled: "1", KeyLLMType: "custom",
+		KeySchedulerOn: "ture", KeyLyricsDiscoveryOn: "1", KeyLyricsFetchRevisionOn: "yes", KeyBackupS3Enabled: "1", KeyLLMType: "custom",
 		KeyLLMRequestTimeoutMS: "0", KeyLLMMaxRetries: "6", KeyBatchSize: "0",
 		KeyRateDelayMS: "-1", KeyUpstreamFetchConcurrency: "13",
 	}
@@ -181,7 +189,7 @@ func TestSetManyValidatesTypedSettingsAtomically(t *testing.T) {
 		}
 	}
 	for key, value := range map[string]string{
-		KeySchedulerOn: "false", KeyLyricsDiscoveryOn: "true", KeyBackupS3Enabled: "true", KeyLLMType: "openai",
+		KeySchedulerOn: "false", KeyLyricsDiscoveryOn: "true", KeyLyricsFetchRevisionOn: "false", KeyBackupS3Enabled: "true", KeyLLMType: "openai",
 		KeyLLMRequestTimeoutMS: "1", KeyLLMMaxRetries: "5", KeyBatchSize: "200",
 		KeyRateDelayMS: "0", KeyUpstreamFetchConcurrency: "12",
 	} {
@@ -221,6 +229,74 @@ func TestNewRejectsUnsafePersistedServiceEndpoint(t *testing.T) {
 	}
 	if _, err := New(database, ""); err == nil {
 		t.Fatal("unsafe persisted service endpoint was accepted")
+	}
+}
+
+func TestUpstreamURLSettingsFailClosedInProduction(t *testing.T) {
+	t.Setenv("MOESEKAI_PRODUCTION", "true")
+	t.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "true")
+	database := openTestDB(t)
+	configuration, err := New(database, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := []string{
+		KeyUpstreamVersionURL, KeyUpstreamVersionFallbackURL,
+		KeyUpstreamJPMasterdataURL, KeyUpstreamJPMasterdataFallbackURL,
+		KeyUpstreamCNMasterdataURL, KeyUpstreamCNMasterdataFallbackURL,
+		KeyUpstreamJPAssetsURL, KeyUpstreamJPAssetsFallbackURL,
+		KeyUpstreamCNAssetsURL, KeyUpstreamCNAssetsFallbackURL,
+	}
+	unsafe := []string{
+		"http://127.0.0.1:8080/data",
+		"https://10.0.0.1/data",
+		"https://[fd00::1]/data",
+		"https://user:secret@example.com/data",
+		"https://example.com/data?token=x",
+		"https://example.com/data#fragment",
+		"https://example.com:8443/data",
+		"https://example.com/data\nheader",
+	}
+	for _, key := range keys {
+		for _, value := range unsafe {
+			if err := configuration.Set(key, value); err == nil {
+				t.Fatalf("%s accepted unsafe production URL %q", key, value)
+			}
+		}
+		if err := configuration.Set(key, "https://example.com:443/path"); err != nil {
+			t.Fatalf("%s rejected public HTTPS URL: %v", key, err)
+		}
+	}
+	if err := configuration.Set(KeyUpstreamVersionFallbackURL, "https://one.example/path, https://two.example/path"); err != nil {
+		t.Fatalf("safe fallback list rejected: %v", err)
+	}
+}
+
+func TestUpstreamURLSettingsAllowExplicitLocalDevelopmentOnly(t *testing.T) {
+	t.Setenv("MOESEKAI_PRODUCTION", "false")
+	t.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "true")
+	database := openTestDB(t)
+	configuration, err := New(database, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := configuration.Set(KeyUpstreamVersionURL, "http://127.0.0.1:43210/version.json"); err != nil {
+		t.Fatalf("explicit local development URL rejected: %v", err)
+	}
+	if err := configuration.Set(KeyUpstreamVersionFallbackURL, "http://10.0.0.1:8080/version.json"); err == nil {
+		t.Fatal("development override accepted non-loopback private HTTP")
+	}
+}
+
+func TestNewRejectsPersistedPrivateUpstreamURLInProduction(t *testing.T) {
+	t.Setenv("MOESEKAI_PRODUCTION", "true")
+	t.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "false")
+	database := openTestDB(t)
+	if _, err := database.Exec(`INSERT INTO settings(key, value, encrypted) VALUES (?, ?, 0)`, KeyUpstreamVersionURL, "https://127.0.0.1/version.json"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(database, ""); err == nil {
+		t.Fatal("persisted private upstream URL was accepted in production")
 	}
 }
 

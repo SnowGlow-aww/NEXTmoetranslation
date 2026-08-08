@@ -113,12 +113,12 @@ type File struct {
 }
 
 var expectedSourceContract = SourceContract{
-	Name: "sekaitext-moe-loaded-producer-state", Version: 1,
+	Name: "sekaitext-moe-loaded-producer-state", Version: 2,
 }
 
 var expectedEditorGateContract = EditorGateContract{
 	Name:    "sekaitext-moe-editor-gate",
-	Version: 1,
+	Version: 2,
 	Status: EditorGateStatus{
 		Method:          "GET",
 		Path:            "/api/editor-gate/status",
@@ -128,7 +128,7 @@ var expectedEditorGateContract = EditorGateContract{
 		},
 	},
 	MutationHeader: "X-Moe-Loaded-Producer-State",
-	MutationFormat: "<base64url-instanceId>:<completedGeneration>",
+	MutationFormat: "<base64url-instanceId>:<revision>:<completedGeneration>",
 	MutationRejections: MutationRejections{
 		Missing: 428, Malformed: 400, StaleOrRunning: 409,
 	},
@@ -141,6 +141,8 @@ var (
 )
 
 var requiredRoutes = []Route{
+	{Method: "GET", Path: "/api/admin/lyrics-source-reviews", Authentication: "bearer", AllowedRoles: adminRoles},
+	{Method: "GET", Path: "/api/admin/lyrics-source-reviews/detail", Authentication: "bearer", AllowedRoles: adminRoles},
 	{Method: "GET", Path: "/api/auth/me", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/backup/status", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/catalog/characters", Authentication: "bearer", AllowedRoles: editorRoles},
@@ -157,12 +159,15 @@ var requiredRoutes = []Route{
 	{Method: "GET", Path: "/api/lyrics/source/search", Authentication: "bearer", AllowedRoles: adminRoles},
 	{Method: "GET", Path: "/api/projection/status", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/sse", Authentication: "bearer", AllowedRoles: editorRoles},
+	{Method: "POST", Path: "/api/admin/lyrics-source-reviews/import", Authentication: "bearer", AllowedRoles: adminRoles},
 	{Method: "POST", Path: "/api/auth/login", Authentication: "none", AllowedRoles: noRoles},
 	{Method: "POST", Path: "/api/auth/refresh", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "POST", Path: "/api/editor/v1/backup/push", Authentication: "bearer", ProducerProof: true, AllowedRoles: adminRoles},
 	{Method: "POST", Path: "/api/editor/v1/lyrics/publish", Authentication: "bearer", ProducerProof: true, AllowedRoles: adminRoles},
 	{Method: "POST", Path: "/api/editor/v1/lyrics/unpublish", Authentication: "bearer", ProducerProof: true, AllowedRoles: adminRoles},
 	{Method: "POST", Path: "/api/lyrics/source/preview", Authentication: "bearer", AllowedRoles: adminRoles},
+	{Method: "PUT", Path: "/api/admin/lyrics-source-reviews/candidate-selection", Authentication: "bearer", AllowedRoles: adminRoles},
+	{Method: "PUT", Path: "/api/admin/lyrics-source-reviews/decision", Authentication: "bearer", AllowedRoles: adminRoles},
 	{Method: "PUT", Path: "/api/editor/v1/category/batch", Authentication: "bearer", ProducerProof: true, AllowedRoles: editorRoles},
 	{Method: "PUT", Path: "/api/editor/v1/entry", Authentication: "bearer", ProducerProof: true, AllowedRoles: editorRoles},
 	{Method: "PUT", Path: "/api/editor/v1/event-story/update", Authentication: "bearer", ProducerProof: true, AllowedRoles: editorRoles},

@@ -79,6 +79,45 @@ func TestCategorySnapshotAndBatchAreCompleteAtomicAndAudited(t *testing.T) {
 	}
 }
 
+func TestCategoryBatchReportsOnlyActualChangesForCompleteAndPartialNoOps(t *testing.T) {
+	s, database := setupCategoryBatchStore(t)
+	snapshot, err := s.CategorySnapshotLocale("cards", model.LocaleEnglish)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var notifications atomic.Int32
+	s.OnChange(func() { notifications.Add(1) })
+
+	noOp, err := s.UpdateCategoryLocale("cards", model.LocaleEnglish, snapshot.Revision, "editor", []model.CategoryEntryUpdate{
+		{Field: "prefix", Key: "first", Text: "", Source: model.SourceUnknown},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if noOp.Snapshot.Revision != snapshot.Revision || len(noOp.Changed) != 0 || notifications.Load() != 0 {
+		t.Fatalf("complete no-op result=%+v notifications=%d", noOp, notifications.Load())
+	}
+	var audits int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE detail LIKE '%batch=true'`).Scan(&audits); err != nil || audits != 0 {
+		t.Fatalf("complete no-op audits=%d err=%v", audits, err)
+	}
+
+	partial, err := s.UpdateCategoryLocale("cards", model.LocaleEnglish, snapshot.Revision, "editor", []model.CategoryEntryUpdate{
+		{Field: "prefix", Key: "first", Text: "First", Source: model.SourceHuman},
+		{Field: "prefix", Key: "second", Text: "", Source: model.SourceUnknown},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if partial.Snapshot.Revision == snapshot.Revision || len(partial.Changed) != 1 ||
+		partial.Changed[0].Key != "first" || notifications.Load() != 1 {
+		t.Fatalf("partial no-op result=%+v notifications=%d", partial, notifications.Load())
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE detail LIKE '%batch=true'`).Scan(&audits); err != nil || audits != 1 {
+		t.Fatalf("partial no-op audits=%d err=%v", audits, err)
+	}
+}
+
 func TestCategoryBatchAuditFailureRollsBackEveryEntry(t *testing.T) {
 	s, database := setupCategoryBatchStore(t)
 	snapshot, err := s.CategorySnapshotLocale("cards", model.LocaleChinese)

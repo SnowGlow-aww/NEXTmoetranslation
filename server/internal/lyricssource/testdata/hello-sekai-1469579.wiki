@@ -1,0 +1,402 @@
+{{NoReprint}}
+<tabber>Piapro Characters Version =
+{{Song box 2
+  |color     = #333333; color: white
+  |image     = Hello SEKAI.jpg
+  |title     = "'''ハローセカイ'''"
+* Romaji: Haroo Sekai
+* Official English: Hello, SEKAI
+  |date      = January 17, 2025 (single release) and February 8, 2025 (PV)
+  |views     = {{v|yt|1,006,408}} and {{v|nn|138,228}}
+  |singers   = [[Hatsune Miku SP]], [[Kagamine Rin SP]], [[Kagamine Len SP]], [[Megurine Luka SP]], [[MEIKO SP]], and [[KAITO SP]]
+  |producers = '''[[OTOIRO]]''':
+* [[DECO*27]] (music, lyrics)
+* tepe (arrangement)
+* Awashima (director, composite)
+* 1024 (character design, animation)
+* yuka fujii (logo design, graphic design) 
+  |links     = {{l|yt|aRXnHW2k07A}} {{l|nn|so44608901}}
+}}
+|-|Miku Version =
+{{Song box 2
+  |color     = #5CCCF1; color:#455D77
+  |image     = Hello SEKAI Miku.jpg
+  |title     = "'''ハローセカイ'''"
+* Romaji: Haroo Sekai
+* Official English: Hello, SEKAI
+  |date      = February 9, 2025
+  |views     = {{v|nn|262,475}}, {{v|yt|1,739,208}}, and {{v|bb|851,000}}
+  |singers   = [[Hatsune Miku]]
+  |producers = '''[[OTOIRO]]''':
+* [[DECO*27]] (music, lyrics)
+* tepe (arrangement)
+* Naoki Hasegawa (director)
+* [[omutatsu]] (illustration)
+* yuka fujii (logo design, graphic design)
+* Mitsumi Yanokawa (assistant design)
+* Naoki Hasegawa, GA (composite)
+* Yusuke Sato (sound product manager)
+* Iori Majima (chief producer)
+* Crypton Future Media Sound Team, [[kemu]], Yuma Saito (special thanks)
+  |links     = {{l|nn|sm44594615}} {{l|yt|t5U0rrj0dio}} {{l|bb|BV15kFVeQEZ6}}
+}}
+</tabber>
+
+==Background==
+{{Quote|Connecting now, intertwining now<br>
+Hearts vibrating, and now transmitting, to all of us|Tagline (Miku version)}}
+"'''Hello, SEKAI'''" is an original song by DECO*27 and tepe. It was commissioned as an insert song for the unit {{IW|projectsekai|VIRTUAL SINGER}} in the 2025 anime film ''{{IW|projectsekai|Project SEKAI the Movie: Kowareta SEKAI to Utaenai MIKU}}''. Two VIRTUAL SINGER versions for the song were created: one featuring all the Piapro Characters that was released as a single on the same day as the film's release in Japan and officially uploaded online, and one featuring only Miku's vocals.
+
+DECO*27 would later upload an alternate Miku only version of the song to his channels the day after the Piapro Characters version was uploaded. This version uses a different voicebank for Miku compared to the one featured in the film and game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+Both the Piapro Characters version and the Miku version have entered the ''Hall of Fame'' and exceeded 1 million views on YouTube while the Miku version exceeded 800,000 views on bilibili.
+
+==Succeeding version==
+{{Derivative
+  |color       = #00CDBA; color: white
+  |title       = Project SEKAI Version [VIRTUAL SINGER]
+  |thumb       = Games - Project SEKAI - ハローセカイ.png
+  |singers     = {{IW|projectsekai|VIRTUAL SINGER}}: {{IW|projectsekai|Hatsune Miku}}
+  |producers   = [[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Vocal; Film Soundtrack; In-game Content
+  |description = An alternate version of the song featuring only Miku's vocals, utilizing the [[PIAPRO CHARACTERS SUPER PACK]] voicebank. Featured in the film ''{{IW|projectsekai|Project SEKAI the Movie: Kowareta SEKAI to Utaenai MIKU}}'' and the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{Derivative
+  |color       = #333333; color: white
+  |title       = STUDY WITH MIKU ver.
+  |producers   = jny, YOUSHIKIBI STUDIO (arrange), anbiyori (video)
+  |categories  = Arrangement
+  |description = An instrumental medley arrangement of various VOCALOID songs that can be played as background music while the listener studies.
+  |links       = yt tOvZInzmokc&t=2177s
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>Piapro Characters Version =
+{{lrc legend|#333333; color: white
+|Miku
+|Rin
+|Len
+|Luka
+|MEIKO
+|KAITO
+|Chorus
+|n7=y}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|miku|きっと届くはず　きっと見えるはず}}
+|{{lrc color|miku|kitto todoku hazu kitto mieru hazu}}
+|-
+|{{lrc color|miku|そんな会ってみたい未来を　僕はひとりきりのセカイで}}
+|{{lrc color|miku|sonna atte mitai mirai o boku wa hitorikiri no sekai de}}
+|-
+|{{lrc color|miku|ずっとそう歌うたっていた}}
+|{{lrc color|miku|zutto sou utau tatteita}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|今聞こえたよ}}　{{lrc color|kaito|ほら少しだけ}}
+|{{lrc color|meiko|ima kikoeta yo}} {{lrc color|kaito|hora sukoshi dake}}
+|-
+|{{lrc color|luka|君を感じたよ}}　{{lrc color|rin|メロディーがリンクする}}
+|{{lrc color|luka|kimi o kanjita yo}} {{lrc color|rin|merodii ga rinku suru}}
+|-
+|{{lrc color|len|今繋がるよ}}　今重なるよ {{lrc color|miku|■}}{{lrc color|rin|■}}{{lrc color|len|■}}
+|{{lrc color|len|ima tsunagaru yo}} ima kasanaru yo {{lrc color|miku|■}}{{lrc color|rin|■}}{{lrc color|len|■}}
+|-
+|{{lrc color|miku|伝えたかったこと　山ほどあるんだけどどうしよう}}
+|{{lrc color|miku|tsutaetakatta koto yamahodo arun dakedo doushiyou}}
+|-
+|<br>
+|-
+|{{lrc color|rin|見たこともない顔で}}　{{lrc color|len|君は君をダメと言うけど}}
+|{{lrc color|rin|mita koto mo nai kao de}} {{lrc color|len|kimi wa kimi o dame to iu kedo}}
+|-
+|{{lrc color|luka|未来にいる理想の君を}}　今の君に押し付け過ぎないで {{lrc color|meiko|■}}{{lrc color|kaito|■}}
+|{{lrc color|luka|mirai ni iru risou no kimi o}} ima no kimi ni oshitsuke suginaide {{lrc color|meiko|■}}{{lrc color|kaito|■}}
+|-
+|{{lrc color|miku|見たこともない景色}}　見せ合ういつかが来るまで {{lrc color|luka|■}}{{lrc color|meiko|■}}{{lrc color|kaito|■}}
+|{{lrc color|miku|mita koto mo nai keshiki}} miseau itsuka ga kuru made {{lrc color|luka|■}}{{lrc color|meiko|■}}{{lrc color|kaito|■}}
+|-
+|{{lrc color|miku|つらいこと　泣きたくなること}}　たまには預け合おう {{lrc color|luka|■}}{{lrc color|meiko|■}}{{lrc color|kaito|■}}
+|{{lrc color|miku|tsurai koto nakitaku naru koto}} tama ni wa azukeaou {{lrc color|luka|■}}{{lrc color|meiko|■}}{{lrc color|kaito|■}}
+|-
+|<br>
+|-
+|ハロー、 セカイ　僕の声はちゃんと届いてるかい
+|haroo, sekai boku no koe wa chanto todoiteru kai
+|-
+|{{lrc color|miku|思ったよりも大丈夫}}　君はひとりなんかじゃない
+|{{lrc color|miku|omotta yori mo daijoubu}} kimi wa hitori nanka janai
+|-
+|ハロー、 セカイ　君の声もちゃんと届いてるよ
+|haroo, sekai kimi no koe mo chanto todoiteru yo
+|-
+|思ったよりも最高だ　{{lrc color|miku|僕もひとりなんかじゃない}}
+|omotta yori mo saikou da {{lrc color|miku|boku mo hitori nanka janai}}
+|-
+|<br>
+|-
+|行くよジャンプジャンプジャンプ　跳ねるダンスダンスダンス
+|iku yo janpu janpu janpu haneru dansu dansu dansu
+|-
+|{{lrc color|miku|いらない不安なんて踏んじゃってこう}}
+|{{lrc color|miku|iranai fuan nante fun jatte kou}}
+|-
+|ああでもこうでもないも　そんなのどうでもいいよ
+|aa demo kou demo nai mo sonna no doudemo ii yo
+|-
+|{{lrc color|miku|やりたいようにやろう}}　ハローハロー
+|{{lrc color|miku|yaritai you ni yarou}} haroo haroo
+|-
+|<br>
+|-
+|{{lrc color|miku|もう一回}}ジャンプジャンプジャンプ　回るダンスダンスダンス
+|{{lrc color|miku|mou ikkai}} janpu janpu janpu mawaru dansu dansu dansu
+|-
+|行きたい未来　きっともうすぐだよ
+|ikitai mirai kitto mou sugu da yo
+|-
+|ああでもこうでもないも　そんなのどうでもいいよ
+|aa demo kou demo nai mo sonna no doudemo ii yo
+|-
+|やりたいようにやろう
+|yaritai you ni yarou
+|-
+|<br>
+|-
+|[[セカイ (Sekai)|飛び込んでいこう　僕らのセカイが]]
+|[[セカイ (Sekai)|tobikonde ikou bokura no sekai ga]]
+|-
+|[[セカイ (Sekai)|正解か不正解かわからなくても]]
+|[[セカイ (Sekai)|seikai ka fuseikai ka wakaranakutemo]]
+|-
+|[[Journey/DECO*27|僕にある想いも　君にある願いも]]
+|[[Journey/DECO*27|boku ni aru omoi mo kimi ni aru negai mo]]
+|-
+|[[Journey/DECO*27|きっと消えないんだよ　ずっとセカイは終わらないよ]]
+|[[Journey/DECO*27|kitto kienain da yo zutto sekai wa owaranai yo]]
+|-
+|<br>
+|-
+|今{{lrc color|miku|繋がるよ}}　今{{lrc color|miku|重なるよ}}
+|ima {{lrc color|miku|tsunagaru yo}} ima {{lrc color|miku|kasanaru yo}}
+|-
+|ほら聞こえるよ　ほら伝わるよ僕ら
+|hora kikoeru yo hora tsutawaru yo bokura
+|}
+|-|Miku Version =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|きっと届くはず　きっと見えるはず
+|kitto todoku hazu kitto mieru hazu
+|-
+|そんな会ってみたい未来を　僕はひとりきりのセカイで
+|sonna atte mitai mirai o boku wa hitorikiri no sekai de
+|-
+|ずっとそう歌うたっていた
+|zutto sou utau tatteita
+|-
+|<br>
+|-
+|今聞こえたよ　ほら少しだけ
+|ima kikoeta yo hora sukoshi dake
+|-
+|君を感じたよ　メロディーがリンクする
+|kimi o kanjita yo merodii ga rinku suru
+|-
+|{{Shared}}|(DECO)
+|-
+|今繋がるよ　今重なるよ
+|ima tsunagaru yo ima kasanaru yo
+|-
+|伝えたかったこと　山ほどあるんだけどどうしよう
+|tsutaetakatta koto yamahodo arun dakedo doushiyou
+|-
+|<br>
+|-
+|見たこともない顔で　君は君をダメと言うけど
+|mita koto mo nai kao de kimi wa kimi o dame to iu kedo
+|-
+|未来にいる理想の君を　今の君に押し付け過ぎないで
+|mirai ni iru risou no kimi o ima no kimi ni oshitsuke suginaide
+|-
+|見たこともない景色　見せ合ういつかが来るまで
+|mita koto mo nai keshiki miseau itsuka ga kuru made
+|-
+|つらいこと　泣きたくなること　たまには預け合おう
+|tsurai koto nakitaku naru koto tama ni wa azukeaou
+|-
+|<br>
+|-
+|ハロー、 セカイ　僕の声はちゃんと届いてるかい
+|haroo, sekai boku no koe wa chanto todoiteru kai
+|-
+|思ったよりも大丈夫　君はひとりなんかじゃない
+|omotta yori mo daijoubu kimi wa hitori nanka janai
+|-
+|ハロー、 セカイ　君の声もちゃんと届いてるよ
+|haroo, sekai kimi no koe mo chanto todoiteru yo
+|-
+|思ったよりも最高だ　僕もひとりなんかじゃない
+|omotta yori mo saikou da boku mo hitori nanka janai
+|-
+|<br>
+|-
+|行くよジャンプジャンプジャンプ　跳ねるダンスダンスダンス
+|iku yo janpu janpu janpu haneru dansu dansu dansu
+|-
+|いらない不安なんて踏んじゃってこう
+|iranai fuan nante fun jatte kou
+|-
+|ああでもこうでもないも　そんなのどうでもいいよ
+|aa demo kou demo nai mo sonna no doudemo ii yo
+|-
+|やりたいようにやろう　ハローハロー
+|yaritai you ni yarou haroo haroo
+|-
+|<br>
+|-
+|もう一回ジャンプジャンプジャンプ　回るダンスダンスダンス
+|mou ikkai janpu janpu janpu mawaru dansu dansu dansu
+|-
+|行きたい未来　きっともうすぐだよ
+|ikitai mirai kitto mou sugu da yo
+|-
+|ああでもこうでもないも　そんなのどうでもいいよ
+|aa demo kou demo nai mo sonna no doudemo ii yo
+|-
+|やりたいようにやろう
+|yaritai you ni yarou
+|-
+|<br>
+|-
+|[[セカイ (Sekai)|飛び込んでいこう　僕らのセカイが]]
+|[[セカイ (Sekai)|tobikonde ikou bokura no sekai ga]]
+|-
+|[[セカイ (Sekai)|正解か不正解かわからなくても]]
+|[[セカイ (Sekai)|seikai ka fuseikai ka wakaranakutemo]]
+|-
+|[[Journey/DECO*27|僕にある想いも　君にある願いも]]
+|[[Journey/DECO*27|boku ni aru omoi mo kimi ni aru negai mo]]
+|-
+|[[Journey/DECO*27|きっと消えないんだよ　ずっとセカイは終わらないよ]]
+|[[Journey/DECO*27|kitto kienain da yo zutto sekai wa owaranai yo]]
+|-
+|<br>
+|-
+|今繋がるよ　今重なるよ
+|ima tsunagaru yo ima kasanaru yo
+|-
+|ほら聞こえるよ　ほら伝わるよ僕ら
+|hora kikoeru yo hora tsutawaru yo bokura
+|}
+|-|Official English lyrics =
+{{Translation|jpn|official English|Producer|Translated by Iori Majima}}
+<poem style="margin-left:1em;">
+“Someday, our frequencies will meet, somehow, the veils will lift”
+That bright future had me at hello, in my “SEKAI” all alone
+All this time I sang that song
+
+Something just reached my ears, a slight vibration
+I feel you, my melody touches yours
+Connecting now, intertwining now
+My backlog of transmissions, a mountain worth to process, where should I start?
+
+I’ve never seen that face before, as you tell yourself that you’re no good
+Don’t let the perfect future you, give the current you such a hard time
+I’ve never seen this sight, till the day we reveal that to each other
+Heartbreaks and tears, let me hold yours while you hold mine
+
+“Hello, SEKAI”, has my voice reached you yet?
+It’s alright, better than I imagined, you’re not alone, not even a little bit
+“Hello, SEKAI”, your voices reached me just fine
+It’s incredible, better than I imagined, I’m not alone, not even a little bit
+
+Ready, set and jump! Leap up and dance
+Useless worries, let’s leave them in the dust
+What if’s and if only’s, they don’t matter
+Let’s just do what we want, hello hello
+
+One more time, jump! Twirl to that dance
+That bright future, it’s almost within reach
+What if’s and if only’s, they don’t matter
+Let’s just do what we want
+
+[[セカイ (Sekai)|Let’s jump into our world “SEKAI” even if
+We don’t know what’s right and what’s wrong]]
+[[Journey/DECO*27|That hope that I now have, that hope that you still have
+That’s for forever, no doubt, SEKAI is forever too]]
+
+Connecting now, intertwining now
+Hearts vibrating, and now transmitting, to all of us
+</poem>
+</tabber>
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* ''ハローセカイ (Hello Sekai) (single)'' (Piapro Characters version)
+* ''ハローセカイ (Hello Sekai) (single)'' (Miku version)
+* ''ハローセカイ (Hello Sekai) (single)'' (Miku SP version)
+* ''[[『劇場版プロジェクトセカイ 壊れたセカイと歌えないミク』オリジナルサウンドトラック ("Gekijouban Project SEKAI Kowareta SEKAI to Utaenai MIKU" Original Soundtrack)|"Gekijouban Project SEKAI Kowareta SEKAI to Utaenai MIKU" Original Soundtrack]]'' (Miku SP version & Piapro Characters version)
+
+===Films===
+The Miku version of the song was featured in the film ''{{IW|projectsekai|Project SEKAI the Movie: Kowareta SEKAI to Utaenai MIKU}}''.
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku / Hatsune Miku, Kagamine Rin, Kagamine Len, Megurine Luka, MEIKO, and KAITO).
+
+==Trivia==
+* The PV for the Miku only version connects this song with DECO*27's previous song "[[Journey/DECO*27|Journey]]" as it shows both versions of Windows SEKAI Miku reaching out to School SEKAI Miku's hand, which the latter does in the PV for "Journey".
+* The song does only do a le motiff of "Joruney" but also one of Project Sekai's official theme song "[[セカイ (Sekai)|Sekai]]".
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#333333">
+Games - Project SEKAI - ハローセカイ.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#333333">
+DECO27 tepe - Hello Sekai (single).png|Cover art of the digital single<br>''ハローセカイ (Hello Sekai)''
+DECO27 tepe - Hello Sekai Miku (single).jpg|Cover art of the digital single<br>''ハローセカイ (Hello Sekai)''
+DECO27 tepe - Hello Sekai MikuSP (single).jpg|Cover art of the digital single<br>''ハローセカイ (Hello Sekai)''
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://karent.jp/album/4596 KARENT (Miku Version)]
+** [https://nodee.net/a/iktzi6auuk81 nodee (Piapro Characters Version)]
+** [https://nodee.net/a/0tj40kwcpwmh nodee (Miku Version; SP Version)]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 65457
+  |vocadb  = 730826 Miku Version —
+  |vocadb2 = 730827 Piapro Characters Version —
+  |mgp     = Hello_SEKAI
+  |tag     = ハローセカイ
+  |vlw     = ハローセカイ (Hello SEKAI)
+  |url     = {{IW|projectsekai|Hello, SEKAI|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring KAITO]]
+[[Category:Songs featured in films]]
+[[Category:Mobile game songs]]
+[[Category:Remastered songs]]

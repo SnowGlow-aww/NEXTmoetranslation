@@ -176,7 +176,8 @@ export async function commitRefreshedSession(
       publishSessionEnvelope(tombstone);
       return tombstone;
     }
-    const next: SessionEnvelope = { version: 1, epoch: expected.epoch, session: { ...session } };
+    const identityChanged = session.role !== expected.session?.role;
+    const next: SessionEnvelope = { version: 1, epoch: identityChanged ? newEpoch() : expected.epoch, session: { ...session } };
     publishSessionEnvelope(next);
     return next;
   }, signal);
@@ -187,12 +188,15 @@ export async function clearSession(
   signal?: AbortSignal,
 ): Promise<boolean> {
   await ensureSessionMigrated(signal);
-  const snapshot = expected === undefined
-    ? await withSessionIdentityLock("shared", getStoredSessionEnvelope, signal)
-    : expected;
   return withSessionIdentityLock("exclusive", () => {
     const current = getStoredSessionEnvelope();
-    if (!sameSessionVersion(current, snapshot)) return false;
+    if (expected === undefined) {
+      // Explicit logout reads and clears the current token in one exclusive
+      // section, so a refresh can only commit entirely before or after it.
+      if (!current?.session) return false;
+    } else if (!sameSessionVersion(current, expected)) {
+      return false;
+    }
     publishSessionEnvelope({ version: 1, epoch: newEpoch(), session: null });
     return true;
   }, signal);

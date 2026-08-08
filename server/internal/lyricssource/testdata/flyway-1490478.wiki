@@ -1,0 +1,261 @@
+{{Song box 2
+  |color     = #3A5695; color:coral
+  |image     = Flyway - Halyosy.jpg
+  |title     = "'''Flyway'''"
+  |date      = January 29, 2023
+  |views     = {{v|nn|511,247}} and {{v|yt|3,397,422}}
+  |singers   = [[Kagamine Len]] V4X and [[KAITO]] V3
+  |producers = [[halyosy]] (music, lyrics, arrangement, other instruments, background illust, director, edit)
+* Rio.T (guitar)
+* drm (drums)
+* Issaku Matsumoto (violin, viola)
+* Bach (strings score editing, drums programming support)
+* Meis Clauson (mixing, mastering)
+* Shinotaro (illustration)
+* sobomen (director, edit)
+* IORI & Shima (model poses)
+  |links     = {{l|nn|sm41714284}} {{l|yt|pXLnKaiDeVw}} 
+}}
+
+==Background==
+"'''Flyway'''" is an original soft rock, pop, pop rock, RnB, rock song by halyosy. It was commissioned for the unit {{IW|ProjectSekai|Leo/need}} from the game ''{{IW|ProjectSekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+This song has entered the ''[[Hall of Fame]]'' and exceeded over 3 million YouTube views.
+
+==Succeeding Versions==
+{{Derivative
+  |color       = #4455DD; color:white
+  |title       = Project SEKAI Version [SEKAI] (Full - 2DMV)
+  |thumb       = Flyway - Project SEKAI version.png
+  |singers     = {{IW|projectsekai|Leo/need}}: {{IW|projectsekai|Kagamine Len}}, {{IW|projectsekai|Mochizuki Honami}} (CV: {{IW|projectsekai|Ueda Reina}}), {{IW|projectsekai|Hoshino Ichika}} (CV: {{IW|projectsekai|Noguchi Ruriko}}), {{IW|projectsekai|Tenma Saki}} (CV: {{IW|projectsekai|Isobe Karin}}), {{IW|projectsekai|Hinomori Shiho}} (CV: {{IW|projectsekai|Nakashima Yuki}})
+  |producers   = Pato (illust), omu (video)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Piapro Studio Vocal; Human Vocal; Original MV; In-game Content
+  |links       = nn so41637313; yt 2GK1B1RshN4; yt kKt_XtI1seM; bb BV15HyBYEE5p
+  |description = Full version, featured in Leo/need's 7th single ''Flyway / Aioi'' from the game'' {{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}.'' The full-length 2DMV was uploaded on January 29, 2022.
+}}
+{{Derivative
+  |color       = #4455DD; color:white
+  |title       = Project SEKAI Version [Another Vocal]
+  |thumb       = Games - Project SEKAI - Flyway.png
+  |singers     = Leo/need: Mochizuki Honami (CV: Ueda Reina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+
+==Lyrics==
+{{lrc legend|#3d5e9a; color:coral
+|Len:orange
+|KAITO
+|Both|n3=y}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|len|叶わなくて良いから}}願わせて
+|{{lrc color|len|kanawanakute ii kara}} negawasete
+|-
+|<br>
+|-
+|{{lrc color|len|永遠に雛鳥でいたいのに}}
+|{{lrc color|len|eien ni hinadori de itai no ni}}
+|-
+|{{lrc color|kaito|羽毛は白くなって　心は未熟だって}}
+|{{lrc color|kaito|umou wa shiroku natte kokoro wa mijuku datte}}
+|-
+|{{lrc color|len|世間体で羽繕う浮力が}}
+|{{lrc color|len|sekentei de hane tsukurou furyoku ga}}
+|-
+|{{lrc color|kaito|違う色に沈む事を許さない}}
+|{{lrc color|kaito|chigau iro ni shizumu koto o yurusanai}}
+|-
+|<br>
+|-
+|{{lrc color|len|普通とは奇抜の寄せ集め}}
+|{{lrc color|len|futsuu to wa kibatsu no yose atsume}}
+|-
+|{{lrc color|len|ずっと君はそのままで百点}}
+|{{lrc color|len|zutto kimi wa sono mama de hyakuten}}
+|-
+|{{lrc color|kaito|映るのは水面に見え隠れしてる}}
+|{{lrc color|kaito|utsuru no wa minamo ni miekakure shiteru}}
+|-
+|{{lrc color|kaito|大多数の羽休め}}
+|{{lrc color|kaito|daitasuu no haneyasume}}
+|-
+|<br>
+|-
+|{{lrc color|len|旋律は僕が}}　{{lrc color|kaito|律動は君に}}
+|{{lrc color|len|senritsu wa boku ga}} {{lrc color|kaito|ritsudou wa kimi ni}}
+|-
+|{{lrc color|len|大丈夫　もう飛び方は知ってる}}
+|{{lrc color|len|daijoubu mou tobikata wa shitteru}}
+|-
+|{{lrc color|kaito|ひとつ呼吸をして}}
+|{{lrc color|kaito|hitotsu kokyuu o shite}}
+|-
+|［深呼吸］
+|[shinkokyuu]
+|-
+|{{lrc color|len|どうせなら立つ鳥跡を濁せ}}
+|{{lrc color|len|douse nara tatsutori ato o nigose}}
+|-
+|<br>
+|-
+|旅鳥よ世界を舞い渡れ
+|tabitori yo sekai o maiwatare
+|-
+|{{lrc color|kaito|言葉も国も色も血も超え}}
+|{{lrc color|kaito|kotoba mo kuni mo iro mo chi mo koe}}
+|-
+|もう一度ひとつになれるように
+|mou ichido hitotsu ni nareru you ni
+|-
+|{{lrc color|len|叶わなくて良いから願わせて}}
+|{{lrc color|len|kanawanakute ii kara negawasete}}
+|-
+|<br>
+|-
+|{{lrc color|len|凪いだりするよ}}　{{lrc color|kaito|生きていく限り}}
+|{{lrc color|len|naidari suru yo}} {{lrc color|kaito|ikite iku kagiri}}
+|-
+|{{lrc color|len|泣いたりするよ}}　{{lrc color|kaito|君がいる限り}}
+|{{lrc color|len|naitari suru yo}} {{lrc color|kaito|kimi ga iru kagiri}}
+|-
+|<br>
+|-
+|{{lrc color|kaito|自分の代わりなんて幾らだっている}}
+|{{lrc color|kaito|jibun no kawari nante ikura datte iru}}
+|-
+|{{lrc color|kaito|この広い航路で}}
+|{{lrc color|kaito|kono hiroi kouro de}}
+|-
+|{{lrc color|len|迷わずに番いになれたのは}}
+|{{lrc color|len|mayowazu ni tsugai ni nareta no wa}}
+|-
+|{{lrc color|len|君と僕だったからだ}}
+|{{lrc color|len|kimi to boku datta kara da}}
+|-
+|<br>
+|-
+|{{lrc color|len|顔も名も残らない}}　{{lrc color|kaito|白銀の未開拓地}}
+|{{lrc color|len|kao mo na mo nokoranai}} {{lrc color|kaito|hakugin no mikaitakuchi}}
+|-
+|{{lrc color|len|初めて羽を伸ばし笑えた気がした}}
+|{{lrc color|len|hajimete hane o nobashi waraeta ki ga shita}}
+|-
+|{{lrc color|kaito|上手く呼吸は出来ない}}
+|{{lrc color|kaito|umaku kokyuu wa dekinai}}
+|-
+|{{lrc color|len|それでも構わない}}
+|{{lrc color|len|soredemo kamawanai}}
+|-
+|［吸気］
+|[kyuuki]
+|-
+|{{lrc color|len|いっそ這う鳥を飛ばす勢いで}}
+|{{lrc color|len|isso hau tori o tobasu ikioide}}
+|-
+|{{lrc color|len|いつか}}{{lrc color|kaito|古巣も世界も全てを愛せたら (Ah)}}
+|{{lrc color|len|itsuka}} {{lrc color|kaito|furusu mo sekai mo subete o aisetara (Ah)}}
+|-
+|<br>
+|-
+|{{lrc color|kaito|見つけてよ}}　{{lrc color|len|手を取ってよ}}
+|{{lrc color|kaito|mitsukete yo}} {{lrc color|len|te o totte yo}}
+|-
+|{{lrc color|kaito|踊ってよ}}　{{lrc color|len|名前を呼んでよ (Ah)}}
+|{{lrc color|kaito|odotte yo}} {{lrc color|len|namae o yonde yo (Ah)}}
+|-
+|<br>
+|-
+|{{lrc color|len|折れた翼を引き裂く時は}}
+|{{lrc color|len|oreta tsubasa o hikisaku toki wa}}
+|-
+|{{lrc color|len|地球の裏側だって飛んでくよ}}
+|{{lrc color|len|chikyuu no uragawa datte tondeku yo}}
+|-
+|{{lrc color|kaito|誰も認めてくれなくたって良い}}
+|{{lrc color|kaito|dare mo mitomete kurenakutatte ii}}
+|-
+|{{lrc color|kaito|重ねた傷跡を夢と呼ばせて}}
+|{{lrc color|kaito|kasaneta kizuato o yume to yobasete}}
+|-
+|<br>
+|-
+|{{lrc color|len|(Ah) 旅鳥よ世界を}}舞い渡れ
+|{{lrc color|len|(Ah) tabitori yo sekai o}} maiwatare
+|-
+|{{lrc color|kaito|言葉も国も色も血も超え}}
+|{{lrc color|kaito|kotoba mo kuni mo iro mo chi mo koe}}
+|-
+|もう一度ひとつになれるまで
+|mou ichido hitotsu ni nareru made
+|-
+|{{lrc color|len|大好きの続きを}}奏でさせて
+|{{lrc color|len|daisuki no tsuzuki o}} kanadesasete
+|-
+|<br>
+|-
+|{{lrc color|len|凪いだりするよ}}　{{lrc color|kaito|生きていく限り}}
+|{{lrc color|len|naidari suru yo}} {{lrc color|kaito|ikite iku kagiri}}
+|-
+|{{lrc color|len|泣いたりするよ}}　{{lrc color|kaito|君がいる限り}}
+|{{lrc color|len|naitari suru yo}} {{lrc color|kaito|kimi ga iru kagiri}}
+|}
+
+==Other media appearances==
+===Discography===
+This song is featured on the single ''Flyway''.
+
+This song is also featured on the compilation album ''[[初音ミク「マジカルミライ 2025」OFFICIAL ALBUM (Hatsune Miku "Magical Mirai 2025" OFFICIAL ALBUM)|Hatsune Miku "Magical Mirai 2025" OFFICIAL ALBUM]]''.
+
+===Concerts===
+This song was featured in the [[Hatsune Miku Magical Mirai 2025|Magical Mirai 2025]] concert.
+
+===Video games===
+This song is featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Kagamine Len and KAITO; SEKAI version by Leo/need and Kagamine Len).
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" color="#3A5695">
+Games - Project SEKAI - Flyway.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" color="#3A5695">
+halyosy - Flyway (single).jpg|Cover art of the digital single<br>''Flyway''
+</gallery>
+</tabber>
+
+==Trivia==
+* halyosy took inspiration from a swan to write the lyrics of "Flyway": the ecology and the take-flight figure of migatory birds are superimposed on Leo/need to create a base image for the production of the song.<ref>[https://x.com/halyosy/status/1619992738774286336 halyosy's Tweet]</ref>
+
+==References==
+<references/>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [https://halyosy.com/download/2016/?tmstv=1674919238 Instrumental] — halyosy Website
+* [https://halyosy.com/download/2013/?tmstv=1674815617 MIDI (Vocal Guide)] — halyosy Website
+* [https://halyosy.com/download/2072/?tmstv=1674919144 Video (AE)] — halyosy Website
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 51015
+  |nico   = sm41714284
+  |vocadb = 471637
+  |mgp    = Flyway
+  |tag    = Flyway
+  |vlw    = Flyway
+  |url    = {{IW|projectsekai|Flyway|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese duet songs]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring KAITO]]
+[[Category:Mobile game songs]]
+[[Category:Concert songs]]

@@ -107,9 +107,10 @@ func (g *Gate) BeginEditorContext(ctx context.Context) (func(), error) {
 
 // BeginStrictEditor atomically checks the state loaded by a strict client and
 // acquires shared access. A false return includes the status that rejected it.
-func (g *Gate) BeginStrictEditor(instanceID string, completedGeneration uint64) (func(), Status, bool) {
+func (g *Gate) BeginStrictEditor(instanceID string, revision, completedGeneration uint64) (func(), Status, bool) {
 	g.mu.Lock()
-	if g.status.Running || instanceID != g.status.InstanceID || completedGeneration != g.status.CompletedGeneration {
+	if g.status.Running || instanceID != g.status.InstanceID || revision != g.status.Revision ||
+		completedGeneration != g.status.CompletedGeneration {
 		status := g.status
 		g.mu.Unlock()
 		return nil, status, false

@@ -1,0 +1,658 @@
+{{Questionable}}
+{{Song box 2
+  |color     = #213145; color: silver
+  |image     = Akutoku_no_Judgment_mothy.jpg
+  |title     = "'''悪徳のジャッジメント'''"
+* Romaji: Akutoku no Jajjimento
+* Official Translation: Judgment of Corruption
+* Official English: Mammon's Court
+  |date      = December 22, 2010 (album), June 13, 2011 (PV)
+  |views     = {{v|nn|1,573,329}} and {{v|yt|1,987,896}}
+  |singers   = [[KAITO]]
+  |producers = [[mothy/2008+|mothy]] (music, lyrics, video)
+* [[Kitano Tomotoshi|you-ring]] (illustrations)
+  |links     = {{l|nn|sm14731092}} {{l|yt|xC_lHFBen5k}}
+}}
+
+==Background==
+{{Quote|Money bends even the laws of hell|Author's comment}}
+
+Gallerian Marlon (Played by the Vocaloid, KAITO) is the Supreme Court Director of the USE Dark Star Bureau. He claims that he desires money more than justice and is willing to declare anyone innocent as long as they have money. He has recently been widowed and is seeking to cure his and his wife's "daughter", [[箱庭の少女 (Hakoniwa no Shoujo)|Michelle]] (Played by Vocaloid, Hatsune Miku) of her handicap. Ma (Played by Vocaloid Megurine Luka) told him that if he gathers the Vessels of Sin, his wish will be granted, so he continues his corrupt ways in order to grant and gain what he wants.
+
+Later, he declares war criminal Tony Ausdin (Tonio) innocent despite his crimes that makes him deserving of the death penalty. Civil war then breaks out and during it, in wrath, someone sets his house on fire and he stays by his daughter's side as the flames consume them. [[ネメシスの銃口 (Nemesis no Juukou)|He later awakens in the Hellish Yard]] and is greeted by the "Master of the Hellish Yard" (Played by Vocaloid GUMI/Megpoid) and she tells him he can be let into the Heavenly Yard if he gives up his fortune. He snaps that he'll never give up his fortune and then, the Master sends him to the lower planes of the Hellish Yard.
+
+This song has also entered the ''[[Hall of Fame|Hall of Legend]]''.
+
+{{Main|Seven Deadly Sins|The Evillious Chronicles}}
+
+==Succeeding Versions==
+{{derivative
+  |color       = #213145; color: silver
+  |title       = Trailer Version
+  |singers     = KAITO
+  |producers   = mothy (music, lyrics), you-ring (illust)
+  |categories  = PV
+  |links       = nn sm13094301
+  |description = A shorter version, released on the day Evils Kingdom came out, announcing a PV for the song was in production.
+}}
+{{derivative
+  |color       = #213145; color: silver
+  |title       = KAITO V3's Demo
+  |singers     = KAITO V3 Straight
+  |producers   = mothy
+  |categories  = VOCALOID Cover; Demonstration song
+  |links       = 00 https://ec.crypton.co.jp/download/demosong/vocaloid3/KAITOV3_demo10_akunoP_akutokunojudgement.mp3
+  |description = A short demo for KAITO V3's "Straight" VB.
+}}
+{{derivative
+  |color       = #213145; color: silver
+  |thumb       = Seven_Crimes_and_Punishments_album.jpg
+  |title       = Seven Crimes and Punishments Version
+  |singers     = KAITO
+  |producers   = mothy
+  |categories  = Revised Version
+  |description = A revised version of the song on the ''[[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Seven Crimes and Punishments]]'' album.
+}}
+{{derivative
+  |color       = #213145; color: silver
+  |title       = Novel Trailer PV
+  |producers   = you-ring (illust), Sakakibara Daisuke (video), Studio Hard Deluxe (production)
+  |categories  = Trailer PV
+  |links       = yt TNxLwvCouD8
+  |description = Trailer PV for the light novel ''Deadly Sins of Evil: Judgment of Corruption''.
+}}
+{{derivative
+  |color       = #68b1dc; color:white
+  |thumb       = 初音ミクシンフォニー ～Miku Symphony 2023 オーケストラ ライブ CD.jpg
+  |title       = Miku Symphony 2023's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version is featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2023~ Orchestra Live CD''.
+  |links       = yt ZIxOobDZ1dA
+}}
+{{Clr}}
+
+==Lyrics==
+<tabber>
+NicoNico ver = 
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|汚された司法
+|yogosareta shihou
+|-
+|被告の貧富で 決まる罪状
+|hikoku no hinpu de kimaru zaijou
+|-
+|法廷の主(master of the court)たる
+|houtei no nushi taru
+|-
+|私が望むのは　正義より金
+|watashi ga nozomu no wa seigi yori kane
+|-
+|<br />
+|-
+|極悪人でも
+|gokuakunin de mo
+|-
+|金さえ払えば　救ってやるさ
+|kane sae haraeba sukutte yaru sa
+|-
+|地獄の沙汰も{{color|blue|金次第}}
+|jigoku no sata mo {{color|blue|kane shidai}}
+|-
+|<br />
+|-
+|容姿や年齢　人種や性別
+|youshi ya nenrei Jinshu ya seibetsu
+|-
+|全て関係ない
+|subete kankei nai
+|-
+|大切なことは　金が払えるか
+|taisetsu na koto wa kane ga haraeru ka
+|-
+|ただそれだけだ
+|tada sore dake da
+|-
+|<br />
+|-
+|お前の人生は私次第
+|omae no jinsei wa watashi shidai
+|-
+|救いが欲しけりゃ{{color|#FFD700|金}}を出せ
+|sukui ga hoshikerya {{color|#FFD700|kane}} o dase
+|-
+|<br />
+|-
+|そう罪は私の{{color|#13dbfb|さじ}}加減ひとつ
+|sou tsumi wa watashi no {{color|#13dbfb|saji}}kagen hitotsu
+|-
+|{{color|darkred|悪徳}}のジャッジメント
+|{{color|darkred|akutoku}} no jajjimento
+|-
+|冤罪の沼から{{color|#13dbfb|スク}}われたいならば
+|enzai no numa kara {{color|#13dbfb|suku}}waretai naraba
+|-
+|もっと{{color|orange|お金}}を渡しなさい
+|motto {{color|orange|okane}} o watashinasai
+|-
+|<br />
+|-
+|足の不自由な　娘の為にも
+|ashi no fujiyuu na musume no tame ni mo
+|-
+|金が必要
+|kane ga hitsuyou
+|-
+|大罪の器　七つが揃えば
+|taizai no utsuwa nanatsu ga soroeba
+|-
+|願いは叶う
+|negai wa kanau
+|-
+|<br />
+|-
+|今日も繰り広げられる疑惑の法廷
+|kyou mo kurihirogerareru giwaku no houtei
+|-
+|悪人が笑い善人が泣く
+|akunin ga warai zennin ga naku
+|-
+|<br />
+|-
+|そう罪は私のさじ加減ひとつ
+|sou tsumi wa watashi no sajikagen hitotsu
+|-
+|悪徳のジャッジメント
+|akutoku no jajjimento
+|-
+|自らの悲願を叶えるためならば
+|mizukara no higan o kanaeru tame naraba
+|-
+|非道の槌を振るい続ける
+|hidou no tsuchi o furuitsuzukeru
+|-
+|<br />
+|-
+|民衆殺しの　悪辣将軍
+|minshuugoroshi no akuratsu shougun
+|-
+|死罪が当然
+|shizai ga touzen
+|-
+|渡された賄賂　私は被告に
+|watasareta wairo watashi wa hikoku ni
+|-
+|無罪を告げた
+|muzai o tsugeta
+|-
+|<br />
+|-
+|巻き起こる怒り　始まった内戦
+|makiokoru ikari hajimatta naisen
+|-
+|殺された将軍
+|korosareta shougun
+|-
+|無残な死体　野にさらす
+|muzan na shitai no ni sarasu
+|-
+|<br />
+|-
+|怒りの矛先　私へと向かい
+|ikari no hokosaki watashi e to mukai
+|-
+|燃え盛る家
+|moesakaru ie
+|-
+|愛しい「娘」よ
+|itoshii "musume" yo
+|-
+|二人一緒なら　恐怖などない
+|futari issho nara kyoufu nado nai
+|-
+|<br />
+|-
+|焼け落ちた屋敷から見つかるだろう
+|yakeochita yashiki kara mitsukaru darou
+|-
+|孤独な「親子」の亡骸が…
+|kodoku na "oyako" no nakigara ga...
+|-
+|<br />
+|-
+|目が覚めた時に
+|me ga sameta toki ni
+|-
+|一人いた場所は
+|hitori ita basho wa
+|-
+|冥界の門
+|meikai no mon
+|-
+|天国か地獄か　それを決めるのは
+|tengoku ka jigoku ka sore o kimeru no wa
+|-
+|冥界の主(master of the hellish yard)
+|meikai no nushi
+|-
+|<br />
+|-
+|極悪人でも
+|gokuaku nin de mo
+|-
+|金さえ払えば　救ってやるさ
+|kane sae haraeba sukutte yaru sa
+|-
+|地獄の沙汰も{{color|#2ECC0E|金次第}}
+|jigoku no sata mo {{color|#2ECC0E|kane shidai}}
+|-
+|<br />
+|-
+|私は微笑み　冥界の主に
+|watashi wa hohoemi meikai no nushi ni
+|-
+|そっと耳打ち
+|sotto mimiuchi
+|-
+|<br />
+|-
+|「私の財産　貴様なんぞには　決して渡さない」
+|"watashi no zaisan kisama nanzo ni wa kesshite watasanai"
+|-
+|<br />
+|-
+|扉に飛び込んだこの身体
+|tobira ni tobikonda kono karada
+|-
+|地獄の底へ落ちて行く
+|jigoku no soko e ochite yuku
+|-
+|<br />
+|-
+|そう罪は私のさじ加減ひとつ
+|sou tsumi wa watashi no sajikagen hitotsu
+|-
+|悪徳のジャッジメント
+|akutoku no jajjimento
+|-
+|たとえ誰だろうと私のこの罪
+|tatoe dare darou to watashi no kono tsumi
+|-
+|裁くことは認めない
+|sabaku koto wa mitomenai
+|-
+|<br />
+|-
+|そういつか再びこの手に集めよう
+|sou itsuka futatabi kono te ni atsumeyou
+|-
+|大罪のフラグメント
+|taizai no furagomento
+|-
+|その時に地獄は私と娘の
+|sono toki ni Jigoku wa watashi to musume no
+|-
+|理想郷（ユートピア）へと変わるだろう…
+|yuutopia e to kawaru darou...
+|}
+|-|
+SCP ver = 
+{| style="width:100%"
+|{{shared}}|「さあ、開廷の時間だ」
+|-
+|{{shared}}|Saa, kaitei no jikan da
+|-
+|<br />
+|-
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|汚された司法
+|yogosareta shihou
+|-
+|被告の貧富で 決まる罪状
+|hikoku no hinpu de kimaru zaijou
+|-
+|法廷の主(master of the court)たる
+|houtei no nushi taru
+|-
+|私が望むのは　正義より金
+|watashi ga nozomu no wa seigi yori kane
+|-
+|<br />
+|-
+|極悪人でも
+|gokuakunin de mo
+|-
+|金さえ払えば　救ってやるさ
+|kane sae haraeba sukutte yaru sa
+|-
+|地獄の沙汰も金次第
+|jigoku no sata mo kane shidai
+|-
+|<br />
+|-
+|容姿や年齢　人種や性別
+|youshi ya nenrei Jinshu ya seibetsu
+|-
+|全て関係ない
+|subete kankei nai
+|-
+|大切なことは　金が払えるか
+|taisetsu na koto wa kane ga haraeru ka
+|-
+|ただそれだけだ
+|tada sore dake da
+|-
+|<br />
+|-
+|お前の人生は私次第
+|omae no jinsei wa watashi shidai
+|-
+|救いが欲しけりゃ金を出せ
+|sukui ga hoshikerya kane o dase
+|-
+|<br />
+|-
+|そう罪は私のさじ加減ひとつ
+|sou tsumi wa watashi no sajikagen hitotsu
+|-
+|悪徳のジャッジメント
+|akutoku no jajjimento
+|-
+|冤罪の沼からスクわれたいならば
+|enzai no numa kara sukuwaretai naraba
+|-
+|もっとお金を渡しなさい
+|motto okane o watashinasai
+|-
+|<br />
+|-
+|足の不自由な　娘の為にも
+|ashi no fujiyuu na musume no tame ni mo
+|-
+|金が必要
+|kane ga hitsuyou
+|-
+|大罪の器　七つが揃えば
+|taizai no utsuwa nanatsu ga soroeba
+|-
+|願いは叶う
+|negai wa kanau
+|-
+|<br />
+|-
+|今日も繰り広げられる疑惑の法廷
+|kyou mo kurihirogerareru giwaku no houtei
+|-
+|悪人が笑い善人が泣く
+|akunin ga warai zennin ga naku
+|-
+|<br />
+|-
+|そう罪は私のさじ加減ひとつ
+|sou tsumi wa watashi no sajikagen hitotsu
+|-
+|悪徳のジャッジメント
+|akutoku no jajjimento
+|-
+|自らの悲願を叶えるためならば
+|mizukara no higan o kanaeru tame naraba
+|-
+|非道の槌を振るい続ける
+|hidou no tsuchi o furuitsuzukeru
+|-
+|<br />
+|-
+|民衆殺しの　悪辣将軍
+|minshuugoroshi no akuratsu shougun
+|-
+|死罪が当然
+|shizai ga touzen
+|-
+|渡された賄賂　私は被告に
+|watasareta wairo watashi wa hikoku ni
+|-
+|無罪を告げた
+|muzai o tsugeta
+|-
+|<br />
+|-
+|巻き起こる怒り　始まった内戦
+|makiokoru ikari hajimatta naisen
+|-
+|殺された将軍
+|korosareta shougun
+|-
+|無残な死体　野にさらす
+|muzan na shitai no ni sarasu
+|-
+|<br />
+|-
+|怒りの矛先　私へと向かい
+|ikari no hokosaki watashi e to mukai
+|-
+|燃え盛る家
+|moesakaru ie
+|-
+|愛しい「娘」よ
+|itoshii "musume" yo
+|-
+|二人一緒なら　恐怖などない
+|futari issho nara kyoufu nado nai
+|-
+|<br />
+|-
+|焼け落ちた屋敷から見つかるだろう
+|yakeochita yashiki kara mitsukaru darou
+|-
+|孤独な「親子」の亡骸が…
+|kodoku na "oyako" no nakigara ga...
+|-
+|<br />
+|-
+|目が覚めた時に
+|me ga sameta toki ni
+|-
+|一人いた場所は
+|hitori ita basho wa
+|-
+|冥界の門
+|meikai no mon
+|-
+|天国か地獄か　それを決めるのは
+|tengoku ka jigoku ka sore o kimeru no wa
+|-
+|冥界の主(master of the hellish yard)
+|meikai no nushi
+|-
+|<br />
+|-
+|極悪人でも
+|gokuaku nin de mo
+|-
+|金さえ払えば　救ってやるさ
+|kane sae haraeba sukutte yaru sa
+|-
+|地獄の沙汰も金次第
+|jigoku no sata mo kane shidai
+|-
+|<br />
+|-
+|私は微笑み　冥界の主に
+|watashi wa hohoemi meikai no nushi ni
+|-
+|そっと耳打ち
+|sotto mimiuchi
+|-
+|<br />
+|-
+|「私の財産　貴様なんぞには　決して渡さない」
+|"watashi no zaisan kisama nanzo ni wa kesshite watasanai"
+|-
+|<br />
+|-
+|扉に飛び込んだこの身体
+|tobira ni tobikonda kono karada
+|-
+|地獄の底へ落ちて行く
+|jigoku no soko e ochite yuku
+|-
+|<br />
+|-
+|そう罪は私のさじ加減ひとつ
+|sou tsumi wa watashi no sajikagen hitotsu
+|-
+|悪徳のジャッジメント
+|akutoku no jajjimento
+|-
+|たとえ誰だろうと私のこの罪
+|tatoe dare darou to watashi no kono tsumi
+|-
+|裁くことは認めない
+|sabaku koto wa mitomenai
+|-
+|<br />
+|-
+|そういつか再びこの手に集めよう
+|sou itsuka futatabi kono te ni atsumeyou
+|-
+|大罪のフラグメント
+|taizai no furagomento
+|-
+|その時に地獄は私と娘の
+|sono toki ni Jigoku wa watashi to musume no
+|-
+|理想郷（ユートピア）へと変わるだろう…
+|yuutopia e to kawaru darou...
+|}
+</tabber>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{derivative
+  |color       = kaito
+  |title       = ryusouta's Cover ft. KAITO
+  |singers     = KAITO V3 Straight
+  |producers   = ryusouta (cover), xmoonst4rx (UST)
+  |categories  = VOCALOID Cover
+  |links       = yt 9KEmR74eTGY
+}}
+{{derivative
+  |color       = vy2
+  |title       = raspberry692's Cover ft. VY2
+  |singers     = [[VY2]]
+  |producers   = raspberry692 (cover), xmoonst4rx (UST)
+  |categories  = VOCALOID Cover
+  |links       = yt lGMEHWiTxCM
+}}
+{{derivative
+  |color       = kaito
+  |title       = Levi Talion's Cover ft. KAITO
+  |singers     = KAITO V3
+  |producers   = Levi Talion (cover, mixing), Lucifer (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt JlkvLYuUtmI
+}}
+{{derivative
+  |color       = camui gackpo
+  |title       = Lucifer's Cover ft. Camui Gackpo
+  |singers     = [[Camui Gackpo]]
+  |producers   = Lucifer (cover, VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt x87u3WWwzGA
+}}
+{{derivative
+  |color       = hiyama kiyoteru
+  |title       = Kaitsuko-P's Cover ft. Hiyama Kiyoteru
+  |singers     = [[Hiyama Kiyoteru]] V4 Rock
+  |producers   = Kaitsuko-P (cover, mixing), Lucifer (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt RpOmSpjN0rQ
+}}
+  |human = 
+{{derivative
+  |color       = #213145; color: silver
+  |title       = Razzy's English Cover
+  |singers     = {{UIW|Razzy}}<br><small>{{UIW|Miku-tan}}</small>
+  |producers   = Razzy (English lyrics adaption), Dari (mixing), Daishi (mastering)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt Ks4QNh2AB1A
+}}
+  |fanmadepv = 
+{{derivative
+  |color       = #213145; color: silver
+  |title       = Mario GaGabriel's PV
+  |singers     = KAITO
+  |producers   = Mario GaGabriel (illust, video), You-ring, Masahiro Ikeno, Ichika (illust)
+  |categories  = Fanmade Hand-drawn PV
+  |links       = yt fbLNqZQkhaI
+}}
+{{derivative
+  |color       = #213145; color: silver
+  |title       = fabi-chanx3's MMD PV
+  |singers     = KAITO
+  |producers   = fabi-chanx3
+  |categories  = Fanmade MMD PV
+  |links       = yt NYZ_UgFXBlA
+}}
+}}
+
+== Other media appearances ==
+===Literatures===
+This song was featured in the following literatures: 
+* {{IW|theevilliouschronicles|Deadly Sins of Evil: Judgment of Corruption}}
+
+=== Discography ===
+This song was featured in the following albums:
+* [[悪ノ王国〜Evils Kingdom〜 (Aku no Oukoku 〜Evils Kingdom〜)|Evils Kingdom]]
+* [[悪徳のジャッジメント ～a court of greed～ (Akutoku no Judgment ～a court of greed～)|Akutoku no Judgment ～a court of greed～]]
+* [[EVILS COURT]]
+* [[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Seven Crimes and Punishments]]
+* ''Saribitotachi no Waltz Aku no Taizai SEKAI EDITION+''
+
+This song was featured in the following compilation albums:
+* [[EXIT TUNES PRESENTS Kaitonation feat. KAITO|Kaitonation]]
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+== Trivia ==
+* So far, Gallerian is the only character to have made a path with a Deadly Sin, that is confirmed to want to gather the Fragments of Deadly Sins.
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="#213145">
+Games - Project SEKAI - 悪徳のジャッジメント.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |media = [https://www.pixiv.net/en/artworks/19618680 Illustration] — pixiv
+  |dwlds = [http://the-heavenly-yard.net/mp3/akutokuno.zip Off-vocal and Lyrics] — The Heavenly Yard
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 16620
+  |nico   = sm14731092
+  |vocadb = 1598
+  |mgp    = 恶贯满盈的法官
+  |pixiv  = 悪徳のジャッジメント
+  |tag    = 悪徳のジャッジメント
+  |vlw    = 悪徳のジャッジメント (Akutoku no Judgment)
+  |url    = {{IW|theevilliouschronicles|Judgment of Corruption|Evillious Chronicles Wiki}}
+* {{IW|projectsekai|Akutoku no Judgement|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring KAITO]]
+[[Category:Evillious Chronicles series]]
+[[Category:Demonstration songs]]
+[[Category:Japanese demonstration songs]]
+[[Category:Songs featured in literatures]]
+[[Category:Mobile game songs]]

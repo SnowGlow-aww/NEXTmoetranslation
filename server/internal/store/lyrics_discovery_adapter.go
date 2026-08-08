@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -13,12 +14,12 @@ import (
 
 	"moesekai/server/internal/legacy"
 	"moesekai/server/internal/lyricsdiscovery"
+	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
 )
 
 const (
 	LyricsDiscoveryShadowPolicyVersion = "shadow-v1"
-	maxLyricsDiscoveryResultBytes      = 1 << 20
 	maxLyricsDiscoveryClockSkew        = time.Minute
 )
 
@@ -60,6 +61,17 @@ func (a *LyricsDiscoveryAdapter) Scan(ctx context.Context, request lyricsdiscove
 	if err != nil {
 		return lyricsdiscovery.ScanResult{}, err
 	}
+	targets := model.ClassifyCatalogLyricsTargets(func() []model.CatalogLyricsGroupingRecord {
+		records := make([]model.CatalogLyricsGroupingRecord, 0, len(catalog))
+		for _, item := range catalog {
+			records = append(records, model.CatalogLyricsGroupingRecord{MusicID: item.MusicID, Fingerprint: item.CatalogFingerprint, Evidence: item.Evidence})
+		}
+		return records
+	}())
+	targetByMusicID := make(map[int]model.CatalogLyricsTarget, len(targets))
+	for _, target := range targets {
+		targetByMusicID[target.MusicID] = target
+	}
 	now := request.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -74,18 +86,34 @@ func (a *LyricsDiscoveryAdapter) Scan(ctx context.Context, request lyricsdiscove
 		if err := ctx.Err(); err != nil {
 			return lyricsdiscovery.ScanResult{}, err
 		}
-		_, created, err := enqueueLyricsDiscoveryJobTx(ctx, tx, EnqueueLyricsDiscoveryJobParams{
-			Kind: model.LyricsDiscoveryJobDiscover,
-			Target: model.LyricsDiscoveryJobTarget{
-				MusicID: item.MusicID, CatalogFingerprint: item.CatalogFingerprint, PolicyVersion: a.policyVersion,
-			},
-			MaxAttempts: a.maxAttempts,
-		}, now)
-		if err != nil {
-			return lyricsdiscovery.ScanResult{}, err
+		target := targetByMusicID[item.MusicID]
+		if target.Disposition == model.LyricsCatalogTargetFullTarget {
+			_, created, err := enqueueLyricsDiscoveryJobTx(ctx, tx, EnqueueLyricsDiscoveryJobParams{
+				Kind: model.LyricsDiscoveryJobDiscover,
+				Target: model.LyricsDiscoveryJobTarget{
+					MusicID: item.MusicID, CatalogFingerprint: item.CatalogFingerprint, PolicyVersion: a.policyVersion,
+				},
+				MaxAttempts: a.maxAttempts,
+			}, now)
+			if err != nil {
+				return lyricsdiscovery.ScanResult{}, err
+			}
+			if created {
+				scheduled++
+			}
+			continue
 		}
-		if created {
-			scheduled++
+		if target.Disposition == model.LyricsCatalogTargetReview {
+			evidence, err := json.Marshal(map[string]any{"candidates": []any{}, "catalogReasonCode": target.ReasonCode})
+			if err != nil {
+				return lyricsdiscovery.ScanResult{}, err
+			}
+			if _, _, err := createLyricsSourceReviewTx(ctx, tx, createLyricsSourceReviewParams{
+				Kind: LyricsSourceReviewKindCandidate, MusicID: item.MusicID, CatalogFingerprint: item.CatalogFingerprint,
+				ReasonCode: target.ReasonCode, EvidenceJSON: evidence, CreatedAt: now,
+			}); err != nil {
+				return lyricsdiscovery.ScanResult{}, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -124,9 +152,18 @@ func (a *LyricsDiscoveryAdapter) Claim(ctx context.Context, request lyricsdiscov
 		}
 		return lyricsdiscovery.Job{}, false, err
 	}
-	fingerprint := lyricsDiscoveryCatalogFingerprint(LyricsDiscoveryCatalogItem{
-		MusicID: identity.MusicID, JapaneseTitle: identity.JapaneseTitle, ProducerMetadata: identity.ProducerMetadata,
-	})
+	fingerprint := identity.CatalogFingerprint
+	if fingerprint == "" {
+		fingerprint, _ = model.CatalogLyricsEvidenceFingerprint(model.CatalogLyricsEvidence{
+			Title: identity.JapaneseTitle, Lyricist: identity.Lyricist, Composer: identity.Composer, Arranger: identity.Arranger,
+			Assetbundle: identity.AssetbundleName, VersionHint: identity.VersionHint, LyricsVersion: identity.LyricsVersion,
+			Vocals: identity.Vocals, Presence: model.CatalogEvidencePresence{
+				Lyricist: identity.Lyricist != "", Composer: identity.Composer != "", Arranger: identity.Arranger != "",
+				Assetbundle: identity.AssetbundleName != "", VersionHint: identity.VersionHint != "",
+				LyricsVersion: identity.LyricsVersionKnown, Vocals: len(identity.Vocals) > 0,
+			},
+		})
+	}
 	if fingerprint != job.Target.CatalogFingerprint {
 		if failErr := a.failClaimedJob(ctx, job, "source_drift"); failErr != nil {
 			return lyricsdiscovery.Job{}, false, fmt.Errorf("dead-letter source-drifted discovery job: %w", failErr)
@@ -136,7 +173,9 @@ func (a *LyricsDiscoveryAdapter) Claim(ctx context.Context, request lyricsdiscov
 	return lyricsdiscovery.Job{
 		ID: strconv.FormatInt(job.ID, 10), LeaseToken: encodeLyricsDiscoveryLeaseToken(job.Version),
 		Attempt: job.Attempts, MusicID: identity.MusicID, JapaneseTitle: identity.JapaneseTitle,
-		ProducerMetadata: identity.ProducerMetadata,
+		ProducerMetadata: identity.ProducerMetadata, Lyricist: identity.Lyricist, Composer: identity.Composer,
+		Arranger:                    identity.Arranger,
+		PerformerSegmentationPolicy: lyricssource.PerformerSegmentationPolicyFromCatalogVocals(identity.Vocals),
 	}, true, nil
 }
 
@@ -148,9 +187,19 @@ func (a *LyricsDiscoveryAdapter) Complete(ctx context.Context, completion lyrics
 	if completion.CompletedAt.IsZero() {
 		return lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidResult, errors.New("completion time is required"))
 	}
-	return a.store.CompleteLyricsDiscoveryShadowResult(ctx, LyricsDiscoveryShadowCompletion{
+	candidates, indexEvidence, err := decodeLyricsDiscoveryArtifact(
+		completion.Result.Artifact, completion.Result.CandidateCount,
+	)
+	if err != nil {
+		return lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidResult, err)
+	}
+	if _, err := validateLyricsDiscoveryShadowResult(completion.Result); err != nil {
+		return err
+	}
+	return a.store.CompleteLyricsDiscoveryResult(ctx, CompleteLyricsDiscoveryResultParams{
 		JobID: jobID, LeaseOwner: completion.WorkerID, ExpectedVersion: version,
-		CompletedAt: completion.CompletedAt, Result: completion.Result,
+		CompletedAt: completion.CompletedAt, ShadowResult: completion.Result,
+		Candidates: candidates, IndexEvidence: indexEvidence,
 	})
 }
 
@@ -225,9 +274,18 @@ func (s *Store) CompleteLyricsDiscoveryShadowResult(ctx context.Context, complet
 	if completion.CompletedAt.IsZero() || completion.CompletedAt.After(time.Now().UTC().Add(maxLyricsDiscoveryClockSkew)) {
 		return lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidResult, errors.New("invalid completion time"))
 	}
-	artifact, err := validateLyricsDiscoveryShadowResult(completion.Result)
-	if err != nil {
+	if _, err := validateLyricsDiscoveryShadowResult(completion.Result); err != nil {
 		return err
+	}
+	candidates, indexEvidence, err := decodeLyricsDiscoveryArtifact(
+		completion.Result.Artifact, completion.Result.CandidateCount,
+	)
+	if err != nil {
+		return lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidResult, err)
+	}
+	artifact, err := canonicalStoredLyricsDiscoveryArtifact(candidates)
+	if err != nil {
+		return lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidResult, err)
 	}
 	completedAt := canonicalLyricsDiscoveryTime(completion.CompletedAt)
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -250,11 +308,22 @@ func (s *Store) CompleteLyricsDiscoveryShadowResult(ctx context.Context, complet
 	if !lyricsDiscoveryFingerprintPattern.MatchString(job.Target.CatalogFingerprint) || strings.TrimSpace(job.Target.PolicyVersion) == "" {
 		return lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidJob, errors.New("job generation identity is invalid"))
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO lyrics_discovery_shadow_results
+	if err := insertOrVerifyLyricsIndexEvidenceCollectionTx(ctx, tx, indexEvidence, completedAt); err != nil {
+		return err
+	}
+	inserted, err := tx.ExecContext(ctx, `INSERT INTO lyrics_discovery_shadow_results
 		(job_id, music_id, catalog_fingerprint, policy_version, outcome, candidate_count, result_json, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		job.ID, job.Target.MusicID, job.Target.CatalogFingerprint, job.Target.PolicyVersion,
-		completion.Result.Outcome, completion.Result.CandidateCount, string(artifact), completedAt.UnixMilli()); err != nil {
+		completion.Result.Outcome, completion.Result.CandidateCount, string(artifact), completedAt.UnixMilli())
+	if err != nil {
+		return err
+	}
+	resultID, err := inserted.LastInsertId()
+	if err != nil {
+		return err
+	}
+	if err := linkLyricsDiscoveryResultEvidenceTx(ctx, tx, resultID, indexEvidence); err != nil {
 		return err
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE lyrics_discovery_jobs
@@ -318,7 +387,8 @@ func validateLyricsDiscoveryShadowResult(result lyricsdiscovery.Result) ([]byte,
 	validCount := (result.Outcome == lyricsdiscovery.OutcomeCandidatesFound && result.CandidateCount == 1) ||
 		(result.Outcome == lyricsdiscovery.OutcomeNoCandidates && result.CandidateCount == 0) ||
 		(result.Outcome == lyricsdiscovery.OutcomeAmbiguous && result.CandidateCount > 1)
-	if !validCount || len(result.Artifact) < 2 || len(result.Artifact) > maxLyricsDiscoveryResultBytes {
+	if !validCount || result.CandidateCount > lyricsdiscovery.MaxCandidateArtifactCandidates ||
+		len(result.Artifact) < 2 || len(result.Artifact) > maxLyricsDiscoveryTransportBytes {
 		return nil, lyricsdiscovery.NewError(lyricsdiscovery.CodeInvalidResult, nil)
 	}
 	if err := legacy.ValidateUniqueJSON(result.Artifact); err != nil {

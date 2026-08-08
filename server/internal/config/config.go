@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"moesekai/server/internal/db"
+	"moesekai/server/internal/httpx"
 )
 
 // Setting keys. Secret keys must be listed in secretKeys below.
@@ -52,6 +53,7 @@ const (
 	KeyUpstreamFetchConcurrency        = "upstream.fetch_concurrency"
 	KeySchedulerOn                     = "scheduler.enabled"
 	KeyLyricsDiscoveryOn               = "lyrics_discovery.enabled"
+	KeyLyricsFetchRevisionOn           = "lyrics_discovery.fetch_revision.enabled"
 	KeyUpstreamLastDataVersion         = "upstream.state.last_data_version"
 	KeyUpstreamPendingDataVersion      = "upstream.state.pending_data_version"
 
@@ -89,7 +91,7 @@ var settingKeys = map[string]bool{
 	KeyUpstreamCNMasterdataFallbackURL: true, KeyUpstreamJPAssetsURL: true,
 	KeyUpstreamJPAssetsFallbackURL: true, KeyUpstreamCNAssetsURL: true,
 	KeyUpstreamCNAssetsFallbackURL: true, KeyUpstreamFetchConcurrency: true,
-	KeySchedulerOn: true, KeyLyricsDiscoveryOn: true, KeyUpstreamLastDataVersion: true, KeyUpstreamPendingDataVersion: true,
+	KeySchedulerOn: true, KeyLyricsDiscoveryOn: true, KeyLyricsFetchRevisionOn: true, KeyUpstreamLastDataVersion: true, KeyUpstreamPendingDataVersion: true,
 	KeyBackupS3Enabled: true, KeyBackupS3Endpoint: true, KeyBackupS3Region: true,
 	KeyBackupS3Bucket: true, KeyBackupS3Prefix: true, KeyBackupS3AccessKey: true,
 	KeyBackupS3SecretKey: true, KeyBackupGitEnabled: true, KeyBackupGitRepoURL: true,
@@ -288,7 +290,7 @@ func validateSettingValue(key, value string) error {
 		return nil
 	}
 	switch key {
-	case KeySchedulerOn, KeyLyricsDiscoveryOn, KeyBackupS3Enabled, KeyBackupGitEnabled:
+	case KeySchedulerOn, KeyLyricsDiscoveryOn, KeyLyricsFetchRevisionOn, KeyBackupS3Enabled, KeyBackupGitEnabled:
 		return canonicalBool()
 	case KeyLLMType:
 		if value != "gemini" && value != "openai" {
@@ -296,6 +298,12 @@ func validateSettingValue(key, value string) error {
 		}
 	case KeyOpenAIBaseURL, KeyBackupS3Endpoint:
 		return validateSecretServiceURL(key, value)
+	case KeyUpstreamVersionURL, KeyUpstreamVersionFallbackURL,
+		KeyUpstreamJPMasterdataURL, KeyUpstreamJPMasterdataFallbackURL,
+		KeyUpstreamCNMasterdataURL, KeyUpstreamCNMasterdataFallbackURL,
+		KeyUpstreamJPAssetsURL, KeyUpstreamJPAssetsFallbackURL,
+		KeyUpstreamCNAssetsURL, KeyUpstreamCNAssetsFallbackURL:
+		return validateUpstreamURLSetting(key, value)
 	case KeyLLMRequestTimeoutMS:
 		return canonicalInt(1, 300000)
 	case KeyLLMMaxRetries:
@@ -329,6 +337,37 @@ func validateSecretServiceURL(key, value string) error {
 	for _, char := range value {
 		if char < 0x20 || char == 0x7f {
 			return fmt.Errorf("%s must not contain control characters", key)
+		}
+	}
+	return nil
+}
+
+func validateUpstreamURLSetting(key, value string) error {
+	if value == "" {
+		return nil
+	}
+	if len(value) > 8192 {
+		return fmt.Errorf("%s exceeds the 8192-byte URL setting limit", key)
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return fmt.Errorf("%s must not contain control characters", key)
+		}
+	}
+	templates := []string{value}
+	if key == KeyUpstreamVersionFallbackURL {
+		templates = strings.FieldsFunc(value, func(char rune) bool { return char == ',' || char == ';' })
+		if len(templates) == 0 {
+			return fmt.Errorf("%s must contain at least one URL", key)
+		}
+	}
+	policy := httpx.UpstreamPolicyFromEnvironment()
+	for _, template := range templates {
+		template = strings.TrimSpace(template)
+		expanded := strings.ReplaceAll(template, "{repo}", "owner/repo")
+		expanded = strings.ReplaceAll(expanded, "{branch}", "main")
+		if err := httpx.ValidateUpstreamURL(expanded, policy); err != nil {
+			return fmt.Errorf("%s contains an unsafe upstream URL: %w", key, err)
 		}
 	}
 	return nil

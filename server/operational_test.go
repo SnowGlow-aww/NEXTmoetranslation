@@ -207,12 +207,13 @@ func TestLyricsDiscoveryConfigurationIsFailClosedAndStrict(t *testing.T) {
 	for _, key := range []string{
 		"LYRICS_DISCOVERY_SCAN_MS", "LYRICS_DISCOVERY_LEASE_MS", "LYRICS_DISCOVERY_JOB_TIMEOUT_MS",
 		"LYRICS_DISCOVERY_IDLE_MS", "LYRICS_DISCOVERY_RETRY_MIN_MS", "LYRICS_DISCOVERY_RETRY_MAX_MS",
+		"LYRICS_DISCOVERY_CONCURRENCY",
 	} {
 		t.Setenv(key, "")
 	}
 	options, err := lyricsDiscoveryOptionsFromEnv()
 	if err != nil || options.ScanInterval <= 0 || options.JobTimeout <= 0 || options.JobTimeout >= options.LeaseDuration ||
-		options.RetryMax < options.RetryMin {
+		options.RetryMax < options.RetryMin || options.Concurrency != 4 {
 		t.Fatalf("default lyrics discovery options=%+v err=%v", options, err)
 	}
 	t.Setenv("LYRICS_DISCOVERY_LEASE_MS", "10000")
@@ -226,6 +227,45 @@ func TestLyricsDiscoveryConfigurationIsFailClosedAndStrict(t *testing.T) {
 	t.Setenv("LYRICS_DISCOVERY_RETRY_MAX_MS", "1000")
 	if _, err := lyricsDiscoveryOptionsFromEnv(); err == nil {
 		t.Fatal("lyrics discovery accepted retry maximum below minimum")
+	}
+	t.Setenv("LYRICS_DISCOVERY_RETRY_MAX_MS", "5000")
+	for _, invalid := range []string{"0", "17", "+4", "04", "four"} {
+		t.Setenv("LYRICS_DISCOVERY_CONCURRENCY", invalid)
+		if _, err := lyricsDiscoveryOptionsFromEnv(); err == nil {
+			t.Fatalf("lyrics discovery accepted invalid concurrency %q", invalid)
+		}
+	}
+}
+
+func TestLyricsFetchRevisionConfigurationIsFailClosedAndStrict(t *testing.T) {
+	for _, key := range []string{"LYRICS_FETCH_REVISION_LEASE_MS", "LYRICS_FETCH_REVISION_JOB_TIMEOUT_MS",
+		"LYRICS_FETCH_REVISION_IDLE_MS", "LYRICS_FETCH_REVISION_RETRY_MIN_MS", "LYRICS_FETCH_REVISION_RETRY_MAX_MS",
+		"LYRICS_FETCH_REVISION_CONCURRENCY"} {
+		t.Setenv(key, "")
+	}
+	options, err := lyricsFetchRevisionOptionsFromEnv()
+	if err != nil || options.JobTimeout <= 0 || options.JobTimeout >= options.LeaseDuration || options.RetryMax < options.RetryMin ||
+		options.Concurrency != 4 {
+		t.Fatalf("default lyrics fetch options=%+v err=%v", options, err)
+	}
+	t.Setenv("LYRICS_FETCH_REVISION_LEASE_MS", "10000")
+	t.Setenv("LYRICS_FETCH_REVISION_JOB_TIMEOUT_MS", "10000")
+	if _, err := lyricsFetchRevisionOptionsFromEnv(); err == nil {
+		t.Fatal("lyrics fetch accepted a job timeout equal to its lease")
+	}
+	t.Setenv("LYRICS_FETCH_REVISION_LEASE_MS", "20000")
+	t.Setenv("LYRICS_FETCH_REVISION_JOB_TIMEOUT_MS", "1000")
+	t.Setenv("LYRICS_FETCH_REVISION_RETRY_MIN_MS", "5000")
+	t.Setenv("LYRICS_FETCH_REVISION_RETRY_MAX_MS", "1000")
+	if _, err := lyricsFetchRevisionOptionsFromEnv(); err == nil {
+		t.Fatal("lyrics fetch accepted retry maximum below minimum")
+	}
+	t.Setenv("LYRICS_FETCH_REVISION_RETRY_MAX_MS", "5000")
+	for _, invalid := range []string{"0", "17", "+4", "04", "four"} {
+		t.Setenv("LYRICS_FETCH_REVISION_CONCURRENCY", invalid)
+		if _, err := lyricsFetchRevisionOptionsFromEnv(); err == nil {
+			t.Fatalf("lyrics fetch accepted invalid concurrency %q", invalid)
+		}
 	}
 }
 
@@ -307,7 +347,8 @@ func TestDrainingResponseRetainsCORSLoggingAndMetrics(t *testing.T) {
 			t.Fatalf("draining %s status=%d body=%q", method, recorder.Code, recorder.Body.String())
 		}
 		if recorder.Header().Get("Access-Control-Allow-Origin") != "https://console.example" ||
-			recorder.Header().Get("Vary") != "Origin" || recorder.Header().Get("X-Request-ID") == "" {
+			recorder.Header().Get("Vary") != "Origin" || recorder.Header().Get("X-Request-ID") == "" ||
+			!strings.Contains(recorder.Header().Get("Access-Control-Allow-Headers"), "X-Moe-Loaded-Producer-State") {
 			t.Fatalf("draining %s headers = %#v", method, recorder.Header())
 		}
 	}
@@ -458,6 +499,38 @@ func TestSeedConfigFromEnvRejectsInvalidGroupWithoutPartialWrites(t *testing.T) 
 	}
 	if got := configuration.Get(config.KeyUpstreamRepo); got != "" {
 		t.Fatalf("invalid environment seed partially changed config: %q", got)
+	}
+}
+
+func TestSeedConfigFromEnvDefaultsSchedulerOffAndPreservesExplicitTrue(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		value    string
+		expected string
+	}{
+		{name: "unset", value: "", expected: "false"},
+		{name: "explicit true", value: "true", expected: "true"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			database, err := db.Open(filepath.Join(t.TempDir(), "scheduler-seed.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer database.Close()
+			configuration, err := config.New(database, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("TRANSLATE_SCHEDULER_ENABLED", test.value)
+			t.Setenv("LYRICS_DISCOVERY_ENABLED", "false")
+			t.Setenv("LYRICS_FETCH_REVISION_ENABLED", "false")
+			if err := seedConfigFromEnv(configuration); err != nil {
+				t.Fatal(err)
+			}
+			if got := configuration.Get(config.KeySchedulerOn); got != test.expected {
+				t.Fatalf("seeded scheduler = %q, want %q", got, test.expected)
+			}
+		})
 	}
 }
 

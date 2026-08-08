@@ -1,10 +1,9 @@
 package main
 
 import (
-	"archive/tar"
 	"bufio"
 	"bytes"
-	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -33,6 +32,7 @@ func TestSekaiTextCategorySaveToPublicFilesAndExistingBackups(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git executable unavailable")
 	}
+	t.Setenv("MOESEKAI_BACKUP_ENCRYPTION_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x42}, 32)))
 	root := t.TempDir()
 	database, err := db.Open(filepath.Join(root, "compatibility.db"))
 	if err != nil {
@@ -56,12 +56,12 @@ func TestSekaiTextCategorySaveToPublicFilesAndExistingBackups(t *testing.T) {
 	}
 
 	var s3Mu sync.Mutex
-	var latestArchive []byte
+	var latestArtifact []byte
 	s3Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.tar.gz") {
+		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.enc") {
 			s3Mu.Lock()
-			latestArchive = append([]byte(nil), body...)
+			latestArtifact = append([]byte(nil), body...)
 			s3Mu.Unlock()
 		}
 		w.WriteHeader(http.StatusOK)
@@ -212,20 +212,20 @@ func TestSekaiTextCategorySaveToPublicFilesAndExistingBackups(t *testing.T) {
 		body, _ := io.ReadAll(backupResponse.Body)
 		t.Fatalf("backup push status=%d body=%s", backupResponse.StatusCode, body)
 	}
-	gitShow := exec.Command("git", "--git-dir", remote, "show", "refs/heads/compatibility:translations/cards.json")
-	gitBytes, err := gitShow.Output()
+	gitShow := exec.Command("git", "--git-dir", remote, "show", "refs/heads/compatibility:backup.enc")
+	gitArtifact, err := gitShow.Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(gitBytes, filesBody) {
-		t.Fatalf("Git backup bytes differ\npublic: %s\ngit: %s", filesBody, gitBytes)
-	}
 	s3Mu.Lock()
-	archive := append([]byte(nil), latestArchive...)
+	s3Artifact := append([]byte(nil), latestArtifact...)
 	s3Mu.Unlock()
-	s3Bytes := compatibilityTarFile(t, archive, "cards.json")
-	if !bytes.Equal(s3Bytes, filesBody) {
-		t.Fatalf("S3 backup bytes differ\npublic: %s\ns3: %s", filesBody, s3Bytes)
+	if len(gitArtifact) == 0 || !bytes.Equal(gitArtifact, s3Artifact) {
+		t.Fatalf("Git and S3 must contain the same non-empty encrypted artifact: git=%d s3=%d", len(gitArtifact), len(s3Artifact))
+	}
+	if bytes.Contains(gitArtifact, filesBody) || bytes.Contains(gitArtifact, []byte("saved through API")) ||
+		bytes.HasPrefix(gitArtifact, []byte{0x1f, 0x8b}) || json.Valid(gitArtifact) {
+		t.Fatal("backup targets exposed plaintext or directly parseable backup content")
 	}
 }
 
@@ -285,32 +285,4 @@ func compatibilityPublicGET(t *testing.T, url string) []byte {
 		t.Fatalf("GET %s status=%d err=%v", url, response.StatusCode, err)
 	}
 	return body
-}
-
-func compatibilityTarFile(t *testing.T, archive []byte, name string) []byte {
-	t.Helper()
-	gzipReader, err := gzip.NewReader(bytes.NewReader(archive))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer gzipReader.Close()
-	tarReader := tar.NewReader(gzipReader)
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		if header.Name == name {
-			body, err := io.ReadAll(tarReader)
-			if err != nil {
-				t.Fatal(err)
-			}
-			return body
-		}
-	}
-	t.Fatalf("archive omitted %s", name)
-	return nil
 }

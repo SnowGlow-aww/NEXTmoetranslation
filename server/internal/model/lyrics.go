@@ -34,9 +34,18 @@ type CatalogPerformerResponse struct {
 	Items []CatalogPerformerItem `json:"items"`
 }
 
+// LyricRubySpan is an editable furigana span. Concatenating Text across a
+// segment's Ruby array must reproduce the segment text exactly; Reading may be
+// empty for punctuation, kana, Latin text, or a deliberately unannotated span.
+type LyricRubySpan struct {
+	Text    string `json:"text"`
+	Reading string `json:"reading,omitempty"`
+}
+
 type LyricSegment struct {
-	Text         string `json:"text"`
-	PerformerIDs []int  `json:"performerIds"`
+	Text         string          `json:"text"`
+	PerformerIDs []int           `json:"performerIds"`
+	Ruby         []LyricRubySpan `json:"ruby,omitempty"`
 }
 
 type LyricLine struct {
@@ -50,20 +59,22 @@ type LyricLine struct {
 }
 
 type SongLyrics struct {
-	MusicID           int         `json:"musicId"`
-	Status            string      `json:"status"`
-	PublishedRevision int         `json:"publishedRevision,omitempty"`
-	Revision          int         `json:"revision"`
-	UpdatedAt         string      `json:"updatedAt"`
-	Attribution       string      `json:"attribution,omitempty"`
-	SourceNote        string      `json:"sourceNote,omitempty"`
-	SourceURL         string      `json:"sourceUrl,omitempty"`
-	LicenseNote       string      `json:"licenseNote,omitempty"`
-	SourcePageID      int         `json:"sourcePageId,omitempty"`
-	SourceRevisionID  int         `json:"sourceRevisionId,omitempty"`
-	SourceSHA1        string      `json:"sourceSha1,omitempty"`
-	SourceFetchedAt   string      `json:"sourceFetchedAt,omitempty"`
-	Lines             []LyricLine `json:"lines"`
+	MusicID            int         `json:"musicId"`
+	Status             string      `json:"status"`
+	PublishedRevision  int         `json:"publishedRevision,omitempty"`
+	Revision           int         `json:"revision"`
+	UpdatedAt          string      `json:"updatedAt"`
+	Attribution        string      `json:"attribution"`
+	TranslationCredit  string      `json:"translationCredit"`
+	ProofreadingCredit string      `json:"proofreadingCredit"`
+	SourceNote         string      `json:"sourceNote,omitempty"`
+	SourceURL          string      `json:"sourceUrl,omitempty"`
+	LicenseNote        string      `json:"licenseNote,omitempty"`
+	SourcePageID       int         `json:"sourcePageId,omitempty"`
+	SourceRevisionID   int         `json:"sourceRevisionId,omitempty"`
+	SourceSHA1         string      `json:"sourceSha1,omitempty"`
+	SourceFetchedAt    string      `json:"sourceFetchedAt,omitempty"`
+	Lines              []LyricLine `json:"lines"`
 }
 
 type LyricsListItem struct {

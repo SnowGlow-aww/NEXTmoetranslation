@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,11 +29,30 @@ func discoveryTarget(musicID int) model.LyricsDiscoveryJobTarget {
 	}
 }
 
+func fetchTarget(musicID, pageID, revisionID int) model.LyricsDiscoveryJobTarget {
+	candidate := &model.LyricsSourceCandidateIdentity{
+		PageID: pageID, RevisionID: revisionID, SHA1: "0123456789abcdef0123456789abcdef01234567",
+		Title: "Test Candidate", CanonicalURL: fmt.Sprintf("https://vocaloid.fandom.com/wiki/Test_Candidate?oldid=%d", revisionID),
+		Categories: []string{"Lyrics", "Songs"},
+	}
+	return model.LyricsDiscoveryJobTarget{
+		MusicID: musicID, PageID: pageID, RevisionID: revisionID,
+		CatalogFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		PolicyVersion:      model.LyricsMatchingPolicyVersion,
+		ExpectedSHA1:       candidate.SHA1,
+		FixedCandidate:     candidate,
+	}
+}
+
 func enqueueLyricsDiscoveryJob(t *testing.T, s *Store, kind model.LyricsDiscoveryJobKind, target model.LyricsDiscoveryJobTarget, maxAttempts int) model.LyricsDiscoveryJob {
 	t.Helper()
-	job, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
-		Kind: kind, Target: target, MaxAttempts: maxAttempts,
-	})
+	params := EnqueueLyricsDiscoveryJobParams{Kind: kind, Target: target, MaxAttempts: maxAttempts}
+	if kind == model.LyricsDiscoveryJobFetchRevision && target.FixedCandidate != nil {
+		candidate := testFandomSearchCandidate(*target.FixedCandidate, "Lyrics", "full-vocaloid", model.LyricsSourceVersionReasonUntaggedFullOnly)
+		params.Provider = candidate.Provider
+		params.FixedCandidate = &candidate
+	}
+	job, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), params)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,10 +75,7 @@ func TestLyricsDiscoveryJobEnqueueDeduplicatesCanonicalTarget(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "enqueue-dedupe.db")
 	s, database := openLyricsDiscoveryJobStore(t, path)
 	defer database.Close()
-	target := model.LyricsDiscoveryJobTarget{
-		MusicID: 41, PageID: 83, RevisionID: 127, ArtifactID: 169,
-		CatalogFingerprint: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", PolicyVersion: "shadow-v1",
-	}
+	target := fetchTarget(41, 83, 127)
 
 	first, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
 		Kind: model.LyricsDiscoveryJobFetchRevision, Target: target, MaxAttempts: 5,
@@ -81,6 +99,121 @@ func TestLyricsDiscoveryJobEnqueueDeduplicatesCanonicalTarget(t *testing.T) {
 	var count int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM lyrics_discovery_jobs`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("queue rows=%d err=%v", count, err)
+	}
+}
+
+func TestLyricsDiscoveryJobsScopeCompleteIdentityByProviderAndRendition(t *testing.T) {
+	s, database := openLyricsDiscoveryJobStore(t, filepath.Join(t.TempDir(), "provider-scope.db"))
+	defer database.Close()
+	fandomTarget := fetchTarget(41, 83, 127)
+	fandom, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+		Kind: model.LyricsDiscoveryJobFetchRevision, Target: fandomTarget, MaxAttempts: 5,
+	})
+	if err != nil || !created {
+		t.Fatalf("Fandom enqueue created=%t err=%v", created, err)
+	}
+	providerCandidate := testRevisionCandidate(
+		model.LyricsSourceProviderMoegirl, 83, 127, "Test Candidate", []string{"Lyrics", "Songs"},
+		"歌词", "full", model.LyricsSourceVersionReasonUntaggedFullOnly, []byte("test candidate source"),
+	)
+	moegirlCandidate := &model.LyricsSourceCandidateIdentity{
+		PageID: providerCandidate.PageID, RevisionID: providerCandidate.RevisionID, SHA1: providerCandidate.SHA1,
+		Title: providerCandidate.Title, CanonicalURL: providerCandidate.CanonicalURL,
+		Categories: append([]string{}, providerCandidate.Categories...),
+	}
+	moegirlTarget := fandomTarget
+	moegirlTarget.PageID = providerCandidate.PageID
+	moegirlTarget.RevisionID = providerCandidate.RevisionID
+	moegirlTarget.ExpectedSHA1 = providerCandidate.SHA1
+	moegirlTarget.FixedCandidate = moegirlCandidate
+	identity := &model.LyricsSourceFixedIdentity{
+		Provider: model.LyricsSourceProviderMoegirl, Origin: model.LyricsSourceOriginMoegirl,
+		PageID: providerCandidate.PageID, RevisionID: providerCandidate.RevisionID, SHA1: providerCandidate.SHA1,
+		Title: providerCandidate.Title, CanonicalURL: providerCandidate.CanonicalURL,
+		FetchedAt: providerCandidate.IndexEvidence[0].FetchedAt, Categories: append([]string{}, providerCandidate.Categories...),
+		Section: providerCandidate.Section, RenditionKey: providerCandidate.RenditionKey,
+		IndexEvidenceRefs: append([]model.LyricsSourceIndexEvidenceRef{}, providerCandidate.IndexEvidenceRefs...),
+	}
+	moegirl, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+		Provider: model.LyricsSourceProviderMoegirl, Kind: model.LyricsDiscoveryJobFetchRevision,
+		Target: moegirlTarget, FixedCandidate: &providerCandidate, FixedIdentity: identity, MaxAttempts: 5,
+	})
+	if err != nil || !created || moegirl.IdempotencyKey == fandom.IdempotencyKey {
+		t.Fatalf("Moegirl enqueue=%+v created=%t err=%v", moegirl, created, err)
+	}
+	secondIdentity := *identity
+	secondIdentity.RenditionKey = "game"
+	secondCandidate := cloneLyricsDiscoveryCandidate(providerCandidate)
+	secondCandidate.RenditionKey = secondIdentity.RenditionKey
+	second, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+		Provider: model.LyricsSourceProviderMoegirl, Kind: model.LyricsDiscoveryJobFetchRevision,
+		Target: moegirlTarget, FixedCandidate: &secondCandidate, FixedIdentity: &secondIdentity, MaxAttempts: 5,
+	})
+	if err != nil || !created || second.IdempotencyKey == moegirl.IdempotencyKey {
+		t.Fatalf("rendition-scoped enqueue=%+v created=%t err=%v", second, created, err)
+	}
+	claimed, err := s.ClaimLyricsDiscoveryJob(context.Background(), LyricsDiscoveryJobLease{Owner: "moegirl-worker",
+		Duration: time.Minute, Provider: model.LyricsSourceProviderMoegirl})
+	if err != nil || claimed.ID != moegirl.ID {
+		t.Fatalf("provider claim=%+v err=%v", claimed, err)
+	}
+	provider, storedIdentity, status, err := s.GetLyricsDiscoveryJobProvenance(context.Background(), moegirl.ID)
+	if err != nil || provider != model.LyricsSourceProviderMoegirl || status != "complete" ||
+		storedIdentity == nil || storedIdentity.RenditionKey != identity.RenditionKey || storedIdentity.FetchedAt != identity.FetchedAt {
+		t.Fatalf("provenance provider=%q identity=%+v status=%q err=%v", provider, storedIdentity, status, err)
+	}
+}
+
+func TestLyricsDiscoveryJobRoundTripPreservesReviewedEmptyCategorySet(t *testing.T) {
+	s, database := openLyricsDiscoveryJobStore(t, filepath.Join(t.TempDir(), "empty-categories.db"))
+	defer database.Close()
+	target := fetchTarget(41, 83, 127)
+	target.FixedCandidate.Categories = nil
+	if _, _, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+		Kind: model.LyricsDiscoveryJobFetchRevision, Target: target, MaxAttempts: 5,
+	}); err == nil {
+		t.Fatal("fetch target accepted an omitted reviewed category set")
+	}
+	target.FixedCandidate.Categories = []string{}
+	job, created, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+		Kind: model.LyricsDiscoveryJobFetchRevision, Target: target, MaxAttempts: 5,
+	})
+	if err != nil || !created || job.Target.FixedCandidate == nil || job.Target.FixedCandidate.Categories == nil ||
+		len(job.Target.FixedCandidate.Categories) != 0 {
+		t.Fatalf("empty category target=%+v created=%t err=%v", job.Target.FixedCandidate, created, err)
+	}
+}
+
+func TestLyricsDiscoveryJobIdempotencyRejectsCompleteCandidateIdentityDrift(t *testing.T) {
+	s, database := openLyricsDiscoveryJobStore(t, filepath.Join(t.TempDir(), "candidate-drift.db"))
+	defer database.Close()
+	base := fetchTarget(41, 83, 127)
+	if _, _, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+		Kind: model.LyricsDiscoveryJobFetchRevision, Target: base, MaxAttempts: 5,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*model.LyricsSourceCandidateIdentity){
+		"title and URL": func(candidate *model.LyricsSourceCandidateIdentity) {
+			candidate.Title = "Renamed Candidate"
+			candidate.CanonicalURL = "https://vocaloid.fandom.com/wiki/Renamed_Candidate?oldid=127"
+		},
+		"categories": func(candidate *model.LyricsSourceCandidateIdentity) {
+			candidate.Categories = []string{"Lyrics", "Restricted", "Songs"}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			drifted := base
+			candidate := *base.FixedCandidate
+			candidate.Categories = append([]string(nil), base.FixedCandidate.Categories...)
+			mutate(&candidate)
+			drifted.FixedCandidate = &candidate
+			if _, _, err := s.EnqueueLyricsDiscoveryJob(context.Background(), EnqueueLyricsDiscoveryJobParams{
+				Kind: model.LyricsDiscoveryJobFetchRevision, Target: drifted, MaxAttempts: 5,
+			}); err == nil || !strings.Contains(err.Error(), "conflicts with fixed candidate identity") {
+				t.Fatalf("candidate drift error=%v", err)
+			}
+		})
 	}
 }
 
@@ -163,7 +296,7 @@ func TestLyricsDiscoveryJobRetrySchedulingAndTerminalState(t *testing.T) {
 	s, database := openLyricsDiscoveryJobStore(t, path)
 	defer database.Close()
 	enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobFetchRevision,
-		model.LyricsDiscoveryJobTarget{MusicID: 13, PageID: 17, RevisionID: 19}, 2)
+		fetchTarget(13, 17, 19), 2)
 	leased := claimLyricsDiscoveryJob(t, s, "worker", time.Minute)
 	failedAt := time.Now().UTC()
 	notBefore := failedAt.Add(300 * time.Millisecond)
@@ -331,7 +464,7 @@ func TestLyricsDiscoveryJobClaimFiltersKindAndUsesSuppliedTime(t *testing.T) {
 	defer database.Close()
 	base := time.Now().UTC().Add(time.Hour)
 	other := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobFetchRevision,
-		model.LyricsDiscoveryJobTarget{MusicID: 61, PageID: 67, RevisionID: 71}, 3)
+		fetchTarget(61, 67, 71), 3)
 	discover := enqueueLyricsDiscoveryJob(t, s, model.LyricsDiscoveryJobDiscover, discoveryTarget(73), 3)
 	if _, err := database.Exec(`UPDATE lyrics_discovery_jobs SET next_attempt_at=?`, base.UnixMilli()); err != nil {
 		t.Fatal(err)

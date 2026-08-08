@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,21 +66,31 @@ func (m *Manager) backupGitContext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	work := filepath.Join(m.workDir, "git-backup")
-	_ = os.RemoveAll(work)
-	defer os.RemoveAll(work)
-	repoDir, err := m.prepareGitBackupRepoContext(ctx, filepath.Join(work, "target"), repoURL, branch)
+	encryptionKey, err := loadBackupEncryptionKey()
 	if err != nil {
 		return err
 	}
+	defer clear(encryptionKey)
+	work := filepath.Join(m.workDir, "git-backup")
+	_ = os.RemoveAll(work)
+	defer os.RemoveAll(work)
 	translationsDir, contentDir, err := m.materializeBackupPayloadContext(ctx, filepath.Join(work, "materialized"))
 	if err != nil {
 		return err
 	}
-	return m.publishGitBackupPayloadContext(ctx, repoDir, repoURL, branch, backupPayload{
+	artifact, err := encryptBackupPayloadContext(ctx, filepath.Join(work, "artifact"), backupPayload{
 		translationsDir: translationsDir,
 		contentDir:      contentDir,
-	})
+	}, encryptionKey)
+	if err != nil {
+		return err
+	}
+	defer clear(artifact)
+	repoDir, err := m.prepareGitBackupRepoContext(ctx, filepath.Join(work, "target"), repoURL, branch)
+	if err != nil {
+		return err
+	}
+	return m.publishGitBackupArtifactContext(ctx, repoDir, repoURL, branch, artifact)
 }
 
 func (m *Manager) gitConfig() (string, string, error) {
@@ -115,31 +126,40 @@ func (m *Manager) prepareGitBackupRepoContext(ctx context.Context, work, repoURL
 	return repoDir, nil
 }
 
-func (m *Manager) publishGitBackupPayloadContext(ctx context.Context, repoDir, repoURL, branch string, payload backupPayload) error {
-	// Replace translations/ with the already materialized shared snapshot.
-	target := filepath.Join(repoDir, "translations")
-	_ = os.RemoveAll(target)
-	if err := copyDirContext(ctx, payload.translationsDir, target); err != nil {
+func (m *Manager) publishGitBackupArtifactContext(ctx context.Context, repoDir, repoURL, branch string, artifact []byte) error {
+	entries, err := os.ReadDir(repoDir)
+	if err != nil {
 		return err
 	}
-	contentTarget := filepath.Join(repoDir, "translation-content")
-	_ = os.RemoveAll(contentTarget)
-	if err := copyDirContext(ctx, payload.contentDir, contentTarget); err != nil {
-		return err
-	}
-	if err := validateGitRestoreTreeContext(ctx, repoDir); err != nil {
-		return fmt.Errorf("validate backup payload: %w", err)
-	}
-
-	if err := gitContext(ctx, repoDir, "add", "translations", "translation-content"); err != nil {
-		return err
-	}
-	msg := fmt.Sprintf("chore: backup translations %s", time.Now().UTC().Format("2006-01-02 15:04:05 UTC"))
-	if err := gitContext(ctx, repoDir, "commit", "-m", msg); err != nil {
-		// Nothing to commit is not an error.
-		if strings.Contains(err.Error(), "nothing to commit") || strings.Contains(err.Error(), "working tree clean") {
-			return nil
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
+		if entry.Name() == ".git" {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(repoDir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	artifactPath := filepath.Join(repoDir, backupEnvelopeFilename)
+	temporaryPath := artifactPath + ".tmp"
+	if err := os.WriteFile(temporaryPath, artifact, 0o600); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = os.Remove(temporaryPath)
+		return err
+	}
+	if err := os.Rename(temporaryPath, artifactPath); err != nil {
+		_ = os.Remove(temporaryPath)
+		return err
+	}
+	if err := gitContext(ctx, repoDir, "add", "--all"); err != nil {
+		return err
+	}
+	msg := fmt.Sprintf("chore: backup encrypted translations %s", time.Now().UTC().Format("2006-01-02 15:04:05 UTC"))
+	if err := gitContext(ctx, repoDir, "commit", "-m", msg); err != nil {
 		return err
 	}
 	return gitRemoteContext(ctx, repoDir, repoURL, "push", "origin", branch)
@@ -182,14 +202,18 @@ func (m *Manager) restoreGitContext(ctx context.Context, actors ...string) (impo
 }
 
 func (m *Manager) prepareGitRestoreContext(ctx context.Context) (restoreCandidate, error) {
-	repoURL := m.cfg.Get(config.KeyBackupGitRepoURL)
-	branch := m.cfg.GetOr(config.KeyBackupGitBranch, "backup-translations")
-	if strings.TrimSpace(repoURL) == "" {
-		return restoreCandidate{}, fmt.Errorf("backup git repo url not configured")
+	repoURL, branch, err := m.gitConfig()
+	if err != nil {
+		return restoreCandidate{}, err
 	}
+	encryptionKey, err := loadBackupEncryptionKey()
+	if err != nil {
+		return restoreCandidate{}, err
+	}
+	defer clear(encryptionKey)
 	work := filepath.Join(m.workDir, "git-restore")
 	_ = os.RemoveAll(work)
-	if err := os.MkdirAll(work, 0o755); err != nil {
+	if err := os.MkdirAll(work, 0o700); err != nil {
 		return restoreCandidate{}, err
 	}
 	defer os.RemoveAll(work)
@@ -198,11 +222,28 @@ func (m *Manager) prepareGitRestoreContext(ctx context.Context) (restoreCandidat
 	if err := gitRemoteContext(ctx, work, repoURL, "clone", "--depth", "1", "--branch", branch, repoURL, repoDir); err != nil {
 		return restoreCandidate{}, err
 	}
-	if err := validateGitRestoreTreeContext(ctx, repoDir); err != nil {
+	artifact, err := readGitBackupArtifactContext(ctx, repoDir)
+	if err != nil {
 		return restoreCandidate{}, err
 	}
-	src := filepath.Join(repoDir, "translations")
-	content, present, err := readTranslationContentContext(ctx, filepath.Join(repoDir, "translation-content"))
+	archive, err := decryptBackupEnvelope(artifact, encryptionKey)
+	clear(artifact)
+	if err != nil {
+		return restoreCandidate{}, err
+	}
+	defer clear(archive)
+	extracted := filepath.Join(work, "extracted")
+	if err := os.MkdirAll(extracted, 0o700); err != nil {
+		return restoreCandidate{}, err
+	}
+	if err := untarGzContext(ctx, archive, extracted); err != nil {
+		return restoreCandidate{}, err
+	}
+	src, contentDir, err := s3RestoreDirs(ctx, extracted)
+	if err != nil {
+		return restoreCandidate{}, err
+	}
+	content, present, err := readTranslationContentContext(ctx, contentDir)
 	if err != nil {
 		return restoreCandidate{}, err
 	}
@@ -214,6 +255,59 @@ func (m *Manager) prepareGitRestoreContext(ctx context.Context) (restoreCandidat
 		return restoreCandidate{result: result}, err
 	}
 	return restoreCandidate{payload: payload, result: result, content: content, contentPresent: present}, nil
+}
+
+func readGitBackupArtifactContext(ctx context.Context, repoDir string) ([]byte, error) {
+	entries, err := os.ReadDir(repoDir)
+	if err != nil {
+		return nil, err
+	}
+	artifactPresent := false
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if entry.Name() == ".git" {
+			continue
+		}
+		if entry.Name() != backupEnvelopeFilename || artifactPresent {
+			return nil, fmt.Errorf("git backup checkout contains unexpected entry %q", entry.Name())
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			return nil, errors.New("git backup artifact is not a regular file")
+		}
+		if info.Size() < 0 || info.Size() > int64(maxBackupEnvelopeBytes) {
+			return nil, fmt.Errorf("git backup artifact exceeds %d bytes", maxBackupEnvelopeBytes)
+		}
+		artifactPresent = true
+	}
+	if !artifactPresent {
+		return nil, errors.New("git backup checkout is missing the encrypted artifact")
+	}
+	file, err := os.Open(filepath.Join(repoDir, backupEnvelopeFilename))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > int64(maxBackupEnvelopeBytes) {
+		return nil, errors.New("git backup artifact changed during validation")
+	}
+	artifact, err := io.ReadAll(io.LimitReader(&contextReader{ctx: ctx, reader: file}, int64(maxBackupEnvelopeBytes)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(artifact) > maxBackupEnvelopeBytes {
+		return nil, fmt.Errorf("git backup artifact exceeds %d bytes", maxBackupEnvelopeBytes)
+	}
+	return artifact, nil
 }
 
 func validateGitRestoreTree(repoDir string) error {
@@ -314,7 +408,15 @@ func runGitContext(parent context.Context, dir string, sanitize func(string) str
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(),
+	environment := os.Environ()
+	filteredEnvironment := make([]string, 0, len(environment)+5)
+	secretPrefix := backupEncryptionKeyEnv + "="
+	for _, value := range environment {
+		if !strings.HasPrefix(value, secretPrefix) {
+			filteredEnvironment = append(filteredEnvironment, value)
+		}
+	}
+	cmd.Env = append(filteredEnvironment,
 		"GIT_TERMINAL_PROMPT=0",
 		"GCM_INTERACTIVE=never",
 		"GIT_ASKPASS=",

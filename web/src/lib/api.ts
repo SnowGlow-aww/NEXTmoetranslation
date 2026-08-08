@@ -17,7 +17,8 @@ import {
   withSessionIdentityLock,
   type Session,
 } from "./session";
-import { buildLyricsSavePayload } from "./lyrics-save.mjs";
+import { collectCatalogPages } from "./catalog-pagination.mjs";
+import { buildLyricsSavePayload, validateSongLyricsMutationResponse } from "./lyrics-save.mjs";
 
 export {
   clearSession,
@@ -59,6 +60,7 @@ export interface TranslationEntry {
   episodeNo?: string;
   entryType?: "title" | "talk";
   sourceHash?: string;
+  revision?: number;
 }
 
 export interface EventStorySummary {
@@ -88,6 +90,7 @@ export interface EventStorySegment {
   sourceHash: string;
   text: string;
   source: string;
+  revision?: number;
 }
 
 export interface EventStoryDetail {
@@ -195,19 +198,174 @@ export interface CatalogPerformerItem {
   name: LocalizedTitle;
 }
 
+export interface LyricRubySpan {
+  text: string;
+  reading?: string;
+}
+
+export type LyricsPerformerID = number | string;
+
 export interface LyricSegment {
   text: string;
   performerIds: number[];
+  ruby: LyricRubySpan[];
 }
 
 export interface LyricLine {
   id: string;
   order: number;
   japanese: string;
-  "zh-CN": string;
-  "en-US": string;
+  "zh-CN"?: string;
+  "en-US"?: string;
   stanzaBreakBefore?: boolean;
   segments: LyricSegment[];
+  trailingPerformerIds?: number[];
+}
+
+/** The strict v3 line shape. String performer IDs keep rendition families independent from the legacy numeric catalog. */
+export interface LyricsRenditionSegment {
+  text: string;
+  performerIds: string[];
+  ruby: LyricRubySpan[];
+}
+
+export interface LyricsRenditionLine {
+  id: string;
+  order: number;
+  japanese: string;
+  "zh-CN"?: string;
+  "en-US"?: string;
+  stanzaBreakBefore?: boolean;
+  segments: LyricsRenditionSegment[];
+  trailingPerformerIds: string[];
+}
+
+export type LyricsEditorLine = LyricLine | LyricsRenditionLine;
+export type LyricsEditorSegment = LyricSegment | LyricsRenditionSegment;
+
+export type LyricsAvailableVersion = "full" | "game";
+
+export interface LyricsGameProjection {
+  reasonCode: "tagged_full_and_game" | "untagged_uncut_identity";
+  lineIds: string[];
+}
+
+export type LyricsRenditionKind = "original" | "sekai" | "vocaloid" | "alternate";
+export type LyricsRenditionRelationKind = "none" | "exact_projection";
+
+export interface LyricsRenditionVersion {
+  kind: LyricsRenditionKind;
+  label: string;
+}
+
+export interface LyricsRenditionPerformer {
+  performerId: string;
+  name: string;
+  color?: string;
+}
+
+export interface LyricsRenditionSide {
+  version: LyricsRenditionVersion;
+  lines: LyricsRenditionLine[];
+}
+
+export interface LyricsRenditionRelation {
+  kind: LyricsRenditionRelationKind;
+  fullRenditionKey?: string;
+  lineIds?: string[];
+}
+
+export interface LyricsRenditionProvenance {
+  component: string;
+  provider: "vocaloid_fandom" | "moegirl" | "moegirl_public_exact" | "sekaipedia";
+  title: string;
+  revisionId: number;
+  revisionUrl: string;
+  licenseName: string;
+  licenseUrl: string;
+}
+
+export interface LyricsRenditionTranslationCredits {
+  translation?: string;
+  proofreading?: string;
+}
+
+/**
+ * The stable-key rendition editing model (REM). Full and Game are peers inside
+ * one rendition; neither side is inferred from another rendition's equal text.
+ */
+export interface LyricsRendition {
+  key: string;
+  kind: LyricsRenditionKind;
+  label: string;
+  availableVersions: LyricsAvailableVersion[];
+  performers: LyricsRenditionPerformer[];
+  full?: LyricsRenditionSide;
+  game?: LyricsRenditionSide;
+  relation: LyricsRenditionRelation;
+  sourceTabPaths: string[][];
+  provenance: LyricsRenditionProvenance[];
+  translationCredits?: LyricsRenditionTranslationCredits;
+}
+
+export interface RenditionLyricsDocument {
+  musicId: number;
+  status: "draft" | "published" | "draft-published";
+  revision: number;
+  publishedRevision?: number;
+  updatedAt: string;
+  renditions: LyricsRendition[];
+}
+
+export type SongLyricsDocument = SongLyrics | RenditionLyricsDocument;
+
+/** Public v3 detail envelope; kept separate from the authenticated editor envelope. */
+export interface PublicLyricsV3Detail {
+  version: 3;
+  musicId: number;
+  revision: number;
+  updatedAt: string;
+  state: "complete" | "game_only";
+  renditions: LyricsRendition[];
+}
+
+export type LyricsRenditionProjectionStatus =
+  | "full_only"
+  | "game_only"
+  | "exact_projection"
+  | "independent_game"
+  | "invalid";
+
+export interface LyricsSourceIndexEvidenceRef {
+  evidenceId: string;
+  sha256: string;
+}
+
+export interface LyricsSourceFixedIdentity {
+  provider: "vocaloid_fandom" | "moegirl" | "sekaipedia";
+  origin: string;
+  pageId: number;
+  revisionId: number;
+  sha1: string;
+  title: string;
+  canonicalUrl: string;
+  fetchedAt: string;
+  categories: string[];
+  section: string;
+  renditionKey: string;
+  indexEvidenceRefs: LyricsSourceIndexEvidenceRef[];
+}
+
+export interface LyricsSourceComponentRef {
+  renditionKey: string;
+}
+
+export interface LyricsSourceComponentProvenance {
+  fullText: LyricsSourceComponentRef;
+  performerSegmentation?: LyricsSourceComponentRef;
+  gameProjection?: LyricsSourceComponentRef;
+  ruby?: LyricsSourceComponentRef;
+  versionEvidence: LyricsSourceComponentRef;
 }
 
 export interface SongLyrics {
@@ -216,7 +374,9 @@ export interface SongLyrics {
   revision: number;
   publishedRevision?: number;
   updatedAt: string;
-  attribution?: string;
+  attribution: string;
+  translationCredit: string;
+  proofreadingCredit: string;
   sourceNote?: string;
   sourceUrl?: string;
   licenseNote?: string;
@@ -224,6 +384,11 @@ export interface SongLyrics {
   sourceRevisionId?: number;
   sourceSha1?: string;
   sourceFetchedAt?: string;
+  availableVersions?: LyricsAvailableVersion[];
+  gameProjection?: LyricsGameProjection;
+  reasonCode?: string;
+  fixedIdentities?: LyricsSourceFixedIdentity[];
+  provenance?: LyricsSourceComponentProvenance;
   lines: LyricLine[];
 }
 
@@ -244,7 +409,137 @@ export interface LyricsSourcePreview {
   categories: string[];
   fetchedAt: string;
   lines: Array<{ japanese: string; stanzaBreakBefore?: boolean }>;
+  structuredLines?: Array<{
+    japanese: string;
+    stanzaBreakBefore?: boolean;
+    segments: Array<{ text: string; performerIds: string[]; ruby: LyricRubySpan[] }>;
+    trailingPerformerIds: string[];
+  }>;
+  rubyGeneratorVersion?: string;
   importToken: string;
+}
+
+export type LyricsSourceReviewKind = "candidate_selection" | "artifact_review";
+export type LyricsSourceReviewState = "pending" | "approved" | "rejected" | "superseded" | "cancelled";
+export type LyricsSourceGateState = "not_applicable" | "pending" | "approved" | "rejected";
+export type LyricsSourceReviewEvidenceGate = "identity" | "source_use" | "parse";
+export type LyricsSourceReviewGate = LyricsSourceReviewEvidenceGate | "overall";
+export interface LyricsSourceReviewSummary {
+  reviewId: number;
+  kind: LyricsSourceReviewKind;
+  state: LyricsSourceReviewState;
+  musicId: number;
+  title: string;
+  catalogFingerprint: string;
+  reasonCode: string;
+  identityGate: LyricsSourceGateState;
+  sourceUseGate: LyricsSourceGateState;
+  parseGate: LyricsSourceGateState;
+  version: number;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface LyricsSourceReviewDecisionFact {
+  decisionId: number;
+  gate: LyricsSourceReviewGate | "candidate";
+  decision: "approved" | "rejected" | "selected" | "excluded";
+  selectedCandidate?: LyricsSourceCandidate;
+  actor: string;
+  note: string;
+  expectedVersion: number;
+  resultVersion: number;
+  decidedAt: string;
+}
+export interface LyricsSourceRubySpan {
+  text: string;
+  reading?: string;
+}
+export interface LyricsSourceSegment {
+  text: string;
+  performerIds: string[];
+  ruby: LyricsSourceRubySpan[];
+}
+export interface LyricsSourceExtractedLine {
+  japanese: string;
+  stanzaBreakBefore?: boolean;
+  segments: LyricsSourceSegment[];
+  trailingPerformerIds: string[];
+}
+export interface LyricsSourceReviewDetail {
+  review: LyricsSourceReviewSummary;
+  candidates: LyricsSourceCandidate[];
+  artifact?: {
+    sourceType: string; sourceOrigin: string; pageId: number; revisionId: number;
+    pageTitle: string; canonicalRevisionUrl: string; mediaWikiSha1: string; categories: string[];
+    firstFetchedAt: string;
+  };
+  analysis?: {
+    matchingPolicyVersion: string; restrictionPolicyVersion: string; extractorVersion: string;
+    matchOutcome: string; restrictionOutcome: string; extractionOutcome: string;
+    matchingEvidence: Array<{ ruleId: string; gate: string; outcome: string; summary: string }>;
+    restrictionRuleIds: string[];
+    selectedVersion: { kind: "sekai" | "vocaloid" | "original"; label: string };
+    performers: Array<{ performerId: string; name: string; color?: string }>;
+    rubyGeneratorVersion: string;
+    extractedLines: LyricsSourceExtractedLine[];
+  };
+  associations: Array<{ musicId: number; catalogFingerprint: string; kind: "full_target" | "game_size_evidence" }>;
+  decisions: LyricsSourceReviewDecisionFact[];
+}
+export interface LyricsSourceReviewMutationResult {
+  reviewId: number; state: LyricsSourceReviewState; identityGate: LyricsSourceGateState;
+  sourceUseGate: LyricsSourceGateState; parseGate: LyricsSourceGateState; version: number; replayed: boolean;
+}
+export interface LyricsSourceReviewBatchDecisionItem {
+  reviewId: number;
+  expectedVersion: number;
+}
+export interface LyricsSourceReviewDecisionRequest {
+  gate: "overall";
+  decision: "approved" | "rejected";
+  idempotencyKey: string;
+  note: "";
+  reviewId?: number;
+  expectedVersion?: number;
+  items?: LyricsSourceReviewBatchDecisionItem[];
+}
+export interface LyricsSourceReviewBatchMutationItem {
+  reviewId: number;
+  state: LyricsSourceReviewState;
+  version: number;
+}
+export interface LyricsSourceReviewBatchDecisionResponse {
+  items: LyricsSourceReviewBatchMutationItem[];
+  replayed: boolean;
+}
+
+type LyricsSourceReviewMutationExpectation =
+  | { kind: "overall"; reviewId: number; expectedVersion: number; decision: "approved" | "rejected" }
+  | { kind: "candidate"; reviewId: number; expectedVersion: number; exclude: boolean };
+
+function isStrictLyricsSourceReviewMutationResponse(
+  value: unknown,
+  expected: LyricsSourceReviewMutationExpectation,
+): value is LyricsSourceReviewMutationResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const response = value as Record<string, unknown>;
+  const keys = ["reviewId", "state", "identityGate", "sourceUseGate", "parseGate", "version", "replayed"];
+  if (Object.keys(response).length !== keys.length || !keys.every((key) => Object.hasOwn(response, key))) return false;
+  const expectedState = expected.kind === "overall" ? expected.decision : expected.exclude ? "rejected" : "approved";
+  const expectedGate = expected.kind === "overall" ? expected.decision : "not_applicable";
+  return Number.isSafeInteger(response.reviewId) && response.reviewId === expected.reviewId &&
+    Number.isSafeInteger(response.version) && response.version === expected.expectedVersion + 1 &&
+    response.state === expectedState && response.identityGate === expectedGate &&
+    response.sourceUseGate === expectedGate && response.parseGate === expectedGate &&
+    typeof response.replayed === "boolean";
+}
+
+function invalidLyricsSourceReviewMutationResponse(): APIError {
+  return new APIError(502, {
+    error: "invalid_lyrics_source_review_response",
+    details: ["审核响应未与审核编号、版本、状态和检查门逐字段关联"],
+  });
 }
 
 function isEditorGateStatus(value: unknown): value is EditorGateStatus {
@@ -261,13 +556,13 @@ export class APIError extends Error {
   status: number;
   code: string;
   details: string[];
-  current?: SongLyrics;
+  current?: SongLyricsDocument;
   producerStatus?: EditorGateStatus;
   results?: Record<string, string>;
 
-  constructor(status: number, body: { error?: string; details?: string[]; current?: SongLyrics; results?: Record<string, string> } | EditorGateStatus) {
+  constructor(status: number, body: { error?: string; details?: string[]; current?: SongLyricsDocument; results?: Record<string, string> } | EditorGateStatus) {
     const producerStatus = isEditorGateStatus(body) ? body : undefined;
-    const contractBody = producerStatus ? undefined : body as { error?: string; details?: string[]; current?: SongLyrics; results?: Record<string, string> };
+    const contractBody = producerStatus ? undefined : body as { error?: string; details?: string[]; current?: SongLyricsDocument; results?: Record<string, string> };
     super(producerStatus ? "producer_state_changed" : contractBody?.error || `HTTP ${status}`);
     this.name = "APIError";
     this.status = status;
@@ -302,13 +597,13 @@ export function acceptLoadedProducerState(status: EditorGateStatus): boolean {
       !Number.isSafeInteger(status.revision) || status.revision < 0 ||
       !Number.isSafeInteger(status.generation) || status.generation < 0 ||
       !Number.isSafeInteger(status.completedGeneration) || status.completedGeneration < 0 ||
-      status.completedGeneration > status.generation) {
+      status.revision < status.generation || status.completedGeneration !== status.generation) {
     loadedProducerState = null;
     return false;
   }
   loadedProducerState = {
     epoch: envelope.epoch,
-    header: `${status.instanceId}:${status.completedGeneration}`,
+    header: `${status.instanceId}:${status.revision}:${status.completedGeneration}`,
   };
   return true;
 }
@@ -361,10 +656,20 @@ async function apiFetch<T>(path: string, options?: RequestInit, requireProducerP
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    if (requireProducerProof && res.status === 409 && isEditorGateStatus(err)) invalidateLoadedProducerState();
+    if (requireProducerProof && (res.status === 400 || res.status === 428 ||
+        res.status === 409 && isEditorGateStatus(err))) invalidateLoadedProducerState();
     throw new APIError(res.status, err);
   }
-  const body = res.status === 204 ? undefined as T : await res.json() as T;
+  let body: T;
+  if (res.status === 204) {
+    body = undefined as T;
+  } else {
+    try {
+      body = await res.json() as T;
+    } catch {
+      throw new APIError(502, { error: "invalid_json_response", details: ["成功响应必须包含有效的 JSON"] });
+    }
+  }
   const current = await withSessionIdentityLock("shared", getSessionEnvelope);
   if (initiated.envelope && !sameSessionIdentity(current, initiated.envelope)) {
     throw new APIError(409, { error: "会话已变化，请重试" });
@@ -473,7 +778,7 @@ export const setupAdmin = (username: string, password: string) =>
 // ---- Translations ----
 
 function addLocale(params: URLSearchParams, locale?: Locale) {
-  if (locale && locale !== "zh-CN") params.set("locale", locale);
+  if (locale) params.set("locale", locale);
 }
 
 export const getCategories = (locale?: Locale) => {
@@ -489,11 +794,48 @@ export const getEntries = (category: string, field: string, source?: string, loc
   addLocale(p, locale);
   return apiFetch<TranslationEntry[]>(`/entries?${p}`);
 };
-export const updateEntry = (category: string, field: string, key: string, text: string, source: string, locale?: Locale) =>
-  apiFetch<{ status: string }>("/editor/v1/entry", {
+export interface EntryMutationResponse {
+  status: "ok" | "noop";
+  category: string;
+  field: string;
+  key: string;
+  text: string;
+  source: string;
+  locale?: Locale;
+}
+
+function validateEntryMutationResponse(
+  value: unknown,
+  expected: { category: string; field: string; key: string; text: string; source: string; locale?: Locale },
+): value is EntryMutationResponse {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const response = value as Record<string, unknown>;
+  const required = ["status", "category", "field", "key", "text", "source"];
+  const allowed = new Set([...required, "locale"]);
+  const keys = Object.keys(response);
+  if (!required.every((name) => Object.hasOwn(response, name)) || keys.some((name) => !allowed.has(name))) return false;
+  if (response.status !== "ok" && response.status !== "noop") return false;
+  if (response.category !== expected.category || response.field !== expected.field || response.key !== expected.key ||
+      response.text !== expected.text || response.source !== expected.source) return false;
+  const responseHasLocale = Object.hasOwn(response, "locale");
+  return expected.locale === undefined
+    ? !responseHasLocale
+    : responseHasLocale && response.locale === expected.locale;
+}
+
+export const updateEntry = async (
+  category: string, field: string, key: string, text: string, source: string, locale?: Locale,
+): Promise<EntryMutationResponse> => {
+  const payload = { category, field, key, text, source, clientId: getClientID(), ...(locale ? { locale } : {}) };
+  const response = await apiFetch<unknown>("/editor/v1/entry?response=correlated-v1", {
     method: "PUT",
-    body: JSON.stringify({ category, field, key, text, source, clientId: getClientID(), ...(locale && locale !== "zh-CN" ? { locale } : {}) }),
+    body: JSON.stringify(payload),
   }, true);
+  if (!validateEntryMutationResponse(response, payload)) {
+    throw new APIError(502, { error: "invalid_entry_response", details: ["词条保存响应未与提交内容逐字段关联"] });
+  }
+  return response;
+};
 
 // ---- Event stories ----
 
@@ -507,16 +849,27 @@ export const getEventStory = (eventId: number, locale?: Locale) => {
   addLocale(p, locale);
   return apiFetch<EventStoryDetail>(`/event-story?${p}`);
 };
-export const updateEventStoryLine = (
+export interface EventStoryUpdateResult {
+  status: "ok";
+  revision: number;
+}
+
+export const updateEventStoryLine = async (
   eventId: number, episodeNo: string, jpKey: string, cnText: string,
-  source = "human", entryType: "talk" | "title" = "talk", locale?: Locale, segmentId?: string, sourceHash?: string,
-) =>
-  apiFetch<{ status: string }>("/editor/v1/event-story/update", {
+  source: string, entryType: "talk" | "title", locale: Locale,
+  segmentId: string, sourceHash: string, revision: number,
+): Promise<EventStoryUpdateResult> => {
+  const response = await apiFetch<unknown>("/editor/v1/event-story/update", {
     method: "PUT",
-    body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType, clientId: getClientID(),
-      ...(locale && locale !== "zh-CN" ? { locale } : {}), ...(segmentId ? { segmentId } : {}),
-      ...(sourceHash !== undefined ? { sourceHash } : {}) }),
+    body: JSON.stringify({ eventId, episodeNo, jpKey, cnText, source, entryType, locale, segmentId, sourceHash,
+      revision, clientId: getClientID() }),
   }, true);
+  if (!response || typeof response !== "object" || (response as { status?: unknown }).status !== "ok" ||
+      (response as { revision?: unknown }).revision !== revision + 1) {
+    throw new APIError(502, { error: "invalid_event_story_response", details: ["剧情保存响应未返回下一修订号"] });
+  }
+  return response as EventStoryUpdateResult;
+};
 export const promoteEventStoryHuman = (eventId: number) =>
   apiFetch<{ status: string }>("/editor/v1/event-story/promote-human", { method: "POST", body: JSON.stringify({ eventId }) }, true);
 export const retryEventStory = (eventId: number) =>
@@ -553,6 +906,34 @@ export const getUpstreamStatus = () => apiFetch<UpstreamStatus>("/admin/upstream
 export const checkUpstream = (force = false) =>
   apiFetch<UpstreamStatus>("/admin/upstream/check", { method: "POST", body: JSON.stringify({ force }) });
 
+export const getLyricsSourceReviews = (filters: { kind?: LyricsSourceReviewKind; state?: LyricsSourceReviewState; gate?: LyricsSourceReviewGate; cursor?: string; limit?: number } = {}) => {
+  const query = new URLSearchParams();
+  if (filters.kind) query.set("kind", filters.kind);
+  if (filters.state) query.set("state", filters.state);
+  if (filters.gate) query.set("gate", filters.gate);
+  if (filters.cursor) query.set("cursor", filters.cursor);
+  if (filters.limit !== undefined) query.set("limit", String(filters.limit));
+  return apiFetch<{ items: LyricsSourceReviewSummary[]; nextCursor?: string }>(`/admin/lyrics-source-reviews${query.size ? `?${query}` : ""}`);
+};
+export const getLyricsSourceReviewDetail = (reviewId: number) =>
+  apiFetch<LyricsSourceReviewDetail>(`/admin/lyrics-source-reviews/detail?reviewId=${reviewId}`);
+export function decideLyricsSourceReview(request: LyricsSourceReviewDecisionRequest & { reviewId: number; expectedVersion: number; items?: never }): Promise<LyricsSourceReviewMutationResult>;
+export function decideLyricsSourceReview(request: LyricsSourceReviewDecisionRequest & { items: LyricsSourceReviewBatchDecisionItem[]; reviewId?: never; expectedVersion?: never }): Promise<LyricsSourceReviewBatchDecisionResponse>;
+export async function decideLyricsSourceReview(request: LyricsSourceReviewDecisionRequest): Promise<LyricsSourceReviewMutationResult | LyricsSourceReviewBatchDecisionResponse> {
+  const response = await apiFetch<unknown>("/admin/lyrics-source-reviews/decision", { method: "PUT", body: JSON.stringify(request) });
+  if (Array.isArray(request.items)) return response as LyricsSourceReviewBatchDecisionResponse;
+  const expected = { kind: "overall" as const, reviewId: request.reviewId ?? 0,
+    expectedVersion: request.expectedVersion ?? 0, decision: request.decision };
+  if (!isStrictLyricsSourceReviewMutationResponse(response, expected)) throw invalidLyricsSourceReviewMutationResponse();
+  return response;
+}
+export const selectLyricsSourceCandidate = async (request: { reviewId: number; candidateIdentity?: LyricsSourceCandidate; exclude: boolean; expectedVersion: number; idempotencyKey: string; note: "" }): Promise<LyricsSourceReviewMutationResult> => {
+  const response = await apiFetch<unknown>("/admin/lyrics-source-reviews/candidate-selection", { method: "PUT", body: JSON.stringify(request) });
+  if (!isStrictLyricsSourceReviewMutationResponse(response, { kind: "candidate", reviewId: request.reviewId,
+    expectedVersion: request.expectedVersion, exclude: request.exclude })) throw invalidLyricsSourceReviewMutationResponse();
+  return response;
+};
+
 // Read-only upstream status available to any authenticated user (user settings).
 export const getUpstreamStatusPublic = () => apiFetch<UpstreamStatus>("/upstream/status");
 
@@ -563,24 +944,49 @@ export const restoreBackup = (target: "s3" | "git", confirmation: string) =>
 
 // ---- Lyrics ----
 
-export const getCatalogMusic = (query = "", newlyWritten = true) => {
-  const p = new URLSearchParams({ newlyWritten: String(newlyWritten), limit: "100" });
-  if (query.trim()) p.set("q", query.trim());
-  return apiFetch<{ items: CatalogMusicItem[]; nextCursor?: string }>(`/catalog/music?${p}`);
-};
+export const getCatalogMusic = async (query = "", newlyWritten = true): Promise<{ items: CatalogMusicItem[] }> => ({
+  items: await collectCatalogPages(async (cursor: string) => {
+    const p = new URLSearchParams({ newlyWritten: String(newlyWritten), limit: "100" });
+    if (query.trim()) p.set("q", query.trim());
+    if (cursor) p.set("cursor", cursor);
+    return apiFetch<{ items: CatalogMusicItem[]; nextCursor?: string }>(`/catalog/music?${p}`);
+  }) as CatalogMusicItem[],
+});
 export const getCatalogPerformers = () =>
   apiFetch<{ items: CatalogPerformerItem[] }>("/catalog/characters");
 export const getLyrics = (musicId: number) =>
-  apiFetch<SongLyrics>(`/lyrics/detail?musicId=${musicId}`);
-export const saveLyrics = (lyrics: SongLyrics, sourceImportToken?: string) =>
-  apiFetch<SongLyrics>("/editor/v1/lyrics/save", {
+  apiFetch<SongLyricsDocument>(`/lyrics/detail?musicId=${musicId}`);
+
+type LyricsMutationExpectation =
+  | { operation: "save"; musicId: number; revision: number; document: SongLyricsDocument }
+  | { operation: "publish" | "unpublish"; musicId: number; revision: number };
+
+async function lyricsMutation(path: string, options: RequestInit, expectation: LyricsMutationExpectation): Promise<SongLyricsDocument> {
+  let response: unknown;
+  try {
+    response = await apiFetch<unknown>(path, options, true);
+  } catch (reason) {
+    if (reason instanceof APIError && reason.code === "invalid_json_response") {
+      throw new APIError(502, { error: "invalid_lyrics_response", details: reason.details });
+    }
+    throw reason;
+  }
+  const validated = validateSongLyricsMutationResponse(response, expectation);
+  if (!validated.ok) throw new APIError(502, { error: "invalid_lyrics_response", details: validated.details });
+  return validated.value as SongLyricsDocument;
+}
+
+export const saveLyrics = (lyrics: SongLyricsDocument, sourceImportToken?: string) =>
+  lyricsMutation("/editor/v1/lyrics/save", {
     method: "PUT",
     body: JSON.stringify(buildLyricsSavePayload(lyrics, sourceImportToken, getClientID())),
-  }, true);
+  }, { operation: "save", musicId: lyrics.musicId, revision: lyrics.revision, document: lyrics });
 export const publishLyrics = (musicId: number, revision: number) =>
-  apiFetch<SongLyrics>("/editor/v1/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) }, true);
+  lyricsMutation("/editor/v1/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) },
+    { operation: "publish", musicId, revision });
 export const unpublishLyrics = (musicId: number, revision: number) =>
-  apiFetch<SongLyrics>("/editor/v1/lyrics/unpublish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) }, true);
+  lyricsMutation("/editor/v1/lyrics/unpublish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) },
+    { operation: "unpublish", musicId, revision });
 export const searchLyricsSource = (musicId: number) =>
   apiFetch<{ items: LyricsSourceCandidate[] }>(`/lyrics/source/search?musicId=${musicId}`);
 export const previewLyricsSource = (musicId: number, pageId: number, revisionId: number) =>

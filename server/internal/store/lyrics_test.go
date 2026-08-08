@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -55,6 +56,151 @@ func validLyrics() model.SongLyrics {
 	}
 }
 
+func TestPrivateLyricsMutationCanonicalizesRequiredEmptyFields(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := validLyrics()
+	input.Attribution = ""
+	for lineIndex := range input.Lines {
+		for segmentIndex := range input.Lines[lineIndex].Segments {
+			input.Lines[lineIndex].Segments[segmentIndex].PerformerIDs = []int{}
+		}
+	}
+	saved, changed, err := s.SaveLyricsMutation(input, "editor")
+	if err != nil || !changed {
+		t.Fatalf("save empty private fields: changed=%t err=%v", changed, err)
+	}
+	body, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(body, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"attribution", "translationCredit", "proofreadingCredit"} {
+		if string(document[field]) != `""` {
+			t.Fatalf("private %s JSON=%s document=%s", field, document[field], body)
+		}
+	}
+	var lines []map[string]json.RawMessage
+	if err := json.Unmarshal(document["lines"], &lines); err != nil || len(lines) != 1 {
+		t.Fatalf("private lines=%s err=%v", document["lines"], err)
+	}
+	var segments []map[string]json.RawMessage
+	if err := json.Unmarshal(lines[0]["segments"], &segments); err != nil || len(segments) != 2 {
+		t.Fatalf("private segments=%s err=%v", lines[0]["segments"], err)
+	}
+	for index, segment := range segments {
+		if string(segment["performerIds"]) != `[]` {
+			t.Fatalf("segment %d performerIds=%s document=%s", index, segment["performerIds"], body)
+		}
+	}
+}
+
+func TestLyricsCreditsPersistIndependentlyWhenTranslatorAndProofreaderMatch(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := validLyrics()
+	input.TranslationCredit = "Same Person"
+	input.ProofreadingCredit = "Same Person"
+	saved, err := s.SaveLyrics(input, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := s.GetLyrics(saved.MusicID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.TranslationCredit != "Same Person" || loaded.ProofreadingCredit != "Same Person" {
+		t.Fatalf("loaded credits translation=%q proofreading=%q", loaded.TranslationCredit, loaded.ProofreadingCredit)
+	}
+	var translation, proofreading string
+	if err := s.db.QueryRow(`SELECT translation_credit,proofreading_credit FROM song_lyrics WHERE music_id=?`, saved.MusicID).
+		Scan(&translation, &proofreading); err != nil {
+		t.Fatal(err)
+	}
+	if translation != "Same Person" || proofreading != "Same Person" {
+		t.Fatalf("stored credits translation=%q proofreading=%q", translation, proofreading)
+	}
+
+	loaded.ProofreadingCredit = "Second Proofreader"
+	updated, err := s.SaveLyrics(loaded, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.TranslationCredit != "Same Person" || updated.ProofreadingCredit != "Second Proofreader" {
+		t.Fatalf("updated credits translation=%q proofreading=%q", updated.TranslationCredit, updated.ProofreadingCredit)
+	}
+}
+
+func TestLyricsPublicationAcceptsTranslationOrLegacyAttributionButNotProofreadingAlone(t *testing.T) {
+	t.Run("translation credit with empty proofreading", func(t *testing.T) {
+		s := setupLyricsStore(t)
+		input := validLyrics()
+		input.Attribution = ""
+		input.TranslationCredit = "Translator"
+		input.ProofreadingCredit = ""
+		saved, err := s.SaveLyrics(input, "editor")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+			t.Fatalf("publish translation-only credit: %v", err)
+		}
+		_, details, err := s.PublishedLyrics()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if details[saved.MusicID].Attribution != "Translator" {
+			t.Fatalf("v1 translation fallback attribution=%q", details[saved.MusicID].Attribution)
+		}
+	})
+
+	t.Run("legacy attribution", func(t *testing.T) {
+		s := setupLyricsStore(t)
+		input := validLyrics()
+		input.TranslationCredit = ""
+		input.ProofreadingCredit = ""
+		saved, err := s.SaveLyrics(input, "editor")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+			t.Fatalf("publish legacy attribution: %v", err)
+		}
+	})
+
+	t.Run("proofreading only", func(t *testing.T) {
+		s := setupLyricsStore(t)
+		input := validLyrics()
+		input.Attribution = ""
+		input.TranslationCredit = ""
+		input.ProofreadingCredit = "Proofreader"
+		saved, err := s.SaveLyrics(input, "editor")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = s.PublishLyrics(saved.MusicID, saved.Revision)
+		var contractErr *LyricsContractError
+		if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" ||
+			!strings.Contains(strings.Join(contractErr.Details, "; "), "translation credit is required") {
+			t.Fatalf("proofreading-only publication error=%#v", err)
+		}
+	})
+}
+
+func lyricsWithReadings() model.SongLyrics {
+	lyrics := validLyrics()
+	lyrics.Lines[0].Segments[0].Ruby = []model.LyricRubySpan{
+		{Text: "初", Reading: "はつ"},
+		{Text: "音", Reading: "ね"},
+	}
+	lyrics.Lines[0].Segments[1].Ruby = []model.LyricRubySpan{
+		{Text: "歌", Reading: "うた"},
+		{Text: "う"},
+	}
+	return lyrics
+}
+
 func TestLyricsCRUDRevisionDriftAndPublication(t *testing.T) {
 	s := setupLyricsStore(t)
 	saved, err := s.SaveLyrics(validLyrics(), "editor")
@@ -76,6 +222,7 @@ func TestLyricsCRUDRevisionDriftAndPublication(t *testing.T) {
 	drift := saved
 	drift.Lines[0].Japanese = "初音が歌う"
 	drift.Lines[0].Segments[1].Text = "が歌う"
+	drift.Lines[0].Segments[1].Ruby = []model.LyricRubySpan{{Text: "が歌う"}}
 	_, err = s.SaveLyrics(drift, "editor")
 	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
 		t.Fatalf("source drift error = %#v", err)
@@ -136,22 +283,161 @@ func TestLyricsCRUDRevisionDriftAndPublication(t *testing.T) {
 	}
 }
 
-func TestSavedLyricsAllowEquivalentResegmentation(t *testing.T) {
+func TestLegacyPrivateLyricsSavePreservesPersistedRuby(t *testing.T) {
 	s := setupLyricsStore(t)
-	saved, err := s.SaveLyrics(validLyrics(), "editor")
+	saved, err := s.SaveLyrics(lyricsWithReadings(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedRuby := make([][]model.LyricRubySpan, len(saved.Lines[0].Segments))
+	for segmentIndex := range saved.Lines[0].Segments {
+		expectedRuby[segmentIndex] = append([]model.LyricRubySpan(nil), saved.Lines[0].Segments[segmentIndex].Ruby...)
+	}
+
+	legacy := saved
+	legacy.Lines = append([]model.LyricLine(nil), saved.Lines...)
+	legacy.Lines[0].Segments = append([]model.LyricSegment(nil), saved.Lines[0].Segments...)
+	legacy.Lines[0].Segments[0].Ruby = nil
+	legacy.Lines[0].Segments[1].Ruby = []model.LyricRubySpan{}
+	legacy.Lines[0].Chinese = "只修改中文"
+	legacy.Lines[0].English = "Only the translation changed"
+	legacy.Attribution = "Updated attribution from a legacy private client"
+
+	updated, err := s.SaveLyrics(legacy, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Revision != saved.Revision+1 || updated.Lines[0].Chinese != legacy.Lines[0].Chinese ||
+		updated.Lines[0].English != legacy.Lines[0].English || updated.Attribution != legacy.Attribution {
+		t.Fatalf("legacy translation save = %+v", updated)
+	}
+	for segmentIndex := range updated.Lines[0].Segments {
+		if !reflect.DeepEqual(updated.Lines[0].Segments[segmentIndex].Ruby, expectedRuby[segmentIndex]) {
+			t.Fatalf("segment %d ruby = %+v, want %+v", segmentIndex, updated.Lines[0].Segments[segmentIndex].Ruby, expectedRuby[segmentIndex])
+		}
+	}
+	loaded, err := s.GetLyrics(saved.MusicID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for segmentIndex := range loaded.Lines[0].Segments {
+		if !reflect.DeepEqual(loaded.Lines[0].Segments[segmentIndex].Ruby, expectedRuby[segmentIndex]) {
+			t.Fatalf("persisted segment %d ruby = %+v, want %+v", segmentIndex, loaded.Lines[0].Segments[segmentIndex].Ruby, expectedRuby[segmentIndex])
+		}
+	}
+
+	if _, err := s.PublishLyrics(updated.MusicID, updated.Revision); err != nil {
+		t.Fatal(err)
+	}
+	var payload string
+	if err := s.db.QueryRow(`SELECT payload_json FROM song_lyrics_publications WHERE music_id=?`, updated.MusicID).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(payload, `"ruby"`) || strings.Contains(payload, `"reading"`) {
+		t.Fatalf("public payload exposed private ruby: %s", payload)
+	}
+	_, details, err := s.PublishedLyrics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for segmentIndex, segment := range details[updated.MusicID].Lines[0].Segments {
+		if len(segment.Ruby) != 0 {
+			t.Fatalf("public segment %d exposed ruby: %+v", segmentIndex, segment.Ruby)
+		}
+	}
+}
+
+func TestLegacyPrivateLyricsSaveTreatsNilAndEmptyPerformerIDsAsEquivalent(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := lyricsWithReadings()
+	input.Lines[0].Segments[0].PerformerIDs = []int{}
+	if _, err := s.SaveLyrics(input, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetLyrics(input.MusicID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	legacy := current
+	legacy.Lines = append([]model.LyricLine(nil), current.Lines...)
+	legacy.Lines[0].Segments = append([]model.LyricSegment(nil), current.Lines[0].Segments...)
+	legacy.Lines[0].Segments[0].PerformerIDs = nil
+	legacy.Lines[0].Segments[0].Ruby = nil
+	legacy.Lines[0].English = "Legacy client changed only the translation"
+
+	updated, err := s.SaveLyrics(legacy, "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Revision != current.Revision+1 || updated.Lines[0].English != legacy.Lines[0].English ||
+		!reflect.DeepEqual(updated.Lines[0].Segments[0].Ruby, current.Lines[0].Segments[0].Ruby) {
+		t.Fatalf("nil/empty performer compatibility save = %+v", updated)
+	}
+}
+
+func TestExistingLyricsRejectMissingRubyWhenSourceStructureChanges(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*model.SongLyrics)
+	}{
+		{name: "segment structure", mutate: func(candidate *model.SongLyrics) {
+			candidate.Lines[0].Segments = []model.LyricSegment{
+				{Text: "初", PerformerIDs: []int{1}},
+				{Text: "音歌", PerformerIDs: []int{1, 2}},
+				{Text: "う", PerformerIDs: []int{1, 2}},
+			}
+		}},
+		{name: "performer removal", mutate: func(candidate *model.SongLyrics) {
+			candidate.Lines[0].Segments = append([]model.LyricSegment(nil), candidate.Lines[0].Segments...)
+			for segmentIndex := range candidate.Lines[0].Segments {
+				candidate.Lines[0].Segments[segmentIndex].Ruby = nil
+			}
+			candidate.Lines[0].Segments[0].PerformerIDs = nil
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := setupLyricsStore(t)
+			saved, err := s.SaveLyrics(lyricsWithReadings(), "editor")
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate := saved
+			candidate.Lines = append([]model.LyricLine(nil), saved.Lines...)
+			test.mutate(&candidate)
+			_, err = s.SaveLyrics(candidate, "editor")
+			var contractErr *LyricsContractError
+			if !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" ||
+				!strings.Contains(strings.Join(contractErr.Details, "; "), "ruby must be supplied") {
+				t.Fatalf("missing ruby after %s error = %#v", test.name, err)
+			}
+			loaded, loadErr := s.GetLyrics(saved.MusicID)
+			if loadErr != nil || loaded.Revision != saved.Revision ||
+				!reflect.DeepEqual(loaded.Lines[0].Segments[0].Ruby, saved.Lines[0].Segments[0].Ruby) {
+				t.Fatalf("rejected %s changed persisted lyrics: %+v err=%v", test.name, loaded, loadErr)
+			}
+		})
+	}
+}
+
+func TestSavedLyricsAllowEquivalentResegmentationWithExplicitRuby(t *testing.T) {
+	s := setupLyricsStore(t)
+	saved, err := s.SaveLyrics(lyricsWithReadings(), "editor")
 	if err != nil {
 		t.Fatal(err)
 	}
 	saved.Lines[0].Segments = []model.LyricSegment{
-		{Text: "初", PerformerIDs: []int{1}},
-		{Text: "音歌", PerformerIDs: []int{2}},
-		{Text: "う", PerformerIDs: []int{1, 2}},
+		{Text: "初", PerformerIDs: []int{1}, Ruby: []model.LyricRubySpan{{Text: "初", Reading: "はつ"}}},
+		{Text: "音歌", PerformerIDs: []int{2}, Ruby: []model.LyricRubySpan{{Text: "音", Reading: "ね"}, {Text: "歌", Reading: "うた"}}},
+		{Text: "う", PerformerIDs: []int{1, 2}, Ruby: []model.LyricRubySpan{{Text: "う"}}},
 	}
 	updated, err := s.SaveLyrics(saved, "editor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Revision != saved.Revision+1 || len(updated.Lines[0].Segments) != 3 || updated.Lines[0].Japanese != "初音歌う" {
+	if updated.Revision != saved.Revision+1 || len(updated.Lines[0].Segments) != 3 || updated.Lines[0].Japanese != "初音歌う" ||
+		updated.Lines[0].Segments[1].Ruby[1].Reading != "うた" {
 		t.Fatalf("equivalent resegmentation = %+v", updated)
 	}
 }
@@ -275,6 +561,7 @@ func TestLegacyURLOnlyManagedLyricsDraftCanEditOnlyWithoutSourceDrift(t *testing
 		{name: "Japanese source structure", mutate: func(candidate *model.SongLyrics) {
 			candidate.Lines[0].Japanese = "初音が歌う"
 			candidate.Lines[0].Segments[1].Text = "が歌う"
+			candidate.Lines[0].Segments[1].Ruby = []model.LyricRubySpan{{Text: "が歌う"}}
 		}},
 	}
 	for _, test := range tests {
@@ -643,7 +930,10 @@ func TestGetLyricsUsesOneSQLiteSnapshot(t *testing.T) {
 	updated.Lines = append([]model.LyricLine(nil), saved.Lines...)
 	updated.Lines[0].Segments = append([]model.LyricSegment(nil), saved.Lines[0].Segments...)
 	updated.Lines[0].English = "Committed after snapshot header"
-	updated.Lines[0].Segments = []model.LyricSegment{{Text: updated.Lines[0].Japanese, PerformerIDs: []int{2}}}
+	updated.Lines[0].Segments = []model.LyricSegment{{
+		Text: updated.Lines[0].Japanese, PerformerIDs: []int{2},
+		Ruby: []model.LyricRubySpan{{Text: updated.Lines[0].Japanese}},
+	}}
 	updated, err = s.SaveLyrics(updated, "editor")
 	if err != nil {
 		t.Fatal(err)
@@ -753,15 +1043,24 @@ func TestLyricsValidationCodes(t *testing.T) {
 		t.Fatalf("duplicate performer error = %#v", err)
 	}
 
-	incomplete := validLyrics()
-	incomplete.Lines[0].English = ""
-	saved, err := s.SaveLyrics(incomplete, "editor")
+	originalOnly := validLyrics()
+	originalOnly.Lines[0].Chinese = ""
+	originalOnly.Lines[0].English = ""
+	saved, err := s.SaveLyrics(originalOnly, "editor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.PublishLyrics(10, saved.Revision)
-	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" {
-		t.Fatalf("publication error = %#v", err)
+	published, err := s.PublishLyrics(10, saved.Revision)
+	if err != nil || published.Status != "published" {
+		t.Fatalf("original-only publication = %+v err=%v", published, err)
+	}
+	_, details, err := s.PublishedLyrics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail := details[10]; len(detail.Lines) != 1 || detail.Lines[0].Japanese != originalOnly.Lines[0].Japanese ||
+		detail.Lines[0].Chinese != "" || detail.Lines[0].English != "" {
+		t.Fatalf("original-only public detail = %+v", detail)
 	}
 
 	missingAttribution := validLyrics()
@@ -779,6 +1078,20 @@ func TestLyricsValidationCodes(t *testing.T) {
 
 func TestLyricsValidationRejectsOversizedFields(t *testing.T) {
 	s := setupLyricsStore(t)
+	for _, field := range []string{"translation", "proofreading"} {
+		oversized := validLyrics()
+		if field == "translation" {
+			oversized.TranslationCredit = strings.Repeat("x", maxLyricsMetadataBytes+1)
+		} else {
+			oversized.ProofreadingCredit = strings.Repeat("x", maxLyricsMetadataBytes+1)
+		}
+		_, err := s.SaveLyrics(oversized, "editor")
+		var contractErr *LyricsContractError
+		if !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" {
+			t.Fatalf("oversized %s credit error=%#v", field, err)
+		}
+	}
+
 	oversized := validLyrics()
 	oversized.Lines[0].English = strings.Repeat("x", maxLyricsLineTextBytes+1)
 	_, err := s.SaveLyrics(oversized, "editor")
@@ -792,6 +1105,29 @@ func TestLyricsValidationRejectsOversizedFields(t *testing.T) {
 	_, err = s.SaveLyrics(oversized, "editor")
 	if !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" {
 		t.Fatalf("oversized URL error = %#v", err)
+	}
+
+	oversized = validLyrics()
+	oversized.Lines[0].Japanese = strings.Repeat("a", maxLyricsRubyPerSegment+1)
+	oversized.Lines[0].Segments = []model.LyricSegment{{
+		Text: oversized.Lines[0].Japanese, PerformerIDs: []int{1},
+		Ruby: make([]model.LyricRubySpan, maxLyricsRubyPerSegment+1),
+	}}
+	for index := range oversized.Lines[0].Segments[0].Ruby {
+		oversized.Lines[0].Segments[0].Ruby[index] = model.LyricRubySpan{Text: "a"}
+	}
+	_, err = s.SaveLyrics(oversized, "editor")
+	if !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" ||
+		!strings.Contains(strings.Join(contractErr.Details, "; "), "between 1 and 256") {
+		t.Fatalf("oversized ruby span count error = %#v", err)
+	}
+
+	oversized = validLyrics()
+	oversized.Lines[0].Segments[0].PerformerIDs = make([]int, maxLyricsPerformers+1)
+	_, err = s.SaveLyrics(oversized, "editor")
+	if !errors.As(err, &contractErr) || contractErr.Code != "invalid_performer" ||
+		!strings.Contains(strings.Join(contractErr.Details, "; "), "at most 64 performerIds") {
+		t.Fatalf("oversized performer count error = %#v", err)
 	}
 }
 
@@ -1015,7 +1351,7 @@ func TestLyricsSourceProvenanceRoundTrip(t *testing.T) {
 	input.SourcePageID = 123
 	input.SourceRevisionID = 456
 	input.SourceSHA1 = validSourceSHA1
-	input.SourceFetchedAt = "2026-07-22T12:34:56Z"
+	input.SourceFetchedAt = "2026-07-22T12:34:56.123456789Z"
 	saved, _, err := s.SaveImportedLyricsMutation(input, "editor")
 	if err != nil {
 		t.Fatal(err)
@@ -1053,6 +1389,43 @@ func TestLyricsSourceProvenanceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRestoreRejectsMismatchedExactLyricsSourceFetchedAt(t *testing.T) {
+	s := setupLyricsStore(t)
+	input := validLyrics()
+	input.SourcePageID = 123
+	input.SourceRevisionID = 456
+	input.SourceSHA1 = validSourceSHA1
+	input.SourceFetchedAt = "2026-07-22T12:34:56.123456789Z"
+	if _, _, err := s.SaveImportedLyricsMutation(input, "editor"); err != nil {
+		t.Fatal(err)
+	}
+	exported, err := s.ExportLyricsContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*LyricsDocumentBackupRecord){
+		"different second": func(record *LyricsDocumentBackupRecord) {
+			record.SourceFetchedAtRFC3339 = "2026-07-22T12:34:57.123456789Z"
+		},
+		"noncanonical fraction": func(record *LyricsDocumentBackupRecord) {
+			record.SourceFetchedAtRFC3339 = "2026-07-22T12:34:56.123456700Z"
+		},
+		"exact without seconds": func(record *LyricsDocumentBackupRecord) {
+			record.SourceFetchedAt = 0
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			invalid := exported
+			invalid.Documents = append([]LyricsDocumentBackupRecord(nil), exported.Documents...)
+			mutate(&invalid.Documents[0])
+			restored := setupLyricsStore(t)
+			if err := restored.ImportTranslationContent(nil, EventContentExport{}, invalid); err == nil {
+				t.Fatal("restore accepted inconsistent exact sourceFetchedAt")
+			}
+		})
+	}
+}
+
 func TestExportLyricsContentUsesOneSQLiteSnapshot(t *testing.T) {
 	s := setupLyricsStore(t)
 	saved, err := s.SaveLyrics(validLyrics(), "editor")
@@ -1082,7 +1455,10 @@ func TestExportLyricsContentUsesOneSQLiteSnapshot(t *testing.T) {
 
 	updated := saved
 	updated.Lines = append([]model.LyricLine(nil), saved.Lines...)
-	updated.Lines[0].Segments = []model.LyricSegment{{Text: updated.Lines[0].Japanese, PerformerIDs: []int{2}}}
+	updated.Lines[0].Segments = []model.LyricSegment{{
+		Text: updated.Lines[0].Japanese, PerformerIDs: []int{2},
+		Ruby: []model.LyricRubySpan{{Text: updated.Lines[0].Japanese}},
+	}}
 	updated.Lines[0].English = "Published after export snapshot"
 	updated, err = s.SaveLyrics(updated, "editor")
 	if err != nil {
@@ -1191,23 +1567,44 @@ func TestLyricsSourceProvenanceRejectsNonpositiveFetchedAt(t *testing.T) {
 	}
 }
 
-func TestLyricsSourceFetchedAtIsCanonicalBeforeDriftComparison(t *testing.T) {
+func TestLyricsSourceFetchedAtPreservesCanonicalNanosecondsForDriftComparison(t *testing.T) {
 	s := setupLyricsStore(t)
 	input := validLyrics()
 	input.SourcePageID = 123
 	input.SourceRevisionID = 456
 	input.SourceSHA1 = validSourceSHA1
-	input.SourceFetchedAt = "2026-07-22T20:34:56.900+08:00"
+	input.SourceFetchedAt = "2026-07-22T12:34:56.123456789Z"
 	saved, _, err := s.SaveImportedLyricsMutation(input, "editor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.SourceFetchedAt != "2026-07-22T12:34:56Z" {
+	if saved.SourceFetchedAt != input.SourceFetchedAt {
 		t.Fatalf("sourceFetchedAt = %q", saved.SourceFetchedAt)
 	}
 	saved.Lines[0].English = "Canonical retry"
 	if _, err := s.SaveLyrics(saved, "editor"); err != nil {
 		t.Fatalf("canonical retry reported drift: %v", err)
+	}
+}
+
+func TestLyricsSourceFetchedAtRejectsNoncanonicalOffsetOrFraction(t *testing.T) {
+	for _, fetchedAt := range []string{
+		"2026-07-22T20:34:56.9+08:00",
+		"2026-07-22T12:34:56.900Z",
+	} {
+		t.Run(fetchedAt, func(t *testing.T) {
+			s := setupLyricsStore(t)
+			input := validLyrics()
+			input.SourcePageID = 123
+			input.SourceRevisionID = 456
+			input.SourceSHA1 = validSourceSHA1
+			input.SourceFetchedAt = fetchedAt
+			_, _, err := s.SaveImportedLyricsMutation(input, "editor")
+			var contractErr *LyricsContractError
+			if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+				t.Fatalf("sourceFetchedAt=%q error = %#v", fetchedAt, err)
+			}
+		})
 	}
 }
 

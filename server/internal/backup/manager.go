@@ -238,7 +238,21 @@ func (m *Manager) BackupAllContext(parent context.Context) (results map[string]s
 
 	validS3 := s3Enabled && s3ConfigErr == nil
 	validGit := gitEnabled && gitConfigErr == nil
-	var payload backupPayload
+	var encryptionKey []byte
+	if (validS3 || validGit) && ctx.Err() == nil {
+		encryptionKey, err = loadBackupEncryptionKey()
+		if err != nil {
+			if validS3 {
+				setTargetError("s3", err)
+				validS3 = false
+			}
+			if validGit {
+				setTargetError("git", err)
+				validGit = false
+			}
+		}
+	}
+	defer clear(encryptionKey)
 	if (validS3 || validGit) && ctx.Err() == nil {
 		work := filepath.Join(m.workDir, "backup-all")
 		_ = os.RemoveAll(work)
@@ -253,12 +267,28 @@ func (m *Manager) BackupAllContext(parent context.Context) (results map[string]s
 				setTargetError("git", materializeErr)
 				validGit = false
 			}
-		} else {
-			payload = backupPayload{translationsDir: translationsDir, contentDir: contentDir}
 		}
+		var artifact []byte
+		if validS3 || validGit {
+			artifact, err = encryptBackupPayloadContext(ctx, filepath.Join(work, "artifact"), backupPayload{
+				translationsDir: translationsDir,
+				contentDir:      contentDir,
+			}, encryptionKey)
+			if err != nil {
+				if validS3 {
+					setTargetError("s3", err)
+					validS3 = false
+				}
+				if validGit {
+					setTargetError("git", err)
+					validGit = false
+				}
+			}
+		}
+		defer clear(artifact)
 
 		if validS3 {
-			if targetErr := m.publishS3BackupPayloadContext(ctx, s3Cfg, filepath.Join(work, "s3"), payload); targetErr != nil {
+			if targetErr := m.publishS3BackupArtifactContext(ctx, s3Cfg, artifact); targetErr != nil {
 				setTargetError("s3", targetErr)
 			} else {
 				log.Printf("[backup] s3 ok")
@@ -272,7 +302,7 @@ func (m *Manager) BackupAllContext(parent context.Context) (results map[string]s
 		if validGit && ctx.Err() == nil {
 			repoDir, targetErr := m.prepareGitBackupRepoContext(ctx, filepath.Join(work, "git"), gitRepoURL, gitBranch)
 			if targetErr == nil {
-				targetErr = m.publishGitBackupPayloadContext(ctx, repoDir, gitRepoURL, gitBranch, payload)
+				targetErr = m.publishGitBackupArtifactContext(ctx, repoDir, gitRepoURL, gitBranch, artifact)
 			}
 			if targetErr != nil {
 				setTargetError("git", targetErr)

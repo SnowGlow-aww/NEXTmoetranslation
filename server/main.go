@@ -25,8 +25,10 @@ import (
 	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/filesvc"
+	"moesekai/server/internal/httpx"
 	"moesekai/server/internal/lifecycle"
 	"moesekai/server/internal/lyricsdiscovery"
+	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/searchindex"
 	"moesekai/server/internal/singleinstance"
 	"moesekai/server/internal/sse"
@@ -63,6 +65,9 @@ func main() {
 	production, err := parseProductionMode(os.Getenv("MOESEKAI_PRODUCTION"))
 	if err != nil {
 		fatal("MOESEKAI_PRODUCTION", err)
+	}
+	if err := httpx.ValidateUpstreamEnvironment(production); err != nil {
+		fatal("upstream network configuration", err)
 	}
 	verifiedWorkspace, err := workspaceverify.Verify(workspaceverify.Config{
 		Root: workspaceWebDir, ManifestSHA256: workspaceManifestSHA, Production: production,
@@ -137,12 +142,19 @@ func main() {
 	st := store.New(database)
 	es := store.NewEventStore(database)
 	var lyricsDiscoveryWorker *lyricsdiscovery.Worker
-	if cfg.GetBool(config.KeyLyricsDiscoveryOn, false) {
+	var lyricsFetchRevisionWorker *lyricsdiscovery.FetchWorker
+	discoveryEnabled := cfg.GetBool(config.KeyLyricsDiscoveryOn, false)
+	fetchEnabled := cfg.GetBool(config.KeyLyricsFetchRevisionOn, false)
+	var lyricsSourceClient *lyricssource.Client
+	if discoveryEnabled || fetchEnabled {
+		lyricsSourceClient = lyricssource.New()
+	}
+	if discoveryEnabled {
 		adapter, err := store.NewLyricsDiscoveryAdapter(st, store.LyricsDiscoveryShadowPolicyVersion, store.DefaultLyricsDiscoveryJobMaxAttempts)
 		if err != nil {
 			fatal("init lyrics discovery store", err)
 		}
-		executor, err := lyricsdiscovery.NewDefaultSourceExecutor()
+		executor, err := lyricsdiscovery.NewSourceExecutor(lyricsSourceClient)
 		if err != nil {
 			fatal("init lyrics discovery source", err)
 		}
@@ -153,6 +165,24 @@ func main() {
 		lyricsDiscoveryWorker, err = lyricsdiscovery.New(adapter, executor, workerOptions)
 		if err != nil {
 			fatal("init lyrics discovery worker", err)
+		}
+	}
+	if fetchEnabled {
+		adapter, err := store.NewLyricsSourceFetchAdapter(st)
+		if err != nil {
+			fatal("init lyrics source fetch store", err)
+		}
+		executor, err := lyricsdiscovery.NewFetchExecutor(lyricsSourceClient)
+		if err != nil {
+			fatal("init lyrics source fetch executor", err)
+		}
+		workerOptions, err := lyricsFetchRevisionOptionsFromEnv()
+		if err != nil {
+			fatal("lyrics source fetch configuration", err)
+		}
+		lyricsFetchRevisionWorker, err = lyricsdiscovery.NewFetchWorker(adapter, executor, workerOptions)
+		if err != nil {
+			fatal("init lyrics source fetch worker", err)
 		}
 	}
 	gen := files.NewGenerator(st, es, dataDir)
@@ -265,6 +295,11 @@ func main() {
 	idx.Start()
 	watcher.Start()
 	backupMgr.StartScheduler()
+	if lyricsFetchRevisionWorker != nil {
+		if err := lyricsFetchRevisionWorker.Start(context.Background()); err != nil {
+			fatal("start lyrics source fetch worker", err)
+		}
+	}
 	if lyricsDiscoveryWorker != nil {
 		if err := lyricsDiscoveryWorker.Start(context.Background()); err != nil {
 			fatal("start lyrics discovery worker", err)
@@ -309,6 +344,9 @@ func main() {
 			appLifecycle.Drain()
 			editorGate.Drain()
 			backupMgr.Drain()
+			if lyricsFetchRevisionWorker != nil {
+				lyricsFetchRevisionWorker.Drain()
+			}
 			if lyricsDiscoveryWorker != nil {
 				lyricsDiscoveryWorker.Drain()
 			}
@@ -317,6 +355,9 @@ func main() {
 		func() {
 			// Hard cancellation starts together so no worker loses the remaining
 			// total budget behind another component's Wait.
+			if lyricsFetchRevisionWorker != nil {
+				lyricsFetchRevisionWorker.Cancel()
+			}
 			if lyricsDiscoveryWorker != nil {
 				lyricsDiscoveryWorker.Cancel()
 			}
@@ -337,6 +378,9 @@ func main() {
 			}
 			if lyricsDiscoveryWorker != nil {
 				lyricsDiscoveryWorker.Wait()
+			}
+			if lyricsFetchRevisionWorker != nil {
+				lyricsFetchRevisionWorker.Wait()
 			}
 			fileService.Wait()
 			idx.Wait()
@@ -552,8 +596,9 @@ func seedConfigFromEnv(cfg *config.Config) error {
 		config.KeyUpstreamCNAssetsURL:             os.Getenv("UPSTREAM_CN_ASSETS_URL"),
 		config.KeyUpstreamCNAssetsFallbackURL:     os.Getenv("UPSTREAM_CN_ASSETS_FALLBACK_URL"),
 		config.KeyUpstreamFetchConcurrency:        os.Getenv("UPSTREAM_FETCH_CONCURRENCY"),
-		config.KeySchedulerOn:                     envOr("TRANSLATE_SCHEDULER_ENABLED", "true"),
+		config.KeySchedulerOn:                     envOr("TRANSLATE_SCHEDULER_ENABLED", "false"),
 		config.KeyLyricsDiscoveryOn:               envOr("LYRICS_DISCOVERY_ENABLED", "false"),
+		config.KeyLyricsFetchRevisionOn:           envOr("LYRICS_FETCH_REVISION_ENABLED", "false"),
 		config.KeyBackupGitRepoURL:                os.Getenv("GIT_PUSH_REPO_URL"),
 		config.KeyBackupGitBranch:                 envOr("GIT_PUSH_BRANCH", "backup-translations"),
 		config.KeyBackupS3Bucket:                  os.Getenv("BACKUP_S3_BUCKET"),
@@ -750,6 +795,19 @@ func durationEnvMs(name string, fallback, minimum, maximum time.Duration) (time.
 	return duration, nil
 }
 
+func boundedIntEnv(name string, fallback, minimum, maximum int) (int, error) {
+	raw, configured := os.LookupEnv(name)
+	if !configured || strings.TrimSpace(raw) == "" {
+		return fallback, nil
+	}
+	value := strings.TrimSpace(raw)
+	n, err := strconv.Atoi(value)
+	if err != nil || strconv.Itoa(n) != value || n < minimum || n > maximum {
+		return 0, fmt.Errorf("%s must be a canonical integer from %d to %d", name, minimum, maximum)
+	}
+	return n, nil
+}
+
 func lyricsDiscoveryOptionsFromEnv() (lyricsdiscovery.Options, error) {
 	scanInterval, err := durationEnvMs("LYRICS_DISCOVERY_SCAN_MS", 6*time.Hour, time.Minute, 7*24*time.Hour)
 	if err != nil {
@@ -775,6 +833,10 @@ func lyricsDiscoveryOptionsFromEnv() (lyricsdiscovery.Options, error) {
 	if err != nil {
 		return lyricsdiscovery.Options{}, err
 	}
+	concurrency, err := boundedIntEnv("LYRICS_DISCOVERY_CONCURRENCY", 4, 1, 16)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
 	if retryMax < retryMin {
 		return lyricsdiscovery.Options{}, errors.New("LYRICS_DISCOVERY_RETRY_MAX_MS must be greater than or equal to LYRICS_DISCOVERY_RETRY_MIN_MS")
 	}
@@ -783,8 +845,43 @@ func lyricsDiscoveryOptionsFromEnv() (lyricsdiscovery.Options, error) {
 	}
 	return lyricsdiscovery.Options{
 		ScanInterval: scanInterval, LeaseDuration: leaseDuration, IdleWait: idleWait,
-		RetryMin: retryMin, RetryMax: retryMax, JobTimeout: jobTimeout,
+		RetryMin: retryMin, RetryMax: retryMax, JobTimeout: jobTimeout, Concurrency: concurrency,
 	}, nil
+}
+
+func lyricsFetchRevisionOptionsFromEnv() (lyricsdiscovery.Options, error) {
+	leaseDuration, err := durationEnvMs("LYRICS_FETCH_REVISION_LEASE_MS", 2*time.Minute, 10*time.Second, 24*time.Hour)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
+	idleWait, err := durationEnvMs("LYRICS_FETCH_REVISION_IDLE_MS", 2*time.Second, 100*time.Millisecond, time.Minute)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
+	retryMin, err := durationEnvMs("LYRICS_FETCH_REVISION_RETRY_MIN_MS", 30*time.Second, time.Second, 24*time.Hour)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
+	retryMax, err := durationEnvMs("LYRICS_FETCH_REVISION_RETRY_MAX_MS", 30*time.Minute, time.Second, 30*24*time.Hour)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
+	jobTimeout, err := durationEnvMs("LYRICS_FETCH_REVISION_JOB_TIMEOUT_MS", 30*time.Second, time.Second, 10*time.Minute)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
+	concurrency, err := boundedIntEnv("LYRICS_FETCH_REVISION_CONCURRENCY", 4, 1, 16)
+	if err != nil {
+		return lyricsdiscovery.Options{}, err
+	}
+	if retryMax < retryMin {
+		return lyricsdiscovery.Options{}, errors.New("LYRICS_FETCH_REVISION_RETRY_MAX_MS must be greater than or equal to LYRICS_FETCH_REVISION_RETRY_MIN_MS")
+	}
+	if jobTimeout >= leaseDuration {
+		return lyricsdiscovery.Options{}, errors.New("LYRICS_FETCH_REVISION_JOB_TIMEOUT_MS must be shorter than LYRICS_FETCH_REVISION_LEASE_MS")
+	}
+	return lyricsdiscovery.Options{ScanInterval: time.Hour, LeaseDuration: leaseDuration, IdleWait: idleWait,
+		RetryMin: retryMin, RetryMax: retryMax, JobTimeout: jobTimeout, Concurrency: concurrency}, nil
 }
 
 func shutdownConfigFromEnv() (lifecycle.ShutdownConfig, error) {

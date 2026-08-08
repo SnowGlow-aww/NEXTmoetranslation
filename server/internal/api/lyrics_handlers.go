@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -87,7 +88,7 @@ func (s *Server) handleLyricsDetail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result, err := s.store.GetLyrics(musicID)
+	result, err := s.store.GetLyricsDocument(musicID)
 	if err == store.ErrLyricsNotFound {
 		writeContractError(w, http.StatusNotFound, "not_found", nil, nil)
 		return
@@ -104,12 +105,40 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	data, ok := readJSONBody(w, r)
+	if !ok {
+		return
+	}
+	var shape map[string]json.RawMessage
+	if err := json.Unmarshal(data, &shape); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if _, plural := shape["renditions"]; plural {
+		var request struct {
+			store.LyricsRenditionDocument
+			ClientID string `json:"clientId"`
+		}
+		if !decodeJSONBody(w, data, &request) {
+			return
+		}
+		result, changed, err := s.store.SaveLyricsRenditionMutation(request.LyricsRenditionDocument, currentUser(r))
+		if err != nil {
+			writeLyricsError(w, err)
+			return
+		}
+		if changed {
+			s.broadcastLyricsDocumentUpdated(result.MusicID, result.Revision, request.ClientID)
+		}
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
 	var request struct {
 		model.SongLyrics
 		ClientID          string `json:"clientId"`
 		SourceImportToken string `json:"sourceImportToken"`
 	}
-	if !decodeBody(w, r, &request) {
+	if !decodeJSONBody(w, data, &request) {
 		return
 	}
 	var result model.SongLyrics
@@ -247,6 +276,13 @@ func lyricsMatchSourcePreview(lyrics model.SongLyrics, preview lyricssource.Prev
 		var japanese strings.Builder
 		for _, segment := range line.Segments {
 			japanese.WriteString(segment.Text)
+			var rubyText strings.Builder
+			for _, span := range segment.Ruby {
+				rubyText.WriteString(span.Text)
+			}
+			if len(segment.Ruby) == 0 || rubyText.String() != segment.Text {
+				return false
+			}
 		}
 		if japanese.String() != sourceLine.Japanese {
 			return false
@@ -280,6 +316,23 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 		writeContractError(w, http.StatusUnprocessableEntity, "incomplete_publication", []string{"musicId and revision must be positive"}, nil)
 		return
 	}
+	if _, pluralErr := s.store.GetLyricsRenditionDocument(request.MusicID); pluralErr == nil {
+		writeContractError(w, http.StatusUnprocessableEntity, "unsupported_publication", []string{
+			"source-v3 rendition publication is batch-bound to recovery Public v3 and cannot use the legacy publish route",
+		}, nil)
+		return
+	} else if !errors.Is(pluralErr, store.ErrLyricsNotFound) {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
+	if _, err := s.store.GetLyrics(request.MusicID); err != nil {
+		if errors.Is(err, store.ErrLyricsNotFound) {
+			writeContractError(w, http.StatusNotFound, "not_found", nil, nil)
+		} else {
+			writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		}
+		return
+	}
 	var result model.SongLyrics
 	var changed bool
 	var err error
@@ -299,8 +352,12 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Server) broadcastLyricsUpdated(lyrics model.SongLyrics, clientID string) {
+	s.broadcastLyricsDocumentUpdated(lyrics.MusicID, lyrics.Revision, clientID)
+}
+
+func (s *Server) broadcastLyricsDocumentUpdated(musicID, revision int, clientID string) {
 	s.broadcast(sse.EventLyricsUpdated, map[string]any{
-		"musicId": lyrics.MusicID, "revision": lyrics.Revision, "clientId": clientID,
+		"musicId": musicID, "revision": revision, "clientId": clientID,
 	})
 }
 
@@ -352,11 +409,11 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 			[]string{"musicId, pageId, and revisionId must be positive integers"}, nil)
 		return
 	}
-	if _, err := s.store.GetLyrics(request.MusicID); err == nil {
+	if _, err := s.store.GetLyricsDocument(request.MusicID); err == nil {
 		writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
 			[]string{"verified source previews are only available before the first lyrics save"}, nil)
 		return
-	} else if err != store.ErrLyricsNotFound {
+	} else if !errors.Is(err, store.ErrLyricsNotFound) {
 		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
 	}
@@ -403,11 +460,11 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 	// The network fetch intentionally does not hold the content lock. Recheck
 	// first-save eligibility after it completes so a concurrent first save can
 	// never leave behind an otherwise valid one-use import grant.
-	if _, err := s.store.GetLyrics(request.MusicID); err == nil {
+	if _, err := s.store.GetLyricsDocument(request.MusicID); err == nil {
 		writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
 			[]string{"lyrics were saved while the external source was being fetched; reload the document"}, nil)
 		return
-	} else if err != store.ErrLyricsNotFound {
+	} else if !errors.Is(err, store.ErrLyricsNotFound) {
 		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
 	}
@@ -461,7 +518,8 @@ func (s *Server) lyricsSourceIdentity(w http.ResponseWriter, musicID int) (lyric
 	}
 	return lyricssource.MusicIdentity{
 		MusicID: identity.MusicID, JapaneseTitle: identity.JapaneseTitle,
-		ProducerMetadata: identity.ProducerMetadata,
+		ProducerMetadata: identity.ProducerMetadata, Lyricist: identity.Lyricist,
+		Composer: identity.Composer, Arranger: identity.Arranger,
 	}, true
 }
 
@@ -475,7 +533,7 @@ func writeLyricsSourceError(w http.ResponseWriter, err error) {
 			[]string{"the selected page no longer matches the catalog identity"}, nil)
 	case errors.Is(err, lyricssource.ErrRestrictedReprint):
 		writeContractError(w, http.StatusUnprocessableEntity, "source_restricted",
-			[]string{"the source page prohibits reprints"}, nil)
+			[]string{"the source page explicitly prohibits lyrics, text reuse, or transcription"}, nil)
 	case errors.Is(err, lyricssource.ErrMissingLyrics), errors.Is(err, lyricssource.ErrUnsupportedTable), errors.Is(err, lyricssource.ErrLyricsTooLarge):
 		writeContractError(w, http.StatusUnprocessableEntity, "source_unsupported",
 			[]string{"the source lyrics cannot be extracted safely"}, nil)
@@ -485,6 +543,15 @@ func writeLyricsSourceError(w http.ResponseWriter, err error) {
 }
 
 func writeLyricsError(w http.ResponseWriter, err error) {
+	var renditionErr *store.LyricsRenditionContractError
+	if errors.As(err, &renditionErr) {
+		status := http.StatusUnprocessableEntity
+		if renditionErr.Code == "revision_conflict" {
+			status = http.StatusConflict
+		}
+		writeContractError(w, status, renditionErr.Code, renditionErr.Details, renditionErr.Current)
+		return
+	}
 	var contractErr *store.LyricsContractError
 	if errors.As(err, &contractErr) {
 		status := http.StatusUnprocessableEntity
@@ -501,7 +568,7 @@ func writeLyricsError(w http.ResponseWriter, err error) {
 	writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 }
 
-func writeContractError(w http.ResponseWriter, status int, code string, details []string, current *model.SongLyrics) {
+func writeContractError(w http.ResponseWriter, status int, code string, details []string, current any) {
 	body := map[string]any{"error": code}
 	if len(details) > 0 {
 		body["details"] = details

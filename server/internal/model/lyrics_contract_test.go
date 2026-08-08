@@ -56,8 +56,8 @@ func TestPublicLyricsFixturesAndGeneratedAssetsMatchSchemasAndBytes(t *testing.T
 		t.Fatalf("canonical title locale semantics = %+v", indexSong.Title)
 	}
 	fixtureLine := detail.Lines[0]
-	if fixtureLine.ID != "line-1" || fixtureLine.Order != 0 || fixtureLine.Japanese != "初音歌う" || fixtureLine.Chinese != "初音歌唱" || fixtureLine.English != "Miku sings" {
-		t.Fatalf("canonical lyric locale semantics = %+v", fixtureLine)
+	if fixtureLine.ID != "line-1" || fixtureLine.Order != 0 || fixtureLine.Japanese != "初音歌う" || fixtureLine.Chinese != "" || fixtureLine.English != "" {
+		t.Fatalf("canonical Japanese-only lyric semantics = %+v", fixtureLine)
 	}
 	if len(fixtureLine.Segments) != 1 || fixtureLine.Segments[0].Text != fixtureLine.Japanese || !reflect.DeepEqual(fixtureLine.Segments[0].PerformerIDs, []int{1}) {
 		t.Fatalf("canonical segment semantics = %+v", fixtureLine.Segments)
@@ -250,7 +250,11 @@ func TestPublicLyricsFixturesAndGeneratedAssetsMatchSchemasAndBytes(t *testing.T
 		t.Fatalf("synthetic detail header semantics: generated=%+v saved=%+v", syntheticDetail, syntheticSaved)
 	}
 	syntheticLine := syntheticDetail.Lines[0]
-	if syntheticLine.ID != "line-1" || syntheticLine.Order != syntheticSaved.Lines[0].Order || syntheticLine.Japanese != syntheticSaved.Lines[0].Japanese || syntheticLine.Chinese != syntheticSaved.Lines[0].Chinese || syntheticLine.English != syntheticSaved.Lines[0].English || !reflect.DeepEqual(syntheticLine.Segments, syntheticSaved.Lines[0].Segments) {
+	publicExpectedSegments := append([]model.LyricSegment(nil), syntheticSaved.Lines[0].Segments...)
+	for index := range publicExpectedSegments {
+		publicExpectedSegments[index].Ruby = nil
+	}
+	if syntheticLine.ID != "line-1" || syntheticLine.Order != syntheticSaved.Lines[0].Order || syntheticLine.Japanese != syntheticSaved.Lines[0].Japanese || syntheticLine.Chinese != syntheticSaved.Lines[0].Chinese || syntheticLine.English != syntheticSaved.Lines[0].English || !reflect.DeepEqual(syntheticLine.Segments, publicExpectedSegments) {
 		t.Fatalf("synthetic detail lyric semantics: generated=%+v saved=%+v", syntheticLine, syntheticSaved.Lines[0])
 	}
 }

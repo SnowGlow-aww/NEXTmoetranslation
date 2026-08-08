@@ -14,13 +14,22 @@ import (
 func TestLocaleEntryIsolationAndValidation(t *testing.T) {
 	h := setupLegacyAPI(t)
 
-	update := authorizedRequest(t, h, http.MethodPut, "/api/entry", map[string]string{
+	update := authorizedRequest(t, h, http.MethodPut, "/api/entry?response=correlated-v1", map[string]string{
 		"category": "cards", "field": "prefix", "key": "human-key",
 		"text": "English editorial", "source": "human", "locale": model.LocaleEnglish,
 	})
 	defer update.Body.Close()
 	if update.StatusCode != http.StatusOK {
 		t.Fatalf("English update status = %d", update.StatusCode)
+	}
+	var updateResult map[string]string
+	if err := json.NewDecoder(update.Body).Decode(&updateResult); err != nil {
+		t.Fatal(err)
+	}
+	if updateResult["locale"] != model.LocaleEnglish || updateResult["category"] != "cards" ||
+		updateResult["field"] != "prefix" || updateResult["key"] != "human-key" || updateResult["text"] != "English editorial" ||
+		updateResult["source"] != "human" || updateResult["status"] != "ok" || len(updateResult) != 7 {
+		t.Fatalf("English correlated response = %#v", updateResult)
 	}
 
 	english := authorizedRequest(t, h, http.MethodGet, "/api/entries?category=cards&field=prefix&locale=en-US", nil)

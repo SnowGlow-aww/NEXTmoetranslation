@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"moesekai/server/internal/model"
 )
@@ -25,6 +26,8 @@ var (
 const (
 	maxLyricsLines           = 5000
 	maxLyricsSegmentsPerLine = 100
+	maxLyricsRubyPerSegment  = 256
+	maxLyricsPerformers      = 64
 	maxLyricsLineTextBytes   = 16 << 10
 	maxLyricsMetadataBytes   = 16 << 10
 	maxLyricsURLBytes        = 2 << 10
@@ -87,7 +90,9 @@ func (s *Store) WithLyricsFirstSaveEligibility(musicID int, issue func() error) 
 	unlock := s.lockLyrics(musicID)
 	defer unlock()
 	var count int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics WHERE music_id=?`, musicID).Scan(&count); err != nil {
+	if err := s.db.QueryRow(`SELECT
+		(SELECT COUNT(*) FROM song_lyrics WHERE music_id=?)+
+		(SELECT COUNT(*) FROM song_lyrics_source_documents WHERE music_id=?)`, musicID, musicID).Scan(&count); err != nil {
 		return err
 	}
 	if count != 0 {
@@ -100,9 +105,21 @@ func (s *Store) ListLyrics(limit, cursor int) (model.LyricsListResponse, error) 
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.db.Query(`SELECT l.music_id, l.revision, l.updated_at, p.revision
-		FROM song_lyrics l LEFT JOIN song_lyrics_publications p ON p.music_id=l.music_id
-		WHERE l.music_id>? ORDER BY l.music_id LIMIT ?`, cursor, limit+1)
+	rows, err := s.db.Query(`SELECT music_id,revision,updated_at,published_revision FROM (
+		SELECT l.music_id AS music_id,l.revision AS revision,l.updated_at AS updated_at,p.revision AS published_revision
+		FROM song_lyrics AS l LEFT JOIN song_lyrics_publications AS p ON p.music_id=l.music_id
+		UNION ALL
+		SELECT source.music_id AS music_id,
+			COALESCE(MAX(localization.revision),1) AS revision,
+			COALESCE(MAX(localization.updated_at),source.created_at) AS updated_at,
+			NULL AS published_revision
+		FROM song_lyrics_source_documents AS source
+		LEFT JOIN song_lyrics_rendition_localizations AS localization ON localization.document_id=source.document_id
+		WHERE source.schema_version=? AND NOT EXISTS (
+			SELECT 1 FROM song_lyrics AS editable WHERE editable.music_id=source.music_id
+		)
+		GROUP BY source.document_id,source.music_id,source.created_at
+	) WHERE music_id>? ORDER BY music_id LIMIT ?`, model.LyricsSourceDocumentSchemaVersionV3, cursor, limit+1)
 	if err != nil {
 		return model.LyricsListResponse{}, err
 	}
@@ -164,20 +181,61 @@ func (s *Store) SaveImportedLyricsMutationWithCommit(input model.SongLyrics, use
 func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, mode lyricsSaveMode, afterCommit func()) (model.SongLyrics, bool, error) {
 	unlock := s.lockLyrics(input.MusicID)
 	defer unlock()
-	normalized := input
-	sort.SliceStable(normalized.Lines, func(i, j int) bool { return normalized.Lines[i].Order < normalized.Lines[j].Order })
+	return s.saveLyricsMutationLocked(input, user, mode, afterCommit, nil)
+}
+
+func prepareLyricsMutationInput(input model.SongLyrics) (model.SongLyrics, model.SongLyrics, int64, error) {
+	requested := cloneEditableLyricsRuby(input)
+	sort.SliceStable(requested.Lines, func(i, j int) bool { return requested.Lines[i].Order < requested.Lines[j].Order })
+	normalized := normalizeEditableLyricsRuby(requested)
 	sourceFetchedAt, err := validateLyricsProvenance(normalized)
 	if err != nil {
-		return model.SongLyrics{}, false, err
+		return model.SongLyrics{}, model.SongLyrics{}, 0, err
 	}
-	if sourceFetchedAt > 0 {
-		normalized.SourceFetchedAt = formatTimestamp(sourceFetchedAt)
+	return requested, normalized, sourceFetchedAt, nil
+}
+
+func rejectLegacyLyricsMutationForSourceV3(q queryRower, musicID int) error {
+	var count int
+	if err := q.QueryRow(`SELECT COUNT(*) FROM song_lyrics_source_documents WHERE music_id=? AND schema_version=?`,
+		musicID, model.LyricsSourceDocumentSchemaVersionV3).Scan(&count); err != nil {
+		return err
+	}
+	if count != 0 {
+		return &LyricsContractError{Code: "source_drift", Details: []string{
+			"source-v3 lyrics are owned by the plural rendition editor and cannot use the legacy mutation route",
+		}}
+	}
+	return nil
+}
+
+func (s *Store) saveLyricsMutationLocked(input model.SongLyrics, user string, mode lyricsSaveMode, afterCommit func(), prepareFirstSave func(*sql.Tx, *model.SongLyrics) error) (model.SongLyrics, bool, error) {
+	var requested, normalized model.SongLyrics
+	var sourceFetchedAt int64
+	var err error
+	if prepareFirstSave == nil {
+		requested, normalized, sourceFetchedAt, err = prepareLyricsMutationInput(input)
+		if err != nil {
+			return model.SongLyrics{}, false, err
+		}
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return model.SongLyrics{}, false, err
 	}
 	defer tx.Rollback()
+	if prepareFirstSave != nil {
+		if err := prepareFirstSave(tx, &input); err != nil {
+			return model.SongLyrics{}, false, err
+		}
+		requested, normalized, sourceFetchedAt, err = prepareLyricsMutationInput(input)
+		if err != nil {
+			return model.SongLyrics{}, false, err
+		}
+	}
+	if err := rejectLegacyLyricsMutationForSourceV3(tx, normalized.MusicID); err != nil {
+		return model.SongLyrics{}, false, err
+	}
 	exists, err := s.catalogMusicExists(tx, normalized.MusicID)
 	if err != nil {
 		return model.SongLyrics{}, false, err
@@ -234,6 +292,15 @@ func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, mode lyr
 				Code: "source_drift", Details: []string{"ordered line IDs, numeric order values, or Japanese source text changed"},
 			}
 		}
+		inheritedRuby, missingRubyDetails := preserveOmittedLyricsRuby(&normalized, requested, current.lyrics)
+		if len(missingRubyDetails) > 0 {
+			return model.SongLyrics{}, false, &LyricsContractError{Code: "segment_mismatch", Details: missingRubyDetails}
+		}
+		if inheritedRuby {
+			if code, details, _ := validateLyrics(normalized, validPerformers, false); code != "" {
+				return model.SongLyrics{}, false, &LyricsContractError{Code: code, Details: details}
+			}
+		}
 		if sameLyricsContent(normalized, current.lyrics) {
 			return current.lyrics, false, nil
 		}
@@ -245,17 +312,22 @@ func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, mode lyr
 	}
 	now := time.Now().Unix()
 	if _, err := tx.Exec(`INSERT INTO song_lyrics
-		(music_id, revision, updated_at, updated_by, attribution, source_note, source_url, license_note, source_hash,
-		 source_page_id, source_revision_id, source_sha1, source_fetched_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(music_id, revision, updated_at, updated_by, attribution, translation_credit, proofreading_credit,
+		 source_note, source_url, license_note, source_hash, source_page_id, source_revision_id, source_sha1,
+		 source_fetched_at, source_fetched_at_rfc3339)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(music_id) DO UPDATE SET revision=excluded.revision, updated_at=excluded.updated_at,
-		updated_by=excluded.updated_by, attribution=excluded.attribution, source_note=excluded.source_note, source_url=excluded.source_url,
+		updated_by=excluded.updated_by, attribution=excluded.attribution,
+		translation_credit=excluded.translation_credit, proofreading_credit=excluded.proofreading_credit,
+		source_note=excluded.source_note, source_url=excluded.source_url,
 		license_note=excluded.license_note, source_hash=excluded.source_hash,
 		 source_page_id=excluded.source_page_id, source_revision_id=excluded.source_revision_id,
-		 source_sha1=excluded.source_sha1, source_fetched_at=excluded.source_fetched_at`,
-		normalized.MusicID, nextRevision, now, user, normalized.Attribution, normalized.SourceNote, normalized.SourceURL,
-		normalized.LicenseNote, sourceHash, normalized.SourcePageID, normalized.SourceRevisionID,
-		normalized.SourceSHA1, sourceFetchedAt); err != nil {
+		 source_sha1=excluded.source_sha1, source_fetched_at=excluded.source_fetched_at,
+		 source_fetched_at_rfc3339=excluded.source_fetched_at_rfc3339`,
+		normalized.MusicID, nextRevision, now, user, normalized.Attribution, normalized.TranslationCredit,
+		normalized.ProofreadingCredit, normalized.SourceNote, normalized.SourceURL, normalized.LicenseNote,
+		sourceHash, normalized.SourcePageID, normalized.SourceRevisionID, normalized.SourceSHA1,
+		sourceFetchedAt, normalized.SourceFetchedAt); err != nil {
 		return model.SongLyrics{}, false, err
 	}
 	if _, err := tx.Exec(`DELETE FROM song_lyric_lines WHERE music_id=?`, normalized.MusicID); err != nil {
@@ -273,9 +345,10 @@ func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, mode lyr
 		}
 		for position, segment := range line.Segments {
 			performersJSON, _ := json.Marshal(segment.PerformerIDs)
+			rubyJSON, _ := json.Marshal(segment.Ruby)
 			if _, err := tx.Exec(`INSERT INTO song_lyric_segments
-				(music_id, line_id, position, text, performer_ids_json) VALUES (?, ?, ?, ?, ?)`,
-				normalized.MusicID, line.ID, position, segment.Text, string(performersJSON)); err != nil {
+				(music_id, line_id, position, text, performer_ids_json, ruby_json) VALUES (?, ?, ?, ?, ?, ?)`,
+				normalized.MusicID, line.ID, position, segment.Text, string(performersJSON), string(rubyJSON)); err != nil {
 				return model.SongLyrics{}, false, err
 			}
 		}
@@ -315,6 +388,9 @@ func (s *Store) PublishLyricsMutation(musicID, revision int, users ...string) (m
 		return model.SongLyrics{}, false, err
 	}
 	defer tx.Rollback()
+	if err := rejectLegacyLyricsMutationForSourceV3(tx, musicID); err != nil {
+		return model.SongLyrics{}, false, err
+	}
 	current, err := s.loadLyrics(tx, musicID)
 	if err != nil {
 		return model.SongLyrics{}, false, err
@@ -327,32 +403,29 @@ func (s *Store) PublishLyricsMutation(musicID, revision int, users ...string) (m
 	if err != nil {
 		return model.SongLyrics{}, false, err
 	}
-	code, details, _ := validateLyrics(current.lyrics, validPerformers, true)
-	if code != "" {
-		if code != "invalid_performer" {
-			code = "incomplete_publication"
-		}
-		return model.SongLyrics{}, false, &LyricsContractError{Code: code, Details: details}
+	public, err := s.publicLyricsPublication(tx, current.lyrics, validPerformers)
+	if err != nil {
+		return model.SongLyrics{}, false, err
+	}
+	payload, err := json.Marshal(public)
+	if err != nil {
+		return model.SongLyrics{}, false, err
 	}
 	var existingRevision int
-	err = tx.QueryRow(`SELECT revision FROM song_lyrics_publications WHERE music_id=?`, musicID).Scan(&existingRevision)
+	var existingPayload string
+	err = tx.QueryRow(`SELECT revision,payload_json FROM song_lyrics_publications WHERE music_id=?`, musicID).
+		Scan(&existingRevision, &existingPayload)
 	if err == nil && existingRevision == revision {
+		if existingPayload != string(payload) {
+			return model.SongLyrics{}, false, &LyricsContractError{Code: "incomplete_publication", Details: []string{
+				"existing publication payload does not match the source-backed public contract",
+			}}
+		}
 		current.lyrics.Status = "published"
 		current.lyrics.PublishedRevision = revision
 		return current.lyrics, false, nil
 	}
 	if err != nil && err != sql.ErrNoRows {
-		return model.SongLyrics{}, false, err
-	}
-	public := model.PublicSongLyrics{
-		Version: 1, MusicID: musicID, Revision: revision,
-		UpdatedAt: current.lyrics.UpdatedAt, Attribution: current.lyrics.Attribution, Lines: publicLyricsLines(current.lyrics.Lines),
-	}
-	if err := validatePublicLyricsArtifactSize(public); err != nil {
-		return model.SongLyrics{}, false, &LyricsContractError{Code: "incomplete_publication", Details: []string{err.Error()}}
-	}
-	payload, err := json.Marshal(public)
-	if err != nil {
 		return model.SongLyrics{}, false, err
 	}
 	updatedAt, err := parseTimestamp(current.lyrics.UpdatedAt)
@@ -392,6 +465,9 @@ func (s *Store) UnpublishLyricsMutation(musicID, revision int, users ...string) 
 		return model.SongLyrics{}, false, err
 	}
 	defer tx.Rollback()
+	if err := rejectLegacyLyricsMutationForSourceV3(tx, musicID); err != nil {
+		return model.SongLyrics{}, false, err
+	}
 	current, err := s.loadLyrics(tx, musicID)
 	if err != nil {
 		return model.SongLyrics{}, false, err
@@ -424,20 +500,56 @@ func (s *Store) UnpublishLyricsMutation(musicID, revision int, users ...string) 
 	return current.lyrics, true, nil
 }
 
-func publicLyricsLines(lines []model.LyricLine) []model.LyricLine {
-	public := make([]model.LyricLine, len(lines))
-	for index, line := range lines {
-		public[index] = line
-		public[index].ID = fmt.Sprintf("line-%d", line.Order+1)
-		public[index].Segments = append([]model.LyricSegment(nil), line.Segments...)
-		for segmentIndex := range public[index].Segments {
-			public[index].Segments[segmentIndex].PerformerIDs = append([]int(nil), line.Segments[segmentIndex].PerformerIDs...)
+type publicLyricSegmentV1 struct {
+	Text         string `json:"text"`
+	PerformerIDs []int  `json:"performerIds"`
+}
+
+type publicLyricLineV1 struct {
+	ID                string                 `json:"id"`
+	Order             int                    `json:"order"`
+	Japanese          string                 `json:"japanese"`
+	Chinese           string                 `json:"zh-CN"`
+	English           string                 `json:"en-US"`
+	StanzaBreakBefore bool                   `json:"stanzaBreakBefore,omitempty"`
+	Segments          []publicLyricSegmentV1 `json:"segments"`
+}
+
+type publicSongLyricsV1 struct {
+	Version     int                 `json:"version"`
+	MusicID     int                 `json:"musicId"`
+	Revision    int                 `json:"revision"`
+	UpdatedAt   string              `json:"updatedAt"`
+	Attribution string              `json:"attribution"`
+	Lines       []publicLyricLineV1 `json:"lines"`
+}
+
+func publicLyricsV1(lyrics model.SongLyrics) publicSongLyricsV1 {
+	attribution := lyrics.Attribution
+	if translation := strings.TrimSpace(lyrics.TranslationCredit); translation != "" {
+		attribution = translation
+	}
+	public := publicSongLyricsV1{
+		Version: 1, MusicID: lyrics.MusicID, Revision: lyrics.Revision,
+		UpdatedAt: lyrics.UpdatedAt, Attribution: attribution,
+		Lines: make([]publicLyricLineV1, len(lyrics.Lines)),
+	}
+	for index, line := range lyrics.Lines {
+		public.Lines[index] = publicLyricLineV1{
+			ID: fmt.Sprintf("line-%d", line.Order+1), Order: line.Order, Japanese: line.Japanese,
+			Chinese: line.Chinese, English: line.English, StanzaBreakBefore: line.StanzaBreakBefore,
+			Segments: make([]publicLyricSegmentV1, len(line.Segments)),
+		}
+		for segmentIndex, segment := range line.Segments {
+			public.Lines[index].Segments[segmentIndex] = publicLyricSegmentV1{
+				Text: segment.Text, PerformerIDs: append([]int(nil), segment.PerformerIDs...),
+			}
 		}
 	}
 	return public
 }
 
-func validatePublicLyricsArtifactSize(public model.PublicSongLyrics) error {
+func validatePublicLyricsArtifactSize(public any) error {
 	encoded, err := json.MarshalIndent(public, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode public lyrics document: %w", err)
@@ -448,52 +560,8 @@ func validatePublicLyricsArtifactSize(public model.PublicSongLyrics) error {
 	return nil
 }
 
-func (s *Store) PublishedLyrics() (model.PublicLyricsIndex, map[int]model.PublicSongLyrics, error) {
-	performerIDs, err := s.performerIDs(s.db)
-	if err != nil {
-		return model.PublicLyricsIndex{}, nil, err
-	}
-	rows, err := s.db.Query(`SELECT p.music_id, p.revision, p.updated_at, p.payload_json,
-		m.title_ja, COALESCE(NULLIF(zh.cn_text, ''), m.title_zh), COALESCE(NULLIF(en.text, ''), m.title_en)
-		FROM song_lyrics_publications p
-		JOIN catalog_music m ON m.music_id=p.music_id
-		LEFT JOIN entries zh ON zh.category='music' AND zh.field='title' AND zh.jp_key=m.title_ja
-		LEFT JOIN entry_localizations en ON en.category='music' AND en.field='title'
-		 AND en.jp_key=m.title_ja AND en.locale='en-US'
-		ORDER BY p.music_id`)
-	if err != nil {
-		return model.PublicLyricsIndex{}, nil, err
-	}
-	defer rows.Close()
-	index := model.PublicLyricsIndex{Version: 1, Songs: []model.PublicLyricsIndexItem{}}
-	details := map[int]model.PublicSongLyrics{}
-	for rows.Next() {
-		var item model.PublicLyricsIndexItem
-		var updatedAt int64
-		var payload string
-		if err := rows.Scan(&item.MusicID, &item.Revision, &updatedAt, &payload,
-			&item.Title.Japanese, &item.Title.Chinese, &item.Title.English); err != nil {
-			return model.PublicLyricsIndex{}, nil, err
-		}
-		item.UpdatedAt = formatTimestamp(updatedAt)
-		if len(item.Title.Japanese) == 0 || len(item.Title.Japanese) > model.PublicLyricsMaxTitleBytes ||
-			len(item.Title.Chinese) > model.PublicLyricsMaxTitleBytes || len(item.Title.English) > model.PublicLyricsMaxTitleBytes {
-			return model.PublicLyricsIndex{}, nil, fmt.Errorf("lyrics publication %d title exceeds the public index contract", item.MusicID)
-		}
-		record := LyricsPublicationBackupRecord{
-			MusicID: item.MusicID, Revision: item.Revision, UpdatedAt: updatedAt, PayloadJSON: payload,
-		}
-		if err := canonicalizeRestoredPublication(&record, performerIDs); err != nil {
-			return model.PublicLyricsIndex{}, nil, err
-		}
-		var detail model.PublicSongLyrics
-		if err := json.Unmarshal([]byte(record.PayloadJSON), &detail); err != nil {
-			return model.PublicLyricsIndex{}, nil, err
-		}
-		index.Songs = append(index.Songs, item)
-		details[item.MusicID] = detail
-	}
-	return index, details, rows.Err()
+func (s *Store) PublishedLyrics() (PublicLyricsIndexDocument, map[int]PublicLyricsDetailDocument, error) {
+	return s.publishedLyricsSnapshot()
 }
 
 func (s *Store) loadLyrics(q queryRower, musicID int) (storedLyrics, error) {
@@ -505,15 +573,18 @@ func (s *Store) loadLyricsWithHook(q queryRower, musicID int, afterHeader func()
 	var updatedAt int64
 	var publishedRevision sql.NullInt64
 	var sourceFetchedAt int64
-	err := q.QueryRow(`SELECT l.music_id, l.revision, l.updated_at, l.attribution, l.source_note, l.source_url,
+	var exactSourceFetchedAt string
+	err := q.QueryRow(`SELECT l.music_id, l.revision, l.updated_at, l.attribution,
+		l.translation_credit, l.proofreading_credit, l.source_note, l.source_url,
 		l.license_note, l.source_hash, l.source_page_id, l.source_revision_id, l.source_sha1,
-		l.source_fetched_at, p.revision
+		l.source_fetched_at, l.source_fetched_at_rfc3339, p.revision
 		FROM song_lyrics l LEFT JOIN song_lyrics_publications p ON p.music_id=l.music_id
 		WHERE l.music_id=?`, musicID).Scan(
-		&result.lyrics.MusicID, &result.lyrics.Revision, &updatedAt, &result.lyrics.Attribution, &result.lyrics.SourceNote,
+		&result.lyrics.MusicID, &result.lyrics.Revision, &updatedAt, &result.lyrics.Attribution,
+		&result.lyrics.TranslationCredit, &result.lyrics.ProofreadingCredit, &result.lyrics.SourceNote,
 		&result.lyrics.SourceURL, &result.lyrics.LicenseNote, &result.sourceHash,
 		&result.lyrics.SourcePageID, &result.lyrics.SourceRevisionID, &result.lyrics.SourceSHA1,
-		&sourceFetchedAt, &publishedRevision)
+		&sourceFetchedAt, &exactSourceFetchedAt, &publishedRevision)
 	if err == sql.ErrNoRows {
 		return result, ErrLyricsNotFound
 	}
@@ -529,7 +600,9 @@ func (s *Store) loadLyricsWithHook(q queryRower, musicID int, afterHeader func()
 		}
 	}
 	result.lyrics.UpdatedAt = formatTimestamp(updatedAt)
-	if sourceFetchedAt > 0 {
+	if exactSourceFetchedAt != "" {
+		result.lyrics.SourceFetchedAt = exactSourceFetchedAt
+	} else if sourceFetchedAt > 0 {
 		result.lyrics.SourceFetchedAt = formatTimestamp(sourceFetchedAt)
 	}
 	if afterHeader != nil {
@@ -559,29 +632,137 @@ func (s *Store) loadLyricsWithHook(q queryRower, musicID int, afterHeader func()
 	for index, line := range result.lyrics.Lines {
 		lineIndex[line.ID] = index
 	}
-	segmentRows, err := q.Query(`SELECT line_id, text, performer_ids_json FROM song_lyric_segments
+	segmentRows, err := q.Query(`SELECT line_id, text, performer_ids_json, ruby_json FROM song_lyric_segments
 		WHERE music_id=? ORDER BY line_id, position`, musicID)
 	if err != nil {
 		return storedLyrics{}, err
 	}
 	defer segmentRows.Close()
 	for segmentRows.Next() {
-		var lineID, performerJSON string
+		var lineID, performerJSON, rubyJSON string
 		var segment model.LyricSegment
-		if err := segmentRows.Scan(&lineID, &segment.Text, &performerJSON); err != nil {
+		if err := segmentRows.Scan(&lineID, &segment.Text, &performerJSON, &rubyJSON); err != nil {
 			return storedLyrics{}, err
 		}
 		if err := json.Unmarshal([]byte(performerJSON), &segment.PerformerIDs); err != nil {
 			return storedLyrics{}, fmt.Errorf("lyrics segment performers for musicId=%d lineId=%q: %w", musicID, lineID, err)
 		}
+		if err := json.Unmarshal([]byte(rubyJSON), &segment.Ruby); err != nil {
+			return storedLyrics{}, fmt.Errorf("lyrics segment ruby for musicId=%d lineId=%q: %w", musicID, lineID, err)
+		}
 		if segment.PerformerIDs == nil {
 			segment.PerformerIDs = []int{}
+		}
+		if segment.Ruby == nil {
+			segment.Ruby = []model.LyricRubySpan{}
 		}
 		if index, ok := lineIndex[lineID]; ok {
 			result.lyrics.Lines[index].Segments = append(result.lyrics.Lines[index].Segments, segment)
 		}
 	}
 	return result, segmentRows.Err()
+}
+
+func cloneEditableLyricsRuby(lyrics model.SongLyrics) model.SongLyrics {
+	lyrics.Lines = append([]model.LyricLine(nil), lyrics.Lines...)
+	for lineIndex := range lyrics.Lines {
+		lyrics.Lines[lineIndex].Segments = append([]model.LyricSegment(nil), lyrics.Lines[lineIndex].Segments...)
+		for segmentIndex := range lyrics.Lines[lineIndex].Segments {
+			segment := &lyrics.Lines[lineIndex].Segments[segmentIndex]
+			segment.PerformerIDs = append([]int{}, segment.PerformerIDs...)
+			segment.Ruby = append([]model.LyricRubySpan{}, segment.Ruby...)
+		}
+	}
+	return lyrics
+}
+
+// normalizeEditableLyricsRuby preserves compatibility with new manual drafts
+// while guaranteeing that every persisted segment has a concrete, editable
+// ruby contract. Machine-generated source imports already carry detailed
+// spans; legacy/manual segments receive one exact-text span.
+func normalizeEditableLyricsRuby(lyrics model.SongLyrics) model.SongLyrics {
+	lyrics = cloneEditableLyricsRuby(lyrics)
+	for lineIndex := range lyrics.Lines {
+		for segmentIndex := range lyrics.Lines[lineIndex].Segments {
+			segment := &lyrics.Lines[lineIndex].Segments[segmentIndex]
+			if len(segment.Ruby) == 0 && segment.Text != "" {
+				segment.Ruby = []model.LyricRubySpan{{Text: segment.Text}}
+			}
+		}
+	}
+	return lyrics
+}
+
+// preserveOmittedLyricsRuby accepts the pre-ruby private payload only when its
+// complete persisted source and performer structure is unchanged. In that
+// narrow compatibility case, omitted spans inherit the stored editable ruby;
+// otherwise the caller must supply ruby explicitly for every segment.
+func preserveOmittedLyricsRuby(normalized *model.SongLyrics, requested, current model.SongLyrics) (bool, []string) {
+	var omitted [][2]int
+	for lineIndex := range requested.Lines {
+		for segmentIndex := range requested.Lines[lineIndex].Segments {
+			if len(requested.Lines[lineIndex].Segments[segmentIndex].Ruby) == 0 {
+				omitted = append(omitted, [2]int{lineIndex, segmentIndex})
+			}
+		}
+	}
+	if len(omitted) == 0 {
+		return false, nil
+	}
+	if !sameLyricsRubySourceStructure(requested.Lines, current.Lines) {
+		details := make([]string, 0, len(omitted))
+		for _, position := range omitted {
+			details = append(details, fmt.Sprintf(
+				"lines[%d].segments[%d].ruby must be supplied when the Japanese, segment, or performer structure changes",
+				position[0], position[1],
+			))
+		}
+		return false, details
+	}
+	for _, position := range omitted {
+		lineIndex, segmentIndex := position[0], position[1]
+		currentRuby := current.Lines[lineIndex].Segments[segmentIndex].Ruby
+		if len(currentRuby) > 0 {
+			normalized.Lines[lineIndex].Segments[segmentIndex].Ruby = append([]model.LyricRubySpan(nil), currentRuby...)
+		}
+	}
+	return true, nil
+}
+
+func sameLyricsRubySourceStructure(left, right []model.LyricLine) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for lineIndex := range left {
+		leftLine, rightLine := left[lineIndex], right[lineIndex]
+		if leftLine.ID != rightLine.ID || leftLine.Order != rightLine.Order || leftLine.Japanese != rightLine.Japanese ||
+			leftLine.StanzaBreakBefore != rightLine.StanzaBreakBefore || len(leftLine.Segments) != len(rightLine.Segments) {
+			return false
+		}
+		for segmentIndex := range leftLine.Segments {
+			leftSegment, rightSegment := leftLine.Segments[segmentIndex], rightLine.Segments[segmentIndex]
+			if leftSegment.Text != rightSegment.Text || !sameLyricsPerformerIDs(leftSegment.PerformerIDs, rightSegment.PerformerIDs) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func sameLyricsPerformerIDs(left, right []int) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func lyricsHasTranslationCredit(lyrics model.SongLyrics) bool {
+	return strings.TrimSpace(lyrics.TranslationCredit) != "" || strings.TrimSpace(lyrics.Attribution) != ""
 }
 
 func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing bool) (string, []string, string) {
@@ -591,15 +772,18 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 	if len(lyrics.Lines) == 0 || len(lyrics.Lines) > maxLyricsLines {
 		return "segment_mismatch", []string{"lines must contain between 1 and 5000 items"}, ""
 	}
-	if len(lyrics.Attribution) > maxLyricsMetadataBytes || len(lyrics.SourceNote) > maxLyricsMetadataBytes ||
+	if len(lyrics.Attribution) > maxLyricsMetadataBytes || len(lyrics.TranslationCredit) > maxLyricsMetadataBytes ||
+		len(lyrics.ProofreadingCredit) > maxLyricsMetadataBytes || len(lyrics.SourceNote) > maxLyricsMetadataBytes ||
 		len(lyrics.LicenseNote) > maxLyricsMetadataBytes || len(lyrics.SourceURL) > maxLyricsURLBytes ||
-		len(lyrics.SourceSHA1) > 256 {
+		len(lyrics.SourceSHA1) > 256 || !utf8.ValidString(lyrics.Attribution) ||
+		!utf8.ValidString(lyrics.TranslationCredit) || !utf8.ValidString(lyrics.ProofreadingCredit) {
 		return "segment_mismatch", []string{"lyrics metadata exceeds safe size limits"}, ""
 	}
-	totalBytes := len(lyrics.Attribution) + len(lyrics.SourceNote) + len(lyrics.LicenseNote) + len(lyrics.SourceURL) + len(lyrics.SourceSHA1)
+	totalBytes := len(lyrics.Attribution) + len(lyrics.TranslationCredit) + len(lyrics.ProofreadingCredit) +
+		len(lyrics.SourceNote) + len(lyrics.LicenseNote) + len(lyrics.SourceURL) + len(lyrics.SourceSHA1)
 	var segmentDetails, performerDetails, publicationDetails []string
-	if publishing && strings.TrimSpace(lyrics.Attribution) == "" {
-		publicationDetails = append(publicationDetails, "attribution is required for publication")
+	if publishing && !lyricsHasTranslationCredit(lyrics) {
+		publicationDetails = append(publicationDetails, "translation credit is required for publication")
 	}
 	lineIDs := map[string]bool{}
 	orders := map[int]bool{}
@@ -630,6 +814,23 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 			}
 			totalBytes += len(segment.Text) + len(segment.PerformerIDs)*8
 			concatenated.WriteString(segment.Text)
+			var rubyText strings.Builder
+			if len(segment.Ruby) == 0 || len(segment.Ruby) > maxLyricsRubyPerSegment {
+				segmentDetails = append(segmentDetails, fmt.Sprintf("%s.segments[%d].ruby must contain between 1 and %d editable spans", path, segmentIndex, maxLyricsRubyPerSegment))
+			}
+			if len(segment.PerformerIDs) > maxLyricsPerformers {
+				performerDetails = append(performerDetails, fmt.Sprintf("%s.segments[%d] must contain at most %d performerIds", path, segmentIndex, maxLyricsPerformers))
+			}
+			for rubyIndex, span := range segment.Ruby {
+				if span.Text == "" || len(span.Text) > maxLyricsLineTextBytes || len(span.Reading) > maxLyricsLineTextBytes {
+					segmentDetails = append(segmentDetails, fmt.Sprintf("%s.segments[%d].ruby[%d] has invalid text or reading", path, segmentIndex, rubyIndex))
+				}
+				totalBytes += len(span.Text) + len(span.Reading)
+				rubyText.WriteString(span.Text)
+			}
+			if rubyText.String() != segment.Text {
+				segmentDetails = append(segmentDetails, fmt.Sprintf("%s.segments[%d].ruby text must equal segment text", path, segmentIndex))
+			}
 			seenPerformers := map[int]bool{}
 			if publishing && len(segment.PerformerIDs) == 0 {
 				publicationDetails = append(publicationDetails,
@@ -651,8 +852,8 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 		if concatenated.String() != line.Japanese {
 			segmentDetails = append(segmentDetails, path+".japanese must equal concatenated segment text")
 		}
-		if publishing && (strings.TrimSpace(line.Japanese) == "" || strings.TrimSpace(line.Chinese) == "" || strings.TrimSpace(line.English) == "") {
-			publicationDetails = append(publicationDetails, path+" requires japanese, zh-CN, and en-US")
+		if publishing && strings.TrimSpace(line.Japanese) == "" {
+			publicationDetails = append(publicationDetails, path+" requires japanese")
 		}
 	}
 	if totalBytes > maxLyricsDocumentBytes {
@@ -719,14 +920,16 @@ func validateLyricsProvenance(lyrics model.SongLyrics) (int64, error) {
 			return 0, err
 		}
 	}
-	fetchedAt, err := parseTimestamp(lyrics.SourceFetchedAt)
+	fetchedAt, err := parseCanonicalExactTimestamp(lyrics.SourceFetchedAt)
 	if err != nil {
-		return 0, &LyricsContractError{Code: "source_drift", Details: []string{"sourceFetchedAt must be an RFC3339 timestamp"}}
+		return 0, &LyricsContractError{Code: "source_drift", Details: []string{
+			"sourceFetchedAt must be a canonical UTC RFC3339Nano timestamp",
+		}}
 	}
-	if fetchedAt <= 0 {
+	if fetchedAt.Unix() <= 0 {
 		return 0, &LyricsContractError{Code: "source_drift", Details: []string{"sourceFetchedAt must be after 1970-01-01T00:00:00Z"}}
 	}
-	return fetchedAt, nil
+	return fetchedAt.Unix(), nil
 }
 
 func hasCanonicalLyricsSourceSHA1(value string) bool {
@@ -859,9 +1062,8 @@ func (s *Store) lockLyrics(musicID int) func() {
 
 func sameLyricsContent(left, right model.SongLyrics) bool {
 	canonicalize := func(lyrics model.SongLyrics) model.SongLyrics {
-		lyrics.Lines = append([]model.LyricLine(nil), lyrics.Lines...)
+		lyrics = normalizeEditableLyricsRuby(lyrics)
 		for lineIndex := range lyrics.Lines {
-			lyrics.Lines[lineIndex].Segments = append([]model.LyricSegment(nil), lyrics.Lines[lineIndex].Segments...)
 			for segmentIndex := range lyrics.Lines[lineIndex].Segments {
 				if len(lyrics.Lines[lineIndex].Segments[segmentIndex].PerformerIDs) == 0 {
 					lyrics.Lines[lineIndex].Segments[segmentIndex].PerformerIDs = nil
@@ -889,4 +1091,12 @@ func parseTimestamp(value string) (int64, error) {
 		return 0, err
 	}
 	return timestamp.Unix(), nil
+}
+
+func parseCanonicalExactTimestamp(value string) (time.Time, error) {
+	timestamp, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil || value == "" || !strings.HasSuffix(value, "Z") || timestamp.UTC().Format(time.RFC3339Nano) != value {
+		return time.Time{}, errors.New("timestamp is not canonical UTC RFC3339Nano")
+	}
+	return timestamp.UTC(), nil
 }

@@ -5,8 +5,8 @@ import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
   APIError, BackupStatus, UpstreamStatus, User,
-  checkUpstream, createUser, deleteUser, getBackupStatus, getSettings,
-  getUpstreamStatus, listUsers, pushBackup, restoreBackup,
+  checkUpstream, clearSession, createUser, deleteUser, getBackupStatus, getSettings,
+  getUpstreamStatus, getUsername, listUsers, pushBackup, restoreBackup,
   updateSettings, updateUser,
 } from "@/lib/api";
 
@@ -114,8 +114,16 @@ function UsersCard({ show }: { show: ShowFn }) {
     catch (e) { show(e instanceof Error ? e.message : "创建失败", "err"); }
   };
   const setRole = async (u: User, role: "admin" | "editor") => {
-    try { await updateUser(u.username, { role }); reload(); show("已更新角色", "ok"); }
-    catch (e) { show(e instanceof Error ? e.message : "更新失败", "err"); }
+    try {
+      await updateUser(u.username, { role });
+      if (u.username === getUsername()) {
+        await clearSession();
+        show("当前账号角色已变化，请重新登录", "ok");
+        return;
+      }
+      reload();
+      show("已更新角色", "ok");
+    } catch (e) { show(e instanceof Error ? e.message : "更新失败", "err"); }
   };
   const resetPw = async (u: User) => {
     const pw = prompt(`为 ${u.username} 设置新密码`);

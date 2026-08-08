@@ -48,6 +48,8 @@ type LyricsDiscoveryJobTarget struct {
 	ArtifactID         int64
 	CatalogFingerprint string
 	PolicyVersion      string
+	ExpectedSHA1       string
+	FixedCandidate     *LyricsSourceCandidateIdentity
 }
 
 type LyricsDiscoveryJob struct {
