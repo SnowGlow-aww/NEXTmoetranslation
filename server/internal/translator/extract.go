@@ -1,8 +1,10 @@
 package translator
 
 import (
+	"sort"
 	"strings"
 
+	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
 )
 
@@ -194,6 +196,7 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, []store.Musi
 	}
 	out := newExtractResult("title", "artist", "vocalCaption")
 	tm := newTraceMap("title", "artist", "vocalCaption")
+	vocalSignals := musicVocalSignals(vocals)
 	catalog := make([]store.MusicCatalogRecord, 0, len(musics))
 	for _, m := range musics {
 		musicID := getInt(m, "id")
@@ -201,9 +204,13 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, []store.Musi
 			out["title"].Pairs[title] = ""
 			tm.add("title", title, musicID)
 			newlyWritten, _ := m["isNewlyWrittenMusic"].(bool)
+			lyricsVersion, lyricsVersionKnown := catalogLyricsVersion(m)
 			catalog = append(catalog, store.MusicCatalogRecord{
 				MusicID: musicID, JapaneseTitle: title, IsNewlyWrittenMusic: newlyWritten,
-				ProducerMetadata: musicProducerMetadata(m),
+				ProducerMetadata: musicProducerMetadata(m), Lyricist: getString(m, "lyricist"),
+				Composer: getString(m, "composer"), Arranger: getString(m, "arranger"),
+				AssetbundleName: getString(m, "assetbundleName"), VersionHint: catalogVersionHint(m),
+				LyricsVersion: lyricsVersion, LyricsVersionKnown: lyricsVersionKnown, Vocals: vocalSignals[musicID],
 			})
 		}
 		for _, key := range []string{"lyricist", "composer", "arranger"} {
@@ -224,6 +231,92 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, []store.Musi
 		}
 	}
 	return out.withTrace(tm), catalog, nil
+}
+
+func musicVocalSignals(vocals []map[string]any) map[int][]model.CatalogVocalSignal {
+	result := map[int][]model.CatalogVocalSignal{}
+	for _, vocal := range vocals {
+		musicID := getInt(vocal, "musicId")
+		if musicID <= 0 {
+			continue
+		}
+		base := model.CatalogVocalSignal{
+			VocalID: getInt(vocal, "id"), VocalType: getString(vocal, "musicVocalType"),
+			Caption: getString(vocal, "caption"), AssetbundleName: getString(vocal, "assetbundleName"),
+		}
+		characters := toMapSlice(vocal["characters"])
+		if len(characters) == 0 {
+			result[musicID] = append(result[musicID], base)
+			continue
+		}
+		for _, character := range characters {
+			signal := base
+			signal.CharacterType = getString(character, "characterType")
+			signal.CharacterID = getInt(character, "characterId")
+			signal.CharacterSequence = getInt(character, "seq")
+			result[musicID] = append(result[musicID], signal)
+		}
+	}
+	for musicID := range result {
+		sort.Slice(result[musicID], func(i, j int) bool {
+			left, right := result[musicID][i], result[musicID][j]
+			if left.VocalID != right.VocalID {
+				return left.VocalID < right.VocalID
+			}
+			return left.CharacterSequence < right.CharacterSequence
+		})
+	}
+	return result
+}
+
+func catalogLyricsVersion(music map[string]any) (string, bool) {
+	signals := make([]string, 0, 4)
+	if _, exists := music["isFullLength"]; exists {
+		full, ok := getBool(music, "isFullLength")
+		if !ok {
+			signals = append(signals, "unknown")
+		} else if full {
+			signals = append(signals, "full")
+		} else {
+			signals = append(signals, "game_size")
+		}
+	}
+	for _, key := range []string{"musicVersion", "lyricsVersion", "versionType"} {
+		if _, exists := music[key]; !exists {
+			continue
+		}
+		value := strings.ToLower(strings.TrimSpace(getString(music, key)))
+		switch value {
+		case "full", "full_length", "full-length", "long":
+			signals = append(signals, "full")
+		case "game", "game_size", "game-size":
+			signals = append(signals, "game_size")
+		default:
+			signals = append(signals, "unknown")
+		}
+	}
+	if len(signals) == 0 {
+		return "unknown", false
+	}
+	version := signals[0]
+	if version == "unknown" {
+		return "unknown", true
+	}
+	for _, signal := range signals[1:] {
+		if signal == "unknown" || signal != version {
+			return "unknown", true
+		}
+	}
+	return version, true
+}
+
+func catalogVersionHint(music map[string]any) string {
+	for _, key := range []string{"assetbundleName", "musicAssetbundleName", "versionHint"} {
+		if value := strings.TrimSpace(getString(music, key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func musicProducerMetadata(music map[string]any) string {

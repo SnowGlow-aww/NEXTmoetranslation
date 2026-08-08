@@ -31,6 +31,7 @@ The tests describe current behavior, including behavior that a later migration m
 - V1 entry updates accept arbitrary field and source strings and insert a missing row inside a supported category.
 - Event public JSON omits title source, talk sources, talk order, and speaker names. A legacy backup/restore therefore preserves public bytes but restores line sources from story metadata and loses title provenance and speakers.
 - API event updates always return `{"status":"ok"}` on an existing target, blank source becomes `human`, and entry noops do not emit SSE.
+- Entry updates without a `response` query retain the exact status-only legacy body for both canonical and strict-alias routes. The additive `response=correlated-v1` selector does not redefine or replace this frozen default.
 - Search output remains the compact Chinese schema `{id,n,g,c?,cn?}`; `cn` is omitted for empty or source-identical translations.
 
 ## Fixture Policy

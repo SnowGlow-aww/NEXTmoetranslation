@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -16,9 +17,16 @@ import (
 
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/db"
+	"moesekai/server/internal/httpx"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Setenv("MOESEKAI_PRODUCTION", "false")
+	_ = os.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "true")
+	os.Exit(m.Run())
+}
 
 func openTranslatorConfig(t *testing.T) *config.Config {
 	t.Helper()

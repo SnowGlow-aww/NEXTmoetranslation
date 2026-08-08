@@ -3,11 +3,14 @@ package lyricsdiscovery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"moesekai/server/internal/lyricssource"
 )
 
 func TestWorkerShutdownJoinsLoop(t *testing.T) {
@@ -94,6 +97,43 @@ func TestNoClaimsAfterDrainWhileClaimIsInFlight(t *testing.T) {
 	waitDone(t, worker)
 	if got := store.claimCount(); got != 1 {
 		t.Fatalf("claim calls after drain = %d, want only the admitted claim", got)
+	}
+}
+
+func TestWorkerRunsBoundedConcurrentDiscovery(t *testing.T) {
+	store := newFakeStore()
+	for musicID := 1; musicID <= 6; musicID++ {
+		store.jobs = append(store.jobs, Job{ID: fmt.Sprintf("job-%d", musicID), LeaseToken: fmt.Sprintf("lease-%d", musicID), Attempt: 1, MusicID: musicID})
+	}
+	var active atomic.Int32
+	var peak atomic.Int32
+	release := make(chan struct{})
+	emptyArtifact := mustCandidateArtifact(t, nil)
+	worker := newTestWorker(t, store, discoverFunc(func(context.Context, Job) (Result, error) {
+		current := active.Add(1)
+		for {
+			observed := peak.Load()
+			if current <= observed || peak.CompareAndSwap(observed, current) {
+				break
+			}
+		}
+		<-release
+		active.Add(-1)
+		return Result{Outcome: OutcomeNoCandidates, Artifact: emptyArtifact}, nil
+	}), Options{Concurrency: 3})
+	if err := worker.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, time.Second, func() bool { return active.Load() == 3 })
+	if got := peak.Load(); got != 3 {
+		t.Fatalf("peak discovery concurrency = %d, want 3", got)
+	}
+	close(release)
+	waitFor(t, time.Second, func() bool { return store.completionCount() == 6 })
+	worker.Drain()
+	waitDone(t, worker)
+	if got := peak.Load(); got != 3 {
+		t.Fatalf("peak discovery concurrency after completion = %d, want 3", got)
 	}
 }
 
@@ -252,10 +292,11 @@ func TestDrainAllowsActiveWorkToPersistOutcome(t *testing.T) {
 	store.jobs = []Job{{ID: "draining-job", LeaseToken: "draining-lease", Attempt: 1, MusicID: 15}}
 	started := make(chan struct{})
 	release := make(chan struct{})
+	emptyArtifact := mustCandidateArtifact(t, nil)
 	worker := newTestWorker(t, store, discoverFunc(func(context.Context, Job) (Result, error) {
 		close(started)
 		<-release
-		return Result{Outcome: OutcomeNoCandidates}, nil
+		return Result{Outcome: OutcomeNoCandidates, Artifact: emptyArtifact}, nil
 	}), Options{})
 	if err := worker.Start(t.Context()); err != nil {
 		t.Fatal(err)
@@ -272,7 +313,8 @@ func TestDrainAllowsActiveWorkToPersistOutcome(t *testing.T) {
 func TestWorkerContractCannotWriteAuthoritativeLyrics(t *testing.T) {
 	store := newFakeStore()
 	store.jobs = []Job{{ID: "shadow-job", LeaseToken: "shadow-lease", Attempt: 1, MusicID: 14}}
-	artifact := []byte(`{"candidateCount":1}`)
+	candidate := testDiscoveryCandidate(t, 12, 34, "合成試験曲", "制作者 original song Lyrics\n== Lyrics ==\n歌う")
+	artifact := mustCandidateArtifact(t, []lyricssource.Candidate{candidate})
 	worker := newTestWorker(t, store, discoverFunc(func(context.Context, Job) (Result, error) {
 		return Result{Outcome: OutcomeCandidatesFound, CandidateCount: 1, Artifact: artifact}, nil
 	}), Options{})
@@ -291,6 +333,15 @@ func TestWorkerContractCannotWriteAuthoritativeLyrics(t *testing.T) {
 	if string(completion.Result.Artifact) == string(artifact) {
 		t.Fatal("completion retained discovery-owned artifact memory")
 	}
+}
+
+func mustCandidateArtifact(t *testing.T, candidates []lyricssource.Candidate) []byte {
+	t.Helper()
+	artifact, err := MarshalCandidateArtifact(candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return artifact
 }
 
 func TestRuntimeWorkerIdentityIsUnique(t *testing.T) {
@@ -459,6 +510,7 @@ func newTestWorker(t *testing.T, store Store, discovery Discovery, overrides Opt
 		IdleWait:      time.Millisecond,
 		RetryMin:      time.Second,
 		RetryMax:      time.Minute,
+		Concurrency:   1,
 		Jitter:        func(time.Duration) time.Duration { return 0 },
 	}
 	if overrides.ScanInterval != 0 {
@@ -478,6 +530,9 @@ func newTestWorker(t *testing.T, store Store, discovery Discovery, overrides Opt
 	}
 	if overrides.RetryMax != 0 {
 		opts.RetryMax = overrides.RetryMax
+	}
+	if overrides.Concurrency != 0 {
+		opts.Concurrency = overrides.Concurrency
 	}
 	if overrides.Clock != nil {
 		opts.Clock = overrides.Clock

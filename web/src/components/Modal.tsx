@@ -67,7 +67,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 880, closeDis
       <div ref={dialogRef} className="modal-container" style={{ maxWidth }} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-header">
           <h2 id={titleId}>{title}</h2>
-          {dismissible && <button className="modal-close" onClick={onClose} aria-label="关闭" title="关闭" disabled={closeDisabled}>×</button>}
+          {dismissible && <button type="button" className="modal-close" onClick={onClose} aria-label="关闭" title="关闭" disabled={closeDisabled}>×</button>}
         </div>
         <div className="modal-body">
           {children}

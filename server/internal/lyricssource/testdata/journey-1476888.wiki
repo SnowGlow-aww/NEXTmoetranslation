@@ -1,0 +1,391 @@
+{{Song box 2
+  |color     = #d8caf5; color:#1f1f24
+  |image     = DECO*27 - Journey.png
+  |title     = "'''Journey'''"
+  |date      = September 30, 2022
+  |views     = {{v|nn|742,055}}, {{v|yt|4,091,676}}, and {{v|bb|501,033}}
+  |singers   = [[Hatsune Miku]]
+  |producers = '''[[OTOIRO]]:'''
+* [[DECO*27]] (music, lyrics)
+* Rockwell (arrangement)
+* yuka fujii (director, designer)
+* [[omutatsu]] (illustration)
+* Mitsumi Yanokawa, GA (composite)
+* Iori Majima (project manager)
+* Yusuke Sato (sound product manager)
+  |links     = {{l|nn|sm41109077}} {{l|yt|BTekXS9d-no}} {{l|bb|BV1be4y1t7He}}
+}}
+
+==Background==
+{{Quote|Let’s go, the two of us, you and me.|Author's comment}}
+"'''Journey'''" is an original song produced by DECO*27 featuring Hatsune Miku. It was commissioned for the 2nd anniversary of the game ''{{IW|ProjectSekai|Project SEKAI COLORFUL STAGE!}}''. The song has entered the [[Hall of Fame]].
+
+==Succeeding versions==
+{{derivative
+  |color       = #d8caf5; color:#1f1f24
+  |thumb       = Journey SEKAI Full Thumbnail.jpg
+  |title       = Project SEKAI Version [SEKAI] (Full - Animation MV)
+  |singers     = {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Hoshino Ichika}} (CV: {{IW|projectsekai|Noguchi Ruriko}}), {{IW|projectsekai|Hanasato Minori}} (CV: {{IW|projectsekai|Ogura Yui}}), {{IW|projectsekai|Azusawa Kohane}} (CV: {{IW|projectsekai|Akina}}), {{IW|projectsekai|Tenma Tsukasa}} (CV: {{IW|projectsekai|Hirose Daisuke}}), {{IW|projectsekai|Yoisaki Kanade}} (CV: {{IW|projectsekai|Kusunoki Tomori}})
+  |producers   = 山下RIRI (animation movie)
+  |categories  = Piapro Studio Vocal; Human Vocal; Original MV
+  |description = Full version, featured on the single ''Journey'' and compilation album ''Theme Song Anniversary Song Album'', from the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so41179069; yt m__WcDdaF7k; yt thWxeAQ84B8; yt 7zgve_QdQCo
+}}
+{{Derivative
+  |color       = #d8caf5; color:#1f1f24
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [SEKAI] (Full - 3DMV)
+  |singers     = Hatsune Miku, Hoshino Ichika (CV: Noguchi Ruriko), Hanasato Minori (CV: Ogura Yui), Azusawa Kohane (CV: Akina), Tenma Tsukasa (CV: Hirose Daisuke), Yoisaki Kanade (CV: Kusunoki Tomori)
+  |producers   = Atarashi Maimi (choreography), Jakko, Kisumi Reika, Atarashi Maimi, Nakanishi Yuka, Okuyama Keito, yukari (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Human Vocal; Piapro Studio Vocal; Original MV; In-game Content
+  |links       = nn so41155109; yt jYh9Y7K2iuI; yt COQEDGBFGXE
+  |comments    = NND 3DMV; 3DMV; chart preview
+  |description = Full version, featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #33AAEE; color:white
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [Another Vocal (1)]
+  |singers     = Hoshino Ichika (CV: Noguchi Ruriko)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{Derivative
+  |color       = #FFCDAC; color:white
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [Another Vocal (2)]
+  |singers     = Hanasato Minori (CV: Ogura Yui)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #FF679A; color:white
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [Another Vocal (3)]
+  |singers     = Azusawa Kohane (CV: Akina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{Derivative
+  |color       = #FFBB00; color:white
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [Another Vocal (4)]
+  |singers     = Tenma Tsukasa (CV: Hirose Daisuke)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #BB6588; color:white
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [Another Vocal (5)]
+  |singers     = Yoisaki Kanade (CV: Kusunoki Tomori)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{derivative
+  |color       = #00cdba; color:white
+  |thumb       = Games - Project SEKAI - Journey.png
+  |title       = Project SEKAI Version [VIRTUAL SINGER]
+  |singers     = {{IW|projectsekai|VIRTUAL SINGER}}: Hatsune Miku, {{IW|projectsekai|Kagamine Rin}}, {{IW|projectsekai|Kagamine Len}}, {{IW|projectsekai|Megurine Luka}}, {{IW|projectsekai|MEIKO}}, {{IW|projectsekai|KAITO}}
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #d8caf5; color:#1f1f24
+  |title       = STUDY WITH MIKU ver.
+  |producers   = jny, YOUSHIKIBI STUDIO (arrange), anbiyori (video)
+  |categories  = Arrangement
+  |description = An instrumental medley arrangement of various VOCALOID songs that can be played as background music while the listener studies.
+  |links       = yt tOvZInzmokc&t=1034s
+}}
+{{Derivative
+  |color       = linear-gradient(to right, #6CCB20 0 50%,#FF9900 0 50%); color: white
+  |title       = Project SEKAI Version [SEKAI] (Full - Connect Live)
+  |thumb       = Games - Project SEKAI - Journey.png
+  |singers     = {{IW|projectsekai|MORE MORE JUMP!}} x {{IW|projectsekai|Wonderlands x Showtime}}: Hatsune Miku, Hanasato Minori (CV: Ogura Yui), {{IW|projectsekai|Kiritani Haruka}} (CV: {{IW|projectsekai|Yoshioka Mayu}}), {{IW|projectsekai|Momoi Airi}} (CV: {{IW|projectsekai|Furihata Ai}}), {{IW|projectsekai|Hinomori Shizuku}} (CV: {{IW|projectsekai|Honnizumi Rina}}), Tenma Tsukasa (CV: Hirose Daisuke), {{IW|projectsekai|Otori Emu}} (CV: {{IW|projectsekai|Kino Hina}}), {{IW|projectsekai|Kusanagi Nene}} (CV: {{IW|projectsekai|Machico}}), {{IW|projectsekai|Kamishiro Rui}} (CV: {{IW|projectsekai|Toki Shunichi}})
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; Human Cover; In-game Content
+  |description = Featured in the ''{{IW|projectsekai|MORE MORE JUMP! x Wonderlands x Showtime Connect Live WON! MORE! HAPPY TIME}}'' event, from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Japanese lyrics = 
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+| {{shared}} | Journey
+|-
+|<br />
+|-
+|溜めてきた　“なんとかなる”は
+|tamete kita “nantoka naru” wa
+|-
+|いつまで経っても　なくならないな
+|itsu made tatte mo nakunaranai na
+|-
+|チクっとしちゃうおいかけっこに参っちゃって
+|chikutto shichau oikakekko ni maicchatte
+|-
+|<br />
+|-
+|変わらなきゃ　壁壊さなきゃ
+|kawaranakya kabe kowasanakya 
+|-
+|間違い建設の後始末を
+|machigai kensetsu no atoshimatsu o
+|-
+|目一杯の深呼吸したら殴っちゃって
+|meippai no shinkokyuu shitara nagucchatte
+|-
+|<br />
+|-
+|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
+|kitai aratame puresshaa no naka shureddaa kaketa damedameron
+|-
+|ひとりでもできる　それはもうやめる　だから助けて　お願いします
+|hitori demo dekiru sore wa mou yameru dakara tasukete onegaishimasu
+|-
+|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
+|kitai aratame puresshaa no naka shureddaa kaketa damedameron
+|-
+|ひとりでもできる　それはもうやめる　だって叶えたいもん
+|hitori demo dekiru sore wa mou yameru datte kanaetai mon
+|-
+|<br />
+|-
+|ぼくにない想いも　ぼくにない強さも
+|boku ni nai omoi mo boku ni nai tsuyosa mo
+|-
+|きみは持ってるんだよ　きっと　セカイが待ってる
+|kimi wa motteru nda yo kitto sekai ga matteru
+|-
+|きみにない涙も　きみにない弱さも
+|kimi ni nai namida mo kimi ni nai yowasa mo
+|-
+|ぼくは持ってるけど　ずっと　セカイで待ってる
+|boku wa motteru kedo zutto sekai de matteru
+|-
+|<br />
+|-
+|悩みながらだって大丈夫　立ち止まったって大丈夫
+|nayami nagara datte daijoubu tachidomatta tte daijoubu
+|-
+|ぼくらはまだここから歩いていける
+|bokura wa mada koko kara aruite ikeru
+|-
+|泣き顔もなんかいい感じ　笑えたらもっといい感じ
+|nakigao mo nanka ii kanji waraetara motto ii kanji
+|-
+|行こうよ　きみとぼくで
+|ikou yo kimi to boku de
+|-
+|<br />
+|-
+|大きくなる不安は期待の裏返し
+|ookiku naru fuan wa kitai no uragaeshi
+|-
+|じゃあぼくを裏返すとどうだ　気になって眠れないよ
+|jaa boku o uragaesu to dou da ki ni natte nemurenai yo
+|-
+|違った　きみとぼくのダメな部分は　背中合わせで隠しちゃえば
+|chigatta kimi to boku no dame na bubun wa senakaawase de kakushichaeba
+|-
+|裏なんてなくなるでしょ
+|ura nante naku naru desho
+|-
+|<br />
+|-
+|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
+|kitai aratame puresshaa no naka shureddaa kaketa damedameron
+|-
+|ひとりでもできる　それはもうやめる　だから助けて　お願いします
+|hitori demo dekiru sore wa mou yameru dakara tasukete onegaishimasu
+|-
+|期待改めプレッシャーの中　シュレッダーかけたダメダメ論
+|kitai aratame puresshaa no naka shureddaa kaketa damedameron
+|-
+|ひとりでもできる　それはもうやめる　だって叶えたいもん
+|hitori demo dekiru sore wa mou yameru datte kanaetai mon 
+|-
+|<br />
+|-
+|“なにもない”とかじゃない　“きみ以外”とかじゃない
+|“nani mo nai” toka janai “kimi igai” toka janai
+|-
+|きみはちゃんとぼくの“救い”になってる
+|kimi wa chanto boku no “sukui” ni natteru
+|-
+|<br />
+|-
+|ぼくにない想いも　ぼくにない強さも
+|boku ni nai omoi mo boku ni nai tsuyosa mo
+|-
+|きみは持ってるんだよ　きっと　セカイが待ってる
+|kimi wa motteru nda yo kitto sekai ga matteru
+|-
+|きみにない涙も　きみにない弱さも
+|kimi ni nai namida mo kimi ni nai yowasa mo
+|-
+|ぼくは持ってるけど　ずっと　セカイで待ってる
+|boku wa motteru kedo zutto sekai de matteru
+|-
+|<br />
+|-
+|悩みながらだって大丈夫　立ち止まったって大丈夫
+|nayami nagara datte daijoubu tachidomatta tte daijoubu
+|-
+|ぼくらはまだここから歩いていける
+|bokura wa mada koko kara aruite ikeru
+|-
+|泣き顔もなんかいい感じ　笑えたらもっといい感じ
+|nakigao mo nanka ii kanji waraetara motto ii kanji
+|-
+|行こうよ　きみとぼくで
+|ikou yo kimi to boku de
+|-
+|<br />
+|-
+|変わらなきゃ　壁壊さなきゃ
+|kawaranakya kabe kowasanakya
+|-
+|間違い建設の後始末を
+|machigai kensetsu no atoshimatsu o
+|-
+|目一杯の深呼吸したら殴っちゃって
+|meippai no shinkokyuu shitara nagucchatte
+|-
+|<br />
+|-
+|走り出せ　夢、音に乗せ
+|hashiridase yume, oto ni nose
+|-
+|ぼくら団結の旗立てるんだ
+|bokura danketsu no hata tateru nda
+|-
+|笑って生きていくためのJourney　奏でるMelody
+|waratte ikite iku tame no Journey kanaderu Melody
+|}
+|-|Official English lyrics = 
+{{Translation|jpn|official English|Producer}}
+<poem style="margin-left:1em;">
+Journey
+
+My growing pile of, “It’ll figure itself out”
+Just doesn’t seem to ever go away
+The pangs and aches from all that chasing is wearing me down
+
+I must change, must knock down walls
+Clean up the mess made by Blunder & CO
+Breathing in my fullest before going for that KO
+
+Changing expectations, under pressure, leaving in shreds that bankrupt ideology
+The can-do-it-alone attitude, no more of that, so help me, I’m asking you
+Changing expectations, under pressure, leaving in shreds that bankrupt ideology
+The can-do-it-alone attitude, no more of that, cuz I want our dreams to come true
+
+That hope that I don’t have, that strength that I don’t have
+You have them, and no doubt, SEKAI is waiting for you
+Those tears that you don’t have, that weakness that you don’t have
+Even though I have them, always, I’ll be waiting for you in SEKAI
+
+It’s ok if you’re not sure, it’s ok even to stop and pause
+We can still keep walking forward from here
+Your crying face is charming, if you smiled, it’d be even more charming
+Let’s go, the two of us, you and me.
+
+The growing anxiety is the flip side of hope
+So if you flip me, what would you find? I can’t sleep thinking over it
+No wait! If the no-good parts of you and me, we hide, by standing back to back
+Then there’s no such thing as the flip side
+
+Changing expectations, under pressure, leaving in shreds that bankrupt ideology
+The can-do-it-alone attitude, no more of that, so help me, I’m asking you
+Changing expectations, under pressure, leaving in shreds that bankrupt ideology
+The can-do-it-alone attitude, no more of that, cuz I want our dreams to come true
+
+It’s not like, “there’s nothing there”, I’m not saying, “anyone but you”
+You really truly are my Saving Grace
+
+That hope that I don’t have, that strength that I don’t have
+You have them, and no doubt, SEKAI is waiting for you
+Those tears that you don’t have, that weakness that you don’t have
+Even though I have them, always, I’ll be waiting for you in SEKAI
+
+It’s ok if you’re not sure, it’s ok even to stop and pause
+We can still keep walking forward from here
+Your crying face is charming, if you smiled, it’d be even more charming
+Let’s go, the two of us, you and me.
+
+I must change, must knock down walls
+Clean up the mess made by Blunder & CO
+Breathing in my fullest before going for that KO
+
+Break away! Ride your dreams to that harmony
+Plant a flag for our solidarity
+A journey to laugh and live life to the fullest ringing out that melody
+</poem>
+</tabber>
+
+==Other media appearances==
+===Discography===
+This song is featured on the single ''Journey''.
+
+===Films===
+The instrumental version of this song was featured in the film ''{{IW|projectsekai|Project SEKAI the Movie: Kowareta SEKAI to Utaenai MIKU}}''.
+
+===Video games===
+This song is featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku; SEKAI version by Hoshino Ichika, Azusawa Kohane, Hanasato Minori, Tenma Tsukasa, Yoisaki Kanade, and Hatsune Miku).
+
+==Gallery==
+<tabber>
+|-|Games=
+<gallery hideaddbutton="true" position="center" bordercolor=#BFF9FD>
+Games - Project SEKAI - Journey.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising=
+<gallery hideaddbutton="true" position="center" bordercolor=#BFF9FD>
+Journey DECO27 Jacket.jpg|Cover art of the digital single<br>''Journey''
+</gallery>
+|-|Misc=
+<gallery hideaddbutton="true" position="center" bordercolor=#BFF9FD>
+DECO*27 - Journey (main visual).png|Main illustration
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |dwlds  = '''Downloads''':
+** [https://otoiro.co.jp/wp/wp-content/themes/otoirofirst/special/midi/midi_Journey.zip MIDI] — OTOIRO
+** [https://otoiro.co.jp/wp/wp-content/themes/otoirofirst/special/instrumental/Journey_Inst.wav Instrumental] — OTOIRO
+  |prchs  = [https://karent.jp/album/3284 Single purchase] — KARENT
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 49186
+  |vocadb = 441896
+  |mgp    = Journey(DECO*27)
+  |vlw    = Journey/DECO*27
+  |url    = {{IW|projectsekai|Journey|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Mobile game songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featured in films]]

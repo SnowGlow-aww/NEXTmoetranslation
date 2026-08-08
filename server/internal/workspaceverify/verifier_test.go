@@ -27,6 +27,22 @@ func TestCheckedInProducerContractFixtureVerifies(t *testing.T) {
 	if got := manifest.RequiredRoutes; !equalRoutes(got, RequiredRoutes()) {
 		t.Fatalf("fixture routes do not match server contract")
 	}
+	expected := []Route{
+		{Method: "GET", Path: "/api/admin/lyrics-source-reviews", Authentication: "bearer", AllowedRoles: []string{"admin"}},
+		{Method: "GET", Path: "/api/admin/lyrics-source-reviews/detail", Authentication: "bearer", AllowedRoles: []string{"admin"}},
+		{Method: "POST", Path: "/api/admin/lyrics-source-reviews/import", Authentication: "bearer", AllowedRoles: []string{"admin"}},
+		{Method: "PUT", Path: "/api/admin/lyrics-source-reviews/candidate-selection", Authentication: "bearer", AllowedRoles: []string{"admin"}},
+		{Method: "PUT", Path: "/api/admin/lyrics-source-reviews/decision", Authentication: "bearer", AllowedRoles: []string{"admin"}},
+	}
+	var reviewRoutes []Route
+	for _, route := range manifest.RequiredRoutes {
+		if strings.HasPrefix(route.Path, "/api/admin/lyrics-source-reviews") {
+			reviewRoutes = append(reviewRoutes, route)
+		}
+	}
+	if !equalRoutes(reviewRoutes, expected) {
+		t.Fatalf("fixture review routes=%+v, want %+v", reviewRoutes, expected)
+	}
 }
 
 func TestWorkspaceConfigurationAndProductionDirtiness(t *testing.T) {
@@ -86,12 +102,22 @@ func TestManifestRejectsUnknownDuplicateAndUnsupportedContracts(t *testing.T) {
 			manifest.SchemaVersion++
 			writeTypedManifest(t, root, manifest)
 		}, "unsupported workspace schemaVersion"},
-		{"unsupported source contract", func(t *testing.T, root string) {
+		{"old source contract", func(t *testing.T, root string) {
 			manifest := readTypedManifest(t, root)
-			manifest.SourceContract.Version++
+			manifest.SourceContract.Version = 1
 			writeTypedManifest(t, root, manifest)
 		}, "source contract is unsupported"},
-		{"unsupported editor gate", func(t *testing.T, root string) {
+		{"old editor gate contract", func(t *testing.T, root string) {
+			manifest := readTypedManifest(t, root)
+			manifest.EditorGateContract.Version = 1
+			writeTypedManifest(t, root, manifest)
+		}, "editor gate contract is unsupported"},
+		{"old two-component mutation proof", func(t *testing.T, root string) {
+			manifest := readTypedManifest(t, root)
+			manifest.EditorGateContract.MutationFormat = "<base64url-instanceId>:<completedGeneration>"
+			writeTypedManifest(t, root, manifest)
+		}, "editor gate contract is unsupported"},
+		{"unsupported editor gate rejection", func(t *testing.T, root string) {
 			manifest := readTypedManifest(t, root)
 			manifest.EditorGateContract.MutationRejections.Missing = 400
 			writeTypedManifest(t, root, manifest)

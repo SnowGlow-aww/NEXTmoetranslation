@@ -3,6 +3,9 @@ package filesvc
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -14,6 +17,7 @@ import (
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/lyricsdiscovery"
+	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
 )
@@ -28,6 +32,7 @@ func TestLyricsDiscoveryShadowCompletionHasNoAuthoritativeOrPublicSideEffects(t 
 	events := store.NewEventStore(database)
 	if err := translations.UpsertMusicCatalog([]store.MusicCatalogRecord{{
 		MusicID: 10, JapaneseTitle: "合成試験曲", ProducerMetadata: "制作者",
+		Lyricist: "制作者", Composer: "制作者", Arranger: "制作者", LyricsVersion: "full", LyricsVersionKnown: true,
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -74,11 +79,37 @@ func TestLyricsDiscoveryShadowCompletionHasNoAuthoritativeOrPublicSideEffects(t 
 	if err != nil || !ok {
 		t.Fatalf("claim ok=%t job=%+v err=%v", ok, job, err)
 	}
+	const fetchedAt = "2026-07-31T12:00:00Z"
+	const canonicalURL = "https://vocaloid.fandom.com/wiki/%E5%90%88%E6%88%90%E8%A9%A6%E9%A8%93%E6%9B%B2?oldid=34"
+	raw := []byte("== Lyrics ==\n合成歌詞")
+	mediaWikiSHA1 := fmt.Sprintf("%x", sha1.Sum(raw))
+	rawSHA256 := fmt.Sprintf("%x", sha256.Sum256(raw))
+	evidenceID := lyricssource.MediaWikiRevisionAcquisitionEvidenceID(
+		model.LyricsSourceProviderVocaloidFandom, "fetch:vocaloid-fandom:12", fetchedAt, rawSHA256,
+	)
+	evidence := lyricssource.IndexEvidence{
+		EvidenceID: evidenceID, SHA256: rawSHA256,
+		Kind:     lyricssource.IndexEvidenceKindMediaWikiRevision,
+		Provider: model.LyricsSourceProviderVocaloidFandom, Origin: model.LyricsSourceOriginVocaloidFandom,
+		PageID: 12, RevisionID: 34, MediaWikiSHA1: mediaWikiSHA1, Title: "合成試験曲",
+		CanonicalURL: canonicalURL, Categories: []string{"Songs"}, FetchedAt: fetchedAt,
+		Raw: append([]byte(nil), raw...), RawSHA256: rawSHA256,
+	}
+	artifact, err := lyricsdiscovery.MarshalCandidateArtifact([]lyricssource.Candidate{{
+		Provider: evidence.Provider, Origin: evidence.Origin, PageID: evidence.PageID, RevisionID: evidence.RevisionID,
+		SHA1: evidence.MediaWikiSHA1, Title: evidence.Title, CanonicalURL: evidence.CanonicalURL,
+		Categories: []string{"Songs"}, Section: "Lyrics", RenditionKey: "full-vocaloid",
+		VersionReason:     model.LyricsSourceVersionReasonUntaggedFullOnly,
+		IndexEvidenceRefs: []model.LyricsSourceIndexEvidenceRef{{EvidenceID: evidenceID, SHA256: rawSHA256}},
+		IndexEvidence:     []lyricssource.IndexEvidence{evidence},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := adapter.Complete(context.Background(), lyricsdiscovery.Completion{
 		JobID: job.ID, LeaseToken: job.LeaseToken, WorkerID: "shadow-proof", CompletedAt: time.Now().UTC(),
 		Result: lyricsdiscovery.Result{
-			Outcome: lyricsdiscovery.OutcomeCandidatesFound, CandidateCount: 1,
-			Artifact: []byte(`{"candidates":[{"pageId":12,"title":"合成試験曲","canonicalUrl":"https://vocaloid.fandom.com/wiki/Song?oldid=34","revisionId":34,"sha1":"0123456789abcdef0123456789abcdef01234567","categories":[]}]}`),
+			Outcome: lyricsdiscovery.OutcomeCandidatesFound, CandidateCount: 1, Artifact: artifact,
 		},
 	}); err != nil {
 		t.Fatal(err)

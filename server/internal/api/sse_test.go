@@ -384,6 +384,11 @@ func TestLyricsMutationsBroadcastCollaborationEvents(t *testing.T) {
 	}
 	assertNoEvent("noop unpublish")
 
+	// Structural edits must round-trip the server's explicit ruby representation;
+	// the earlier no-op save intentionally exercises the legacy omitted-ruby path.
+	if err := json.Unmarshal(savedBody, &savePayload); err != nil {
+		t.Fatal(err)
+	}
 	lines := savePayload["lines"].([]any)
 	segments := lines[0].(map[string]any)["segments"].([]any)
 	firstSegment := segments[0].(map[string]any)
@@ -391,9 +396,10 @@ func TestLyricsMutationsBroadcastCollaborationEvents(t *testing.T) {
 	savePayload["revision"] = 1
 	savePayload["clientId"] = "null-performers"
 	nullPerformers := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", savePayload)
+	nullPerformersBody, err := io.ReadAll(nullPerformers.Body)
 	nullPerformers.Body.Close()
-	if nullPerformers.StatusCode != http.StatusOK {
-		t.Fatalf("null performerIds save status=%d", nullPerformers.StatusCode)
+	if err != nil || nullPerformers.StatusCode != http.StatusOK {
+		t.Fatalf("null performerIds save status=%d body=%s err=%v", nullPerformers.StatusCode, nullPerformersBody, err)
 	}
 	await("null-performers", 2)
 

@@ -1,0 +1,327 @@
+{{NoReprint}}
+{{Song box 2
+  |color     = #FF88B0; color:#89DEE5
+  |image     = Treasure Garden.jpg
+  |title     = "'''トレジャーガーデン'''"
+* Romaji: Torejaa Gaaden
+* Official English: TREASURE GARDEN
+  |date      = September 15, 2025
+  |views     = {{v|nn|24,103}}, {{v|yt|229,652}}, and {{v|bb|20,000}}
+  |singers   = [[Hatsune Miku]]
+  |producers = Ponchi♪ (music, arrangement, lyrics)
+* Yumenouchi (illustration)
+* Yowane Hitori (video)
+  |links     = {{l|nn|sm45383270}} {{l|yt|RIpHyjsv_84}} {{l|bb|BV1KxHrzAEAA}}
+}}
+
+==Background==
+{{Quote|Just like how a tiny nut once seemed to shine,<br>
+or how a little flower by the roadside once gave us dreams,<br>
+we used to call those small, everyday moments of joy our “TREASURES.”<br>
+How many such treasures might be hidden in the vast garden of life?<br>
+I hope you’ll enjoy exploring this “TREASURE GARDEN” together with Chao and Hatsune Miku!|Author's comment}}
+"'''TREASURE GARDEN'''" is an original song by Ponchi♪ featuring Hatsune Miku. It is the fourth of five songs in the Project ONSOKU series, a collaboration project between Hatsune Miku and the racing game ''{{IW|sonic|Sonic Racing: CrossWorlds}}''.
+
+==Lyrics==
+<tabber>Japanese lyrics =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|いつか見た不思議な日の話
+|itsuka mita fushigi na hi no hanashi
+|-
+|1, 2, 3, 4
+|wan, tsu, san, shi
+|-
+|<br>
+|-
+|ぴかぴか木の実ひろって
+|pikapika kinomi hirotte
+|-
+|砂まみれのポケットにしまって
+|suna mamire no poketto ni shimatte
+|-
+|きれいなお花が咲いたらさ
+|kirei na ohana ga saitara sa
+|-
+|世界中のみんな笑ってくれるかな？
+|sekaijuu no minna waratte kureru ka na?
+|-
+|<br>
+|-
+|心がわくわくするから！
+|kokoro ga wakuwaku suru kara!
+|-
+|体がうずうずするから！
+|karada ga uzuuzu suru kara!
+|-
+|そこのちっちゃな妖精さん
+|soko no chiccha na yousei-san
+|-
+|ついてきて I need you
+|tsuite kite I need you
+|-
+|<br>
+|-
+|ひとりだけではつまんない！
+|hitori dake de wa tsumannai!
+|-
+|みんなといればこわくない！
+|minna to ireba kowakunai!
+|-
+|{{Shared}}|(Don't stop!! Yeah!!)
+|-
+|走りだしたらとまんない！
+|hashiridashitara tomannai!
+|-
+|みんな一緒に！
+|minna issho ni!
+|-
+|<br>
+|-
+|ここででっかい愛をうたいませんか？
+|koko de dekkai ai o utaimasen ka?
+|-
+|お天道様もニコッとしちゃうようなもんをさ！
+|otentosama mo nikotto shichau you na mon o sa!
+|-
+|そこにいっぱい種をまきませんか？
+|soko ni ippai tane o makimasen ka?
+|-
+|そしたらさ きっとHAPPYじゃん？
+|soshitara sa kitto HAPPY jan?
+|-
+|そしたらさ みんなHAPPYじゃん！
+|soshitara sa minna HAPPY jan!
+|-
+|<br>
+|-
+|{{Shared}}|({{IW|Sonic|Escape from the City|Follow me!}})
+|-
+|{{Shared}}|({{IW|Sonic|Escape from the City|Oh yeah!}})
+|-
+|<br>
+|-
+|どうやって生きますか？
+|dou yatte ikimasu ka?
+|-
+|すきなものがちゃんとありますか？
+|suki na mono ga chanto arimasu ka?
+|-
+|すきなものに「×」をかいてばっかで
+|suki na mono ni "batsu" o kaite bakka de
+|-
+|当たり前だと思ってませんか？
+|atarimae da to omottemasen ka?
+|-
+|<br>
+|-
+|どうやって生きますか？
+|dou yatte ikimasu ka?
+|-
+|志はちゃんとありますか？
+|kokorozashi wa chanto arimasu ka?
+|-
+|その気持ちをちゃんとSAVE SAVEし
+|sono kimochi o chanto SAVE SAVE shi
+|-
+|頑なにRock on!!
+|kataku na ni Rock on!!
+|-
+|<br>
+|-
+|どんな大人になれるのでしょう？
+|donna otona ni nareru no deshou?
+|-
+|十人十色の花を咲かそう
+|juunintoiro no hana o sakasou
+|-
+|<br>
+|-
+|ここにでっかい愛がありませんか？
+|koko ni dekkai ai ga arimasen ka?
+|-
+|お天道様もニコッとしちゃうようなもんがさ！
+|otentosama mo nikotto shichau you na mon ga sa!
+|-
+|そこにいっぱいお水をあげませんか？
+|soko ni ippai o mizu o agemasen ka?
+|-
+|そしたらさ きっとHAPPYじゃん！
+|soshitara sa kitto HAPPY jan!
+|-
+|<br>
+|-
+|ここででっかい愛をうたいませんか？
+|koko de dekkai ai o utaimasen ka?
+|-
+|<br>
+|-
+|ここにいっぱい愛が溢れたら
+|koko ni ippai ai ga afuretara
+|-
+|そしたらさ きっと綺麗じゃん！
+|soshitara sa kitto kirei jan!
+|-
+|そしたらさ みんなHAPPYじゃん！
+|soshitara sa minna HAPPY jan!
+|-
+|<br>
+|-
+|キミと La La La
+|kimi to La La La
+|-
+|気持ち High High High
+|kimochi High High High
+|-
+|踊れ Dance Dance Dance
+|odore Dance Dance Dance
+|-
+|ここで笑ってたいだけ
+|koko de warattetai dake
+|-
+|<br>
+|-
+|キミと La La La
+|kimi to La La La
+|-
+|気持ち High High High
+|kimochi High High High
+|-
+|踊れ Dance Dance Dance
+|odore Dance Dance Dance
+|-
+|今を笑ってたいだけ
+|ima o warattetai dake
+|-
+|<br>
+|-
+|世界中のみんなと笑ってたいだけ！
+|sekaijuu no minna to warattetai dake!
+|}
+|-|Official English lyrics =
+{{Translation|jpn|official English|Producer}}
+<poem style="margin-left:1em;">
+Once upon a time, on a wondrous day I saw...
+1, 2, 3, 4
+
+Picked up a shiny little nut,
+slipped it in my sandy pocket.
+When a pretty flower blooms,
+will the whole world smile along with me?
+
+My heart is bubbling with excitement!
+My body's itching, can't sit still!
+Hey, little fairy over there,
+come with me — I need you!
+
+It's not fun being all alone!
+When we're together, nothing's scary!
+(Dont' stop!! Yeah!!)
+Once we start running, there's not stopping!
+Let's all go together!
+
+Shall we sing out a great big love right here?
+Something that makes even the sun grin wide!
+Shall we plant a bunch of seeds right there?
+Then surely, we'll all be HAPPY!
+then surely, everyone's HAPPY!
+
+How do you want to live your life?
+Do you still have things you truly love?
+Don't just keep marking X's through them,
+don't take them for granted!
+
+How do you want to live your life?
+Do you still have a dream you hold inside?
+Save it, keep it safe, SAVE SAVE it,
+and stubbornly, ROCK ON!!
+
+What kind of grown-up will we become?
+Let's bloom a rainbow of flowers, one for each of us.
+
+Isn't there a great big love right here?
+Something that makes even the sun smile bright!
+Shall we pour in plenty of water there?
+Then surely, we'll all be HAPPY!
+
+Shall we sing out a great big love right here?
+
+When this place overflows with love,
+then surely, it'll be beautiful!
+Then surely, everyone's HAPPY!
+
+With you, La La La
+feeling High High High!
+Let's Dance, Dance, Dance,
+I just wanna keep on smiling here!
+
+With you, La La La
+feeling High High High!
+Let's Dance, Dance, Dance,
+I just wanna keep on smiling now!
+
+I just wanna smile with everyone all around the world!
+</poem>
+</tabber>
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* ''トレジャーガーデン (Treasure Garden)''
+* ''Smilin’''
+
+===Video games===
+This song was featured in the following video games:
+* ''{{IW|sonic|Sonic Racing: CrossWorlds}}''
+* ''{{IW|chunithm||CHUNITHM X-VERSE}}''
+* ''{{IW|maimai||maimai Deluxe CiRCLE}}''
+* ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''
+* ''{{IW|initiald|Initial D The Arcade}}'' (Project ONSOKU Collaboration)
+* ''{{IW|ongeki||O.N.G.E.K.I. Re:Fresh}}''
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="#FF88B0">
+Ponchi - TREASURE GARDEN (single).jpg|Cover art of the digital single<br>''トレジャーガーデン (Treasure Garden)'', also featured as the music jacket in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |web   = [https://sonic.sega.jp/SonicRacingCrossWorlds/special/onsoku-project/ Project ONSOKU]
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.co.jp/dp/B0FPWM6NTR/ Amazon Music]
+** [https://music.amazon.co.jp/albums/B0FPWPT1X8 Amazon Music Unlimited]
+** [https://music.apple.com/jp/album/treasure-garden-single/1837603628 Apple Music]
+** [https://s.awa.fm/album/2fc9d0f21822304bda46 AWA]
+** [https://karent.jp/album/5124 KARENT]
+** [https://www.kkbox.com/jp/ja/album/X-l-Fw9J0SAEk_sKx4 KKBOX]
+** [https://music.line.me/webapp/album/mb0000000004a790e9 LINE MUSIC]
+** [https://segajp.lnk.to/srcwon4 Linkfire]
+** [https://mora.jp/package/43000018/KRHS-61153/ mora]
+** [https://mysound.jp/song/13555209/ mysound]
+** [https://nodee.net/a/hxx4cek3uk65 nodee]
+** [https://music.oricon.co.jp/php/cd/CdTop.php?cd=SPC06910850 Oricon Music Store]
+** [https://ototoy.jp/_/default/p/3030473 OTOTOY]
+** [https://music.youtube.com/playlist?list=OLAK5uy_miX0nml0C909cg1aEVd5i94iAcPp26gNw YouTube Music]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 68338
+  |nico   = sm45383270
+  |vocadb = 839420
+  |mgp    = Treasure_Garden
+  |tag    = トレジャーガーデン
+  |vlw    = トレジャーガーデン (TREASURE GARDEN)
+  |url    = {{IW|sonic|Treasure Garden|Sonic Wiki Zone}}
+* {{IW|projectsekai|TREASURE GARDEN|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]

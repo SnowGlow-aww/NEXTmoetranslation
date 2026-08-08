@@ -12,6 +12,7 @@ import (
 
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/lyricsdiscovery"
+	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
 )
 
@@ -32,6 +33,16 @@ func openLyricsDiscoveryAdapter(t *testing.T) (*LyricsDiscoveryAdapter, *Store, 
 
 func seedLyricsDiscoveryCatalog(t *testing.T, store *Store, records ...MusicCatalogRecord) {
 	t.Helper()
+	for index := range records {
+		if !musicCatalogEvidenceSpecified(records[index]) {
+			producer := strings.TrimSpace(records[index].ProducerMetadata)
+			records[index].Lyricist = producer
+			records[index].Composer = producer
+			records[index].Arranger = producer
+			records[index].LyricsVersion = "full"
+			records[index].LyricsVersionKnown = true
+		}
+	}
 	if err := store.UpsertMusicCatalog(records); err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +106,66 @@ func TestLyricsDiscoveryAdapterScansFullCatalogAndDeduplicatesGeneration(t *test
 	}
 }
 
+func TestLyricsDiscoveryAdapterScansGameSizeOnlyWorkOnceAtLowestMusicID(t *testing.T) {
+	adapter, store, database := openLyricsDiscoveryAdapter(t)
+	seedLyricsDiscoveryCatalog(t, store,
+		MusicCatalogRecord{MusicID: 41, JapaneseTitle: "合成試験曲", Lyricist: "制作者", Composer: "制作者", Arranger: "制作者", LyricsVersion: "game_size", LyricsVersionKnown: true},
+		MusicCatalogRecord{MusicID: 7, JapaneseTitle: "合成試験曲", Lyricist: "制作者", Composer: "制作者", Arranger: "制作者", LyricsVersion: "game_size", LyricsVersionKnown: true},
+	)
+	result, err := adapter.Scan(context.Background(), lyricsdiscovery.ScanRequest{WorkerID: "worker", Now: time.Now().UTC()})
+	if err != nil || result.Scheduled != 1 {
+		t.Fatalf("scan=%+v err=%v", result, err)
+	}
+	var musicID, jobs, reviews int
+	if err := database.QueryRow(`SELECT COUNT(*), MIN(music_id) FROM lyrics_discovery_jobs`).Scan(&jobs, &musicID); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM lyrics_source_review_items`).Scan(&reviews); err != nil {
+		t.Fatal(err)
+	}
+	if jobs != 1 || musicID != 7 || reviews != 0 {
+		t.Fatalf("jobs=%d anchor=%d reviews=%d", jobs, musicID, reviews)
+	}
+}
+
+func TestLyricsDiscoveryAdapterGameSizeOnlyFailClosedCatalogsRemainReview(t *testing.T) {
+	for name, records := range map[string][]MusicCatalogRecord{
+		"missing credits": {
+			{MusicID: 7, JapaneseTitle: "合成試験曲", Composer: "制作者", Arranger: "制作者", LyricsVersion: "game_size", LyricsVersionKnown: true},
+		},
+		"conflicting credits": {
+			{MusicID: 7, JapaneseTitle: "合成試験曲", Lyricist: "制作者甲", Composer: "制作者", Arranger: "制作者", LyricsVersion: "game_size", LyricsVersionKnown: true},
+			{MusicID: 41, JapaneseTitle: "合成試験曲", Lyricist: "制作者乙", Composer: "制作者", Arranger: "制作者", LyricsVersion: "game_size", LyricsVersionKnown: true},
+		},
+		"unknown version": {
+			{MusicID: 7, JapaneseTitle: "合成試験曲", Lyricist: "制作者", Composer: "制作者", Arranger: "制作者", LyricsVersion: "", LyricsVersionKnown: false, Vocals: []model.CatalogVocalSignal{{VocalID: 1}}},
+		},
+		"multiple full": {
+			{MusicID: 7, JapaneseTitle: "合成試験曲", Lyricist: "制作者", Composer: "制作者", Arranger: "制作者", LyricsVersion: "full", LyricsVersionKnown: true},
+			{MusicID: 41, JapaneseTitle: "合成試験曲", Lyricist: "制作者", Composer: "制作者", Arranger: "制作者", LyricsVersion: "full", LyricsVersionKnown: true},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			adapter, store, database := openLyricsDiscoveryAdapter(t)
+			seedLyricsDiscoveryCatalog(t, store, records...)
+			result, err := adapter.Scan(context.Background(), lyricsdiscovery.ScanRequest{WorkerID: "worker", Now: time.Now().UTC()})
+			if err != nil || result.Scheduled != 0 {
+				t.Fatalf("scan=%+v err=%v", result, err)
+			}
+			var jobs, reviews int
+			if err := database.QueryRow(`SELECT COUNT(*) FROM lyrics_discovery_jobs`).Scan(&jobs); err != nil {
+				t.Fatal(err)
+			}
+			if err := database.QueryRow(`SELECT COUNT(*) FROM lyrics_source_review_items`).Scan(&reviews); err != nil {
+				t.Fatal(err)
+			}
+			if jobs != 0 || reviews != len(records) {
+				t.Fatalf("jobs=%d reviews=%d want reviews=%d", jobs, reviews, len(records))
+			}
+		})
+	}
+}
+
 func TestLyricsDiscoveryAdapterScanRollsBackWholeCatalogOnEnqueueFailure(t *testing.T) {
 	adapter, store, database := openLyricsDiscoveryAdapter(t)
 	seedLyricsDiscoveryCatalog(t, store,
@@ -129,7 +200,7 @@ func TestLyricsDiscoveryAdapterClaimMapsCatalogAndFence(t *testing.T) {
 	})
 	job := scanAndClaimLyricsDiscovery(t, adapter, "worker-a")
 	if job.ID == "" || job.LeaseToken == "" || job.Attempt != 1 || job.MusicID != 10 ||
-		job.JapaneseTitle != "合成試験曲" || job.ProducerMetadata != "制作者" {
+		job.JapaneseTitle != "合成試験曲" || !strings.Contains(job.ProducerMetadata, "制作者") {
 		t.Fatalf("mapped job=%+v", job)
 	}
 	storedID, version, err := parseLyricsDiscoveryLease(job.ID, job.LeaseToken, "worker-a")
@@ -142,16 +213,52 @@ func TestLyricsDiscoveryAdapterClaimMapsCatalogAndFence(t *testing.T) {
 	}
 }
 
+func TestLyricsDiscoveryAdapterClaimPropagatesCatalogPerformerSegmentationPolicy(t *testing.T) {
+	for name, test := range map[string]struct {
+		vocals []model.CatalogVocalSignal
+		want   lyricssource.PerformerSegmentationPolicy
+	}{
+		"sekai rendition": {
+			vocals: []model.CatalogVocalSignal{{VocalID: 1, VocalType: "sekai"}},
+			want:   lyricssource.PerformerSegmentationSekaiEligible,
+		},
+		"virtual singer only": {
+			vocals: []model.CatalogVocalSignal{{VocalID: 2, VocalType: "original_song", CharacterType: "virtual_singer"}},
+			want:   lyricssource.PerformerSegmentationDisabled,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			adapter, store, _ := openLyricsDiscoveryAdapter(t)
+			seedLyricsDiscoveryCatalog(t, store, MusicCatalogRecord{
+				MusicID: 10, JapaneseTitle: "合成試験曲", Lyricist: "制作者", Composer: "制作者",
+				LyricsVersion: "full", LyricsVersionKnown: true, Vocals: test.vocals,
+			})
+			job := scanAndClaimLyricsDiscovery(t, adapter, "worker")
+			if job.PerformerSegmentationPolicy != test.want {
+				t.Fatalf("performer segmentation policy=%q want=%q", job.PerformerSegmentationPolicy, test.want)
+			}
+		})
+	}
+}
+
 func TestLyricsDiscoveryAdapterCompleteIsAtomicAndFenced(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		adapter, store, database := openLyricsDiscoveryAdapter(t)
 		seedLyricsDiscoveryCatalog(t, store, MusicCatalogRecord{MusicID: 10, JapaneseTitle: "合成試験曲", ProducerMetadata: "制作者"})
 		job := scanAndClaimLyricsDiscovery(t, adapter, "worker-a")
+		candidate := testRevisionCandidate(
+			model.LyricsSourceProviderVocaloidFandom, 12, 34, "合成試験曲", []string{"Lyrics"},
+			"Lyrics", "full-vocaloid", model.LyricsSourceVersionReasonUntaggedFullOnly, []byte("test candidate source"),
+		)
+		artifact := mustTestCandidateArtifact(t, []lyricssource.Candidate{candidate})
+		storedArtifact, err := canonicalStoredLyricsDiscoveryArtifact([]lyricssource.Candidate{candidate})
+		if err != nil {
+			t.Fatal(err)
+		}
 		completion := lyricsdiscovery.Completion{
 			JobID: job.ID, LeaseToken: job.LeaseToken, WorkerID: "worker-a", CompletedAt: time.Now().UTC(),
 			Result: lyricsdiscovery.Result{
-				Outcome: lyricsdiscovery.OutcomeCandidatesFound, CandidateCount: 1,
-				Artifact: []byte(`{"candidates":[{"pageId":12,"revisionId":34}]}`),
+				Outcome: lyricsdiscovery.OutcomeCandidatesFound, CandidateCount: 1, Artifact: artifact,
 			},
 		}
 		if err := adapter.Complete(context.Background(), completion); err != nil {
@@ -166,7 +273,7 @@ func TestLyricsDiscoveryAdapterCompleteIsAtomicAndFenced(t *testing.T) {
 			t.Fatal(err)
 		}
 		if state != model.LyricsDiscoveryJobSucceeded || outcome != string(lyricsdiscovery.OutcomeCandidatesFound) ||
-			candidateCount != 1 || resultJSON != string(completion.Result.Artifact) {
+			candidateCount != 1 || resultJSON != string(storedArtifact) {
 			t.Fatalf("completion state=%q outcome=%q count=%d json=%s", state, outcome, candidateCount, resultJSON)
 		}
 		if err := adapter.Complete(context.Background(), completion); !errors.Is(err, ErrLyricsDiscoveryJobTerminal) {
@@ -184,7 +291,7 @@ func TestLyricsDiscoveryAdapterCompleteIsAtomicAndFenced(t *testing.T) {
 		}
 		err := adapter.Complete(context.Background(), lyricsdiscovery.Completion{
 			JobID: job.ID, LeaseToken: job.LeaseToken, WorkerID: "worker-a", CompletedAt: time.Now().UTC(),
-			Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: []byte(`{"candidates":[]}`)},
+			Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: mustEmptyTestCandidateArtifact(t)},
 		})
 		if err == nil || !strings.Contains(err.Error(), "injected completion failure") {
 			t.Fatalf("completion rollback error=%v", err)
@@ -204,11 +311,16 @@ func TestLyricsDiscoveryAdapterCompleteIsAtomicAndFenced(t *testing.T) {
 }
 
 func TestLyricsDiscoveryAdapterRejectsInvalidShadowResultWithoutTransition(t *testing.T) {
+	emptyArtifact := mustEmptyTestCandidateArtifact(t)
+	candidateArtifact := mustTestCandidateArtifact(t, []lyricssource.Candidate{testRevisionCandidate(
+		model.LyricsSourceProviderVocaloidFandom, 12, 34, "合成試験曲", []string{"Lyrics"},
+		"Lyrics", "full-vocaloid", model.LyricsSourceVersionReasonUntaggedFullOnly, []byte("test candidate source"),
+	)})
 	for name, result := range map[string]lyricsdiscovery.Result{
 		"duplicate JSON key":  {Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: []byte(`{"candidates":[],"candidates":[]}`)},
 		"array artifact":      {Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: []byte(`[]`)},
-		"found count zero":    {Outcome: lyricsdiscovery.OutcomeCandidatesFound, Artifact: []byte(`{"candidates":[]}`)},
-		"ambiguous count one": {Outcome: lyricsdiscovery.OutcomeAmbiguous, CandidateCount: 1, Artifact: []byte(`{"candidates":[{}]}`)},
+		"found count zero":    {Outcome: lyricsdiscovery.OutcomeCandidatesFound, Artifact: emptyArtifact},
+		"ambiguous count one": {Outcome: lyricsdiscovery.OutcomeAmbiguous, CandidateCount: 1, Artifact: candidateArtifact},
 	} {
 		t.Run(name, func(t *testing.T) {
 			adapter, store, database := openLyricsDiscoveryAdapter(t)
@@ -279,11 +391,12 @@ func TestLyricsDiscoveryAdapterRetryAndTerminalFailureSemantics(t *testing.T) {
 }
 
 func TestLyricsDiscoveryAdapterStaleLeaseRejectsEveryTerminalMutation(t *testing.T) {
+	emptyArtifact := mustEmptyTestCandidateArtifact(t)
 	for name, mutate := range map[string]func(*LyricsDiscoveryAdapter, lyricsdiscovery.Job) error{
 		"complete": func(adapter *LyricsDiscoveryAdapter, job lyricsdiscovery.Job) error {
 			return adapter.Complete(context.Background(), lyricsdiscovery.Completion{
 				JobID: job.ID, LeaseToken: job.LeaseToken, WorkerID: "wrong-worker", CompletedAt: time.Now().UTC(),
-				Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: []byte(`{"candidates":[]}`)},
+				Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: emptyArtifact},
 			})
 		},
 		"retry": func(adapter *LyricsDiscoveryAdapter, job lyricsdiscovery.Job) error {
@@ -341,7 +454,7 @@ func TestLyricsDiscoveryAdapterRejectsExpiredLeaseWithoutResultOrTransition(t *t
 			case "complete":
 				mutateErr = adapter.Complete(context.Background(), lyricsdiscovery.Completion{
 					JobID: job.ID, LeaseToken: job.LeaseToken, WorkerID: "worker-a", CompletedAt: now,
-					Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: []byte(`{"candidates":[]}`)},
+					Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: mustEmptyTestCandidateArtifact(t)},
 				})
 			case "retry":
 				mutateErr = adapter.Retry(context.Background(), lyricsdiscovery.Retry{
@@ -393,11 +506,12 @@ func TestLyricsDiscoveryAdapterShadowCompletionRechecksExpiryAfterWriterWait(t *
 		_ = blocker.Rollback()
 		t.Fatal(err)
 	}
+	emptyArtifact := mustEmptyTestCandidateArtifact(t)
 	result := make(chan error, 1)
 	go func() {
 		result <- adapter.Complete(context.Background(), lyricsdiscovery.Completion{
 			JobID: strconv.FormatInt(claimed.ID, 10), LeaseToken: encodeLyricsDiscoveryLeaseToken(claimed.Version), WorkerID: "worker",
-			CompletedAt: time.Now().UTC(), Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: []byte(`{"candidates":[]}`)},
+			CompletedAt: time.Now().UTC(), Result: lyricsdiscovery.Result{Outcome: lyricsdiscovery.OutcomeNoCandidates, Artifact: emptyArtifact},
 		})
 	}()
 	time.Sleep(time.Until(claimed.LeaseExpiresAt) + 75*time.Millisecond)
@@ -421,7 +535,7 @@ func TestLyricsDiscoveryAdapterClaimLeavesOtherKindsUntouched(t *testing.T) {
 	adapter, store, database := openLyricsDiscoveryAdapter(t)
 	seedLyricsDiscoveryCatalog(t, store, MusicCatalogRecord{MusicID: 10, JapaneseTitle: "合成試験曲", ProducerMetadata: "制作者"})
 	other := enqueueLyricsDiscoveryJob(t, store, model.LyricsDiscoveryJobFetchRevision,
-		model.LyricsDiscoveryJobTarget{MusicID: 10, PageID: 20, RevisionID: 30}, 3)
+		fetchTarget(10, 20, 30), 3)
 	if _, err := adapter.Scan(context.Background(), lyricsdiscovery.ScanRequest{WorkerID: "worker-a", Now: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}

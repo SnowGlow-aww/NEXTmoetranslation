@@ -78,6 +78,14 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	correlatedResponse := false
+	if values, present := r.URL.Query()["response"]; present {
+		if len(values) != 1 || values[0] != "correlated-v1" {
+			writeErr(w, http.StatusBadRequest, "unsupported entry response contract")
+			return
+		}
+		correlatedResponse = true
+	}
 	var req struct {
 		Category string `json:"category"`
 		Field    string `json:"field"`
@@ -143,6 +151,25 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 			event = sse.EventEntryLocaleUpdated
 		}
 		s.broadcast(event, payload)
+	}
+	if correlatedResponse {
+		response := struct {
+			Status   string `json:"status"`
+			Category string `json:"category"`
+			Field    string `json:"field"`
+			Key      string `json:"key"`
+			Text     string `json:"text"`
+			Source   string `json:"source"`
+			Locale   string `json:"locale,omitempty"`
+		}{
+			Status: status, Category: req.Category, Field: req.Field, Key: req.Key,
+			Text: req.Text, Source: req.Source,
+		}
+		if explicit {
+			response.Locale = locale
+		}
+		writeJSON(w, http.StatusOK, response)
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": status})
 }

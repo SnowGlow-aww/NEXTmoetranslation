@@ -56,9 +56,10 @@ type Status struct {
 	LastError      string         `json:"lastError,omitempty"`
 }
 
-// Worker owns one scanner/consumer loop. Drain closes admission to Scan and
-// Claim while allowing a currently claimed job to finish. Cancel interrupts
-// waits and in-flight discovery. Wait joins every worker goroutine.
+// Worker owns one scanner and a bounded set of consumer loops. Drain closes
+// admission to Scan and Claim while allowing already claimed jobs to finish.
+// Cancel interrupts waits and in-flight discovery. Wait joins every worker
+// goroutine.
 type Worker struct {
 	store     Store
 	discovery Discovery
@@ -78,6 +79,7 @@ type Worker struct {
 	draining    bool
 	canceled    bool
 	status      Status
+	workerWG    sync.WaitGroup
 }
 
 func New(store Store, discovery Discovery, opts Options) (*Worker, error) {
@@ -162,9 +164,9 @@ func (w *Worker) Drain() {
 	}
 	w.mu.Unlock()
 
-	// Wait for a Scan or Claim admitted before the drain marker to leave its
-	// store call. The marker is closed first so the loop cannot win the mutex and
-	// admit a later call while Drain is waiting.
+	// Wait only for a Scan or Claim admitted before the drain marker to leave its
+	// store call. Already claimed jobs keep running during the remaining graceful
+	// shutdown window; Wait joins them after Cancel if that window expires.
 	w.admissionMu.Lock()
 	w.admissionMu.Unlock()
 }
@@ -215,6 +217,7 @@ func (w *Worker) Status() Status {
 
 func (w *Worker) run() {
 	defer func() {
+		w.workerWG.Wait()
 		w.mu.Lock()
 		if w.canceled {
 			w.state = StateCanceled
@@ -231,32 +234,33 @@ func (w *Worker) run() {
 	if !w.scanAndRecord() {
 		return
 	}
+	for index := 0; index < w.opts.Concurrency; index++ {
+		w.workerWG.Add(1)
+		go w.consume()
+	}
 	nextScan := w.clock.Now().Add(w.opts.ScanInterval)
 	for {
 		if w.admissionClosed() {
 			return
 		}
-		if !w.claimAndRun() {
-			return
-		}
-		if w.admissionClosed() {
-			return
-		}
-		now := w.clock.Now()
-		if !now.Before(nextScan) {
-			if !w.scanAndRecord() {
-				return
-			}
-			nextScan = w.clock.Now().Add(w.opts.ScanInterval)
-		}
-		wait := w.opts.IdleWait
-		if untilScan := nextScan.Sub(w.clock.Now()); untilScan < wait {
-			wait = untilScan
-		}
+		wait := nextScan.Sub(w.clock.Now())
 		if wait < 0 {
 			wait = 0
 		}
 		if !w.wait(wait) {
+			return
+		}
+		if !w.scanAndRecord() {
+			return
+		}
+		nextScan = w.clock.Now().Add(w.opts.ScanInterval)
+	}
+}
+
+func (w *Worker) consume() {
+	defer w.workerWG.Done()
+	for {
+		if w.admissionClosed() || !w.claimAndRun() || !w.wait(w.opts.IdleWait) {
 			return
 		}
 	}
@@ -521,7 +525,8 @@ func validResult(result Result) bool {
 	if result.Outcome == OutcomeAmbiguous && result.CandidateCount <= 1 {
 		return false
 	}
-	return true
+	candidates, err := DecodeCandidateArtifact(result.Artifact)
+	return err == nil && len(candidates) == result.CandidateCount
 }
 
 func cloneResult(result Result) Result {

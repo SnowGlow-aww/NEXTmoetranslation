@@ -1,0 +1,290 @@
+{{Questionable}}
+{{Epileptic Warning}}
+{{NoReprint|This applies to the Chinese version of the song}}
+{{Song box 2
+  |color     = #FCFCFC; color:#E04978
+  |image     = Copycat by CircusP.png
+  |title     = "'''Copycat'''"
+  |date      = May 13, 2016
+  |views     = {{v|nn|279,028}}, {{v|yt|42,473,188}}, and {{v|sc|3,440,000}}
+  |singers   = [[Megpoid English| V3 GUMI English]]
+  |producers = [[CircusP/2010+|CircusP]] (music, lyrics)
+* Sleppu (illust)
+  |links     = {{l|nn|sm28868044}} {{l|yt|Q_QEPrkwZ-Q}} {{l|sc|circusp/gumi-english-copycat-original-song}} {{l|bc|circus-p copycat}}
+}}
+
+==Background==
+{{Quote|Imitation is the highest form of flattery...right?|CircusP}}
+"'''Copycat'''" is an EDM, electro-house, melodic house song by CircusP, featuring GUMI V3 English. It is one of his most notable songs, along with being one of GUMI's most notable English songs and one of her most notable songs overall. This song has entered the [[Hall of Fame|''Hall'' ''of'' ''Fame'']].
+
+A popular theory is that it seems to be about a person having problems with their identity, whose point of view is portrayed by GUMI. In GUMI's mirror, the silhouettes of other VOCALOIDs (Miku, MEIKO, Rin, Luka) are reflected and GUMI's facial expressions change according to them. However, when it shows GUMI's own silhouette, her face is blank, implying that she only copies the personalities of others and lacks one of herself. She may be doing this because she thinks that her significant other likes other people and tries to "mirror" them so her significant other will like her more. CircusP stated that while the information may not be official, the meaning is up to interpretation.<ref>[https://x.com/VocaCircus/status/968529886288719872 CircusP's Tweet]</ref> The song is connected to [[Can't Stand You]] despite not being a prequel.
+
+In September 2024, CircusP released a self cover of Copycat utilizing GUMI's Synthesizer V AI database, titled ''Copycat (SV Version)''.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = Copycat but every other beat is missing
+  |singers     = GUMI
+  |producers   = CircusP
+  |categories  = Miscellaneous
+  |links       = sc circusp/copycat-but-every-other-beat-is-missing
+}}
+{{Derivative
+  |color       = mo qingxian
+  |title       = Chinese Version
+  |singers     = [[Mo Qingxian]]
+  |producers   = CircusP (illust, video), [[Daiku LN]] (Chinese language adaption)
+  |categories  = VOCALOID Cover; Alternative Language
+  |links       = yt IPv0tqLN_0Y; bb BV1ro4y1y7r2
+}}
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = SV Version
+  |singers     = {{SVW|GUMI|GUMI SV}}
+  |producers   = CircusP
+  |categories  = Synthesizer V Cover; Album-exclusive Content
+  |description = Featured exclusively on the single ''Copycat (SV Version)''.
+  |links       = yt SC6RIp3-OCQ
+}}
+{{clr}}
+
+==Lyrics==
+<poem style="margin-left:1em;">
+Say, "Hello,
+Who are you?"
+And we'll start
+from scratch again
+"Gotta go,
+Talk to you soon!"
+Day by day, I'm fading away
+
+We get along just fine
+I say everything you like to hear
+"It's funny how much I
+Feel like I'm looking in a mirror"
+
+I can't remember...
+Who I am...
+Everything's a blur...
+Take me over...
+
+I'LL BECOME WHAT YOU LIKE
+THIS IS WHAT YOU'VE WANTED,
+RIGHT!?
+SACRIFICE ALL I KNOW
+I WILL TEACH MYSELF TO LET GO
+
+Woah, woah
+COPY THAT, COPYCAT
+Woah, woah
+COPY THAT, COPYCAT
+
+Say "Hello,
+what's up with you?"
+I'm starting to
+Talk like you do
+Here we go
+I'll be gone soon
+Day by day,
+Everything has changed
+
+We've grown apart this time
+I can't figure out the reason why
+"It's funny how much I'd
+Kinda like to see you cry."
+
+I can't remember...
+Who I am...
+Everything's a blur...
+Take me over
+
+I'VE BECOME WHAT YOU LIKE
+I AM WHAT YOU'VE WANTED,
+RIGHT?!
+SACRIFICED ALL I'VE KNOWN
+I HAVE TAUGHT MYSELF TO LET GO
+
+Woah, woah
+COPY THAT, COPYCAT
+Woah, woah
+COPY THAT, COPYCAT
+Woah, woah
+COPY THAT, COPYCAT
+Woah, woah
+COPY THAT, COPYCAT
+
+I can't remember
+who I am
+everything's a blur
+take me over
+
+I'll become what you like
+this is what you've wanted...right?
+sacrifice all I know
+I will teach myself to let go
+
+(WHOA, WHOA...)
+COPY THAT, COPYCAT
+(WHOA, WHOA...)
+COPY THAT, COPYCAT
+(WHOA, WHOA...)
+COPY THAT, COPYCAT
+(WHOA, WHOA...)
+COPY THAT, COPYCAT
+(WHOA, WHOA...)
+COPY THAT, COPYCAT
+(WHOA, WHOA...)
+COPY THAT, COPYCAT
+</poem>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{Derivative
+  |color       = fukase
+  |title       = Rinmaru's Cover ft. Fukase
+  |singers     = [[Fukase]]
+  |producers   = Rinmaru (tuning, mixing), CircusP (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt z_EWhpoEWPQ
+}}
+{{Derivative
+  |color       = dex
+  |title       = Seiza's Cover ft. DEX
+  |singers     = [[DEX]]
+  |producers   = Seiza (tuning, mixing), lʌntєrn (harmonies), PoisonicPen (illust, video), CircusP (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt cLOKvJUl2iM; sc vocaseiza/dex-copycat-vocaloid-cover
+}}
+  |utau = 
+{{Derivative
+  |color       = utau
+  |title       = Kiku's Cover ft. Mani Hatsu
+  |singers     = {{UW|Mani Hatsu}} ENG
+  |producers   = Kiku (illust), CircusP (VSQx)
+  |categories  = UTAU Cover
+  |links       = yt 3SufI51X6Mk
+}}
+{{Derivative
+  |color       = utau
+  |title       = Aku P's Spanish Cover ft. Mike
+  |singers     = Mike
+  |producers   = [[Aku P]] (tuning, mixing, UST), CircusP (VSQx), Akairojhon (mixing adjustment), Utau Kenji (subtitles)
+  |categories  = UTAU Cover; Alternative Language
+  |links       = yt tMg3I2Zby3M
+}}
+{{Derivative
+  |color       = utau
+  |title       = Utau Kenji's Spanish Cover ft. Kokune Ruo
+  |singers     = {{UW|Kokune Ruo}}
+  |producers   = Utau Kenji (tuning, illust), Aku P (UST)
+  |categories  = UTAU Cover; Alternative Language
+  |links       = yt 35RTCkRjokM
+}}
+  |human = 
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = Fokushi's Cover
+  |singers     = {{UIW|Fokushi}}
+  |producers   = Fokushi (mixing), Raeyxia (illust), shana (animation)
+  |categories  = Human Cover
+  |links       = yt LJ01Jk067sA
+}}
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = JubyPhonic's Cover
+  |singers     = {{UIW|JubyPhonic}}
+  |producers   = JubyPhonic (mixing)
+  |categories  = Human Cover
+  |links       = yt QGjA23kXsCU; sc jubyphonic-p/copycat-cover
+  |comments    = ; Deleted
+}}
+{{derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = Sati Akura's Russian Cover
+  |singers     = Sati Akura
+  |producers   = Elli (Russian lyrics, video), Audio Neko (remix, mix), Milky My (remix), Sati Akura (mix), Raspis (artwork)
+  |categories  = Human Cover; Alternative Language; Remix; Fanmade PV
+  |links       = yt 3oZ0re2vNHw
+}}
+  |arrangement = 
+{{Derivative
+  |color       = #FCFCFC; color:#E04978|thumb = yt
+  |title       = Yunosuke Remix
+  |singers     = GUMI
+  |producers   = [[KIRA]] (arrangement), kura (illust)
+  |categories  = Arrangement
+  |links       = nn sm29080136; yt N6NUJ73xExY; sc bass_ynk/copycat_yrmx
+}}
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = Dima Lancaster's Arranged Cover
+  |producers   = Dima Lancaster (vocals, arrangement)
+  |categories  = Arrangement; Human Cover
+  |links       = yt nHeigehBDf8
+}}
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = javomashup's COPYCAT x Copy Cat x Copycat Mashup
+  |producers   = javomashup (arrangement), Billie Eilish (vocals of COPYCAT), Melanie Martinez (vocals of Copy Cat), CircusP (producer of Copycat ft. GUMI)
+  |categories  = Arrangement
+  |links       = yt XI6i45NeLrw
+}}
+  |more = 
+{{Derivative
+  |color       = #FCFCFC; color:#E04978
+  |title       = "Wildfire/Copycat" Remix
+  |singers     = {{UIW|Lollia}}
+  |producers   = Sleeping Fores (arrangement), Mark Bartholomew, Lydia Raya, Andreas Steinle, DaveB (special thanks)
+  |categories  = Mash-up; Arrangement; Human Cover
+  |links       = yt 8cPvNFcY-94
+  |description = A remixed mash-up between ''Copycat'' and ''[[WILDFIRE!!]]'', featuring the vocals of Lollia.
+}}
+}}
+
+==Other media appearances==
+===Discography===
+This song was featured in the following albums:
+*Copycat (single)
+*[[715]]
+*[[GUMIFUL!]]
+*Copycat (SV Version)
+
+===Video games===
+This song is featured in the mobile game ''{{IW|projectsekai|Copycat|Project SEKAI Colorful Stage! feat. Hatsune Miku}}''.
+
+==Gallery==
+<gallery hideaddbutton="true" position="center">
+Games - Project SEKAI - Copycat.png|Music jacket featured in ''Project SEKAI Colorful Stage! feat. Hatsune Miku''
+</gallery>
+
+==References==
+<references />
+
+==External links==
+===Official===
+{{Official
+  |media = [http://sleppu.tumblr.com/post/144318208902/illustrations-for-circus-ps-copycat Illustration] — Tumblr
+  |dwlds = VSQ Download:
+** Original Version: [https://www.dropbox.com/s/kexc1zb45b3glvf/Copycat_VSQ.zip?dl=0 VSQ] — Dropbox
+** Chinese Version: [https://www.dropbox.com/s/tufqsnfo0ekl2co/Copycat_CHN.zip MP3 & VSQ] — Dropbox
+* [https://soundcloud.com/circusp/copycat-instrumental Instrumental] — SoundCloud
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 35281
+  |nico   = sm28868044
+  |vocadb = 125064
+  |mgp    = Copycat
+  |vlw    = Copycat
+  |url    = {{IW|projectsekai|Copycat|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:English songs]]
+[[Category:Chinese songs]]
+[[Category:Songs featuring GUMI]]
+[[Category:Songs featuring Mo Qingxian]]
+[[Category:Songs featuring other voice synthesizers]]
+[[Category:Mobile game songs]]

@@ -3,8 +3,10 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -203,6 +205,14 @@ func TestLoginRejectsInjectedUnknownRole(t *testing.T) {
 
 func TestWorkspaceCapabilityContractIsMountedByTheServer(t *testing.T) {
 	h := setupLegacyAPI(t)
+	expectedReviewRoutes := map[string]workspaceverify.Route{
+		http.MethodGet + " /api/admin/lyrics-source-reviews":                     {Method: http.MethodGet, Path: "/api/admin/lyrics-source-reviews", Authentication: "bearer", ProducerProof: false, AllowedRoles: []string{auth.RoleAdmin}},
+		http.MethodGet + " /api/admin/lyrics-source-reviews/detail":              {Method: http.MethodGet, Path: "/api/admin/lyrics-source-reviews/detail", Authentication: "bearer", ProducerProof: false, AllowedRoles: []string{auth.RoleAdmin}},
+		http.MethodPost + " /api/admin/lyrics-source-reviews/import":             {Method: http.MethodPost, Path: "/api/admin/lyrics-source-reviews/import", Authentication: "bearer", ProducerProof: false, AllowedRoles: []string{auth.RoleAdmin}},
+		http.MethodPut + " /api/admin/lyrics-source-reviews/candidate-selection": {Method: http.MethodPut, Path: "/api/admin/lyrics-source-reviews/candidate-selection", Authentication: "bearer", ProducerProof: false, AllowedRoles: []string{auth.RoleAdmin}},
+		http.MethodPut + " /api/admin/lyrics-source-reviews/decision":            {Method: http.MethodPut, Path: "/api/admin/lyrics-source-reviews/decision", Authentication: "bearer", ProducerProof: false, AllowedRoles: []string{auth.RoleAdmin}},
+	}
+	seenReviewRoutes := make(map[string]workspaceverify.Route)
 	editor, err := h.api.auth.CreateUser("route-editor", "strong-password-123", auth.RoleEditor)
 	if err != nil {
 		t.Fatal(err)
@@ -220,6 +230,10 @@ func TestWorkspaceCapabilityContractIsMountedByTheServer(t *testing.T) {
 		return token
 	}
 	for _, route := range workspaceverify.RequiredRoutes() {
+		key := route.Method + " " + route.Path
+		if _, expected := expectedReviewRoutes[key]; expected {
+			seenReviewRoutes[key] = route
+		}
 		request, err := http.NewRequest(route.Method, h.server.URL+route.Path, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -265,6 +279,14 @@ func TestWorkspaceCapabilityContractIsMountedByTheServer(t *testing.T) {
 			}
 		}
 	}
+	if len(seenReviewRoutes) != len(expectedReviewRoutes) {
+		t.Fatalf("workspace review routes=%v, want %v", seenReviewRoutes, expectedReviewRoutes)
+	}
+	for key, expected := range expectedReviewRoutes {
+		if actual := seenReviewRoutes[key]; !reflect.DeepEqual(actual, expected) {
+			t.Fatalf("workspace review route %s=%+v, want %+v", key, actual, expected)
+		}
+	}
 }
 
 func TestCategoriesAndEntries(t *testing.T) {
@@ -296,8 +318,20 @@ func TestUpdateEntryRoundTrip(t *testing.T) {
 		"category": "cards", "field": "prefix", "key": "こんにちは",
 		"text": "你好呀", "source": "human",
 	})
-	req, _ := http.NewRequest("PUT", ts.URL+"/api/entry", bytes.NewReader(body))
+	gateResponse := authGET(t, ts, token, "/api/editor-gate/status")
+	var gate struct {
+		InstanceID          string `json:"instanceId"`
+		Revision            uint64 `json:"revision"`
+		CompletedGeneration uint64 `json:"completedGeneration"`
+	}
+	if err := json.NewDecoder(gateResponse.Body).Decode(&gate); err != nil {
+		gateResponse.Body.Close()
+		t.Fatal(err)
+	}
+	gateResponse.Body.Close()
+	req, _ := http.NewRequest("PUT", ts.URL+"/api/editor/v1/entry?response=correlated-v1", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set(loadedProducerStateHeader, fmt.Sprintf("%s:%d:%d", gate.InstanceID, gate.Revision, gate.CompletedGeneration))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -306,6 +340,17 @@ func TestUpdateEntryRoundTrip(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("update status %d", resp.StatusCode)
 	}
+	var saved map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&saved); err != nil {
+		t.Fatal(err)
+	}
+	wantSaved := map[string]string{
+		"status": "ok", "category": "cards", "field": "prefix", "key": "こんにちは",
+		"text": "你好呀", "source": "human",
+	}
+	if !reflect.DeepEqual(saved, wantSaved) {
+		t.Fatalf("strict entry response = %#v, want %#v", saved, wantSaved)
+	}
 	// Verify the change persisted.
 	resp2 := authGET(t, ts, token, "/api/entries?category=cards&field=prefix&source=human")
 	defer resp2.Body.Close()
@@ -313,6 +358,36 @@ func TestUpdateEntryRoundTrip(t *testing.T) {
 	json.NewDecoder(resp2.Body).Decode(&entries)
 	if len(entries) != 1 || entries[0].Text != "你好呀" || entries[0].Source != "human" {
 		t.Fatalf("update not persisted: %+v", entries)
+	}
+
+	legacyReq, _ := http.NewRequest("PUT", ts.URL+"/api/editor/v1/entry", bytes.NewReader(body))
+	legacyReq.Header.Set("Authorization", "Bearer "+token)
+	legacyReq.Header.Set(loadedProducerStateHeader, fmt.Sprintf("%s:%d:%d", gate.InstanceID, gate.Revision, gate.CompletedGeneration))
+	legacyResp, err := http.DefaultClient.Do(legacyReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer legacyResp.Body.Close()
+	var legacySaved map[string]string
+	if err := json.NewDecoder(legacyResp.Body).Decode(&legacySaved); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(legacySaved, map[string]string{"status": "noop"}) {
+		t.Fatalf("strict no-query compatibility response = %#v", legacySaved)
+	}
+
+	for _, query := range []string{"response=legacy", "response=correlated-v1&response=correlated-v1"} {
+		invalidReq, _ := http.NewRequest("PUT", ts.URL+"/api/editor/v1/entry?"+query, bytes.NewReader(body))
+		invalidReq.Header.Set("Authorization", "Bearer "+token)
+		invalidReq.Header.Set(loadedProducerStateHeader, fmt.Sprintf("%s:%d:%d", gate.InstanceID, gate.Revision, gate.CompletedGeneration))
+		invalidResp, err := http.DefaultClient.Do(invalidReq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		invalidResp.Body.Close()
+		if invalidResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("invalid entry response query %q status = %d", query, invalidResp.StatusCode)
+		}
 	}
 }
 

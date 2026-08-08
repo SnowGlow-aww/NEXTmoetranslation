@@ -21,9 +21,16 @@ import (
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/filesvc"
+	"moesekai/server/internal/httpx"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Setenv("MOESEKAI_PRODUCTION", "false")
+	_ = os.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "true")
+	os.Exit(m.Run())
+}
 
 func TestLegacySearchIndexGolden(t *testing.T) {
 	documents := map[string]string{

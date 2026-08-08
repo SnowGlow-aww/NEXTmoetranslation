@@ -1,0 +1,830 @@
+{{Epileptic Warning}}
+{{NoReprint}}
+<tabber>Original Version =
+{{Song box 2
+  |color     = #c8f6d9; color:#587a95
+  |image     = HatsuneMiku-Melt.jpg
+  |title     = "'''メルト'''"
+* Romaji: Meruto
+* English: Melt
+  |date      = December 7, 2007
+  |views     = {{v|nn|16,929,809}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[ryo]] (music, lyrics)
+* [[119]] (illustration)
+  |links     = {{l|nn|sm1715919}}
+}}
+|-|CPK! Remix =
+{{Song box 2
+  |color     = #06C0CC; color:#FED3DC
+  |image     = Melt CPK! Remix.jpg
+  |title     = "'''メルト CPK! Remix'''"
+* Romaji: Meruto CPK! Remix
+* English: Melt CPK! Remix
+  |date      = January 22, 2026
+  |views     = {{v|nn|142,238}} and {{v|yt|10,003,421}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[ryo]] (music, arrangement, lyrics, mixing, mastering, programming, all instruments)
+* BichonFrise (vocal editing assistant)
+* Nanami Yuki (illustration)
+* Lamily (background objects)
+* [[Machigerita-P]] (direction, motion programming)
+* [https://tokyologic.info/ TOKYO LOGIC, Ltd.] (pixel art production)
+  |links     = {{l|nn|sm45865042}} {{l|yt|XRymkHlMB-k}}
+}}
+</tabber>
+
+==Background==
+"'''Melt'''" is an original song by ryo featuring Hatsune Miku. The song is about a shy girl who is in love with a boy. In her pursuit of him, she gets her bangs cut and encourages herself to look cute, all the while hoping he'd notice. Her love is pure; she loves him not because she is in love with being in love, but because she genuinely likes him, to such an extent she can't even bring herself to look him in the eye and feels like melting to simply be with him.
+
+Later that day, it rains. Since the weather report was inaccurate, the girl is caught off-guard; while she does have a collapsible umbrella in her bag, she thinks it is too small. The boy therefore invites her to join him under his own umbrella. With her heart pounding, she is so happy she could cry, because in Japan sharing an umbrella is a sign of shared feelings and is associated with couples. When they reach the station, she almost tells him to hold her because she does not want to leave him, and can not believe herself.
+
+Multiple [[Vocaloid Fanmade Promotion Video|Fanmade PVs]] for "Melt" exist; most of them feature Miku as the protagonist, acting out the events described by the song. The "boyfriend" character is often represented by a faceless person (a technique often used to represent "Master", or the VOCALOID user). The most known version of the PV depicts KAITO as the boyfriend.
+
+On January 22, 2026, ryo would upload a brand new arrangement for the song subtitled "'''CPK! Remix'''" in celebration of the release of the anime film ''[https://www.cho-kaguyahime.com/ Cosmic Princess Kaguya!]'', for which he contributed to the film's soundtrack. A cover of this remix was featured in the film as a special credits track. This remix was also ryo's first usage of Hatsune Miku in 10 years since "[[罪の名前 (Tsumi no Namae)|Tsumi no Namae]]". It has since entered the ''Hall of Fame'' and exceeded 10 million views on YouTube.
+
+===Popularity===
+"Melt" and its PVs are so popular on NicoNico and YouTube that it has been featured in some [[wikipedia:Kumikyoku Nico Nico Douga|Nico Nico Medleys]], and has many covers and parodies both by live musicians and other [[VOCALOID]]s.
+
+With over fourteen million views, the original upload of "Melt" on Niconico is the third most viewed original VOCALOID song on the site, behind "[[Senbonzakura]]" and "[[Miku Miku ni Shite Ageru♪]]". It isn't quite as popular on YouTube, although one reprint of the 3M Mix of "Melt" has over five million views. This puts it far behind other VOCALOID YouTube reuploads such as "[[Matryoshka]]" and "[[World is Mine]]". In addition, the song has entered the [[Hall of Fame|Hall of Myths]] on Niconico.
+
+==Succeeding versions==
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = 2M Mix
+  |singers     = Hatsune Miku
+  |producers   = ryo (music, lyrics), [[119]] (illust)
+  |categories  = Arrangement
+  |links       = 00 http://supercell.sc/music/2melt.zip
+  |description = The second revision of the song. A techno remix of the original.
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = 3M Mix
+  |singers     = {{UIW|Gazelle}}
+  |producers   = ryo (music, lyrics)
+  |categories  = Arrangement
+  |links       = nn sm6403844; 00 http://supercell.sc/music/3melt.zip
+  |description = The third version of the song, which received an animated PV.{{cite}} It was also added on the major release of the Supercell album under Sony Music Japan, along with the song "[[Hajimete no Koi ga Owaru Toki]]".
+}}
+{{clr}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95|thumb = yt
+  |title       = 10th ANNIVERSARY MIX
+  |singers     = Gazelle
+  |producers   = ryo (music, lyrics), Nack (INCS) (video), Shirow Miwa (illust)
+  |categories  = Arrangement
+  |links       = nn sm32467616; yt 4YHUamjfJ0k
+  |description = A remix made in honor of "Melt"'s 10th birthday.
+}}
+{{Derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = Cosmic Princess Kaguya! Version
+  |singers     = Kaguya (CV: {{Wp|Yūko Natsuyoshi|Natsuyoshi Yuko}})
+  |producers   = ryo (music, arrange, lyrics)
+  |categories  = Human Cover; Arrangement; Film Soundtrack
+  |description = This version is featured as the special credits track for the 2026 anime film ''[https://www.cho-kaguyahime.com/ Cosmic Princess Kaguya!]''
+  |links       = yt G89IB2B6jFc; yt TdX7zENi_jU
+}}
+{{clr}}
+{{Derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = CPK! Remix (yanaginagi ver.)
+  |thumb       = CPK! Remix.jpg
+  |singers     = Gazelle
+  |producers   = ryo
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |description = Featured exclusively on the E.P. ''CPK! Remix''.
+  |links       = yt D-xEcwNiYcQ
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |producers   = ryo (music, lyrics), Mori Izumi (arrangement)
+  |title       = Puniru Is a Cute Slime Version
+  |singers     = {{IW|puniru|Puniru}} (CV: {{Wp|Yū Sasahara|Sasahara Yu}})
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |description = Featured exclusively on the album ''PUNIRU is a KAWAII SLIME Season 2 KAWAII PUNIRU SONG ALBUM'', for the anime ''{{IW|puniru|Puniru Is a Cute Slime/Anime|Puniru Is a Cute Slime}}''
+  |links       = yt Ux3-JQ-CB1c
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>Japanese lyrics =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|朝　目が覚めて
+|asa me ga samete
+|-
+|真っ先に思い浮かぶ　君のこと
+|massaki ni omoi ukabu kimi no koto
+|-
+|思い切って　前髪を切った
+|omoikitte maegami o kitta
+|-
+|「どうしたの？」って　聞かれたくて
+|"doushita no?" tte kikaretakute
+|-
+|<br />
+|-
+|ピンクのスカート　お花の髪飾り
+|pinku no sukaato ohana no kamikazari
+|-
+|さして　出かけるの
+|sashite dekakeru no
+|-
+|今日の私は かわいいのよ！
+|kyou no watashi wa kawaii no yo!
+|-
+|<br />
+|-
+|メルト　溶けてしまいそう
+|meruto tokete shimaisou
+|-
+|好きだなんて　絶対にいえない…
+|suki da nante zettai ni ienai…
+|-
+|だけど　メルト　目も合わせられない
+|dakedo meruto me mo awaserarenai
+|-
+|恋に恋なんてしないわ　わたし
+|koi ni koi nante shinai wa watashi
+|-
+|<br />
+|-
+|だって　君のことが　…好きなの
+|datte kimi no koto ga …suki na no
+|-
+|<br />
+|-
+|天気予報が　ウソをついた
+|tenkiyohou ga uso o tsuita
+|-
+|土砂降りの雨が降る
+|doshaburi no ame ga furu
+|-
+|カバンに入れたままの　オリタタミ傘　うれしくない
+|kaban ni ireta mama no oritatamigasa ureshikunai
+|-
+|ためいきを　ついた　そんなとき
+|tameiki o tsuita sonna toki
+|-
+|<br />
+|-
+|「しょうがないから入ってやる」なんて
+|"shou ga nai kara haitte yaru" nante
+|-
+|隣にいる　きみが笑う
+|tonari ni iru kimi ga warau
+|-
+|恋に落ちる音がした
+|koi ni ochiru oto ga shita
+|-
+|<br />
+|-
+|メルト　息がつまりそう
+|meruto iki ga tsumarisou
+|-
+|君に触れてる右手が　震える
+|kimi ni fureteru migite ga furueru
+|-
+|高鳴る胸　はんぶんこの傘
+|takanaru mune hanbunko no kasa
+|-
+|手を伸ばせば届く距離　どうしよう…！
+|te o nobaseba todoku kyori dou shiyou…!
+|-
+|<br />
+|-
+|想いよ届け　君に
+|omoi yo todoke kimi ni
+|-
+|<br />
+|-
+|お願い　時間をとめて　泣きそうなの
+|onegai jikan o tomete nakisou na no
+|-
+|でも嬉しくて　死んでしまうわ！
+|demo ureshikute shinde shimau wa!
+|-
+|<br />
+|-
+|メルト　駅に着いてしまう…
+|meruto eki ni tsuite shimau…
+|-
+|もう会えない　近くて　遠いよ　だから
+|mou aenai chikakute tooi yo dakara
+|-
+|メルト　手をつないで　歩きたい！
+|meruto te o tsunaide arukitai!
+|-
+|もうバイバイしなくちゃいけないの？
+|mou baibai shinakucha ikenai no?
+|-
+|<br />
+|-
+|今すぐ　わたしを　抱きしめて！
+|ima sugu watashi o dakishimete!
+|-
+|…なんてね
+|…nante ne
+|}
+|-|CPK! Remix =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|メルト　溶けてしまいそう
+|meruto tokete shimaisou
+|-
+|<br />
+|-
+|朝　目が覚めて
+|asa me ga samete
+|-
+|真っ先に思い浮かぶ　君のこと
+|massaki ni omoi ukabu kimi no koto
+|-
+|思い切って　前髪を切った
+|omoikitte maegami o kitta
+|-
+|「どうしたの？」って　聞かれたくて
+|"doushita no?" tte kikaretakute
+|-
+|<br />
+|-
+|ピンクのスカート　お花の髪飾り
+|pinku no sukaato ohana no kamikazari
+|-
+|さして　出かけるの
+|sashite dekakeru no
+|-
+|今日の私は かわいいのよ！
+|kyou no watashi wa kawaii no yo!
+|-
+|<br />
+|-
+|メルト　溶けてしまいそう
+|meruto tokete shimaisou
+|-
+|好きだなんて　絶対にいえない…
+|suki da nante zettai ni ienai…
+|-
+|だけど　メルト　目も合わせられない
+|dakedo meruto me mo awaserarenai
+|-
+|恋に恋なんてしないわ　わたし
+|koi ni koi nante shinai wa watashi
+|-
+|<br />
+|-
+|だって　君のことが　…好きなの
+|datte kimi no koto ga …suki na no
+|-
+|<br />
+|-
+|天気予報が　ウソをついた
+|tenkiyohou ga uso o tsuita
+|-
+|土砂降りの雨が降る
+|doshaburi no ame ga furu
+|-
+|カバンに入れたままの　オリタタミ傘　うれしくない
+|kaban ni ireta mama no oritatamigasa ureshikunai
+|-
+|ためいきを　ついた　そんなとき
+|tameiki o tsuita sonna toki
+|-
+|<br />
+|-
+|「しょうがないから入ってやる」なんて
+|"shou ga nai kara haitte yaru" nante
+|-
+|隣にいる　きみが笑う
+|tonari ni iru kimi ga warau
+|-
+|恋に落ちる音がした
+|koi ni ochiru oto ga shita
+|-
+|<br />
+|-
+|メルト　息がつまりそう
+|meruto iki ga tsumarisou
+|-
+|君に触れてる右手が　震える
+|kimi ni fureteru migite ga furueru
+|-
+|高鳴る胸　はんぶんこの傘
+|takanaru mune hanbunko no kasa
+|-
+|手を伸ばせば届く距離　どうしよう…！
+|te o nobaseba todoku kyori dou shiyou…!
+|-
+|<br />
+|-
+|想いよ届け　君に
+|omoi yo todoke kimi ni
+|-
+|<br />
+|-
+|お願い　時間をとめて　泣きそうなの
+|onegai jikan o tomete nakisou na no
+|-
+|でも嬉しくて　死んでしまうわ！
+|demo ureshikute shinde shimau wa!
+|-
+|<br />
+|-
+|メルト　駅に着いてしまう…
+|meruto eki ni tsuite shimau…
+|-
+|もう会えない　近くて　遠いよ　だから
+|mou aenai chikakute tooi yo dakara
+|-
+|メルト　手をつないで　歩きたい！
+|meruto te o tsunaide arukitai!
+|-
+|もうバイバイしなくちゃいけないの？
+|mou baibai shinakucha ikenai no?
+|-
+|<br />
+|-
+|今すぐ　わたしを　抱きしめて！
+|ima sugu watashi o dakishimete!
+|-
+|…なんてね
+|…nante ne
+|}
+|-|Approved English lyrics =
+{{Translation|jpn|unofficial English|Project DIVA|notes=Featured in [[Hatsune Miku -Project DIVA- F 2nd]], the writer is uncredited.}}
+<poem style="margin-left:1em;">
+When I woke up this morning
+The first thing I thought of was you
+I made up my mind, and cut my bangs short
+Just so you'd ask me "Why?"
+
+Pink skirt, flower pin in my hair
+I'm going out
+I'm looking cute today!
+
+Melt! I feel like I'm gonna melt away
+I can't tell you I like you, but then I...
+Melt! I can't even look you in the eye
+I won't fall for love, not me
+But... I really do like you
+
+I wish time would stop
+I feel like I could cry
+So happy, I feel like I could die!
+
+Melt! Pulling into the station
+The end of the line for us, so near, so far
+Melt! I want to hold your hand in mine
+Do we already have to say goodbye?
+I want you to take me in your arms!
+...You wish!
+</poem>
+|-|Official English lyrics =
+{{Translation|jpn|official English|Producer|Featured in "CPK! Remix", translated by LUSCHKA}}
+<poem style="margin-left:1em;">
+Melting, my heart is melting over you
+
+First thing in the morning
+Before I even open up my eyes you're the one upon my mind
+Standing in front of the mirror I trim my bangs a little shorter
+Just to see if you would ask me why
+
+With a flower pin, a skirt of pink
+Heading out the door, thinking of you
+Don't you think I'm pretty too? I hope you do!
+
+Melting, my heart is melting over you
+What if I love you? I think I do, but I won't tell you
+There is no way... Melting, I can't even look you in the eye
+I'm not the kind of girl who falls in love with love, no lie
+
+The only truth I keep deep inside... It's you I love
+
+Weatherman, he lied today, sun has gone away
+Sky is turning grey, pouring rain gets in the way
+A folded umbrella, left unused in my bag, it's such a drag
+I let out a sign into the air, and that's when you―
+
+"I guess I'll let you share with me"
+You smile and laugh right next to me looking pleased and carefree
+And I've heard the sound of falling, loud and clear
+
+Melting, I just can't breathe because of you
+My hand is trembling when it brushes yours, you're too close to my right side
+Sharing one small umbrella, me and you
+My heart is pounding hard like never before, what am I waiting for?
+
+I wish my heart could find its way to yours!
+
+If I could stop the clock, don't let it fly, I'm about to cry
+But joy is louder, don't know why, I'm so happy I could die!
+
+Melting, the station lights come into sight...
+Our time is up tonight, you're by my side, yet worlds apart, so please
+Melting, I wanna hold your hand in mine!
+Time to say goodbye? doesn't feel right, just hold me tight!
+
+Can I ask you to wrap your arms around me now?
+...no, never mind.
+</poem>
+</tabber>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{derivative
+  |color       = gumi
+  |title       = TohohoP's Cover ft. GUMI
+  |singers     = [[GUMI]]
+  |producers   = TohohoP (cover), Tsubu＊tsubu (illust)
+  |categories  = VOCALOID Cover
+  |links       = nn sm9420486
+}}
+{{derivative
+  |color       = otomachi una|thumb = yt
+  |title       = cillia's Cover ft. Otomachi Una
+  |singers     = [[Otomachi Una]]
+  |producers   = [[cillia]] (cover), Sango312 (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = nn sm29353638; yt S_EWAw7Eg7w; bb av5579571
+}}
+{{derivative
+  |color       = ryuto
+  |title       = SALTY's Cover ft. Ryuto
+  |singers     = [[Ryuto]]
+  |producers   = SALTY (cover), Sango312 (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt -dh1d6qibVM
+}}
+
+{{derivative
+  |color       = megurine luka|thumb = yt
+  |title       = tsukinami2055's Cover ft. Megurine Luka
+  |singers     = [[Megurine Luka]]
+  |producers   = tsukinami2055
+  |categories  = VOCALOID Cover
+  |links       = nn sm6491193; yt stFG_QtiO5g
+}}
+{{derivative
+  |color       = megurine luka
+  |title       = color&#61;red's English Cover ft. Megurine Luka
+  |singers     = [[Megurine Luka]]
+  |producers   = color&#61;red（無気力P）
+  |categories  = VOCALOID Cover; Alternative Language
+  |links       = nn sm6018289
+}}
+{{derivative
+  |color       = meiko
+  |title       = hellstarryuno's Cover ft. MEIKO
+  |singers     = [[MEIKO]]
+  |producers   = hellstarryuno (cover)
+  |categories  = VOCALOID Cover
+  |links       = yt aQ6C__nM-d8
+}}
+  |utau = 
+{{derivative
+  |color       = utau
+  |title       = Yukapan-P's Cover ft. Ouka Alice
+  |singers     = {{UW|Alice Ouka|Ouka Alice}}<br><small>Dasuko*chan, {{UW|Gahata Meiji|Gahata Meiji -Fairy-}}, {{UW|Anna Nyui|Anna Nyui (power CVVC)}}, Shirokane Hisui, [[Yuzuki Yukari]], [[MAYU]] (chorus)</small>
+  |producers   = Yukapan-P (cover), K-luko (illustration), Licorice (voice tone)
+  |categories  = UTAU Cover
+  |links       = nn sm24742051
+}}
+{{derivative
+  |color       = utau
+  |title       = Yukapan-P's Cover ft. Haruka Nana
+  |singers     = Haruka Nana
+  |producers   = Munkee Haruka (cover, mixing), Nekotama (illust), umbrellaguns (UST)
+  |categories  = UTAU Cover
+  |links       = yt d5g_SsfA80s
+}}
+{{derivative
+  |color       = synthesizer v
+  |title       = Chevrefee's Cover ft. POPY
+  |singers     = {{SVW|POPY}}
+  |producers   = Chevrefee (tuning, mixing)
+  |categories  = Synthesizer V Cover
+  |links       = yt CXHHmHraE_4
+}}
+  |human = 
+{{derivative
+  |color       = #c8f6d9; color:#587a95|thumb = yt
+  |title       = rockleetist's English Cover
+  |singers     = {{UIW|rockleetist}}
+  |producers   = rockleetist
+  |categories  = Human Cover; Alternative Language
+  |links       = nn sm9570745; yt lU1g1Qz2T_Y
+}}
+{{Derivative
+|links=yt Sf8W4lFPBGg
+  |color       = #c8f6d9; color:#587a95
+|title=Kizuna AI's Cover
+|singers=Kizuna AI
+|producers=AST ARTS
+|categories=Human Cover
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+|links=yt TpNNEAnJHrE
+|singers=Tenjin Kotone
+|producers=Tenjin Kotone (vocals)
+|categories=Human Cover
+|title=Tenjin Kotone's Cover}}
+  |arrangement = 
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = Sachiko's Cover
+  |singers     = [[Voice providers/VOCALOID4#Sachiko Kobayashi|Sachiko Kobayashi]]
+  |producers   = Tetsuya Oyama (arrangement), Rumi (video)
+  |categories  = Human Cover; Arrangement
+  |links       = nn sm32383048
+  |description = A cover done for the song's 10th anniversary.
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = Kore-G Dubstep Remix
+  |singers     = Hatsune Miku
+  |producers   = Kore-G (cover, arrange, lyrics)
+  |categories  = Human Cover; Arrangement
+  |links       = yt GjYzpxCCbhc
+}}
+{{clr}}
+{{derivative
+  |color       = kagamine
+  |title       = Rin Len Rap Remix
+  |singers     = [[Kagamine Rin & Len]]<br><small>Hatsune Miku (chorus)</small>
+  |producers   = [[Nanameue-P]] (cover, arrange, lyrics)
+  |categories  = VOCALOID Cover; Arrangement
+  |links       = nn sm2398386
+  |description = A cover of Melt by Nanameue-P, with Len as the "rapper".
+}}
+
+{{derivative
+  |color       = camui gackpo
+  |title       = Bishamonten Arrange
+  |singers     = [[Camui Gackpo]]
+  |producers   = Bishamonten
+  |categories  = VOCALOID Cover; Arrangement
+  |links       = nn sm4254348
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = TOPPO★'s Piano Arrangement
+  |producers   = TOPPO★
+  |categories  = Arrangement
+  |links       = nn sm13594376
+}}
+  |fanmadepv = 
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = Hong Kooong's PV
+  |singers     = Hatsune Miku
+  |producers   = {{UIW|Hong Kong|Hong Kooong}}
+  |categories  = PV
+  |links       = nn sm2183246
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = Kearu's PV
+  |singers     = Hatsune Miku
+  |producers   = Kearu
+  |categories  = PV
+  |links       = nn sm2625011
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = Aizora's Short PV
+  |singers     = Hatsune Miku
+  |producers   = Aizora
+  |categories  = PV
+  |links       = nn sm2671946
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = NOA's PV
+  |singers     = Hatsune Miku
+  |producers   = NOA
+  |categories  = PV
+  |links       = nn sm5641312
+}}
+  |spinoff = 
+{{derivative
+  |color       = kaito
+  |title       = アイスがメルト
+  |translation = Aisu ga Meruto (The Ice Cream is Melting)
+  |singers     = [[KAITO]]
+  |producers   = Yusuke
+  |categories  = Parody; VOCALOID Cover
+  |links       = nn sm2435365
+  |description = A parody song sung by KAITO where he expresses his passion for ice cream. The lyrics share the original's scheme.
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95
+  |title       = 男性歌詞ver
+  |translation = Dansei Kashi ver (Male Lyrics ver)
+  |singers     = {{UIW|halyosy}}
+  |producers   = [[halyosy]]
+  |categories  = Parody; Human Cover
+  |links       = nn sm1754685
+  |description = A parody about KAITO and MEIKO's love.
+}}
+{{derivative
+  |color       = #c8f6d9; color:#587a95|thumb = yt
+  |title       = Megurine Luka and KANON69's Cover
+  |singers     = [[Megurine Luka]] V4X, [[KANON69]]
+  |producers   = KANON69 (cover, video), ryo (lyrics), halyosy (lyrics), Mikko (illust)
+  |categories  = VOCALOID Cover; Human Cover; Arrangement
+  |links       = nn sm25459259; yt Wi2-j_9bVEc
+  |description = A "mashup" version between ryo's lyrics (sung by Luka) and halyosy's version (sung by KANON69).
+}}
+}}
+
+==Other media appearances==
+===Literatures===
+This song was featured in the following literatures:
+
+*[[VOCALOID ベストセレクション (VOCALOID Best Selection)|Vocaloid Best Selection]] series. (sheet music)
+*[[ピアノソロ やさしくひける (Piano Solo Yasashiku Hikeru)|Piano Solo Yasashiku Hikeru]] collection. (piano sheet music)
+
+===Films===
+This song was featured in the 2026 anime film ''[https://www.cho-kaguyahime.com/ Cosmic Princess Kaguya!]'' (covered by Kaguya).
+
+===Discography===
+This song was featured in the following albums:
+*[[メルト (Melt) (single)|メルト]]
+*[[Supercell (Album/2008)|supercell (2008)]]
+*[[Supercell (Album/2009)|supercell (2009)]]
+*[[初音ミク ベスト～memories～ (Hatsune Miku Best ～memories～)|Hatsune Miku Best ～memories～]]
+*[[初音ミク ‐Project DIVA‐ 2nd NONSTOP MIX COLLECTION]]
+*[[VOCALOID BEST from ニコニコ動画 (あか) (VOCALOID BEST from Nico Nico Douga (Aka))|VOCALOID BEST from ニコニコ動画 (あか)]]
+*[[初音ミク 5thバースデー ベスト ～memories～ (Hatsune Miku 5th Birthday Best ～memories～)|Hatsune Miku 5th Birthday Best ～memories～]]
+
+The CPK! Remix of this song was featured on the E.P. [[CPK! Remix]].
+
+===Concerts===
+This song was featured in the following concerts:
+
+{{Col-2b|
+* [[Miku FES'09 (Natsu)|Miku FES'09]]
+* [[Miku no Hi Kanshasai 39's Giving Day]]
+* [[Hatsune Miku Live Party 2011 (Mikupa)/Tokyo|MikuPa Live in Tokyo 2011]]
+* [[Hatsune Miku Live Party 2011 (Mikupa)/Sapporo|MikuPa Live in Sapporo 2011]]
+* [[Hatsune Miku Live Party 2011 (Mikupa)/Singapore|MikuPa Live in Singapore 2011]]
+* [[Hatsune Miku Live Party 2012 (Mikupa)/Tokyo|MikuPa Live in Tokyo 2012]]
+* [[Miku no Hi Dai Kanshasai 39's Giving Day]]
+* [[Hatsune Miku Live Party 2012 (Mikupa)/Hong Kong and Taiwan|MikuPa Live in Hong Kong and Taiwan 2012]]
+* [[Hatsune Miku Live Party 2013 (MikuPa)/Sapporo|MikuPa Live in Sapporo 2013]]
+* [[Hatsune Miku Live Party 2013 (MikuPa)/Kansai|MikuPa Live in Kansai 2013]]
+* [[HATSUNE MIKU EXPO 2014 in INDONESIA|MikuExpo Live in Indonesia 2014]]
+* [[HATSUNE MIKU EXPO 2014 in LOS ANGELES and NEW YORK|MikuExpo Live in LA and NY 2014]]
+* [[SNOW MIKU LIVE! 2015 Presents MIKU EXPO Live Set|SNOW MIKU LIVE!]]
+|
+* [[Hatsune Miku Magical Mirai 2017|Magical Mirai 2017]]
+* [[MIKU WITH YOU 2017 SHANGHAI|MIKU WITH YOU 2017]]
+* [[HATSUNE MIKU EXPO 2017 MALAYSIA|MikuExpo Malaysia]]
+* [[HATSUNE MIKU EXPO 2018 USA & MEXICO|MikuExpo Live in USA and Mexico 2018]]
+* [[Hatsune Miku Magical Mirai 2018|Magical Mirai 2018]] (Osaka only)
+* [[HATSUNE MIKU EXPO 2018 EUROPE|MikuExpo Live in Europe 2018]]
+* [[HATSUNE MIKU EXPO 2019 Taiwan & Hong Kong|MIKU EXPO 2019 Taiwan & Hong Kong]] (Hong Kong only)
+*[[MIKU WITH YOU 2019]] (Chengdu and Guangzhou only)
+* [[Hatsune Miku Magical Mirai 10th Anniversary|Magical Mirai 10th Anniversary]] (Osaka & Tokyo, Day 2)
+* [[Miku FES'24 (Haru) ~Happy 16th Birthday~|Miku Fes'24]]
+* [[HATSUNE MIKU EXPO 2024 EUROPE|MIKU EXPO 2024 EUROPE]]
+* [[HATSUNE MIKU EXPO 2025 ASIA|MIKU EXPO 2025 ASIA]]
+* [[MIKU WITH YOU 2025]]}}
+
+====Summer Sonic Festival 2013====
+Hatsune Miku performed as the opening act during the "Summer Sonic Festival 2013" event in Tokyo, Japan. Miku performed [[Tell Your World]], [[二息歩行 (Nisoku Hokou)|Nisoku Hokou]], [[Yellow]], [[トリノコシティ (Torinoko City)|Torinoko City]], [[秘密警察 (Himitsu Keisatsu)|Himitsu Keisatsu]], [[初音ミクの激唱 (Hatsune Miku no Gekishou)|Hatsune Miku no Gekishou]], and "Melt".
+
+===Video games===
+This song was featured in the following video games:
+
+===={{Wp|Chunithm|CHUNITHM}} Series====
+{{col-2b|
+* CHUNITHM CRYSTAL / CRYSTAL PLUS
+* CHUNITHM PARADISE / PARADISE LOST
+|
+* CHUNITHM NEW / NEW PLUS}}
+
+===={{Wp|Maimai (video game)|maimai}} Series====
+{{col-2b|
+* maimai Deluxe / Deluxe PLUS
+* maimai Deluxe Splash / Splash PLUS
+|
+* maimai UNiVERSE / UNiVERSE PLUS}}
+
+===={{Wp:ja|オンゲキ|O.N.G.E.K.I.}} Series====
+{{col-2b|
+* O.N.G.E.K.I. SUMMER / SUMMER PLUS
+* O.N.G.E.K.I. R.E.D. / R.E.D. PLUS
+|
+* O.N.G.E.K.I. bright / bright MEMORY}}
+
+====[[Hatsune Miku -Project DIVA- (series)|Hatsune Miku -Project DIVA-]] Series====
+{{col-2b|
+* [[Hatsune Miku -Project DIVA- (game)|Hatsune Miku -Project DIVA-]]
+* [[Hatsune Miku -Project DIVA- Arcade]]
+* [[Hatsune Miku -Project DIVA- 2nd]]
+* [[Miku Flick]]
+|
+* [[Hatsune Miku -Project DIVA- Arcade Future Tone]]
+* [[Hatsune Miku -Project DIVA- F 2nd]]
+* [[Miku Flick/02]] (DLC)
+* [[Hatsune Miku: Project DIVA Mega Mix]]}}
+
+===={{Wp|Taiko no Tatsujin}} Series====
+{{col-2b|
+* Taiko no Tatsujin 12
+* Taiko no Tatsujin 13
+* Taiko no Tatsujin 14
+* {{IW|taiko|Taiko no Tatsujin DS: Dororon! Yokai Great Decisive Battle!}}
+* Taiko no Tatsujin: KATSU-DON
+* Taiko no Tatsujin: Sorairo Version
+* Taiko no Tatsujin: Momoiro Version
+* Taiko no Tatsujin: Kimidori Version
+|
+* {{IW|taiko|Taiko no Tatsujin: Murasaki Version}}
+* {{IW|taiko|Taiko no Tatsujin Portable DX}}
+* {{IW|taiko|Taiko no Tatsujin: White Version}}
+* {{IW|taiko|Taiko no Tatsujin Plus: Shinkyoku Tori Houdai!}}
+* {{IW|taiko|Taiko no Tatsujin: Red Version}}
+* {{IW|taiko|Taiko no Tatsujin: Drum 'n' Fun!}}
+* {{IW|taiko|Taiko no Tatsujin: The Drum Master!}}
+* {{IW|taiko|Taiko no Tatsujin: Rhythm Festival}} (DLC)}}
+
+====Other games====
+* {{Wp:ja|ミライダガッキ|FutureTomTom}} Ver.2
+* {{Wp|The Idolmaster 2|THE iDOLM@STER 2}} (DLC)
+* {{IW|projectsekai|Melt|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}
+* {{Wp:ja|WACCA|WACCA Reverse}}
+* {{Wp|Fitness Boxing|Fitness Boxing feat. HATSUNE MIKU}}
+* MUSIC DIVER
+* {{IW|fortnite|Fortnite Festival}}
+
+==Gallery==
+<tabber>Concept art=
+<gallery hideaddbutton="true" position="center" bordercolor="#c8f6d9">
+WhiteDress concept art.jpg|Winning contest entry art for ''Project DIVA'' by yzk
+</gallery>
+|-|Games =
+<gallery hideaddbutton="true" position="center" bordercolor="#c8f6d9">
+Module pink tag white dress.png|Miku's White Dress module, designed by yzk, for the song "Melt" from the game [[Hatsune Miku -Project DIVA- (game)|Project DIVA]]
+Ac white dress.jpg|Miku's White Dress module, designed by yzk, for the song "Melt" from the game [[Hatsune Miku -Project DIVA- Arcade Future Tone]]
+WhiteDress.jpg|Miku's White Dress module, designed by yzk, for the song "Melt" from the game [[Hatsune Miku -Project DIVA- F 2nd]]
+Miku V3.jpg|Miku's V3 module for the song "Melt" from the videogame [[Hatsune Miku -Project DIVA- F 2nd]]
+Cover.jpg|Cover artwork for ryo's full-length album ''Supercell'', also featured as the music jacket in ''-Project DIVA- Arcade'' and ''Mega Mix''
+Games - Project SEKAI - Melt.png|Music jacket featured in ''{{wp|Fitness Boxing|Fitness Boxing feat. HATSUNE MIKU}}''
+Games - Fortnite - World is Mine.jpg|Music jacket featured in ''Fortnite Festival''
+</gallery>
+|-|Concerts =
+<gallery hideaddbutton="true" position="center" bordercolor="#c8f6d9">
+Miku Expo 2014 Melt.png|Miku performing Melt in the ''Miku Expo 2024 in Los Angeles and New York'' concert.
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |web   = [http://supercell.sc/melt/ Melt] — Supercell's Website  (dead link, archived at [https://web.archive.org/web/20210519033911/http://supercell.sc/melt/ Internet Archive])
+  |media = Illustration:
+** [https://www.pixiv.net/artworks/70496 Original Version] — pixiv
+** [https://www.pixiv.net/artworks/899288 2M Mix Art] — Pixiv
+  |dwlds = Download:
+** [http://supercell.sc/music/2melt.zip ZIP file: 2M Mix MP3, Off-vocal, MP3, and illustrations] — Supercell's Website (dead link, archived at [https://web.archive.org/web/20130529025027/http://supercell.sc/music/2melt.zip  ZIP file: Internet Archive])
+** [http://supercell.sc/music/3melt.zip ZIP file: 3M Mix MP3, offvocal, 2M Mix MP3, Melt MP3, and illustrations] — Supercell's Website (dead link, archived at [https://web.archive.org/web/20151106114528/http://supercell.sc/music/3melt.zip ZIP file: Internet Archive])
+** [https://www.dropbox.com/scl/fi/z100sc9upictkfwrl9739/Melt-CPK-Remix.zip?rlkey=mmfjmuqah1d9k0grxws487sqr&e=1&st=1so9ez20&dl=0 Instrumental & Lyrics (CPK! Remix)] — Dropbox
+** [https://piapro.jp/t/cX1h Instrumental (CPK! Remix)] — piapro
+** [https://piapro.jp/t/cKLg Lyrics (CPK! Remix)] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 82
+  |nico    = sm1715919
+  |vocadb  = 1322 Original Version —
+  |vocadb2 = 903547 CPK! Remix —
+  |utadb   = 2771
+  |pixiv   = メルト
+  |mgp     = Melt(ryo)
+  |tag     = メルト
+  |vlw     = メルト (Melt)
+  |url     = {{IW|projectsekai|Melt|Project SEKAI Wiki}}
+* {{IW|project-diva|Melt|Project DIVA Wiki}}
+* {{IW|fortnite|Melt|Fortnite Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Concert songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]
+[[Category:Remastered songs]]
+[[Category:Songs featured in literatures]]
+[[Category:Songs featured in films]]
+[[ru:メルト_(Melt)]]

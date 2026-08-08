@@ -14,11 +14,11 @@
   },
   "sourceContract": {
     "name": "sekaitext-moe-loaded-producer-state",
-    "version": 1
+    "version": 2
   },
   "editorGateContract": {
     "name": "sekaitext-moe-editor-gate",
-    "version": 1,
+    "version": 2,
     "status": {
       "method": "GET",
       "path": "/api/editor-gate/status",
@@ -34,7 +34,7 @@
       ]
     },
     "mutationHeader": "X-Moe-Loaded-Producer-State",
-    "mutationHeaderFormat": "<base64url-instanceId>:<completedGeneration>",
+    "mutationHeaderFormat": "<base64url-instanceId>:<revision>:<completedGeneration>",
     "mutationRejections": {
       "missing": 428,
       "malformed": 400,
@@ -42,6 +42,24 @@
     }
   },
   "requiredRoutes": [
+    {
+      "method": "GET",
+      "path": "/api/admin/lyrics-source-reviews",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/lyrics-source-reviews/detail",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
     {
       "method": "GET",
       "path": "/api/auth/me",
@@ -203,6 +221,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/admin/lyrics-source-reviews/import",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
       "path": "/api/auth/login",
       "authentication": "none",
       "producerProof": false,
@@ -248,6 +275,24 @@
     {
       "method": "POST",
       "path": "/api/lyrics/source/preview",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/lyrics-source-reviews/candidate-selection",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/lyrics-source-reviews/decision",
       "authentication": "bearer",
       "producerProof": false,
       "allowedRoles": [

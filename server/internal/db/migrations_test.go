@@ -23,6 +23,22 @@ func TestDurableLyricsDiscoveryMigrationChecksumsRemainImmutable(t *testing.T) {
 	for version, want := range map[int]string{
 		10: "0337eb9ab9698b464a1cba88e282f7f14771572af0ae0a99b61e67920fce25b3",
 		11: "b396a5365098bb08f83557cb7e5029df9abbf139825b993a4673eb2c69b1ea78",
+		12: "1bcc25c5e99cdb8eabdf339a7a9b1dc91c3f820e4abacfd1db46f53f8f8150d3",
+		13: "ad19d1def9f1c0008372b382100a6f29b69f75cec7d4bd7bb1068de831c07f82",
+		14: "2f1fe73e7f61a68b5ca821dd5ce485b25693732f5bd3b72b5913e78244397576",
+		15: "090284b989d62edcc0dc54a211f118b04fe1178288d854c76a27a69a8e4c61b0",
+		16: "02f4d7aae30d979bcfd32c721fe1a95cb8e6ce9d269f77d01fdb11b6d2a63d84",
+		17: "665a877eef31d2882468c7ca8a29a0732f51b332996039281efc901bb23ea48a",
+		18: "9ef12f0d266c281cfae1b76f80a61eb6c5142fd64ea9a45d7b97e327216031ff",
+		19: "6c2977cc4290ec56af216d1888e21ac64bbc281aa4b669e662840a5e75f3046b",
+		20: "ba96cd088d14cdc9d7e34536a16d438f34d7fa232182d5e3000aa9fc0f9328dc",
+		21: "820f2be54c57bc56aeb938f498a73109f62266a562764346b557603e90ec0282",
+		22: "64edad15266a55c04f7d300d043a59a2c82e1f43f1b5f56cf5d3c7552533832d",
+		23: "65e375543d264f60af66984ab50c87a05bf593c512926813e4870a8a388bd40f",
+		24: "fefc0fba06b0de2af2ef7d7f9802d8eeb0e6bdcd911b1f16a6fb0a4e9a7a6469",
+		25: "3f6094fef8835e1846b648e877c008fd48d17ab0855519580e9d3840a014224b",
+		26: "ded39b7f7ec1286d02842938a2f429a56b8b38daba8294cd115dcefe6f149953",
+		27: "9de2359101ac9c9a9ff01389804030d1fbc7e85253ff4e5059d2ceceb5f1ca9b",
 	} {
 		if got := migrations[version-1].checksum(); got != want {
 			t.Fatalf("migration v%d checksum=%s want=%s", version, got, want)
@@ -46,9 +62,10 @@ func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 		database.Close()
 		t.Fatal(err)
 	}
-	if version != 12 || migrationCount != 12 || checksum != migrations[11].checksum() {
+	latest := migrations[len(migrations)-1]
+	if version != latest.version || migrationCount != len(migrations) || checksum != latest.checksum() {
 		database.Close()
-		t.Fatalf("migration record version=%d count=%d checksum=%q", version, migrationCount, checksum)
+		t.Fatalf("migration record version=%d count=%d checksum=%q; want version=%d count=%d", version, migrationCount, checksum, latest.version, len(migrations))
 	}
 	var segments, localized int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM event_story_segments`).Scan(&segments); err != nil {
@@ -404,7 +421,7 @@ func TestV10MigrationCreatesDurableLyricsDiscoveryQueue(t *testing.T) {
 	}
 	defer migrated.Close()
 	var version int
-	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != migrations[len(migrations)-1].version {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	if _, err := migrated.Exec(`INSERT INTO lyrics_discovery_jobs
@@ -446,15 +463,12 @@ func TestV11MigrationUpgradesExistingQueueAndConstrainsShadowResults(t *testing.
 		raw.Close()
 		t.Fatal(err)
 	}
-	if err := raw.Close(); err != nil {
+	if err := database.applyMigrations(migrations[10:11]); err != nil {
+		raw.Close()
 		t.Fatal(err)
 	}
-
-	migrated, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer migrated.Close()
+	defer raw.Close()
+	migrated := raw
 	var fingerprint, policy string
 	if err := migrated.QueryRow(`SELECT catalog_fingerprint, policy_version FROM lyrics_discovery_jobs WHERE music_id=7`).Scan(&fingerprint, &policy); err != nil {
 		t.Fatal(err)
@@ -571,7 +585,7 @@ func TestV11MigrationFailureRollsBackBothQueueColumnsAndShadowTable(t *testing.T
 	}
 	defer reopened.Close()
 	var version int
-	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != migrations[len(migrations)-1].version {
 		t.Fatalf("v11 retry plus pending v12 version=%d err=%v", version, err)
 	}
 }
@@ -779,7 +793,7 @@ func TestV12MigrationFailureRollsBackIntegerTypeTriggers(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+	if err := reopened.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != migrations[len(migrations)-1].version {
 		t.Fatalf("retried v12 version=%d err=%v", version, err)
 	}
 }
@@ -805,7 +819,7 @@ func TestV12MigrationUpgradesV11AndCreatesIntegerTypeTriggers(t *testing.T) {
 	}
 	defer migrated.Close()
 	var version, triggers int
-	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 12 {
+	if err := migrated.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != migrations[len(migrations)-1].version {
 		t.Fatalf("migration version=%d err=%v", version, err)
 	}
 	if err := migrated.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'lyrics_discovery_%_integer_types_%'`).Scan(&triggers); err != nil || triggers != 4 {
@@ -979,5 +993,66 @@ func TestAttributionAndTokenGenerationMigrationRequiresRepublish(t *testing.T) {
 	}
 	if attribution != "" || tokenVersion != 1 || publications != 0 {
 		t.Fatalf("migration attribution=%q tokenVersion=%d publications=%d", attribution, tokenVersion, publications)
+	}
+}
+
+func TestV26MigrationAddsIndependentNonNullLyricsCreditsWithoutRewritingLegacyAttribution(t *testing.T) {
+	path := legacyFixtureCopy(t, "v26-lyrics-credits.db")
+	raw, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(ON)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer raw.Close()
+	database := &DB{DB: raw, path: path}
+	if err := database.applyMigrations(migrations[:25]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO catalog_music(music_id,title_ja,producer_metadata) VALUES (10,'legacy song','producer')`); err != nil {
+		t.Fatal(err)
+	}
+	const legacyAttribution = "Legacy translator attribution"
+	if _, err := raw.Exec(`INSERT INTO song_lyrics(music_id,revision,updated_at,updated_by,attribution,source_hash)
+		VALUES (10,1,1,'legacy',?,?)`, legacyAttribution, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.applyMigrations(migrations[25:26]); err != nil {
+		t.Fatal(err)
+	}
+
+	var attribution, translation, proofreading string
+	if err := raw.QueryRow(`SELECT attribution,translation_credit,proofreading_credit FROM song_lyrics WHERE music_id=10`).
+		Scan(&attribution, &translation, &proofreading); err != nil {
+		t.Fatal(err)
+	}
+	if attribution != legacyAttribution || translation != "" || proofreading != "" {
+		t.Fatalf("migrated credits attribution=%q translation=%q proofreading=%q", attribution, translation, proofreading)
+	}
+	for _, column := range []string{"translation_credit", "proofreading_credit"} {
+		var notNull int
+		var defaultValue sql.NullString
+		if err := raw.QueryRow(`SELECT "notnull",dflt_value FROM pragma_table_info('song_lyrics') WHERE name=?`, column).
+			Scan(&notNull, &defaultValue); err != nil {
+			t.Fatal(err)
+		}
+		if notNull != 1 || !defaultValue.Valid || defaultValue.String != "''" {
+			t.Fatalf("column %s notnull=%d default=%q", column, notNull, defaultValue.String)
+		}
+	}
+	if _, err := raw.Exec(`UPDATE song_lyrics SET translation_credit='Same Person',proofreading_credit='Same Person' WHERE music_id=10`); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.QueryRow(`SELECT translation_credit,proofreading_credit FROM song_lyrics WHERE music_id=10`).
+		Scan(&translation, &proofreading); err != nil {
+		t.Fatal(err)
+	}
+	if translation != "Same Person" || proofreading != "Same Person" {
+		t.Fatalf("independent credits translation=%q proofreading=%q", translation, proofreading)
+	}
+	if _, err := raw.Exec(`UPDATE song_lyrics SET translation_credit=NULL WHERE music_id=10`); err == nil {
+		t.Fatal("translation_credit accepted NULL")
+	}
+	var version int
+	if err := raw.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 26 {
+		t.Fatalf("schema version=%d err=%v", version, err)
 	}
 }

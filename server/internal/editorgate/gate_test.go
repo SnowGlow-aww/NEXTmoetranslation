@@ -45,7 +45,7 @@ func TestGateLifecycleAndWriterPreference(t *testing.T) {
 	if _, err := gate.BeginProducer(); !errors.Is(err, ErrProducerRunning) {
 		t.Fatalf("duplicate producer error = %v", err)
 	}
-	if release, status, ok := gate.BeginStrictEditor(initial.InstanceID, initial.CompletedGeneration); ok || release != nil || !status.Running {
+	if release, status, ok := gate.BeginStrictEditor(initial.InstanceID, initial.Revision, initial.CompletedGeneration); ok || release != nil || !status.Running {
 		t.Fatalf("strict editor crossed producer: ok=%v status=%+v", ok, status)
 	}
 
@@ -120,7 +120,7 @@ func TestCanceledProducerWaitCompletesPublishedGeneration(t *testing.T) {
 	}
 }
 
-func TestGateStrictStateFencesRestartAndStaleGeneration(t *testing.T) {
+func TestGateStrictStateFencesRestartRevisionAndStaleGeneration(t *testing.T) {
 	first, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -133,19 +133,26 @@ func TestGateStrictStateFencesRestartAndStaleGeneration(t *testing.T) {
 	if loaded.InstanceID == second.Status().InstanceID {
 		t.Fatal("independent process instances reused an id")
 	}
-	if release, _, ok := second.BeginStrictEditor(loaded.InstanceID, loaded.CompletedGeneration); ok || release != nil {
+	if release, _, ok := second.BeginStrictEditor(loaded.InstanceID, loaded.Revision, loaded.CompletedGeneration); ok || release != nil {
 		t.Fatal("restart instance state was accepted")
+	}
+	if release, status, ok := first.BeginStrictEditor(
+		loaded.InstanceID,
+		loaded.Revision+1,
+		loaded.CompletedGeneration,
+	); ok || release != nil || status != loaded {
+		t.Fatalf("revision-only stale state accepted: ok=%v status=%+v", ok, status)
 	}
 	releaseProducer, err := first.BeginProducer()
 	if err != nil {
 		t.Fatal(err)
 	}
 	releaseProducer()
-	if release, status, ok := first.BeginStrictEditor(loaded.InstanceID, loaded.CompletedGeneration); ok || release != nil || status.CompletedGeneration != 1 {
+	if release, status, ok := first.BeginStrictEditor(loaded.InstanceID, loaded.Revision, loaded.CompletedGeneration); ok || release != nil || status.CompletedGeneration != 1 {
 		t.Fatalf("stale completed generation accepted: ok=%v status=%+v", ok, status)
 	}
 	current := first.Status()
-	releaseEditor, _, ok := first.BeginStrictEditor(current.InstanceID, current.CompletedGeneration)
+	releaseEditor, _, ok := first.BeginStrictEditor(current.InstanceID, current.Revision, current.CompletedGeneration)
 	if !ok || releaseEditor == nil {
 		t.Fatal("current producer state was rejected")
 	}

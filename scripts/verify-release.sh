@@ -2,7 +2,7 @@
 set -eu
 
 expected_index=9a735e96f856da9b94e1362883df13616a8b6e3cd33afce5d5e1468b4784b475
-expected_detail=e677b0df75ae407ab8a71510f8c081be209bea3ce56781a0d00a14e3e771858e
+expected_detail=224a7d34e1d4d551bca21cbe70374f504a781edef90eb644d8d4ec9e5fca064c
 expected_db=2eb61967a5f5b96a4961c0258984d6d5bb2f7b813379872d9d50a427704b8877
 
 hash_file() {
@@ -44,6 +44,13 @@ grep -q 'MOE_TAG.*grep -Eq' Dockerfile
 grep -q 'moesekai-server --verify-workspace' Dockerfile
 grep -q 'MOESEKAI_PRODUCTION=true' Dockerfile
 grep -q '"schemaVersion": 3' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json
+grep -q '"name": "sekaitext-moe-loaded-producer-state"' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json
+grep -q '"name": "sekaitext-moe-editor-gate"' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json
+grep -q '"mutationHeaderFormat": "<base64url-instanceId>:<revision>:<completedGeneration>"' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json
+if [ "$(grep -c '"version": 2' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json)" -lt 2 ]; then
+  echo "workspace manifest proof contracts are not both version 2" >&2
+  exit 1
+fi
 grep -q '"sourceProduction": true' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json
 grep -q '"authentication": "bearer"' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json
 if grep -q '"query-token"' server/internal/workspaceverify/testdata/valid/web-workspace-manifest.json; then

@@ -13,6 +13,7 @@ const themes = {
     focus: { accent: "#ad5032", text: "#1f1e1b" },
     primary: { background: "#ad5032", foreground: "#ffffff" },
     active: { background: "#f6ebe6", foreground: "#ad5032", secondary: "#6b6960" },
+    review: { surfaces: ["#f7f7fb", "#ffffff", "#f2f1f8", "#eceaf4", "#efedf7"], text: "#1f1e1b", secondary: "#6b6960", accent: "#665d86" },
   },
   dark: {
     surfaces: ["#1f1e1b", "#2a2925", "#262521", "#33312c"],
@@ -25,6 +26,7 @@ const themes = {
     focus: { accent: "#e07e58", text: "#ecebe5" },
     primary: { background: "#e07e58", foreground: "#1f1e1b" },
     active: { background: "#3a2c25", foreground: "#e07e58", secondary: "#b8b4aa" },
+    review: { surfaces: ["#202026", "#292830", "#25242c", "#31303a", "#373342"], text: "#ecebe5", secondary: "#b8b4aa", accent: "#c1b6e5" },
   },
 };
 
@@ -64,6 +66,17 @@ test("light and dark small text and semantic colors meet WCAG AA on representati
       }
     }
   }
+});
+
+test("lyrics review text and performer P-codes stay readable on Direction B surfaces", () => {
+  for (const [theme, palette] of Object.entries(themes)) {
+    for (const surface of palette.review.surfaces) {
+      assertContrast(theme, "review lyrics text", palette.review.text, surface, 4.5);
+      assertContrast(theme, "review performer P-code", palette.review.secondary, surface, 4.5);
+      assertContrast(theme, "review accent label", palette.review.accent, surface, 4.5);
+    }
+  }
+  assert.ok(contrast("#DDAACC", "#ffffff") < 4.5, "official performer pink must remain a swatch, not light-theme foreground text");
 });
 
 test("source tags and status washes keep 10-11px text readable on their actual surfaces", () => {

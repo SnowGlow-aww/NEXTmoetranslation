@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"moesekai/server/internal/lyricssource"
 )
 
 // Store is the complete persistence surface available to the worker. Scan and
@@ -44,15 +46,21 @@ type ClaimRequest struct {
 }
 
 // Job is a queue-owned discovery input. Attempt is the one-based attempt number
-// for the current claim. LeaseToken must be checked by every terminal queue
-// mutation so a worker cannot finish a lease that has already expired.
+// for the current claim. PerformerSegmentationPolicy must be derived from the
+// current catalog rendition signals; the zero value fails closed. LeaseToken
+// must be checked by every terminal queue mutation so a worker cannot finish a
+// lease that has already expired.
 type Job struct {
-	ID               string
-	LeaseToken       string
-	Attempt          int
-	MusicID          int
-	JapaneseTitle    string
-	ProducerMetadata string
+	ID                          string
+	LeaseToken                  string
+	Attempt                     int
+	MusicID                     int
+	JapaneseTitle               string
+	ProducerMetadata            string
+	Lyricist                    string
+	Composer                    string
+	Arranger                    string
+	PerformerSegmentationPolicy lyricssource.PerformerSegmentationPolicy
 }
 
 type Outcome string
@@ -254,9 +262,12 @@ type Options struct {
 	IdleWait      time.Duration
 	RetryMin      time.Duration
 	RetryMax      time.Duration
+	Concurrency   int
 	Clock         Clock
 	Jitter        JitterFunc
 }
+
+const maxWorkerConcurrency = 16
 
 func (o Options) validate() error {
 	if o.ScanInterval <= 0 {
@@ -279,6 +290,9 @@ func (o Options) validate() error {
 	}
 	if o.RetryMax < o.RetryMin {
 		return fmt.Errorf("retry maximum must be at least retry minimum")
+	}
+	if o.Concurrency < 1 || o.Concurrency > maxWorkerConcurrency {
+		return fmt.Errorf("concurrency must be between 1 and %d", maxWorkerConcurrency)
 	}
 	return nil
 }

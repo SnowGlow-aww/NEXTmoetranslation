@@ -1,0 +1,586 @@
+{{Explicit|Cannibalism and other grotesque scenes}}
+<tabber>
+Original version = 
+{{Song box 2
+  |color     = #a50000; color: black
+  |image     = Akujiki.jpg
+  |title     = "'''悪食娘コンチータ'''"
+* Romaji: Akujiki Musume Conchita
+* Official Translation: Evil Food Eater Conchita
+  |date      = March 4, 2009
+  |views     = {{v|nn|2,155,436}} and {{v|pp|59,351}}
+  |singers   = [[MEIKO]]
+* <small>[[Kagamine Rin & Len]]</small>
+  |producers = [[mothy/2008+|mothy]] (music, lyrics)
+* [[Ichika]] (illustration)
+  |links     = {{l|nn|sm6328922}} {{l|pp|ylqY}}
+}}
+|-|Seven Crimes and Punishments Version = 
+{{Song box 2
+  |color     = #a50000; color: black
+  |image     = Akujiki.jpg
+  |title     = "'''悪食娘コンチータ'''"
+* Romaji: Akujiki Musume Conchita
+* Official Translation: Evil Food Eater Conchita
+  |date      = February 25, 2015 (album) and March 12, 2020 (MV)
+  |views     = {{v|yt|3,472,907}}
+  |singers   = [[MEIKO]]
+* <small>[[Kagamine Rin & Len]]</small>
+  |producers = [[Mothy/2015+|mothy]] (music, lyrics)
+* [[Ichika]] (illustration)
+  |links     = {{l|yt|8QMWmr2mFKk}}
+}}
+</tabber>
+
+==Background==
+{{Quote|Bow down and worship our great Conchita|Arte and Pollo, Banica's servants}}
+
+This song was uploaded on March 3, 2009, and is the first MEIKO original song to achieve 1,000,000 views.
+
+The song concerns Banica Conchita (MEIKO), a woman who, at one time, ate only the most delicious and exquisite food. Now, however, her tastes have evolved so that she wants something new and grotesque every day, and nothing enters or leaves her palace. One day, the fifteenth personal chef of the year Joseph ([[KAITO]]) asks for a brief vacation (in an attempt to flee). She refuses, and eventually eats him after he poisoned himself. Soon after, she ends up eating her butler Pollo (Len) and maid Arte (Rin), and when everything has gone, she ends up eating herself. Its initial phrase is 「さあ、残さず食べなさい｣ ("Now, eat up without leaving anything").
+
+This song is one of the tracks of Akuno-P's Seven Deadly Sins Series.
+
+The original version of this song has entered the ''[[Hall of Legend]]'' while the SCP version has surpassed 3 million views on YouTube.
+
+{{Main|Seven Deadly Sins|The Evillious Chronicles}}
+
+==Succeeding versions==
+{{derivative
+  |color       = #a50000; color: black
+  |title       = Vocaloanthems Trailer
+  |singers     = MEIKO
+  |producers   = Tsuburaya-P
+  |categories  = Trailer PV
+  |links       = nn sm12208656
+  |description = The song's preview for the Vocaloanthems album.
+}}
+{{derivative
+  |color       = #a50000; color: black
+  |thumb       = EKingdom.jpg
+  |title       = 悪食娘コンチータ (改)
+  |translation = Evil Food Eater Conchita (Revised)
+  |singers     = MEIKO<br><small>Kagamine Rin & Len (back-up)</small>
+  |producers   = mothy (music, lyrics), Ichika (illust)
+  |categories  = Revised Version
+  |description = A revamped version of the song available for the members of Akuno-P's CITRIN's community on Nico Nico Douga. This version includes a new PV showing a timeline of Banica's life. This version would later be included in ''[[悪ノ王国〜Evils Kingdom〜 (Aku no Oukoku 〜Evils Kingdom〜)|Evils Kingdom]]''.
+}}
+{{derivative
+  |color       = #a50000; color: black
+  |thumb       = AteYWYnCMAEWwLA.jpg
+  |title       = ベルゼニアの悪食娘
+  |translation = Beruzenia no Akujiki Musume (Evil Food Eater of Beelzenia)
+  |producers   = mothy (music, lyrics), Ichika (illust)
+  |categories  = Arrangement
+  |description = A revised instrumental version that was released for a limited time. Featured in the E.P ''[[悪ノ四楽奏～悪ノ娘ノベル楽曲集～ (Aku no Yongakusou ~Aku no Musume Novel Gakkyoku Shuu~)|Aku no Yongakusou ~Aku no Musume Novel Gakkyoku Shuu~]]''.
+}}
+{{derivative
+  |color       = #68b1dc; color:white
+  |thumb       = 初音ミクシンフォニー ～Miku Symphony 2023 オーケストラ ライブ CD.jpg
+  |title       = Miku Symphony 2023's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version is featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2023~ Orchestra Live CD''.
+  |links       = yt ezEGly-DoR0
+}}
+{{Derivative
+  |color       = #A50000; color: black
+  |title       = 2026 MEIKO Only Ver
+  |singers     = MEIKO
+  |producers   = mothy
+  |categories  = Arrangement; Album-exclusive Content
+  |description = Featured exclusively on the album ''Kakumei no Aka''.
+}}
+{{clr}}
+
+==Lyrics==
+{{lrc legend
+|#a50000; color: black
+|MEIKO:default
+|Rin & Len:orange
+}}
+<tabber>
+Niconico ver = 
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|腐臭漂う背徳の館
+|fushuu tadayou haitoku no yakata
+|-
+|今日もはじまる最後の晩餐
+|kyou mo hajimaru saigo no bansan
+|-
+|身の毛もよだつ料理の数々
+|minoke mo yodatsu ryouri no kazukazu
+|-
+|ひとり食い漁る女の笑顔
+|hitori kui asaru onna no egao
+|-
+|<br>
+|-
+|彼女の名前はバニカ・コンチータ
+|kanojo no namae wa banika konchiita
+|-
+|かつてこの世の美食を極めた
+|katsute kono yo no bishoku o kiwameta
+|-
+|その果てに彼女が求めたのは
+|sono hate ni kanojo ga motometa no wa
+|-
+|究極にして至高の{{ruby|悪食|あくじき}}
+|kyuukyoku ni shite shikou no akujiki
+|-
+|<br>
+|-
+|{{lrc color|rin & len|(敬い称えよ}}
+|{{lrc color|rin & len|(uyamai tataeyo}}
+|-
+|{{lrc color|rin & len|われらが偉大なコンチータ}}
+|{{lrc color|rin & len|warera ga idaina konchiita}}
+|-
+|{{lrc color|rin & len|この世界の食物は}}
+|{{lrc color|rin & len|kono sekai no shokumotsu wa}}
+|-
+|{{lrc color|rin & len|全てがあなたの為にある)}}
+|{{lrc color|rin & len|subete ga anata no tame ni aru)}}
+|-
+|<br>
+|-
+|食らい尽せこの世のすべて
+|kuraitsukuse kono yo no subete
+|-
+|胃袋にはまだまだ空きがある
+|ibukuro ni wa madamada aki ga aru
+|-
+|青白く輝く猛毒
+|aojiroku kagayaku moudoku
+|-
+|メインディッシュのスパイスに最適♥
+|main dish no supaisu ni saiteki♥
+|-
+|<br>
+|-
+|骨の髄までしゃぶり尽せ
+|hone no zui made shaburitsukuse
+|-
+|足りなければ皿にもかぶりつけ
+|tarinakereba sara ni mokaburitsuke
+|-
+|舌先を駆け巡る至福
+|shitasaki o kakemeguru shifuku
+|-
+|晩餐はまだまだ終わらない
+|bansan wa madamada owaranai
+|-
+|<br>
+|-
+|今年に入って15人目の
+|kotoshi ni haitte juugoninme no
+|-
+|お抱えコックがこう言ってきた
+|okakae kokku ga kou itte kita
+|-
+|「そろそろお暇を貰えませんか?」
+|"sorosoro ohima o moraemasen ka?"
+|-
+|まったく使えぬ奴らばかりね
+|mattaku tsukaenu yatsura bakari ne
+|-
+|<br>
+|-
+|{{lrc color|rin & len|(敬い称えよ}}
+|{{lrc color|rin & len|(uyamai tataeyo}}
+|-
+|{{lrc color|rin & len|われらが偉大なコンチータ}}
+|{{lrc color|rin & len|warera ga idai na konchiita}}
+|-
+|{{lrc color|rin & len|裏切り者には}}
+|{{lrc color|rin & len|uragirimono ni wa}}
+|-
+|{{lrc color|rin & len|報いを受けていただきましょう)}}
+|{{lrc color|rin & len|mukui o ukete itadakimashou)}}
+|-
+|<br>
+|-
+|食らい尽せこの世のすべて
+|kuraitsukuse kono yo no subete
+|-
+|今日のメニューは特別製なの
+|kyou no menyuu wa tokubetsusei nano
+|-
+|青白く輝く毛髪
+|aojiroku kagayaku mouhatsu
+|-
+|オードブルのサラダに丁度いい♥
+|hoodobure no sarada ni choudo ii♥
+|-
+|<br>
+|-
+|骨の髄までしゃぶり尽せ
+|hone no zui made shaburitsukuse
+|-
+|足りなければ「おかわり」すればいい
+|tarinakereba "okawari" sureba ii
+|-
+|ちょっとそこの召使さん
+|chotto soko no meshitsukai-san
+|-
+|あなたはどんな味がするかしら？
+|anata wa donna aji ga suru kashira?
+|-
+|<br>
+|-
+|いつしか館はもぬけのからに
+|itsushika yakata wa monuke no kara ni
+|-
+|何にもないし　誰ももういない
+|nannimo nai shi daremo mou inai
+|-
+|それでも彼女は求め続けた
+|soredemo kanojo wa motome tsuzuketa
+|-
+|究極にして至高の{{ruby|悪食|あくじき}}
+|kyuukyoku ni shite shikou no akujiki
+|-
+|<br>
+|-
+|食らい尽せこの世のすべて
+|kuraitsukuse kono yo no subete
+|-
+|彼女は自らの右手を見て
+|kanojo wa mizukara no migite o mite
+|-
+|そして静かにほほ笑んだ
+|soshite shizuka ni hohoenda
+|-
+|<br>
+|-
+|「マダ　タベルモノ　アルジャナイ」
+|"mada taberu mono aru ja nai"
+|-
+|<br>
+|-
+|コンチータの最後の{{ruby|悪食|あくじき}}
+|konchiita no saigo no akujiki
+|-
+|食材はそう　彼女自身
+|shokuzai wa sou kanojo jishin
+|-
+|食を極めたその身体の
+|shoku o kiwameta sono karada no
+|-
+|味を知るものはすでにいない
+|aji o shiru mono wa sudeni inai
+|}
+|-|
+SCP ver = 
+{| style="width:100%"
+|{{shared}}|「さあ、残さず食べなさい｣
+|-
+|{{shared}}|"saa, nokosazu ni tabenasai"
+|-
+|<br>
+|-
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|腐臭漂う背徳の館
+|fushuu tadayou haitoku no yakata
+|-
+|今日もはじまる最後の晩餐
+|kyou mo hajimaru saigo no bansan
+|-
+|身の毛もよだつ料理の数々
+|minoke mo yodatsu ryouri no kazukazu
+|-
+|ひとり食い漁る女の笑顔
+|hitori kui asaru onna no egao
+|-
+|<br>
+|-
+|彼女の名前はバニカ・コンチータ
+|kanojo no namae wa banika konchiita
+|-
+|かつてこの世の美食を極めた
+|katsute kono yo no bishoku o kiwameta
+|-
+|その果てに彼女が求めたのは
+|sono hate ni kanojo ga motometa no wa
+|-
+|究極にして至高の{{ruby|悪食|あくじき}}
+|kyuukyoku ni shite shikou no akujiki
+|-
+|<br>
+|-
+|{{lrc color|rin & len|(敬い称えよ}}
+|{{lrc color|rin & len|(uyamai tataeyo}}
+|-
+|{{lrc color|rin & len|われらが偉大なコンチータ}}
+|{{lrc color|rin & len|warera ga idai na konchiita}}
+|-
+|{{lrc color|rin & len|この世界の食物は}}
+|{{lrc color|rin & len|kono sekai no shokumotsu wa}}
+|-
+|{{lrc color|rin & len|全てがあなたの為にある)}}
+|{{lrc color|rin & len|subete ga anata no tame ni aru)}}
+|-
+|<br>
+|-
+|食らい尽せこの世のすべて
+|kuraitsukuse kono yo no subete
+|-
+|胃袋にはまだまだ空きがある
+|ibukuro ni wa madamada aki ga aru
+|-
+|青白く輝く猛毒
+|aojiroku kagayaku moudoku
+|-
+|メインディッシュのスパイスに最適♥
+|main dish no supaisu ni saiteki♥
+|-
+|<br>
+|-
+|骨の髄までしゃぶり尽せ
+|hone no zui made shaburitsukuse
+|-
+|足りなければ皿にもかぶりつけ
+|tarinakereba sara ni mokaburitsuke
+|-
+|舌先を駆け巡る至福
+|shitasaki o kakemeguru shifuku
+|-
+|晩餐はまだまだ終わらない
+|bansan wa madamada owaranai
+|-
+|<br>
+|-
+|今年に入って15人目の
+|kotoshi ni haitte juugoninme no
+|-
+|お抱えコックがこう言ってきた
+|okakae kokku ga kou itte kita
+|-
+|「そろそろお暇を貰えませんか?」
+|"sorosoro ohima o moraemasen ka?"
+|-
+|まったく使えぬ奴らばかりね
+|mattaku tsukaenu yatsura bakari ne
+|-
+|<br>
+|-
+|{{lrc color|rin & len|(敬い称えよ}}
+|{{lrc color|rin & len|(uyamai tataeyo}}
+|-
+|{{lrc color|rin & len|われらが偉大なコンチータ}}
+|{{lrc color|rin & len|warera ga idai na konchiita}}
+|-
+|{{lrc color|rin & len|裏切り者には}}
+|{{lrc color|rin & len|uragirimono ni wa}}
+|-
+|{{lrc color|rin & len|報いを受けていただきましょう)}}
+|{{lrc color|rin & len|mukui o ukete itadakimashou)}}
+|-
+|<br>
+|-
+|食らい尽せこの世のすべて
+|kuraitsukuse kono yo no subete
+|-
+|今日のメニューは特別製なの
+|kyou no menyuu wa tokubetsusei nano
+|-
+|青白く輝く毛髪
+|aojiroku kagayaku mouhatsu
+|-
+|オードブルのサラダに丁度いい♥
+|hoodobure no sarada ni choudo ii♥
+|-
+|<br>
+|-
+|骨の髄までしゃぶり尽せ
+|hone no zui made shaburitsukuse
+|-
+|足りなければ「おかわり」すればいい
+|tarinakereba "okawari" sureba ii
+|-
+|ちょっとそこの召使さん
+|chotto soko no meshitsukai-san
+|-
+|あなたはどんな味がするかしら？
+|anata wa donna aji ga suru kashira?
+|-
+|<br>
+|-
+|いつしか館はもぬけのからに
+|itsushika yakata wa monuke no kara ni
+|-
+|何にもないし　誰ももういない
+|nannimo nai shi daremo mou inai
+|-
+|それでも彼女は求め続けた
+|soredemo kanojo wa motome tsuzuketa
+|-
+|究極にして至高の{{ruby|悪食|あくじき}}
+|kyuukyoku ni shite shikou no akujiki
+|-
+|<br>
+|-
+|食らい尽せこの世のすべて
+|kuraitsukuse kono yo no subete
+|-
+|彼女は自らの右手を見て
+|kanojo wa mizukara no migite o mite
+|-
+|そして静かにほほ笑んだ
+|soshite shizuka ni hohoenda
+|-
+|<br>
+|-
+|「マダ　タベルモノ　アルジャナイ」
+|"mada taberu mono aru ja nai"
+|-
+|<br>
+|-
+|コンチータの最後の{{ruby|悪食|あくじき}}
+|konchiita no saigo no akujiki
+|-
+|食材はそう　彼女自身
+|shokuzai wa sou kanojo jishin
+|-
+|食を極めたその身体の
+|shoku o kiwameta sono karada no
+|-
+|味を知るものはすでにいない
+|aji o shiru mono wa sudeni inai
+|}
+</tabber>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{derivative
+  |color       = meiko
+  |title       = Narcissus' Cover ft. MEIKO
+  |singers     = MEIKO V1<br><small>{{UW|Kasane Teto}} VCV, [[Hatsune Miku]] Append Solid</small>
+  |producers   = Narcissus (cover), MystSaphyr (UST)
+  |categories  = VOCALOID Cover
+  |links       = yt ZnC30J7IK54; sc user-676959264/evil-food-eater-conchita-meiko-v1-ft-kasane-tetohatsune-miku
+}}
+{{derivative
+  |color       = meiko|thumb = yt
+  |title       = ryusouta's Cover ft. MEIKO
+  |singers     = MEIKO V3<br><small>Kagamine Rin & Len, [[KAITO]] V3</small>
+  |producers   = ryusouta (cover, mixing, harmonies, VSQx conversion), MystSaphyr (UST)
+  |categories  = VOCALOID Cover
+  |links       = nn sm25273183; yt LclaK89b7lM
+}}
+{{derivative
+  |color       = nekomura iroha
+  |title       = Kaitsuko-P's Cover ft. Nekomura Iroha
+  |singers     = [[Nekomura Iroha]] V4 Natural & Soft<br><small>[[Fukase]] Normal, [[Otomachi Una]] Spicy</small>
+  |producers   = Kaitsuko-P (cover, mixing), Lucifer (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt A-3x3Fb5cpY
+}}
+{{derivative
+  |color       = kagamine
+  |title       = Orebanana-P's Cover ft. Kagamine Rin & Len
+  |singers     = Kagamine Rin, Kagamine Len
+  |producers   = [[Orebanana-P]]
+  |categories  = VOCALOID Cover
+  |links       = nn sm6528049
+}}
+  |utau = 
+{{derivative
+  |color       = utau
+  |title       = Rucow's Cover ft. Mawarine Shuu
+  |singers     = {{UW|Shuu Mawarine|Mawarine Shuu}}<br><small>{{UW|Yokune Ruko}}♂ Kire</small>
+  |producers   = Rucow (cover, UST edits), MystSaphyr (UST)
+  |categories  = UTAU Cover
+  |links       = yt 9AixDtRFh1s; sc hardrobot/mawarine-shuuyokune-ruko-kireevil-food-eater-conchitautau
+}}
+
+{{derivative
+  |color       = utau
+  |title       = Muffs' Cover ft. Gekiyaku
+  |singers     = {{UW2.0|Gekiyaku}}
+  |producers   = Muffs (cover, illust), MystSaphyr (UST)
+  |categories  = UTAU Cover
+  |links       = yt P7TEK1wWPug
+}}
+  |arrangement = 
+{{derivative
+  |color       = megurine luka|thumb = yt
+  |title       = Jounetsu-P's Arranged Cover ft. Megurine Luka
+  |singers     = Megurine Luka<br><small>Kagamine Rin & Len</small>
+  |producers   = [[Jounetsu-P]] (cover, arrangement), [[Tenkomori]] (illust)
+  |categories  = VOCALOID Cover; Arrangement; Fanmade Hand-drawn PV
+  |links       = nn nm7282930; yt tuzCJEPkEXk
+  |description = A classical-techno arrangement cover using Luka with a PV to go along with it.
+}}
+  |fanmadepv = 
+{{derivative
+  |color       = #a50000; color: black
+  |title       = Kai's PV
+  |singers     = MEIKO, Kagamine Rin & Len
+  |producers   = Kai
+  |categories  = Fanmade Hand-drawn PV
+  |links       = nn sm7268686
+}}
+{{derivative
+  |color       = #a50000; color: black
+  |title       = mizuki12341's MMD PV
+  |singers     = MEIKO, Kagamine Rin & Len
+  |producers   = mizuki12341
+  |categories  = VOCALOID Cover; Arrangement; Fanmade PV
+  |links       = yt BtOwXXG7oeY
+}}
+}}
+
+==Other media appearances==
+===Discography===
+This song is featured in following albums:
+* [[Evils Theater]] (Original)
+* [[悪食娘コンチータ（改） (Akujiki Musume Conchita (Kai))|Evil Food Eater Conchita (Revised)]] (Revised version)
+* [[悪ノ王国〜Evils Kingdom〜 (Aku no Oukoku 〜Evils Kingdom〜)|Evils Kingdom]] (Revised version)
+* [[七つの罪と罰 (Nanatsu no Tsumi to Batsu)|Seven Crimes and Punishments]] (SCP version)
+* Saribitotachi no Waltz Aku no Taizai SEKAI EDITION+ (SCP version)
+* Kakumei no Aka (Original & 2026 MEIKO Only version)
+
+This song is featured in following compilation albums:
+* [[EXIT TUNES PRESENTS Vocaloanthems feat. 初音ミク|Vocaloanthems]] (Revised)
+* [[月刊eta Vol.08 (Gekkaneta Vol.08)|Monthlyeta Vol.08]] (Original)
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="#a50000">
+Games - Project SEKAI - 悪食娘コンチータ.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [http://piapro.jp/t/1lo1 Instrumental] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 4481
+  |nico   = sm6328922
+  |vocadb = 1588
+  |mgp    = 恶食娘空琪塔
+  |pixiv  = 悪食娘コンチータ
+  |tag    = 悪食娘コンチータ
+  |vlw    = 悪食娘コンチータ (Akujiki Musume Conchita)
+  |url    = {{IW|theevilliouschronicles|Evil Food Eater Conchita|The Evillious Chronicles Wiki}}
+* {{IW|projectsekai|Akujiki Musume Conchita|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Evillious Chronicles series]]
+[[Category:Mobile game songs]]

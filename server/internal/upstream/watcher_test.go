@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -11,7 +12,14 @@ import (
 
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/db"
+	"moesekai/server/internal/httpx"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Setenv("MOESEKAI_PRODUCTION", "false")
+	_ = os.Setenv(httpx.UpstreamAllowInsecureLocalEnv, "true")
+	os.Exit(m.Run())
+}
 
 func openWatcherConfig(t *testing.T) *config.Config {
 	t.Helper()
@@ -72,6 +80,92 @@ func TestExpandVersionURLTemplate(t *testing.T) {
 	want := "https://cdn.jsdelivr.net/gh/owner/repo@dev/versions/current_version.json"
 	if got != want {
 		t.Fatalf("expandVersionURL template = %q, want %q", got, want)
+	}
+}
+
+func TestUnsetSchedulerPerformsNoBaselinePendingOrContentWrites(t *testing.T) {
+	oldBuiltIns := builtInVersionFallbackURLs
+	builtInVersionFallbackURLs = nil
+	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
+	var requests, syncCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		fmt.Fprint(w, `{"dataVersion":"100"}`)
+	}))
+	defer server.Close()
+	cfg := openWatcherConfig(t)
+	if err := cfg.Set(config.KeyUpstreamVersionURL, server.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyUpstreamVersionFallbackURL, server.URL); err != nil {
+		t.Fatal(err)
+	}
+	watcher := New(cfg, func() error {
+		syncCalls.Add(1)
+		return nil
+	}, Options{Interval: 5 * time.Millisecond})
+	watcher.Start()
+	t.Cleanup(func() { watcher.Stop(); watcher.Wait() })
+	time.Sleep(30 * time.Millisecond)
+	if requests.Load() != 0 || syncCalls.Load() != 0 {
+		t.Fatalf("unset scheduler performed network/content work: requests=%d syncs=%d", requests.Load(), syncCalls.Load())
+	}
+	if cfg.Get(config.KeyUpstreamLastDataVersion) != "" || cfg.Get(config.KeyUpstreamPendingDataVersion) != "" {
+		t.Fatalf("unset scheduler persisted version state: baseline=%q pending=%q", cfg.Get(config.KeyUpstreamLastDataVersion), cfg.Get(config.KeyUpstreamPendingDataVersion))
+	}
+	if watcher.Status().Enabled {
+		t.Fatal("unset scheduler reported enabled")
+	}
+}
+
+func TestExplicitlyEnabledSchedulerBaselinesAndSyncsChanges(t *testing.T) {
+	oldBuiltIns := builtInVersionFallbackURLs
+	builtInVersionFallbackURLs = nil
+	t.Cleanup(func() { builtInVersionFallbackURLs = oldBuiltIns })
+	var version atomic.Value
+	version.Store("100")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"dataVersion":%q}`, version.Load().(string))
+	}))
+	defer server.Close()
+	cfg := openWatcherConfig(t)
+	for key, value := range map[string]string{
+		config.KeySchedulerOn:                "true",
+		config.KeyUpstreamVersionURL:         server.URL,
+		config.KeyUpstreamVersionFallbackURL: server.URL,
+	} {
+		if err := cfg.Set(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var syncCalls atomic.Int32
+	watcher := New(cfg, func() error {
+		syncCalls.Add(1)
+		return nil
+	}, Options{Interval: 5 * time.Millisecond})
+	watcher.Start()
+	t.Cleanup(func() { watcher.Stop(); watcher.Wait() })
+	waitForWatcher(t, func() bool { return cfg.Get(config.KeyUpstreamLastDataVersion) == "100" })
+	if syncCalls.Load() != 0 {
+		t.Fatalf("initial baseline triggered %d content syncs", syncCalls.Load())
+	}
+	version.Store("101")
+	waitForWatcher(t, func() bool {
+		return syncCalls.Load() == 1 && cfg.Get(config.KeyUpstreamLastDataVersion) == "101" && cfg.Get(config.KeyUpstreamPendingDataVersion) == ""
+	})
+	if !watcher.Status().Enabled {
+		t.Fatal("explicit true scheduler did not report enabled")
+	}
+}
+
+func waitForWatcher(t *testing.T, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for !condition() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if !condition() {
+		t.Fatal("timed out waiting for watcher state")
 	}
 }
 

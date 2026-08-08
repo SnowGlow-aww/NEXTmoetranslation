@@ -1,0 +1,37 @@
+== 合成试验曲 ==
+{{ProjectsekaiSongGai
+|名字={{lj|合成試験曲}}
+|曲名={{lj|合成試験曲}}
+|作词=[[制作者]]
+|作曲=[[制作者]]
+|编曲=[[制作者]]
+}}
+
+=== 歌词 ===
+*翻译：测试译者
+{{LyricsKai/ext
+|translated=
+@1这行翻译绝不能输出
+|Roma=
+@1kono romanization must never be emitted
+|charas= 初音未来(世界计划)；镜音铃(世界计划)；合唱(@nolink)；初音未来、镜音铃
+|charaBlock= on
+|original=
+@1共通の{{ruby|理由|わけ}}
+
+<--Tag-Start:Game Ver.-->
+@3同じ歌
+<--Tag-End-->
+<--Tag-Start:Full Ver.-->
+@4同じ歌
+@2完全版だけ
+<--Tag-End-->
+
+@4二人で{{ruby|先|さき}}へ　{{ruby|編み合|Amia}}わせて
+@1弱さ@'''{{coloredlink|#FFCC11|镜音铃|歌}}'''@2おう
+|colors= #33CCBB; #FFCC11; #000; lg(#33CCBB, #FFCC11)
+|type=colors,multiver
+|traColors=on
+|default=Game Ver.
+}}
+{{clear}}

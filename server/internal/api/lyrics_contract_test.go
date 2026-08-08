@@ -1,12 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -35,6 +37,25 @@ func (f fakeLyricsSource) Preview(ctx context.Context, identity lyricssource.Mus
 		return f.previewFn(ctx, identity, pageID, revisionID)
 	}
 	return f.preview, f.err
+}
+
+func TestLyricsSourceIdentityPreservesRoleBoundCatalogCredits(t *testing.T) {
+	h := setupLegacyAPI(t)
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ProducerMetadata: "producer metadata",
+		Lyricist: "作詞者", Composer: "作曲者", Arranger: "編曲者",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	identity, ok := h.api.lyricsSourceIdentity(recorder, 10)
+	if !ok || recorder.Code != http.StatusOK {
+		t.Fatalf("identity ok=%v status=%d body=%s", ok, recorder.Code, recorder.Body.String())
+	}
+	if identity.MusicID != 10 || identity.JapaneseTitle != "新曲" || identity.ProducerMetadata != "作詞者 | 作曲者 | 編曲者" ||
+		identity.Lyricist != "作詞者" || identity.Composer != "作曲者" || identity.Arranger != "編曲者" {
+		t.Fatalf("identity=%+v", identity)
+	}
 }
 
 func seedLyricsCatalog(t *testing.T, h *legacyAPIHarness) {
@@ -166,6 +187,56 @@ func TestLyricsAPIContractAndRBAC(t *testing.T) {
 	}
 	if len(listed.Items) != 1 || listed.Items[0].Status != "published" {
 		t.Fatalf("lyrics list = %+v", listed)
+	}
+}
+
+func TestPrivateLyricsDetailAvoidsHTMLExpansionBeyondSekaiTextBodyCap(t *testing.T) {
+	h := setupLegacyAPI(t)
+	seedLyricsCatalog(t, h)
+	const lineCount = 200
+	text := strings.Repeat("<", 6000)
+	draft := model.SongLyrics{MusicID: 10, Status: "draft", Lines: make([]model.LyricLine, lineCount)}
+	for index := range draft.Lines {
+		draft.Lines[index] = model.LyricLine{
+			ID: fmt.Sprintf("html-%d", index), Order: index, Japanese: text, Chinese: "", English: "",
+			Segments: []model.LyricSegment{{
+				Text: text, PerformerIDs: []int{1}, Ruby: []model.LyricRubySpan{{Text: text}},
+			}},
+		}
+	}
+	saved, err := h.store.SaveLyrics(draft, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	htmlEscaped, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(htmlEscaped) <= maxJSONBodyBytes {
+		t.Fatalf("HTML-escaped control payload=%d bytes, want more than %d", len(htmlEscaped), maxJSONBodyBytes)
+	}
+
+	response := authorizedRequest(t, h, http.MethodGet, "/api/lyrics/detail?musicId=10", nil)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("private lyrics detail status=%d", response.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxJSONBodyBytes+1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(body) > maxJSONBodyBytes {
+		t.Fatalf("non-HTML-escaped private lyrics response=%d bytes, cap=%d", len(body), maxJSONBodyBytes)
+	}
+	if bytes.Contains(body, []byte(`\u003c`)) || !bytes.Contains(body, []byte("<<<")) {
+		t.Fatal("private lyrics response did not preserve literal HTML-sensitive characters")
+	}
+	var decoded model.SongLyrics
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("decode private lyrics response: %v", err)
+	}
+	if len(decoded.Lines) != lineCount || decoded.Lines[0].Japanese != text {
+		t.Fatalf("decoded private lyrics response lost content: lines=%d", len(decoded.Lines))
 	}
 }
 
@@ -303,7 +374,7 @@ func TestLyricsSourcePreviewContract(t *testing.T) {
 	draft.SourceFetchedAt = result.FetchedAt
 	draft.Lines = []model.LyricLine{{
 		ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Chinese: "", English: "",
-		Segments: []model.LyricSegment{{Text: "歌詞", PerformerIDs: []int{}}},
+		Segments: []model.LyricSegment{{Text: "歌詞", PerformerIDs: []int{}, Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}},
 	}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
@@ -512,7 +583,7 @@ func TestLyricsSaveRejectsUnverifiedOrTamperedSourceProvenance(t *testing.T) {
 	draft.SourceRevisionID = 34
 	draft.SourceSHA1 = sourceSHA1
 	draft.SourceFetchedAt = "2026-07-22T12:00:00Z"
-	draft.Lines = []model.LyricLine{{ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}}}}
+	draft.Lines = []model.LyricLine{{ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}}}}
 	unverified := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", draft)
 	unverified.Body.Close()
 	if unverified.StatusCode != http.StatusUnprocessableEntity {
@@ -621,7 +692,7 @@ func TestLyricsImportGrantRejectsCatalogIdentityDriftAfterPreview(t *testing.T) 
 	draft.SourceRevisionID = preview.RevisionID
 	draft.SourceSHA1 = preview.SHA1
 	draft.SourceFetchedAt = preview.FetchedAt
-	draft.Lines = []model.LyricLine{{ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}}}}
+	draft.Lines = []model.LyricLine{{ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}}}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
 		t.Fatal(err)
@@ -679,7 +750,7 @@ func TestLyricsImportValidationFailureReleasesGrantForRetry(t *testing.T) {
 	draft.SourceFetchedAt = preview.FetchedAt
 	draft.Lines = []model.LyricLine{{
 		ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞",
-		Segments: []model.LyricSegment{{Text: "歌詞", PerformerIDs: []int{999}}},
+		Segments: []model.LyricSegment{{Text: "歌詞", PerformerIDs: []int{999}, Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}},
 	}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
@@ -743,7 +814,7 @@ func TestLyricsImportPostSaveCommitInvariantIsReportedWithoutFalseFailure(t *tes
 	draft.SourceSHA1 = preview.SHA1
 	draft.SourceFetchedAt = preview.FetchedAt
 	draft.Lines = []model.LyricLine{{
-		ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}},
+		ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}},
 	}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
@@ -829,7 +900,7 @@ func TestLyricsImportGrantIsConsumedBeforeBlockingChangeHook(t *testing.T) {
 	draft.SourceRevisionID = preview.RevisionID
 	draft.SourceSHA1 = preview.SHA1
 	draft.SourceFetchedAt = preview.FetchedAt
-	draft.Lines = []model.LyricLine{{ID: "source-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}}}}
+	draft.Lines = []model.LyricLine{{ID: "source-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}}}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
 		t.Fatal(err)
@@ -892,7 +963,7 @@ func TestLyricsImportDatabaseFailureReleasesGrantForRetry(t *testing.T) {
 	draft.SourceRevisionID = preview.RevisionID
 	draft.SourceSHA1 = preview.SHA1
 	draft.SourceFetchedAt = preview.FetchedAt
-	draft.Lines = []model.LyricLine{{ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}}}}
+	draft.Lines = []model.LyricLine{{ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}}}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
 		t.Fatal(err)
@@ -966,7 +1037,7 @@ func TestLyricsImportStoreSourceDriftConsumesGrant(t *testing.T) {
 	draft.SourceSHA1 = preview.SHA1
 	draft.SourceFetchedAt = preview.FetchedAt
 	draft.Lines = []model.LyricLine{{
-		ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}},
+		ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}},
 	}}
 	payload, err := json.Marshal(draft)
 	if err != nil {
@@ -1037,7 +1108,7 @@ func TestConcurrentLyricsImportGrantsForSameMusicHaveOneWinner(t *testing.T) {
 		draft.SourceSHA1 = sourceSHA1
 		draft.SourceFetchedAt = "2026-07-22T12:00:00Z"
 		draft.Lines = []model.LyricLine{{
-			ID: lineID, Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞"}},
+			ID: lineID, Order: 0, Japanese: "歌詞", Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}},
 		}}
 		body, err := json.Marshal(draft)
 		if err != nil {
@@ -1157,7 +1228,7 @@ func TestLyricsImportGrantIsFirstSaveOnlyAndBoundToUserMusicAndTTL(t *testing.T)
 		draft.SourceFetchedAt = "2026-07-22T12:00:00Z"
 		draft.Lines = []model.LyricLine{{
 			ID: "wiki-12-34-1", Order: 0, Japanese: "歌詞",
-			Segments: []model.LyricSegment{{Text: "歌詞"}},
+			Segments: []model.LyricSegment{{Text: "歌詞", Ruby: []model.LyricRubySpan{{Text: "歌詞"}}}},
 		}}
 		body, err := json.Marshal(draft)
 		if err != nil {

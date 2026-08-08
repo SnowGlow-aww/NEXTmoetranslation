@@ -148,20 +148,19 @@ func TestSeedMigrationAndServerUseOneDatabaseOwner(t *testing.T) {
 
 	entered := make(chan struct{})
 	release := make(chan struct{})
-	migrationObjectImportedHook = func(count int) error {
-		if count == 1 {
-			close(entered)
-			<-release
-		}
-		return nil
+	migrationOwnershipAcquiredHook = func() {
+		close(entered)
+		<-release
 	}
 	migrationDone := make(chan error, 1)
 	go func() { migrationDone <- run(root, databasePath, true) }()
 	select {
 	case <-entered:
-	case <-time.After(2 * time.Second):
-		migrationObjectImportedHook = nil
-		t.Fatal("migration did not acquire ownership")
+	case <-time.After(10 * time.Second):
+		close(release)
+		migrationErr := <-migrationDone
+		migrationOwnershipAcquiredHook = nil
+		t.Fatalf("migration did not report acquired ownership: %v", migrationErr)
 	}
 	competingServer, err := singleinstance.Acquire(databasePath)
 	if competingServer != nil {
@@ -169,15 +168,16 @@ func TestSeedMigrationAndServerUseOneDatabaseOwner(t *testing.T) {
 	}
 	if !errors.Is(err, singleinstance.ErrAlreadyOwned) {
 		close(release)
-		migrationObjectImportedHook = nil
-		t.Fatalf("server while migration owns lock = %v", err)
+		migrationErr := <-migrationDone
+		migrationOwnershipAcquiredHook = nil
+		t.Fatalf("server while migration owns lock = %v; migration error = %v", err, migrationErr)
 	}
 	close(release)
 	if err := <-migrationDone; err != nil {
-		migrationObjectImportedHook = nil
+		migrationOwnershipAcquiredHook = nil
 		t.Fatal(err)
 	}
-	migrationObjectImportedHook = nil
+	migrationOwnershipAcquiredHook = nil
 	assertCompleteMigratedEvent(t, databasePath)
 }
 

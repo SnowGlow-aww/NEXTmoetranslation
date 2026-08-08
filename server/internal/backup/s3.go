@@ -28,6 +28,7 @@ const (
 	maxS3ResponseBytes              = 256 << 20
 	maxArchiveEntries               = 10_000
 	maxArchiveFileBytes             = 64 << 20
+	maxLyricsContentFileBytes       = 256 << 20
 	maxEventStoriesContentFileBytes = 512 << 20
 	maxArchiveExpandedBytes         = 1 << 30
 )
@@ -66,6 +67,11 @@ func (m *Manager) backupS3Context(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	encryptionKey, err := loadBackupEncryptionKey()
+	if err != nil {
+		return err
+	}
+	defer clear(encryptionKey)
 	work := filepath.Join(m.workDir, "s3-backup")
 	_ = os.RemoveAll(work)
 	defer os.RemoveAll(work)
@@ -73,38 +79,59 @@ func (m *Manager) backupS3Context(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.publishS3BackupPayloadContext(ctx, cfg, filepath.Join(work, "target"), backupPayload{
+	artifact, err := encryptBackupPayloadContext(ctx, filepath.Join(work, "target"), backupPayload{
 		translationsDir: translationsDir,
 		contentDir:      contentDir,
-	})
-}
-
-func (m *Manager) publishS3BackupPayloadContext(ctx context.Context, cfg s3Settings, work string, payload backupPayload) error {
-	if err := os.RemoveAll(work); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(work, 0o700); err != nil {
-		return err
-	}
-	payloadDir := filepath.Join(work, "payload")
-	if err := copyDirContext(ctx, payload.translationsDir, payloadDir); err != nil {
-		return err
-	}
-	if err := copyDirContext(ctx, payload.contentDir, filepath.Join(payloadDir, "translation-content")); err != nil {
-		return err
-	}
-	tarball, err := tarGzDirContext(ctx, payloadDir)
+	}, encryptionKey)
 	if err != nil {
 		return err
 	}
+	defer clear(artifact)
+	return m.publishS3BackupArtifactContext(ctx, cfg, artifact)
+}
+
+func encryptBackupPayloadContext(ctx context.Context, work string, payload backupPayload, encryptionKey []byte) ([]byte, error) {
+	if err := os.RemoveAll(work); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(work, 0o700); err != nil {
+		return nil, err
+	}
+	payloadDir := filepath.Join(work, "payload")
+	if err := copyDirContext(ctx, payload.translationsDir, payloadDir); err != nil {
+		return nil, err
+	}
+	if err := copyDirContext(ctx, payload.contentDir, filepath.Join(payloadDir, "translation-content")); err != nil {
+		return nil, err
+	}
+	tarball, err := tarGzDirContext(ctx, payloadDir)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(tarball)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	artifact, err := encryptBackupEnvelope(tarball, encryptionKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		clear(artifact)
+		return nil, err
+	}
+	return artifact, nil
+}
+
+func (m *Manager) publishS3BackupArtifactContext(ctx context.Context, cfg s3Settings, artifact []byte) error {
 	ts := time.Now().UTC().Format("20060102-150405")
-	key := fmt.Sprintf("%s/translations-%s.tar.gz", cfg.prefix, ts)
-	if err := m.s3PutContext(ctx, cfg, key, tarball); err != nil {
+	key := fmt.Sprintf("%s/translations-%s.enc", cfg.prefix, ts)
+	if err := m.s3PutContext(ctx, cfg, key, artifact); err != nil {
 		return err
 	}
-	// Also write/overwrite a "latest" pointer object for easy restore.
-	latestKey := fmt.Sprintf("%s/latest.tar.gz", cfg.prefix)
-	return m.s3PutContext(ctx, cfg, latestKey, tarball)
+	// Also write/overwrite a "latest" encrypted object for easy restore.
+	latestKey := fmt.Sprintf("%s/latest.enc", cfg.prefix)
+	return m.s3PutContext(ctx, cfg, latestKey, artifact)
 }
 
 func (m *Manager) restoreS3(actors ...string) (importer.Result, error) {
@@ -131,18 +158,29 @@ func (m *Manager) prepareS3RestoreContext(ctx context.Context) (restoreCandidate
 	if err != nil {
 		return restoreCandidate{}, err
 	}
-	latestKey := fmt.Sprintf("%s/latest.tar.gz", cfg.prefix)
+	encryptionKey, err := loadBackupEncryptionKey()
+	if err != nil {
+		return restoreCandidate{}, err
+	}
+	defer clear(encryptionKey)
+	latestKey := fmt.Sprintf("%s/latest.enc", cfg.prefix)
 	data, err := m.s3GetContext(ctx, cfg, latestKey)
 	if err != nil {
 		return restoreCandidate{}, err
 	}
+	archive, err := decryptBackupEnvelope(data, encryptionKey)
+	clear(data)
+	if err != nil {
+		return restoreCandidate{}, err
+	}
+	defer clear(archive)
 	work := filepath.Join(m.workDir, "s3-restore")
 	_ = os.RemoveAll(work)
-	if err := os.MkdirAll(work, 0o755); err != nil {
+	if err := os.MkdirAll(work, 0o700); err != nil {
 		return restoreCandidate{}, err
 	}
 	defer os.RemoveAll(work)
-	if err := untarGzContext(ctx, data, work); err != nil {
+	if err := untarGzContext(ctx, archive, work); err != nil {
 		return restoreCandidate{}, err
 	}
 	src, contentDir, err := s3RestoreDirs(ctx, work)
@@ -406,10 +444,14 @@ func untarGzContext(ctx context.Context, data []byte, dest string) error {
 
 func archiveFileByteLimit(name string) int64 {
 	clean := strings.TrimPrefix(filepath.ToSlash(filepath.Clean(name)), "./")
-	if clean == "translation-content/event-stories.json" || clean == "translations/translation-content/event-stories.json" {
+	switch clean {
+	case "translation-content/event-stories.json", "translations/translation-content/event-stories.json":
 		return maxEventStoriesContentFileBytes
+	case "translation-content/lyrics.json", "translations/translation-content/lyrics.json":
+		return maxLyricsContentFileBytes
+	default:
+		return maxArchiveFileBytes
 	}
-	return maxArchiveFileBytes
 }
 
 // ---- minimal S3 SigV4 (PUT/GET single object) ----
@@ -462,7 +504,7 @@ func (m *Manager) s3DoRespContext(ctx context.Context, cfg s3Settings, method, k
 	req.Header.Set("x-amz-date", amzDate)
 	req.Header.Set("x-amz-content-sha256", payloadHash)
 	if method == http.MethodPut {
-		req.Header.Set("Content-Type", "application/gzip")
+		req.Header.Set("Content-Type", backupEnvelopeMediaType)
 	}
 
 	canonicalURI := req.URL.EscapedPath()
@@ -489,15 +531,15 @@ func (m *Manager) s3DoRespContext(ctx context.Context, cfg s3Settings, method, k
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.ContentLength > maxS3ResponseBytes {
-		return nil, fmt.Errorf("s3 %s %s: response exceeds %d bytes", method, key, maxS3ResponseBytes)
+	if resp.ContentLength > int64(maxBackupEnvelopeBytes) {
+		return nil, fmt.Errorf("s3 %s %s: response exceeds %d bytes", method, key, maxBackupEnvelopeBytes)
 	}
-	respBody, readErr := io.ReadAll(io.LimitReader(&contextReader{ctx: ctx, reader: resp.Body}, maxS3ResponseBytes+1))
+	respBody, readErr := io.ReadAll(io.LimitReader(&contextReader{ctx: ctx, reader: resp.Body}, int64(maxBackupEnvelopeBytes)+1))
 	if readErr != nil {
 		return nil, readErr
 	}
-	if len(respBody) > maxS3ResponseBytes {
-		return nil, fmt.Errorf("s3 %s %s: response exceeds %d bytes", method, key, maxS3ResponseBytes)
+	if len(respBody) > maxBackupEnvelopeBytes {
+		return nil, fmt.Errorf("s3 %s %s: response exceeds %d bytes", method, key, maxBackupEnvelopeBytes)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("s3 %s %s: http %d: %s", method, key, resp.StatusCode, s3ErrMsg(respBody))

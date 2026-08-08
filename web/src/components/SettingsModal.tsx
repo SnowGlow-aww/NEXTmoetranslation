@@ -110,6 +110,12 @@ function ShortcutCard() {
           <tr><td><kbd>{enterSaves ? "Enter" : "Shift+Enter"}</kbd></td><td>保存并下一条</td></tr>
           <tr><td><kbd>Escape</kbd></td><td>取消选中</td></tr>
           <tr><td><kbd>Ctrl+↑</kbd> / <kbd>Ctrl+↓</kbd></td><td>切换上/下一条目</td></tr>
+          <tr><th colSpan={2}>歌词原文抓取审核</th></tr>
+          <tr><td><kbd>Cmd/Ctrl+↑</kbd> / <kbd>Cmd/Ctrl+↓</kbd></td><td>切换当前打开的审核项</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>切换当前项的批量勾选</td></tr>
+          <tr><td><kbd>Cmd/Ctrl+A</kbd></td><td>选择/清除当前已加载的待审核原文抓取结果</td></tr>
+          <tr><td><kbd>Shift+A</kbd> / <kbd>Shift+R</kbd></td><td>打开批量确认可用/标记有问题确认框</td></tr>
+          <tr><td><kbd>Enter</kbd> / <kbd>Escape</kbd></td><td>确认框内确认/关闭；无确认框时 Escape 清空多选</td></tr>
         </tbody>
       </table>
     </div>

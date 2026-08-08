@@ -331,7 +331,9 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(v)
 }
 
 // writeErr sends a JSON error. msg comes from internal code, not user input.
@@ -342,12 +344,21 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 // decodeBody decodes a JSON request body into dst, returning false (and writing
 // a 400) on failure.
 func decodeBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	data, ok := readJSONBody(w, r)
+	return ok && decodeJSONBody(w, data, dst)
+}
+
+func readJSONBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	data, err := io.ReadAll(r.Body)
 	if err != nil || len(bytes.TrimSpace(data)) == 0 || validateUniqueJSON(data) != nil {
 		writeErr(w, http.StatusBadRequest, "invalid body")
-		return false
+		return nil, false
 	}
+	return data, true
+}
+
+func decodeJSONBody(w http.ResponseWriter, data []byte, dst any) bool {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {

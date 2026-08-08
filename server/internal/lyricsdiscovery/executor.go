@@ -2,7 +2,6 @@ package lyricsdiscovery
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -16,10 +15,11 @@ type SearchSource interface {
 	Search(context.Context, lyricssource.MusicIdentity) ([]lyricssource.Candidate, error)
 }
 
-// SourceExecutor runs the existing bounded Vocaloid Wiki search client in
-// shadow mode. It persists only a compact candidate summary; no lyric text,
-// source response body, draft, publication, or projection data crosses this
-// boundary.
+// SourceExecutor runs the bounded provider registry in shadow mode. Its private
+// artifact carries compact candidate refs plus one deduplicated collection of
+// bounded immutable index or search evidence bytes; no extracted lyric draft,
+// publication, or projection data crosses this boundary, and public source
+// documents retain references only.
 type SourceExecutor struct {
 	source SearchSource
 }
@@ -32,7 +32,11 @@ func NewSourceExecutor(source SearchSource) (*SourceExecutor, error) {
 }
 
 func NewDefaultSourceExecutor() (*SourceExecutor, error) {
-	return NewSourceExecutor(lyricssource.New())
+	registry, err := lyricssource.DefaultRegistry()
+	if err != nil {
+		return nil, err
+	}
+	return NewSourceExecutor(registry)
 }
 
 func (e *SourceExecutor) Discover(ctx context.Context, job Job) (Result, error) {
@@ -44,6 +48,8 @@ func (e *SourceExecutor) Discover(ctx context.Context, job Job) (Result, error) 
 	}
 	candidates, err := e.source.Search(ctx, lyricssource.MusicIdentity{
 		MusicID: job.MusicID, JapaneseTitle: job.JapaneseTitle, ProducerMetadata: job.ProducerMetadata,
+		Lyricist: job.Lyricist, Composer: job.Composer, Arranger: job.Arranger,
+		PerformerSegmentationPolicy: job.PerformerSegmentationPolicy,
 	})
 	if err != nil {
 		return Result{}, classifySourceError(err)
@@ -54,11 +60,9 @@ func (e *SourceExecutor) Discover(ctx context.Context, job Job) (Result, error) 
 	} else if len(candidates) > 1 {
 		outcome = OutcomeAmbiguous
 	}
-	artifact, err := json.Marshal(struct {
-		Candidates []lyricssource.Candidate `json:"candidates"`
-	}{Candidates: candidates})
+	artifact, err := MarshalCandidateArtifact(candidates)
 	if err != nil {
-		return Result{}, NewError(CodeInternal, err)
+		return Result{}, NewError(CodeInvalidResult, err)
 	}
 	return Result{Outcome: outcome, CandidateCount: len(candidates), Artifact: artifact}, nil
 }
@@ -71,6 +75,8 @@ func classifySourceError(err error) error {
 		return NewError(CodeRestricted, err)
 	case errors.Is(err, lyricssource.ErrAmbiguous):
 		return NewError(CodeAmbiguous, err)
+	case errors.Is(err, lyricssource.ErrMissingLyrics):
+		return NewError(CodeNoMatch, err)
 	case errors.Is(err, lyricssource.ErrRevisionChanged):
 		return NewError(CodeSourceDrift, err)
 	case errors.Is(err, lyricssource.ErrUnsupportedTable):

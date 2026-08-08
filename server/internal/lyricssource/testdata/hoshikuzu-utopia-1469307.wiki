@@ -1,0 +1,325 @@
+{{Song box 2
+  |color     = #B22222; color:#FFF5EE
+  |image     = Stardust_Utopia.png
+  |title     = "'''星屑ユートピア'''"
+* Romaji: Hoshikuzu Utopia
+* English: Stardust Utopia
+  |date      = January 30, 2009
+  |views     = {{v|nn|2,356,399}}, {{v|pp|27,969}} and {{v|yt|1,279,526}}
+  |singers   = [[Megurine Luka]]
+  |producers = [[otetsu]] (music, lyrics, video)
+* [[meola]] (illustration)
+  |links     = {{l|nn|nm5988510}} {{l|pp|PsTU}} {{l|yt|syk1f6Dj82E}}
+}}
+
+==Background==
+This song was uploaded to Niconico on January 30, 2009. It is otetsu's most famous song, with over 1 million views on Niconico Video, therefore entering the [[Hall of Fame|Hall of Legend]]; uploaded on January 30, 2009, the day Luka was released. The lyrics are hard to understand. One theory is that it is a sad love story involving two close friends in a deteriorating relationship during their high school years as a new person ''(Megurine Luka)'' enters their lives ''(Based on the 2015 novel)''. Another is that Luka is sketching and painting stars and fantasies in the black canvas and the night sky where she is living in her own world ''(Utopia). ''As well as hearing an comforting a crying angel as it is her "corrupted melody." These fantasies become real for her too as she now can't flee from anything or let anything get away from her in reality.
+
+==Succeeding versions==
+{{Derivative
+  |color      = #B22222; color:#FFF5EE
+  |title      = English version
+  |singers    = Megurine Luka
+  |producers  = Junsuirakka-P (lyrics, tuning, video), meola (illustration) 
+  |categories = Succeeding version; VOCALOID Cover; Alternative Language
+  |links      = nn sm6095154
+}}
+{{Derivative
+  |color       = #B22222; color:#FFF5EE
+  |title       = fantaisie-piano remix
+  |thumb       = Shell album.jpg
+  |producers   = [[natsuP]] (arrange, piano)
+  |categories  = Arrangement; Instrumental
+  |description = An instrumental piano arrangement featured on the album "[[SHELL]]".
+  |links       = yt oYVDD2qUrFY
+}}
+{{clr}}
+{{Derivative
+  |color       = vy1
+  |title       = VY1's version
+  |singers     = VY1
+  |producers   = otetsu
+  |categories  = Self-cover; Demonstation; Short version
+  |description = A version featuring VY1, included on the album ''[[feat.VY1]]''. A short version was also used as a demo for VY1.
+  |links       = yt yOKndsZFaH0
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Japanese=
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|今日も夜空に浮かべた非現実の中
+|kyou mo yozora ni ukabeta higenjitsu no naka
+|-
+|真っ黒なキャンバスに星を描く
+|makkuro na kyanbasu ni hoshi o egaku
+|-
+|<br>
+|-
+|静寂、巡る本能と{{ruby|縋|すが}}るべき何か
+|seijaku, meguru honnou to sugaru beki nanika
+|-
+|また響き渡る天使の叫び
+|mata hibikiwataru tenshi no sakebi
+|-
+|<br>
+|-
+|奏でる悲鳴は背徳の調べ
+|kanaderu himei wa haitoku no shirabe
+|-
+|（儚く　散りゆく　世界で）
+|(hakanaku chiri yuku sekai de)
+|-
+|綺麗な星空を切り裂いて降らせた涙
+|kirei na hoshizora o kirisaite furaseta namida
+|-
+|<br>
+|-
+|舞い踊る星屑眺めた夜は　まだ笑ってた
+|mai-odoru hoshikuzu nagameta yoru wa mada waratteta
+|-
+|泣いていた　息をしていた
+|naite ita iki o shite ita
+|-
+|<br>
+|-
+|静寂、流れる時間と守るべき何か
+|seijaku, nagareru jikan to mamoru beki nanika
+|-
+|映り込んだ不安と{{ruby|歪|いびつ}}な月
+|utsuri konda fuan to ibitsu na tsuki
+|-
+|<br>
+|-
+|描いた希望は無彩色の花
+|egaita kibou wa musaishoku no hana
+|-
+|（儚く　散りゆく　世界で）
+|(hakanaku chiri yuku sekai de)
+|-
+|届かぬ星空見上げて
+|todokanu hoshizora miagete
+|-
+|<br>
+|-
+|零れてしまいそうな星屑
+|koborete shimaisou na hoshikuzu
+|-
+|消えてしまわぬように守ってた
+|kiete shimawanu you ni mamotteta
+|-
+|願ってた　幸せだった
+|negatteta shiawase datta
+|-
+|<br>
+|-
+|もしも空が剥がれ落ちても
+|moshi mo sora ga hagare ochite mo
+|-
+|何度でも塗り潰せるから
+|nando demo nuritsubuseru kara
+|-
+|この螺旋の中
+|kono rasen no naka
+|-
+|<br>
+|-
+|奏でる悲鳴は背徳の調べ
+|kanaderu himei wa haitoku no shirabe
+|-
+|（儚く　散りゆく　世界で）
+|(hakanaku chiri yuku sekai de)
+|-
+|綺麗な星空を切り裂いて降らせた涙
+|kirei na hoshizora wo kirisaite furaseta namida
+|-
+|輝いた想い
+|kagayaita omoi
+|-
+|<br>
+|-
+|舞い踊る星屑描いたこの{{ruby|理想郷|まち}}で
+|mai odoru hoshikuzu egaita kono machi de
+|-
+|笑ってる　泣いている　生きている
+|waratteru naite iru ikite iru
+|-
+|<br>
+|-
+|今日もまた夜空に描いた非現実
+|kyou mo mata yozora ni egaita higenjitsu
+|-
+|何もかも逃れようのない現実
+|nani mo ka mo nogareyou no nai genjitsu
+|}
+|-|English=
+<poem style="margin-left:1em;">
+In no real world I floated 
+to the night sky
+I also drew stars 
+on the black canvas today
+
+The quietness
+the instinct not controlled 
+and something I should rely on
+I heard the angel crying
+Her voice rang out in the sky
+
+Her cry was immoral melody
+She dusted her tears
+over the beautiful
+starry sky
+
+Dancing star dust
+I looked over in the night
+Still I was laughing
+I was crying
+I was breathing
+
+The quietness
+time going on and
+something I should shelter
+Reflected anxicty
+and deformed moon
+
+The hope I drew was
+no color flower
+I looked up the atarry sky
+I could not reach
+
+The star dust was likely to fall
+I was sheltering
+for it not to disappear
+I was sheltering
+I was hoping
+I was so happy
+
+If the sky lost its color
+again one day
+I could paint over
+the sky again and again
+In this spiral
+
+Her cry was immoral melody
+she dusted her tears
+over the beautiful starry sky
+Hope was so brilliant
+
+In this utopia I also
+drea dancing star dust today
+I am laughing
+I am crying
+I am alive
+
+In the night sky
+I also draw my dream today
+In this real world 
+I can't avoid everything
+</poem>
+</tabber>
+
+==Derivatives==
+{{Derivative
+  |color      = #B22222; color:#FFF5EE
+  |title      = clear and nero's cover
+  |producers  = {{UIW|clear}}, {{UIW|nero}} (cover), madamxx (mix), Taguko (illust), Maru-P (video)
+  |categories = Human Cover
+  |links      = nn sm1298653004
+  |thumb      = nn
+}}
+{{Derivative
+  |color      = #B22222; color:#FFF5EE
+  |title      = 6 Persons' Chorus
+  |producers  = {{UW|Neko (♂)}}, Mitsumushi, Ryuu, Chitamo, Cherose, Nihonmai (vocals), G-san (mix)
+  |categories = Chorus
+  |links      = nn sm6118173
+  |thumb      = nn
+}}
+{{clr}}
+
+==Other media appearances==
+===Literatures===
+This song was featured in the following literatures: 
+
+*[[ピアノソロ やさしくひける (Piano Solo Yasashiku Hikeru)|Piano Solo Yasashiku Hikeru 2]] collection. (piano sheet music)
+*A book based on this song was also produced.<ref>[http://news.ponycanyon.co.jp/2015/06/8855 "Megurine Luka's Legendary Signature Song "Hoshikuzu Utopia" is Becoming a Book! Sales Start June 3"] - PONYCANYON NEWS</ref>
+
+===Discography===
+This song was featured in the following albums: 
+*[[Utopia (album)|Utopia]]
+*[[STARLET]]
+*[[EXIT TUNES PRESENTS Vocalolegend feat. 初音ミク]]
+*[[VOCALOID BEST from ニコニコ動画 (あお) (VOCALOID BEST from Nico Nico Douga (Ao))|VOCALOID BEST from ニコニコ動画 (あお)]]
+*[[EXIT TUNES PRESENTS Megurhythm feat. 巡音ルカ]]
+*[[Hatsune Miku -Project DIVA- extend Complete Collection]]
+*[[EXIT TUNES PRESENTS THE BEST OF Otetsu]]
+*[[The Legend of 超絶調声師 (The Legend of Chouzetsu Chouseishi)|The Legend of 超絶調声師]]
+*[[EXIT TUNES PRESENTS Megurinemotion feat. 巡音ルカ －10th ANNIVERSARY BEST－|EXIT TUNES PRESENTS Megurinemotion feat. 巡音ルカ]]
+
+===Concerts===
+This song was featured in the following concerts:
+*[[Miku no Hi Kanshasai 39's Giving Day]]
+*[[HATSUNE MIKU EXPO 2018 EUROPE|MikuExpo Live in Europe 2018]]
+*[[Hatsune Miku Magical Mirai 2019|Magical Mirai 2019]] (Osaka Day 1/Tokyo Day 1 and 2)
+*[[MIKU WITH YOU 2019]]
+*[[Hatsune Miku Magical Mirai 2023|Magical Mirai 2023]]
+*[[Hatsune Miku Magical Mirai 2025|Magical Mirai 2025]] (Night Shows)
+
+===Video games===
+This song was featured in the following video games:
+*[[Hatsune Miku -Project DIVA- Arcade]]
+*[[Hatsune Miku -Project DIVA- 2nd]] (DLC)
+*[[Hatsune Miku -Project DIVA- extend]]
+*[[Hatsune Miku -Project DIVA- Arcade Future Tone]]
+*[[Hatsune Miku: Dreamy Vocal]]
+*CHUNITHM
+*maimai
+*O.N.G.E.K.I
+*{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}
+*SOUND VOLTEX
+
+==Gallery==
+<gallery hideaddbutton="true" position="center" bordercolor="#B22222">
+Luka majo.jpg|Luka's Majo (Witch) module for the song Hoshikuzu Utopia from the game [[Hatsune Miku -Project DIVA- 2nd]]
+Megurine_Luka_Witch_Style.jpg|Luka's Majo (Witch) module for the song Stardust Utopia from the game [[Hatsune Miku -Project DIVA- Arcade]]
+Games - Project DIVA - Hoshikuzu Utopia.jpg|Music jacket featured in ''-Project DIVA- Arcade'', ''Mega Mix'', and ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+</gallery>
+
+==References==
+<references/>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [http://www1.axfc.net/uploader/so/374670 Axfc Uploader] - MP3 & offvocal (pass: ''otetsu'')
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 4066
+  |nico   = nm5988510
+  |mgp    = 星屑下的理想乡
+  |vocadb = 1047
+  |utadb  = 4686
+  |pixiv  = 星屑ユートピア
+  |tag    = 星屑ユートピア
+  |vlw    = 星屑ユートピア (Hoshikuzu Utopia)
+  |url    = [http://www.animelyrics.com/doujin/vocaloid/hoshikuzuutopia.htm Romaji Lyrics Source] — AnimeLyrics
+* [http://010701070107.blog5.fc2.com/blog-entry-1519.html Lyrics source] (English version) — FC2
+* {{UIW|Hoshikuzu_Utopia|Utaite Wiki}}
+* {{IW|project-diva|Stardust Utopia|Project DIVA Wiki}}
+* {{IW|projectsekai|Hoshikuzu Utopia|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Concert songs]]
+[[Category:Demonstration songs]]
+[[Category:Japanese demonstration songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]
+[[Category:Songs featured in literatures]]

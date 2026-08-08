@@ -24,6 +24,7 @@ import (
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/importer"
+	"moesekai/server/internal/store"
 )
 
 func TestTarGzRoundTrip(t *testing.T) {
@@ -159,7 +160,7 @@ func TestRunGitContextForcesNoninteractiveCredentialEnvironment(t *testing.T) {
 	capture := filepath.Join(t.TempDir(), "git-env.txt")
 	script := filepath.Join(bin, "git")
 	body := `#!/bin/sh
-printf '%s\n%s\n%s\n%s\n%s\n' "$GIT_TERMINAL_PROMPT" "$GCM_INTERACTIVE" "$GIT_ASKPASS" "$SSH_ASKPASS" "$GIT_SSH_COMMAND" > "$GIT_ENV_CAPTURE"
+printf '%s\n%s\n%s\n%s\n%s\n%s\n' "$GIT_TERMINAL_PROMPT" "$GCM_INTERACTIVE" "$GIT_ASKPASS" "$SSH_ASKPASS" "$MOESEKAI_BACKUP_ENCRYPTION_KEY" "$GIT_SSH_COMMAND" > "$GIT_ENV_CAPTURE"
 exit 7
 `
 	if err := os.WriteFile(script, []byte(body), 0o700); err != nil {
@@ -167,13 +168,14 @@ exit 7
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GIT_ENV_CAPTURE", capture)
+	t.Setenv(backupEncryptionKeyEnv, "must-not-reach-git-subprocess")
 	err := gitRemoteContext(context.Background(), t.TempDir(), "https://secret@example.invalid/private.git",
 		"clone", "https://secret@example.invalid/private.git", filepath.Join(t.TempDir(), "repo"))
 	if err == nil {
 		t.Fatal("fake git unexpectedly succeeded")
 	}
 	values := strings.Split(strings.TrimSpace(readFile(t, capture)), "\n")
-	want := []string{"0", "never", "", "", "ssh -oBatchMode=yes"}
+	want := []string{"0", "never", "", "", "", "ssh -oBatchMode=yes"}
 	if len(values) != len(want) {
 		t.Fatalf("captured git environment = %#v", values)
 	}
@@ -254,7 +256,7 @@ func TestGitRestoreTreeRejectsUnsafeAndOversizedEntries(t *testing.T) {
 	}
 }
 
-func TestRestoreSizeLimitIsScopedToEventStoryContent(t *testing.T) {
+func TestRestoreSizeLimitsAreScopedToBoundedTranslationContentFiles(t *testing.T) {
 	for _, name := range []string{
 		"translation-content/event-stories.json",
 		"translations/translation-content/event-stories.json",
@@ -264,10 +266,21 @@ func TestRestoreSizeLimitIsScopedToEventStoryContent(t *testing.T) {
 		}
 	}
 	for _, name := range []string{
+		"translation-content/lyrics.json",
+		"translations/translation-content/lyrics.json",
+	} {
+		if got := archiveFileByteLimit(name); got != maxLyricsContentFileBytes {
+			t.Fatalf("lyrics content %q limit = %d", name, got)
+		}
+	}
+	for _, name := range []string{
 		"translations/event-stories.json",
 		"translation-content/nested/event-stories.json",
 		"nested/translation-content/event-stories.json",
 		"translation-content/event-stories.json.bak",
+		"translation-content/nested/lyrics.json",
+		"nested/translation-content/lyrics.json",
+		"translation-content/lyrics.json.bak",
 	} {
 		if got := archiveFileByteLimit(name); got != maxArchiveFileBytes {
 			t.Fatalf("ordinary file %q limit = %d", name, got)
@@ -369,6 +382,28 @@ func TestUntarGzRejectsOversizedFile(t *testing.T) {
 	}
 }
 
+func TestTranslationContentPreflightCountsRecoveryAndRenditionLyricsGraph(t *testing.T) {
+	body := []byte(`{"music":[{}],"performers":[],"documents":[],"lines":[],"segments":[],"publications":[],` +
+		`"sourceDocuments":[],"sourceArtifacts":[],"sourceIndexEvidence":[],"sourceArtifactEvidence":[],"sourceContributions":[],` +
+		`"renditionLocalizations":[{}],"renditionTranslationLines":[{}],` +
+		`"recoveryBatches":[{}],"recoveryItems":[{}],"recoverySourceEvidence":[{}],` +
+		`"recoveryArtifacts":[{}],"recoveryArtifactEvidence":[{}],"recoveryContributions":[{}],` +
+		`"availabilityDocuments":[{}]}`)
+	count, scenarios, total, err := preflightTranslationContentJSON("lyrics.json", body, maxTranslationContentRecords)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 10 || scenarios != 0 || total != 10 {
+		t.Fatalf("recovery/rendition lyrics preflight count=%d scenarios=%d total=%d", count, scenarios, total)
+	}
+	if got := lyricsContentCount(store.LyricsContentExport{
+		RenditionLocalizations:    make([]store.LyricsRenditionLocalizationBackupRecord, 2),
+		RenditionTranslationLines: make([]store.LyricsRenditionTranslationLineBackupRecord, 3),
+	}); got != 5 {
+		t.Fatalf("lyrics content rendition record count=%d want=5", got)
+	}
+}
+
 func TestTranslationContentPreflightRejectsMatchingExcessiveSmallObjectArray(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "translation-content")
 	if err := os.Mkdir(dir, 0o700); err != nil {
@@ -451,6 +486,15 @@ func TestTranslationContentRejectsNestedDuplicateObjectKeys(t *testing.T) {
 				t.Fatalf("duplicate JSON preflight error = %v", err)
 			}
 		})
+	}
+}
+
+func TestTranslationContentRejectsUnknownFields(t *testing.T) {
+	var decoded []struct {
+		Category string `json:"category"`
+	}
+	if err := decodeJSONContext(context.Background(), []byte(`[{"category":"cards","unknown":"must fail"}]`), &decoded); err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("unknown translation content field error=%v", err)
 	}
 }
 

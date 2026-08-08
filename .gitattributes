@@ -1,0 +1,2 @@
+# Raw provider fixtures preserve exact upstream bytes, including trailing spaces.
+server/internal/lyricssource/testdata/*.wiki -whitespace

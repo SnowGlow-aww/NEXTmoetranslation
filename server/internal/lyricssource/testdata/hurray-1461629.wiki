@@ -1,0 +1,263 @@
+{{Song box 2
+  |color     = #0225c1; color: white
+  |image     = Hurray Honeyworks.jpg
+  |title     = "'''フレー'''"
+* Romaji: Furee
+* English: Hurray
+  |date      = August 31, 2022
+  |views     = {{v|yt|320,074}}
+  |singers   = [[Hatsune Miku]] and [[MEIKO]]
+  |producers = [[HoneyWorks]] (music, lyrics)
+* iXima (illust)
+  |links     = {{l|yt|kO-cSKs45ig}} 
+}}
+
+==Background==
+"'''Hurray'''" is an original song produced by HoneyWorks featuring Hatsune Miku. It is the official collaboration song for “[https://pocarisweat.jp/action/pocarimiku/pocattego/ Pocari Sweat×Project SEKAI]".
+
+It is Honeyworks’ first work to feature MEIKO. However, it was not uploaded to their own YouTube channel, and is instead featured on the official Hatsune Miku YouTube channel.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #4455DD; color: white
+  |thumb       = Hurray - Leoneed x Hatsune Miku.jpg
+  |title       = Project SEKAI Version [SEKAI] (Full - 2DMV)
+  |singers     = {{IW|projectsekai|Leo/need}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Hoshino Ichika}} (CV: {{IW|projectsekai|Noguchi Ruriko}}), {{IW|projectsekai|Hinomori Shiho}} (CV: {{IW|projectsekai|Yuki Nakashima}})
+  |producers   = HoneyWorks (music, lyrics), [[Tomioka Jiro]], Morikura En, himaro, Kamogawa Sodachi, Pato, Kanmikan (illustration), omu (video)
+  |categories  = Human Cover; Piapro Studio Cover; Original MV; In-game Content
+  |description = Full version, featured on the digital single ''Hurray'', from the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so41010791; yt jfO8TPREjco; yt uk3jmRBzQZA
+}}
+{{clr}}
+
+==Lyrics==
+{{lrc legend|0225c1; color: white
+|miku
+|meiko
+|Both|n3=y}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|生まれた時はみんな 
+| umareta toki wa minna
+|-
+|同じスタート地点にいた
+|onaji sutaato chiten ni ita
+|-
+|だのになのに君ときたら
+|da no ni na no ni kimi to kitara
+|- 
+| 落ちこぼれて 
+|ochikoborete
+|-
+|<br />
+|-
+| ギフトまで錆びつかせ 
+|gifuto made sabitsukase 
+|-
+|周りとの差開く一方で
+|mawari to no sahiraku ippou de
+|-
+|ふてくされて沈んでた
+|futekusarete shizundeta 
+|- 
+|君にほし が　笑った
+|kimi ni hoshi ga waratta
+|-
+|<br />
+|- 
+|恐れるな
+|osoreru na
+|- 
+| 上昇気流に乗って
+|joushou kiryuu ni notte
+|- 
+|メインベルト突き抜けて
+|mein beruto tsukinukete
+|- 
+|青を掴み取れ
+|ao o tsukamitore
+|- 
+|「応援届いたかな？」
+| “ouen todoita ka na?”
+|-
+|<br />
+|- 
+|フレー　未完成 
+| furee mikansei
+|- 
+|遅すぎるなんて辞書にはない
+|oso sugiru nante jisho ni wa nai
+|- 
+|フレー　原石 
+|furee genseki
+|- 
+| 勇敢なる青　掲げろ
+|yuukan naru ao kakagero
+|-
+|<br /> 
+|- 
+|君は君だよ 
+|kimi wa kimi da yo
+|- 
+|フラフラと進めばいい 
+|furafura to susumeba ii
+|-
+| <br />
+|- 
+|転んだ時の君は
+|koronda toki no kimi wa
+|- 
+|好きな歌さえ聞こえなくて
+|suki na uta sae kikoenakute
+|- 
+|だけどだけど仲間たちは
+|dakedo dakedo nakamatachi wa 
+|-
+|ギュッと手繋ぐ
+|gyuuto te tsunagu
+|-
+|<br /> 
+|- 
+|一人でできないなら
+|hitori de dekinai nara
+|- 
+|みんなで越えればいいよって
+| minna de koereba ii yo tte
+|- 
+|悲しみも分け合えば
+|kanashimi mo wakeaeba
+|- 
+|いいよって　笑った
+|ii yo tte waratta
+|-
+|<br />
+|- 
+|恐れるな
+|osoreru na
+|- 
+|勝利だけを信じて
+|shouri dake o shinjite
+|- 
+|テンペスト突き抜けて
+|tenpesuto tsukinukete
+|- 
+|青を掴み取れ
+|ao o tsukamitore
+|- 
+|「応援していいかな？」
+|“ouen shite ii ka na?”
+|-
+|<br />
+|- 
+|フレー　未完成
+|furee mikansei
+|- 
+|熱すぎるなんて馬鹿にされて
+|atsu sugiru nante baka ni sarete
+|- 
+|悔しくても
+|kuyashikute mo
+|- 
+|勇敢なる青　掲げろ
+|yuukan naru ao kakagero
+|-
+|<br />
+|- 
+|君は君だよ
+|kimi wa kimi da yo
+|- 
+|不器用に描こう
+|bukiyou ni egakou
+|-
+| <br />
+|- 
+|幼い頃に憧れた
+|osanai koro ni akogareta
+|- 
+|ヒーローみたいになれなくて
+|hiiroo mitai ni narenakute
+|-
+|それなりなんて都合よく
+|sore nari nante tsugou yoku
+|-
+|濁しながら逃げて逃げて
+|nigoshi nagara nigete nigete
+|-
+| colspan="3" |<center>'''''AH'''''</center>
+|-
+|<br />
+|- 
+|恐れるな
+|osoreru na
+|- 
+|上昇気流に乗って
+|joushou kiryuu ni notte
+|- 
+|メインベルト突き抜けて 
+|mein beruto tsukinukete
+|- 
+|青を掴み取れ
+|ao o tsukamitore
+|-
+|「応援届いたかな？」
+|“ouen todoita ka na?”
+|-
+|<br />
+|- 
+|フレー　未完成
+|furee mikansei 
+|- 
+|遅すぎるなんて辞書にはない
+|oso sugiru nante jisho ni wa nai
+|- 
+|フレー　原石
+|furee genseki
+|- 
+|勇敢なる青　掲げろ
+|yuukan naru ao kakagero
+|-
+|<br />
+|- 
+|君は君だよ
+|kimi wa kimi da yo
+|- 
+|フラフラ進もう
+|furafura susumou 
+|- 
+|君は君だよ
+|kimi wa kimi da yo
+|- 
+|青いまま進めばいい
+|aoi mama susumeba ii 
+|-
+|<br />
+|- 
+| また青へ
+|mata ao e
+|-
+|}
+
+==Gallery==
+<gallery hideaddbutton="true" position="center" bordercolor="#0225c1">
+Games - Project SEKAI - フレー.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+
+===Unofficial===
+{{Unofficial
+  |at     = 48984
+  |vocadb = 436569
+  |mgp    = フレー
+  |vlw    = フレー (Hurray)
+  |url    = {{IW|projectsekai|Hurray|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Japanese duet songs]]
+[[Category:Mobile game songs]]

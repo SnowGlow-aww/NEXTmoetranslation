@@ -1,0 +1,520 @@
+<tabber>
+Vivid BAD SQUAD Version =
+{{Song box 2
+  |color     = #362E5F; color:#F8F7FC
+  |image     = Ready Steady Forward (single).png
+  |title     = "'''Ready Steady'''"
+  |date      = September 30, 2020 (game release) and July 7, 2021 (single release)
+  |views     = none
+  |singers   = {{IW|projectsekai|Azusawa Kohane}}, {{IW|projectsekai|Shiraishi An}}, {{IW|projectsekai|Shinonome Akito}}, {{IW|projectsekai|Aoyagi Toya}}, and [[Hatsune Miku]] V4X Solid
+  |producers = [[Giga]] (music, arrangement)
+* [[q*Left]] (lyrics)
+  |links     = none
+}}
+|-|
+VOCALOID Version =
+{{Song box 2
+  |color     = #282d34; color:#beb9cb
+  |image     = Ready Steady.png
+  |title     = "'''Ready Steady'''"
+  |date      = September 30, 2020
+  |views     = {{v|nn|2,723,712}} and {{v|yt|18,209,043}}
+  |singers   = [[Kagamine Rin]] V4X Power, [[Hatsune Miku]] V4X Dark and Solid, and [[Kagamine Len]] V4X Power
+  |producers = [[Giga]] (music)
+* [[q*left]] (lyrics)
+* Rolua (illustration)
+* [[Okiku]] (video)
+  |links     = {{l|nn|sm37601066}} {{l|yt|XAg1jDDG49Y}}
+}}
+</tabber>
+
+==Background==
+"'''Ready Steady'''" is a original song by Giga. It was commissioned as the first unit song for {{IW|ProjectSekai|Vivid BAD SQUAD}} from the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+The VOCALOID version has entered the ''[[Hall of Legend]]'' and exceeded over 10 million YouTube views. Hence, this is one of Giga’s most notable songs.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = Preview version
+  |singers     = Kagamine Rin, Hatsune Miku, and Kagamine Len
+  |producers   = Giga (music), q*left (lyrics), Rolua (illustration), Okiku (video)
+  |categories  = Teaser
+  |links       = yt E3RifmnLEDY
+  |description = VOCALOID Version MV teaser.
+}}
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = Demo Version
+  |singers     = Giga and Hatsune Miku
+  |producers   = Giga (music), q*left (lyrics)
+  |categories  = Demonstration Song
+  |links       = sc gigachan/readysteady-demo
+}}
+{{clr}}
+{{Derivative
+  |color       = #EE1166; color:white
+  |thumb       = Games - Project SEKAI - Ready Steady.png
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |singers     = {{IW|projectsekai|Vivid BAD SQUAD}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Shiraishi An}} (CV: {{IW|projectsekai|Sumi Tomomi Jiena}}), {{IW|projectsekai|Azusawa Kohane}} (CV: {{IW|projectsekai|Akina}}), {{IW|projectsekai|Shinonome Akito}} (CV: {{IW|projectsekai|Imai Fumiya}}), {{IW|projectsekai|Aoyagi Toya}} (CV: {{IW|projectsekai|Itou Kent}})
+  |producers   = Giga (music, arrangement), q*left (lyrics)<br>TACCHI (choreography), TACCHI, Murakami Masaki, Jakko, Honda Ayaka, Kudo Narumi (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture)<br>{{Wp|SEGA}}, [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Vocal; Human Vocal; Original MV; Arrangement; In-game Content
+  |links       = nn so40969488; yt cj3y6DBjyvs; bb BV1fpiiY8Euf
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Vivid BAD SQUAD Version =
+{{lrc legend|#362E5F; color:#F8F7FC
+|Kohane:#FF679A 
+|An:#00BBDC
+|Akito:#FF7721
+|Toya:#0077DD
+|Miku:#33CCBA
+|All}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|kohane|ローリスクじゃ物足りなくなっちゃったし}}
+|{{lrc color|kohane|roorisuku ja monotarinaku nacchatta shi}}
+|-
+|{{lrc color|akito|有り余って笑っちゃうくらい}}
+|{{lrc color|akito|ariamatte waracchau kurai}}
+|-
+|{{lrc color|kohane|なんも無いなんて言ったってしょうがないし}}
+|{{lrc color|kohane|nan mo nai nante ittatte shouganai shi}}
+|-
+|{{lrc color|akito|お手上げでHi-Five}}
+|{{lrc color|akito|oteage de Hi-Five}}
+|-
+|<br>
+|-
+|{{lrc color|an|前ならえで後に続いたってつまんねえ}}
+|{{lrc color|an|mae narae de ato ni tsuzuitatte tsumannee}}
+|-
+|夢を語れ、追え！が この街のStandard {{lrc color|an|■}}{{lrc color|miku|■}}
+|yume o katare, oe! ga kono machi no Standard {{lrc color|an|■}}{{lrc color|miku|■}}
+|-
+|{{lrc color|toya|ただ見てたいだけ なんてのは嘘です}}
+|{{lrc color|toya|tada mitetai dake nante no wa uso desu}}
+|-
+|{{lrc color|an|そろそろマイク頂戴}}
+|{{lrc color|an|sorosoro maiku choudai}}
+|-
+|<br>
+|-
+|{{lrc color|kohane|どうせならもう後戻りもできないくらい どうにかさせて}}
+|{{lrc color|kohane|douse nara mou atomodori mo dekinai kurai dounika sasete}}
+|-
+|{{lrc color|miku|まだまだハマっていきたい}}
+|{{lrc color|miku|madamada hamatte ikitai}}
+|-
+|{{lrc color|miku|なんか、まるで恋してるみたい}}
+|{{lrc color|miku|nanka, marude koishiteru mitai}}
+|-
+|{{lrc color|miku|好きになっちゃったぁ つってさ}}
+|{{lrc color|miku|suki ni nacchattaa tsutte sa}}
+|-
+|<br>
+|-
+|ならこのまま {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (まま) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|an|キミを連れて}}
+|nara kono mama {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (mama) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|an|kimi o tsurete}}
+|-
+|望むなら {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (なら) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|miku|どこまでも}}
+|nozomu nara {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (nara) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|miku|doko made mo}}
+|-
+|＆ I Wanna {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (Wanna) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|kohane|欲しがってばかりで}}結構 結構 {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|& I Wanna {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (Wanna) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|kohane|hoshigatte bakari de}} kekkou kekkou {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|-
+|{{lrc color|miku|もし叶うならこの先の世界を}}知りたい 行きたい
+|{{lrc color|miku|moshi kanau nara kono saki no sekai o}} shiritai ikitai
+|-
+|{{Shared}}|Ready Steady {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|-
+|<br>
+|-
+|{{lrc color|kohane|ちょっとだけなら無茶だってしちゃいたいし}}
+|{{lrc color|kohane|chotto dake nara mucha datte shichaitai shi}}
+|-
+|{{lrc color|akito|この世の全て奪っちゃうくらい}}
+|{{lrc color|akito|kono yo no subete ubacchau kurai}}
+|-
+|{{lrc color|kohane|とはいえ語ってばっかじゃどうしようもないし}}
+|{{lrc color|kohane|to wa ie katatte bakka ja doushiyou mo nai shi}}
+|-
+|{{lrc color|akito|語尾跳ねてHi-Fi}}
+|{{lrc color|akito|gobi hanete Hi-Fi}}
+|-
+|<br>
+|-
+|{{lrc color|an|ねえ少しはこっち向いたらどう}}
+|{{lrc color|an|nee sukoshi wa kocchi muitara dou}}
+|-
+|{{lrc color|miku|気まぐれにハマらせたいだけ？}}
+|{{lrc color|miku|kimagure ni hamarasetai dake?}}
+|-
+|{{lrc color|an|でも奪いたい}}{{lrc color|miku|震わせたい}} {{lrc color|an|目、耳、キミの}}燃えるheart {{lrc color|an|■}}{{lrc color|miku|■}}
+|{{lrc color|an|demo ubaitai}} {{lrc color|miku|furuwasetai}} {{lrc color|an|me, mimi, kimi no}} moeru heart {{lrc color|an|■}}{{lrc color|miku|■}}
+|-
+|{{lrc color|toya|誰もが羨む驚異のTrackとLyricで}}
+|{{lrc color|toya|daremo ga urayamu kyoui no Track to Lyric de}}
+|-
+|{{lrc color|toya|魅せていくからRetakeはしないで}}
+|{{lrc color|toya|misete iku kara Retake wa shinaide}}
+|-
+|<br>
+|-
+|だからこのまま {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (まま) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|kohane|キミを連れて}}
+|dakara kono mama {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (mama) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|kohane|kimi o tsurete}}
+|-
+|望むなら {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (なら) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|miku|どこへでも}}
+|nozomu nara {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} {{lrc color|len|(nara)}} {{lrc color|miku|doko e demo}}
+|-
+|＆ I Wanna {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (Wanna) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|an|無いものねだるなら}}決行 決行 {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|& I Wanna {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (Wanna) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|an|nai mono nedaru nara}} kekkou kekkou {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|-
+|<br>
+|-
+|早く夜よ明けて {{lrc color|kohane|■}}{{lrc color|an|■}} 朝焼けに誓え {{lrc color|akito|■}}{{lrc color|toya|■}}
+|hayaku yoru yo akete {{lrc color|kohane|■}}{{lrc color|an|■}} asayake ni chikae {{lrc color|akito|■}}{{lrc color|toya|■}}
+|-
+|重い想い、{{lrc color|kohane|■}}{{lrc color|an|■}} 熱量を叫べ {{lrc color|akito|■}}{{lrc color|toya|■}}
+|omoi omoi, {{lrc color|kohane|■}}{{lrc color|an|■}} netsuryou o sakebe {{lrc color|akito|■}}{{lrc color|toya|■}}
+|-
+|{{lrc color|miku|この声を聴け 音・音・音に、踊り狂え}}
+|{{lrc color|miku|kono koe o kike oto oto oto ni, odori kurue}}
+|-
+|<br>
+|-
+|{{Shared}}|{{lrc color|kohane|I want more.}}
+|-
+|{{Shared}}|{{lrc color|miku|"Are you Ready?"}}
+|-
+|<br>
+|-
+|ならこのまま {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (まま) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|an|キミを連れて}}
+|nara kono mama {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (mama) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|an|kimi o tsurete}}
+|-
+|望むなら {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (なら) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|miku|どこまでも}}
+|nozomu nara {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (nara) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|miku|doko made mo}}
+|-
+|＆ I Wanna {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (Wanna) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|kohane|欲しがってばかりで}}結構 結構 {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|& I Wanna {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}} (Wanna) {{lrc color|akito|■}}{{lrc color|toya|■}} {{lrc color|kohane|hoshigatte bakari de}} kekkou kekkou {{lrc color|kohane|■}}{{lrc color|an|■}}{{lrc color|miku|■}}
+|-
+|{{lrc color|miku|もし叶うならこの先の世界を}}知りたい 行きたい
+|{{lrc color|miku|moshi kanau nara kono saki no sekai o}} shiritai ikitai
+|-
+|{{Shared}}|{{lrc color|kohane|Ready Steady}}
+|}
+|-|VOCALOID Version =
+{{lrc legend|#282d34; color:#beb9cb
+|Rin:#E5C100
+|Miku
+|Len:orange
+|All}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{Shared}}|{{lrc color|len|(Giga)}}
+|-
+|{{lrc color|rin|ローリスクじゃ物足りなくなっちゃったし}}
+|{{lrc color|rin|roorisuku ja monotarinaku nacchatta shi}}
+|-
+|{{lrc color|len|有り余って笑っちゃうくらい}}
+|{{lrc color|len|ariamatte waracchau kurai}}
+|-
+|{{lrc color|rin|なんも無いなんて言ったってしょうがないし}}
+|{{lrc color|rin|nan mo nai nante ittatte shouganai shi}}
+|-
+|{{lrc color|len|お手上げでHi-Five}}
+|{{lrc color|len|oteage de Hi-Five}}
+|-
+|<br>
+|-
+|{{lrc color|rin|前ならえで後に続いたってつまんねえ}}
+|{{lrc color|rin|mae narae de ato ni tsuzuitatte tsumannee}}
+|-
+|夢を語れ、追え！が この街のStandard {{lrc color|miku|■}}{{lrc color|rin|■}}
+|yume o katare, oe! ga kono machi no Standard {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|len|ただ見てたいだけ なんてのは嘘です}}
+|{{lrc color|len|tada mitetai dake nante no wa uso desu}}
+|-
+|{{lrc color|rin|そろそろマイク頂戴}}
+|{{lrc color|rin|sorosoro maiku choudai}}
+|-
+|<br>
+|-
+|{{lrc color|rin|どうせならもう後戻りもできないくらい どうにかさせて}}
+|{{lrc color|rin|douse nara mou atomodori mo dekinai kurai dounika sasete}}
+|-
+|{{lrc color|miku|まだまだハマっていきたい}}
+|{{lrc color|miku|madamada hamatte ikitai}}
+|-
+|{{lrc color|miku|なんか、まるで恋してるみたい}}
+|{{lrc color|miku|nanka, marude koishiteru mitai}}
+|-
+|{{lrc color|miku|好きになっちゃったぁ つってさ}}
+|{{lrc color|miku|suki ni nacchattaa tsutte sa}}
+|-
+|<br>
+|-
+|ならこのまま {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(まま)}} {{lrc color|rin|キミを連れて}}
+|nara kono mama {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(mama)}} {{lrc color|rin|kimi o tsurete}}
+|-
+|望むなら {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(なら)}} {{lrc color|miku|どこまでも}}
+|nozomu nara {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(nara)}} {{lrc color|miku|doko made mo}}
+|-
+|＆ I Wanna {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(Wanna)}} {{lrc color|rin|欲しがってばかりで}}結構 結構 {{lrc color|miku|■}}{{lrc color|rin|■}}
+|& I Wanna {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(Wanna)}} {{lrc color|rin|hoshigatte bakari de}} kekkou kekkou {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|miku|もし叶うならこの先の世界を}}知りたい 行きたい
+|{{lrc color|miku|moshi kanau nara kono saki no sekai o}} shiritai ikitai
+|-
+|{{Shared}}|{{lrc color|miku|Ready Steady}}
+|-
+|<br>
+|-
+|{{lrc color|rin|ちょっとだけなら無茶だってしちゃいたいし}}
+|{{lrc color|rin|chotto dake nara mucha datte shichaitai shi}}
+|-
+|{{lrc color|len|この世の全て奪っちゃうくらい}}
+|{{lrc color|len|kono yo no subete ubacchau kurai}}
+|-
+|{{lrc color|rin|とはいえ語ってばっかじゃどうしようもないし}}
+|{{lrc color|rin|to wa ie katatte bakka ja doushiyou mo nai shi}}
+|-
+|{{lrc color|len|語尾跳ねてHi-Fi}}
+|{{lrc color|len|gobi hanete Hi-Fi}}
+|-
+|<br>
+|-
+|{{lrc color|miku|ねえ少しはこっち向いたらどう}}
+|{{lrc color|miku|nee sukoshi wa kocchi muitara dou}}
+|-
+|{{lrc color|rin|気まぐれにハマらせたいだけ？}}
+|{{lrc color|rin|kimagure ni hamarasetai dake?}}
+|-
+|{{lrc color|miku|でも奪いたい}}{{lrc color|rin|震わせたい}} {{lrc color|miku|目、耳、キミの}}燃えるheart {{lrc color|miku|■}}{{lrc color|rin|■}}
+|{{lrc color|miku|demo ubaitai}} {{lrc color|rin|furuwasetai}} {{lrc color|miku|me, mimi, kimi no}} moeru heart {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|len|誰もが羨む驚異のTrackとLyricで}}
+|{{lrc color|len|daremo ga urayamu kyoui no Track to Lyric de}}
+|-
+|{{lrc color|len|魅せていくからRetakeはしないで}}
+|{{lrc color|len|misete iku kara Retake wa shinaide}}
+|-
+|<br>
+|-
+|だからこのまま {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(まま)}} {{lrc color|rin|キミを連れて}}
+|dakara kono mama {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(mama)}} {{lrc color|rin|kimi o tsurete}}
+|-
+|望むなら {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(なら)}} {{lrc color|miku|どこへでも}}
+|nozomu nara {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(nara)}} {{lrc color|miku|doko e demo}}
+|-
+|＆ I Wanna {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(Wanna)}} {{lrc color|rin|無いものねだるなら}}決行 決行 {{lrc color|miku|■}}{{lrc color|rin|■}}
+|& I Wanna {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(Wanna)}} {{lrc color|rin|nai mono nedaru nara}} kekkou kekkou {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|<br>
+|-
+|{{lrc color|rin|早く夜よ明けて}} {{lrc color|len|朝焼けに誓え}}
+|{{lrc color|rin|hayaku yoru yo akete}} {{lrc color|len|asayake ni chikae}}
+|-
+|{{lrc color|rin|重い想い、}} {{lrc color|len|熱量を叫べ}}
+|{{lrc color|rin|omoi omoi,}} {{lrc color|len|netsuryou o sakebe}}
+|-
+|{{lrc color|miku|この声を聴け 音・音・音に、踊り狂え}}
+|{{lrc color|miku|kono koe o kike oto oto oto ni, odori kurue}}
+|-
+|<br>
+|-
+|{{Shared}}|{{lrc color|rin|I want more.}}
+|-
+|{{Shared}}|{{lrc color|miku|"Are you Ready?"}}
+|-
+|<br>
+|-
+|ならこのまま {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(まま)}} {{lrc color|rin|キミを連れて}}
+|nara kono mama {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(mama)}} {{lrc color|rin|kimi o tsurete}}
+|-
+|望むなら {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(なら)}} {{lrc color|miku|どこまでも}}
+|nozomu nara {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(nara)}} {{lrc color|miku|doko made mo}}
+|-
+|＆ I Wanna {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(Wanna)}} {{lrc color|rin|欲しがってばかりで}}結構 結構 {{lrc color|miku|■}}{{lrc color|rin|■}}
+|& I Wanna {{lrc color|miku|■}}{{lrc color|rin|■}} {{lrc color|len|(Wanna)}} {{lrc color|rin|hoshigatte bakari de}} kekkou kekkou {{lrc color|miku|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|miku|もし叶うならこの先の世界を}}知りたい 行きたい
+|{{lrc color|miku|moshi kanau nara kono saki no sekai o}} shiritai ikitai
+|-
+|{{Shared}}|{{lrc color|rin|Ready Steady}}
+|}
+</tabber>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid =
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = Earthy X6's Cover ft. Luka, MEIKO and KAITO
+  |singers     = [[Megurine Luka]] V4X, [[MEIKO]] V3, and [[KAITO]] V3
+  |producers   = Earthy X6 (tuning, VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt f64Bc9_4ZSU
+}}
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = Mark LawX's Cover ft. IA, GUMI, and Gackpo
+  |singers     = [[IA]], [[GUMI]], and [[Camui Gackpo]]
+  |producers   = Mark LawX (tuning), Earthy X6 (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt 6uZ57I6OifQ
+}}
+{{clr}}
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = DEUXKO's Cover ft. Hime, flower, and Mikoto
+  |singers     = [[MEIKA Hime]], [[flower]], and [[MEIKA Mikoto]]
+  |producers   = DEUXKO (tuning)
+  |categories  = VOCALOID Cover
+  |links       = yt PTHVgnVoSHY
+}}
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = Creuzer's Cover ft. GUMI, miki, Iroha
+  |singers     = [[GUMI]], [[SF-A2 miki]], [[Nekomura Iroha]]
+  |producers   = [[Creuzer]] (tuning)
+  |categories  = VOCALOID Cover
+  |links       = yt FGi5FtX8i6A; bb BV1vk4y1C7df
+}}
+  |human =
+{{Derivative
+  |color       = #282d34; color:#beb9cb
+  |title       = Ray's Cover
+  |singers     = Ray
+  |producers   = Haluo (mixing), Siu. (encode)
+  |categories  = Human Cover
+  |links       = yt g_nPXOoZV34; bb BV1iy4y1m74C
+}}
+{{derivative
+|links=yt gwrzNLdoShs
+  |color       = #282d34; color:#beb9cb
+|title= Hibiki Kayomi, Chloe Pawapua, and Lily Ifeta's Cover
+|singers= {{IW|VirtualYouTuber|Hibiki Kayomi}}, {{IW|VirtualYouTuber|Chloe Pawapua}}, {{IW|VirtualYouTuber|Lily Ifeta}}
+|producers=cella (rap lyrics), Ri Ri Ri (character illust), Timothy Alv (mixing)
+|categories=Human Cover; Fanmade PV
+}}
+{{derivative
+  |color       = #282d34; color:#beb9cb
+|links=yt UKLQ4jPMGcU
+|title=Nijisanji JP Chorus
+|singers={{IW|VirtualYouTuber|Fuwa Minato}}, {{IW|VirtualYouTuber|Honma Himawari}}, {{IW|VirtualYouTuber|Morinaka Kazaki}}
+|categories=Human Cover; Fanmade PV
+|producers=木葉はづく (movie), YouK (mixing), Lowro (illust)
+}}
+{{derivative
+  |color       = #282d34; color:#beb9cb
+|links=yt k4sttBH63ME
+|title=Nijisanji KR Second Wave Chorus
+|singers={{IW|VirtualYouTuber|Nijisanji#Second Wave 4|Nijisanji KR Second Wave}} ({{IW|VirtualYouTuber|Chae Ara}}, {{IW|VirtualYouTuber|So Nagi}}, {{IW|VirtualYouTuber|Lee Siu}})
+|categories=Human Cover; Fanmade PV
+|producers=후유땅 (movie), Siro (mixing, mastering, recording), ロチ (illust)
+}}{{clr}}
+{{derivative
+  |color       = #282d34; color:#beb9cb
+|links=yt ihWKy0xx_50
+|title=Sugar Lyric Chorus
+|singers={{IW|VirtualYouTuber|Sugar Lyric}} ({{IW|VirtualYouTuber|Ryugasaki Rene}}, {{IW|VirtualYouTuber|Shishio Chris}}, {{IW|VirtualYouTuber|Kojo Anna}}) 
+|categories=Human Cover; Fanmade PV
+|producers=きぬたぽこ (movie), KosK (mixing), TKKsn (illust)
+}}
+{{derivative
+  |color       = #282d34; color:#beb9cb
+|links=yt UKLQ4jPMGcU
+|title=Stellar Cycle Campus Chorus
+|singers={{IW|VirtualYouTuber|Stellar Cycle Campus}} ({{IW|VirtualYouTuber|Mikado}}, Hioki Yachi, {{IW|VirtualYouTuber|Fugami Nanana}})
+|categories=Human Cover; Fanmade PV
+|producers=アルファ (edit), YAB (mixing), 未早 (illust)
+}}{{clr}}
+{{derivative
+|links=yt eAjRIplIOq0
+|title=3SetBBQ's cover
+  |color       = #282d34; color:#beb9cb
+|singers={{IW|VirtualYouTuber|Nijisanji#First Wave 3|3SetBBQ}} ({{IW|VirtualYouTuber|ZEA Cornelia}}, {{IW|VirtualYouTuber|Hana Macchia}}, {{IW|VirtualYouTuber|Taka Radjiman}})
+|producers=Sagi (tuning), EveningLights (movie), Farebake (illust), REDSHiFT (mixing)
+|categories=Human Cover; Fanmade PV
+}}
+{{Derivative
+  |color      = #282d34; color:#beb9cb
+  |title      = JubyPhonic, rachie, and Anthong's English Cover
+  |singers    = {{UIW|JubyPhonic}}, {{UIW|rachie}}, {{UIW|Anthong}}
+  |producers  = JubyPhonic, rachie, Anthong (English lyrics), Master Andross (mixing, mastering), Earthy_X6 (adlibs, harmonies), fishu (illust), riguruma (video)
+  |categories = Human Cover; Alternative Language; Fanmade PV
+  |links      = yt wdXHYQp-ufY
+}}
+}}
+
+==Other media appearances==
+===Discography===
+This song is featured on the following albums:
+* ''Ready Steady (single)''
+* ''[[バーチャル・シンガーボーカルアルバム (Virtual Singer Vocal Album)|Virtual Singer Vocal Album]]''
+
+===Video games===
+This song is featured in the following video games:
+*''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Kagamine Rin, Hatsune Miku, and Kagamine Len; SEKAI version by Vivid BAD SQUAD and Hatsune Miku)
+*''O.N.G.E.K.I.'' (SEKAI version by Vivid BAD SQUAD and Hatsune Miku)
+*''CHUNITHM SUN'' (SEKAI version by Vivid BAD SQUAD and Hatsune Miku)
+
+==Gallery==
+<tabber>
+|-|Games =
+<gallery hideaddbutton=true captionalign=center position=center>
+Games - Project SEKAI - Ready Steady.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery hideaddbutton=true captionalign=center position=center>
+Giga x qleft - Ready Steady (single).jpg|Cover art for the digital single ''Ready Steady'' (VOCALOID ver.)
+Ready Steady Forward (single).png|Cover art for the digital single ''Ready Steady / Forward''
+</gallery>
+|-|Misc =
+<gallery hideaddbutton=true captionalign=center position=center>
+Ready Steady 10 Million Views .jpg|''Ready Steady'' 10 million views celebratory post
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |media = Illustrations: [https://www.pixiv.net/en/artworks/84718054 pixiv] / [https://x.com/Rolua_N/status/1311310296540012546 Twitter]
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://karent.jp/album/2901 KARENT (Vivid BAD SQUAD Version)]
+** [https://lnk.to/readysteadygiga Linkfire (VOCALOID Version)]
+  |dwlds = [https://www.dropbox.com/s/2p79d283oodb44c/ReadySteady_instrumental.wav?dl=0 Instrumental] — Dropbox
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 42353
+  |nico    = sm37601066
+  |vocadb  = 312210 Vivid BAD SQUAD Version -
+  |vocadb2 = 296597 VOCALOID Version -
+  |utadb   = 44593
+  |mgp     = Ready_Steady
+  |vlw     = Ready Steady
+  |url     = {{IW|projectsekai|Ready Steady|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese trio songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Mobile game songs]]
+[[Category:Video game songs]]

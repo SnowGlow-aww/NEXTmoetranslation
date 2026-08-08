@@ -98,6 +98,7 @@ export function buildEventStoryEntries(detail: EventStoryDetail): TranslationEnt
             japanese: segment.japanese,
             segmentId: segment.id,
             sourceHash: segment.sourceHash,
+            revision: segment.revision ?? 0,
             episodeNo,
             entryType: segment.kind,
           }));

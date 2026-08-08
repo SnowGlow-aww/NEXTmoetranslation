@@ -3,6 +3,7 @@ package backup
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ type legacyBackupHarness struct {
 
 func setupLegacyBackup(t *testing.T) *legacyBackupHarness {
 	t.Helper()
+	t.Setenv(backupEncryptionKeyEnv, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=")
 	database, err := db.Open(filepath.Join(t.TempDir(), "legacy-backup.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -207,7 +209,7 @@ func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 			method: r.Method, path: r.URL.Path, auth: r.Header.Get("Authorization"),
 			contentType: r.Header.Get("Content-Type"), body: append([]byte(nil), body...),
 		})
-		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.tar.gz") {
+		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.enc") {
 			latest = append([]byte(nil), body...)
 		}
 		response := append([]byte(nil), latest...)
@@ -243,28 +245,28 @@ func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 	if len(puts) != 2 {
 		t.Fatalf("S3 backup requests = %d, want timestamped plus latest", len(puts))
 	}
-	timestamped := regexp.MustCompile(`^/legacy-bucket/snapshots/translations-[0-9]{8}-[0-9]{6}\.tar\.gz$`)
+	timestamped := regexp.MustCompile(`^/legacy-bucket/snapshots/translations-[0-9]{8}-[0-9]{6}\.enc$`)
 	if puts[0].method != http.MethodPut || !timestamped.MatchString(puts[0].path) {
 		t.Fatalf("timestamped PUT = %s %s", puts[0].method, puts[0].path)
 	}
-	if puts[1].method != http.MethodPut || puts[1].path != "/legacy-bucket/snapshots/latest.tar.gz" {
+	if puts[1].method != http.MethodPut || puts[1].path != "/legacy-bucket/snapshots/latest.enc" {
 		t.Fatalf("latest PUT = %s %s", puts[1].method, puts[1].path)
 	}
 	for _, put := range puts {
 		if !strings.HasPrefix(put.auth, "AWS4-HMAC-SHA256 Credential=legacy-access/") {
 			t.Fatalf("missing SigV4 Authorization: %q", put.auth)
 		}
-		if put.contentType != "application/gzip" {
+		if put.contentType != backupEnvelopeMediaType {
 			t.Fatalf("PUT Content-Type = %q", put.contentType)
+		}
+		if bytes.HasPrefix(put.body, []byte{0x1f, 0x8b}) || json.Valid(put.body) || bytes.Contains(put.body, []byte("MoeSeka translation team")) {
+			t.Fatalf("S3 uploaded plaintext or directly parseable backup bytes: %x", put.body[:min(len(put.body), 32)])
 		}
 	}
 	if !bytes.Equal(puts[0].body, puts[1].body) || len(puts[0].body) == 0 {
-		t.Fatal("timestamped and latest objects must contain the same non-empty tarball")
+		t.Fatal("timestamped and latest objects must contain the same non-empty encrypted artifact")
 	}
-	archiveRoot := t.TempDir()
-	if err := untarGz(puts[1].body, archiveRoot); err != nil {
-		t.Fatal(err)
-	}
+	archiveRoot := decryptBackupArtifactToDir(t, puts[1].body)
 	for path, want := range wantAssets {
 		archived, err := os.ReadFile(filepath.Join(archiveRoot, filepath.FromSlash(strings.TrimPrefix(path, "translation/"))))
 		if err != nil {
@@ -306,7 +308,7 @@ func TestLegacyS3BackupTriggerAndRestoreSemantics(t *testing.T) {
 	}
 }
 
-func TestLegacyGitBackupCommitsOnlyChangedProjection(t *testing.T) {
+func TestLegacyGitBackupCommitsOnlyEncryptedArtifact(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git executable unavailable")
 	}
@@ -326,16 +328,27 @@ func TestLegacyGitBackupCommitsOnlyChangedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := gitOutput(t, remote, "rev-parse", "refs/heads/legacy-backup")
-	full := gitOutput(t, remote, "show", "refs/heads/legacy-backup:translations/cards.full.json")
-	if !strings.Contains(full, `"source": "human"`) || !strings.Contains(full, `"legacy-1"`) {
-		t.Fatalf("Git backup projection missing full entry metadata: %s", full)
+	if tree := gitOutput(t, remote, "ls-tree", "--name-only", "refs/heads/legacy-backup"); tree != backupEnvelopeFilename {
+		t.Fatalf("Git backup tree = %q, want only %q", tree, backupEnvelopeFilename)
+	}
+	artifact := gitOutputBytes(t, remote, "show", "refs/heads/legacy-backup:"+backupEnvelopeFilename)
+	if bytes.Contains(artifact, []byte(`"legacy-1"`)) || bytes.Contains(artifact, []byte(`"source": "human"`)) {
+		t.Fatal("Git remote artifact exposed plaintext translation metadata")
+	}
+	archiveRoot := decryptBackupArtifactToDir(t, artifact)
+	full, err := os.ReadFile(filepath.Join(archiveRoot, "cards.full.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(full, []byte(`"source": "human"`)) || !bytes.Contains(full, []byte(`"legacy-1"`)) {
+		t.Fatalf("decrypted Git backup projection missing full entry metadata: %s", full)
 	}
 	if err := h.manager.backupGit(); err != nil {
 		t.Fatal(err)
 	}
 	second := gitOutput(t, remote, "rev-parse", "refs/heads/legacy-backup")
-	if first != second {
-		t.Fatalf("unchanged backup created another commit: %s -> %s", first, second)
+	if first == second {
+		t.Fatal("fresh random envelope unexpectedly reused the previous Git commit")
 	}
 }
 
@@ -463,13 +476,26 @@ func TestGitBackupArchivesAndRestoresPublishedLyricsAssets(t *testing.T) {
 	if err := source.manager.backupGit(); err != nil {
 		t.Fatal(err)
 	}
-	backupLyrics := gitOutput(t, remote, "show", "refs/heads/lyrics-backup:translation-content/lyrics.json")
-	if !strings.Contains(backupLyrics, `"publications"`) || !strings.Contains(backupLyrics, `"musicId": 10`) {
-		t.Fatalf("Git backup omitted published lyrics snapshot: %s", backupLyrics)
+	artifact := gitOutputBytes(t, remote, "show", "refs/heads/lyrics-backup:"+backupEnvelopeFilename)
+	for _, plaintext := range [][]byte{[]byte("https://legacy.invalid/wiki"), []byte("MoeSeka translation team"), []byte(strings.Repeat("a", 40))} {
+		if bytes.Contains(artifact, plaintext) {
+			t.Fatalf("Git remote artifact exposed private lyrics provenance %q", plaintext)
+		}
+	}
+	archiveRoot := decryptBackupArtifactToDir(t, artifact)
+	backupLyrics, err := os.ReadFile(filepath.Join(archiveRoot, "translation-content", "lyrics.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(backupLyrics, []byte(`"publications"`)) || !bytes.Contains(backupLyrics, []byte(`"musicId": 10`)) {
+		t.Fatalf("decrypted Git backup omitted published lyrics snapshot: %s", backupLyrics)
 	}
 	for path, want := range wantAssets {
-		archivePath := "translations/" + strings.TrimPrefix(filepath.ToSlash(path), "translation/")
-		archived := gitOutputBytes(t, remote, "show", "refs/heads/lyrics-backup:"+archivePath)
+		archivePath := filepath.Join(archiveRoot, filepath.FromSlash(strings.TrimPrefix(path, "translation/")))
+		archived, err := os.ReadFile(archivePath)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if !bytes.Equal(archived, want) {
 			t.Fatalf("Git backup lyrics asset %s changed\ngot: %q\nwant: %q", path, archived, want)
 		}
@@ -531,7 +557,13 @@ func TestGitRestoreRejectsNestedEventDuplicateBeforeApply(t *testing.T) {
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("git clone: %v: %s", err, output)
 	}
-	eventPath := filepath.Join(clone, "translations", "eventStory", "event_42.json")
+	artifactPath := filepath.Join(clone, backupEnvelopeFilename)
+	artifact, err := os.ReadFile(artifactPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveRoot := decryptBackupArtifactToDir(t, artifact)
+	eventPath := filepath.Join(archiveRoot, "eventStory", "event_42.json")
 	event, err := os.ReadFile(eventPath)
 	if err != nil {
 		t.Fatal(err)
@@ -540,10 +572,25 @@ func TestGitRestoreRejectsNestedEventDuplicateBeforeApply(t *testing.T) {
 	if err := os.WriteFile(eventPath, event, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	tamperedArchive, err := tarGzDir(archiveRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encryptionKey := testBackupEncryptionKey(t)
+	tamperedArtifact, err := encryptBackupEnvelope(tamperedArchive, encryptionKey)
+	clear(encryptionKey)
+	clear(tamperedArchive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(artifactPath, tamperedArtifact, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	clear(tamperedArtifact)
 	for _, args := range [][]string{
 		{"-C", clone, "config", "user.name", "test"},
 		{"-C", clone, "config", "user.email", "test@example.invalid"},
-		{"-C", clone, "add", "translations/eventStory/event_42.json"},
+		{"-C", clone, "add", backupEnvelopeFilename},
 		{"-C", clone, "commit", "-m", "tamper nested duplicate event"},
 		{"-C", clone, "push", "origin", "duplicate-event"},
 	} {
@@ -877,7 +924,7 @@ func TestBackupAllUsesOneSnapshotForS3AndGit(t *testing.T) {
 	var latest []byte
 	s3Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.tar.gz") {
+		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/latest.enc") {
 			mu.Lock()
 			latest = append([]byte(nil), body...)
 			mu.Unlock()
@@ -925,26 +972,22 @@ func TestBackupAllUsesOneSnapshotForS3AndGit(t *testing.T) {
 		t.Fatalf("BackupAll results=%v", results)
 	}
 	mu.Lock()
-	archive := append([]byte(nil), latest...)
+	artifact := append([]byte(nil), latest...)
 	mu.Unlock()
-	archiveRoot := t.TempDir()
-	if err := untarGz(archive, archiveRoot); err != nil {
-		t.Fatal(err)
+	gitArtifact := gitOutputBytes(t, remote, "show", "refs/heads/shared-snapshot:"+backupEnvelopeFilename)
+	if !bytes.Equal(artifact, gitArtifact) {
+		t.Fatal("S3 and Git did not receive the same encrypted single-snapshot artifact")
 	}
+	if bytes.HasPrefix(artifact, []byte{0x1f, 0x8b}) || json.Valid(artifact) || bytes.Contains(artifact, []byte("快照后修改")) {
+		t.Fatal("shared remote artifact exposed plaintext or directly parseable backup bytes")
+	}
+	archiveRoot := decryptBackupArtifactToDir(t, artifact)
 	for _, path := range []string{"cards.json", "cards.full.json", filepath.Join("translation-content", "entries.json")} {
-		s3Body, err := os.ReadFile(filepath.Join(archiveRoot, path))
+		body, err := os.ReadFile(filepath.Join(archiveRoot, path))
 		if err != nil {
-			t.Fatalf("S3 archive %s: %v", path, err)
+			t.Fatalf("decrypted shared archive %s: %v", path, err)
 		}
-		gitPath := filepath.ToSlash(filepath.Join("translations", path))
-		if strings.HasPrefix(path, "translation-content"+string(filepath.Separator)) {
-			gitPath = filepath.ToSlash(path)
-		}
-		gitBody := gitOutputBytes(t, remote, "show", "refs/heads/shared-snapshot:"+gitPath)
-		if !bytes.Equal(s3Body, gitBody) {
-			t.Fatalf("shared snapshot differs for %s\nS3: %s\nGit: %s", path, s3Body, gitBody)
-		}
-		if bytes.Contains(s3Body, []byte("快照后修改")) {
+		if bytes.Contains(body, []byte("快照后修改")) {
 			t.Fatalf("shared backup %s included post-snapshot mutation", path)
 		}
 	}
@@ -1253,4 +1296,29 @@ func gitOutputBytes(t *testing.T, gitDir string, args ...string) []byte {
 		t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, out)
 	}
 	return out
+}
+
+func testBackupEncryptionKey(t *testing.T) []byte {
+	t.Helper()
+	key, err := loadBackupEncryptionKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key
+}
+
+func decryptBackupArtifactToDir(t *testing.T, artifact []byte) string {
+	t.Helper()
+	key := testBackupEncryptionKey(t)
+	archive, err := decryptBackupEnvelope(artifact, key)
+	clear(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(archive)
+	root := t.TempDir()
+	if err := untarGz(archive, root); err != nil {
+		t.Fatal(err)
+	}
+	return root
 }

@@ -1,0 +1,447 @@
+{{Epileptic Warning}}
+{{Song box 2
+  |color     = black; color:lightpink 
+  |image     = MGAC.jpg
+  |title     = "'''魔法少女とチョコレゐト'''"
+* Romaji: Mahou Shoujo to chocorewito
+* Official English: Magical Girl and Chocolate
+  |date      = February 25, 2022
+  |views     = {{v|nn|4,206,636}}, {{v|yt|30,828,694}}, and {{v|bb|3,265,506}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[Pinocchio-P]] (music, lyrics, video, illustration)
+  |links     = {{l|nn|sm40089113}} {{l|yt|T2kS1gAbxhc}} {{l|bb|BV11Z4y1k7wC}}
+}}
+
+==Background==
+{{quote|"Nice to meet you, my name is PinocchioP. XXXXX!!"|Author's comment}}
+
+'''Mahou Shoujo to Chocolate''' is an original song by Pinocchio-P. The song has entered the [[Hall of Legend]], surpassed 15 million views on YouTube and 1 million views on BiliBili, making it one of Pinocchio-P's most notable songs. It is often compared to one of his previous songs, "[[腐れ外道とチョコレゐト (Kusaregedou to Chocolate)|Kusaregedou to Chocolate]]", for its similar title, lyrics, and themes, and is occasionally considered a modern interpretation of said song.
+
+==Succeeding versions==
+{{derivative
+  |color       = #f082c1; color:white
+  |thumb       = Games - World Dai Star - 魔法少女とチョコレゐト.png
+  |title       = World Dai Star Version
+  |singers     = {{IW|world-dai-star|Gekidan Denki}}: {{IW|world-dai-star|Motosu Towa}} (CV: {{IW|world-dai-star|Akao Hikaru}})
+  |producers   = {{Wp|Bandai Namco Entertainment}}
+  |categories  = Human Cover; In-game Content
+  |description = Featured in the game ''{{IW|world-dai-star|World Dai Star Wiki|World Dai Star: Yume no Stellarium}}''.
+  |links       = yt R_skxN9lCkQ
+}}
+{{derivative
+  |color       = #33DDAA; color:white
+  |title       = Bandori Version (Game size)
+  |thumb       = Games - BanG Dream - Mahou Shoujo to Chocolate.png
+  |singers     = {{MH|bandori|Pastel*Palettes}}: {{MH|bandori|Maruyama Aya}} (CV: {{MH|bandori|Maeshima Ami}}), {{MH|bandori|Hikawa Hina}} (CV: {{MH|bandori|Ozawa Ari}}), {{MH|bandori|Shirasagi Chisato}} (CV: {{MH|bandori|Uesaka Sumire}}), {{MH|bandori|Yamato Maya}} (CV: {{MH|bandori|Nakagami Ikumi}}), {{MH|bandori|Wakamiya Eve}} (CV: {{MH|bandori|Hata Sawako}})
+  |producers   = Hidaka Yuki (arrangement),<br>{{wp|Bushiroad}}
+  |categories  = Human Cover; Arrangement; In-game Content
+  |links       = yt bvRipUUboRE
+  |comments    = game size
+  |description = Featured in the game ''{{MH|bandori|BanG Dream! Girls Band Party!}}''.
+}}
+{{derivative
+  |color       = #33DDAA; color:white
+  |title       = Bandori Version (Full)
+  |thumb       = Games - BanG Dream - Mahou Shoujo to Chocolate.png
+  |singers     = Pastel*Palettes: Maruyama Aya (CV: Maeshima Ami), Hikawa Hina (CV: Ozawa Ari), Shirasagi Chisato (CV: Uesaka Sumire), Yamato Maya (CV: Nakagami Ikumi), Wakamiya Eve (CV: Hata Sawako)
+  |producers   = Hidaka Yuki (arrangement),<br>Bushiroad
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |links       = yt 1TkdhB2WsRs
+  |comments    = full audio
+  |description = Full version, featured in the album ''{{MH|bandori|BanG Dream! Girls Band Party! Cover Collection Vol.9}}'' from the game ''BanG Dream! Girls Band Party!''
+}}{{Derivative
+  |color       = #6CCB20; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size)
+  |thumb       = PinocchioP - 魔法少女とチョコレゐト (single).jpg
+  |singers     = {{IW|projectsekai|MORE MORE JUMP!}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Hanasato Minori}} (CV: {{IW|projectsekai|Ogura Yui}}), {{IW|projectsekai|Kiritani Haruka}} (CV: {{IW|projectsekai|Yoshioka Mayu}}), {{IW|projectsekai|Momoi Airi}} (CV: {{IW|projectsekai|Furihata Ai}}), {{IW|projectsekai|Hinomori Shizuku}} (CV: {{IW|projectsekai|Honnizumi Rina}})
+  |producers   = [[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Cover; Human Cover; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Japanese lyrics=
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa
+|-
+|純粋が仇になる世界で
+|junsui ga ada ni naru sekai de
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa
+|-
+|また来週も戦えるかな
+|mata raishuu mo tatakaeru kana
+|-
+|<br />
+|-
+|可愛い衣装まとって　決めポーズで光って
+|kawaii ishou matotte kime poozu de hikatte
+|-
+|ピュアな想い　魔法に変えて
+|pyua na omoi mahou ni kaete
+|-
+|みんなの平和願って　邪悪に立ち向かって
+|minna no heiwa negatte jaaku ni tachimukatte
+|-
+|それを匿名はディスった
+|sore o tokumei wa disutta
+|-
+|<br />
+|-
+|「本当は〇〇なんでしょ？」
+|"hontou wa 〇〇 nan desho?"
+|-
+|「ぶっちゃけ〇〇なんでしょ？」
+|"bucchake 〇〇 nan desho?"
+|-
+|自分がそう思うから
+|jibun ga sou omou kara
+|-
+|みんな〇〇であって欲しいんでしょ
+|minna 〇〇 de atte hoshii ndesho
+|-
+|そんな手垢のついた　よくある風評で
+|sonna teaka no tsuita yoku aru fuuhyou de
+|-
+|錆びつく魔法のステッキ
+|sabitsuku mahou no sutekki
+|-
+|<br />
+|-
+|知らん　知らん
+|shiran shiran
+|-
+|<br />
+|-
+|はぁ　正直もうやめたい（はぁ）
+|haa shoujiki mou yametai (haa)
+|-
+|魔法少女をやめたい（はぁ）
+|mahou shoujo o yametai (haa)
+|-
+|誰が敵か味方かわかんないし
+|dare ga teki ka mikata ka wakannai shi
+|-
+|「陰険」で　「強欲」で　「滑稽」で　「外道」で
+|"inken" de "gouyoku" de "kokkei" de "gedou" de
+|-
+|魔法がとけるチョコみたいに
+|mahou ga tokeru choko mitai ni
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa
+|-
+|純粋が仇になる世界で
+|junsui ga ada ni naru sekai de
+|-
+|はぁ　正直もうやめたい（はぁ）
+|haa shoujiki mou yametai (haa)
+|-
+|魔法少女をやめたい（はぁ）
+|mahou shoujo o yametai (haa)
+|-
+|もう　好きな人だけ守っていたい
+|mou suki na hito dake mamotte itai
+|-
+|<br />
+|-
+|Я　だんだんでぃだんだんだんでぃだん
+|Я dandandidan dandandidan
+|-
+|Я　だんだんでぃだんだんだんでぃ
+|Я dandandidan dandandi
+|-
+|だんだんと身勝手になる　魔力が煮え立つ
+|dandan to migatte ni naru maryoku ga nietatsu
+|-
+|不満で調合したポーションがパリン
+|fuman de chougou shita pooshon ga parin
+|-
+|<br />
+|-
+|「お前ら〇〇なんでしょ？」
+|"omaera 〇〇 nan desho?"
+|-
+|「性根が〇〇なんでしょ？」
+|"shoune ga 〇〇 nan desho?"
+|-
+|怒りにまかせ　脳内で〇〇しちゃうでしょう
+|ikari ni makase nounai de 〇〇 shichau deshou
+|-
+|やり返しはナンセンス　気に病んでもスルーです
+|yarikaeshi wa nansensu ki ni yan demo suruu desu
+|-
+|光失ったブローチ
+|hikari ushinatta buroochi
+|-
+|<br />
+|-
+|腐る　腐る
+|kusaru kusaru
+|-
+|<br />
+|-
+|はぁ　正直もうやめたい（はぁ）
+|haa shoujiki mou yametai (haa)
+|-
+|魔法少女をやめたい（はぁ）
+|mahou shoujo o yametai (haa)
+|-
+|視聴者の期待に応えるたびに
+|shichousha no kitai ni kotaeru tabi ni
+|-
+|「完璧」で　「超人」で　「清廉」で　「潔白」で
+|"kanpeki" de "choujin" de "seiren" de "keppaku" de
+|-
+|嘘で固めたチョコみたいに
+|uso de katameta choko mitai ni
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa 
+|-
+|甘い味が病みつきでしょう
+|amai aji ga yamitsuki deshou
+|-
+|はぁ　正直もうやめたい（はぁ）
+|haa shoujiki mou yametai (haa)
+|-
+|魔法少女をやめたい（はぁ）
+|mahou shoujo o yametai (haa)
+|-
+|「やめないで」って言われんの　期待してない？
+|"yamenaide" tte iwaren no kitai shitenai?
+|-
+|<br />
+|-
+|ファンの善意の〇〇も
+|fan no zen'i no 〇〇 mo
+|-
+||心配してる〇〇も
+|shinpai shiteru 〇〇 mo
+|-
+|〇〇〇〇〇！！
+|〇〇〇〇〇!!
+|-
+|すべて耳を塞いでしまったの
+|subete mimi o fusaide shimatta no
+|-
+|<br />
+|-
+|はぁ　正直もうやめたい
+|haa shoujiki mou yametai
+|-
+|魔法少女をやめたい
+|mahou shoujo o yametai
+|-
+|誰が敵か味方かわかんないし
+|dare ga teki ka mikata ka wakannai shi
+|-
+|「陰険」で　「強欲」で　「滑稽」で　「外道」で
+|"inken" de "gouyoku" de "kokkei" de "gedou" de
+|-
+|魔法がとけるチョコみたいに
+|mahou ga tokeru choko mitai ni
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa
+|-
+|魔法で最低な人を消そう
+|mahou de saitei na hito o kesou
+|-
+|はぁ　正直もうやめたい（はぁ）
+|haa shoujiki mou yametai (haa)
+|-
+|魔法少女をやめたい（はぁ）
+|mahou shoujo o yametai (haa)
+|-
+|自分ごと消えちゃって　さようなら
+|jibungoto kiechatte sayounara
+|-
+|<br />
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa
+|-
+|純粋が仇になる世界で
+|junsui ga ada ni naru sekai de
+|-
+|Я　らりぱっぱらぱっぱっぱらっぱ
+|Я raripapparapappapparappa
+|-
+|らりぱっぱらぱっぱっぱらっぱ
+|raripapparapappapparappa
+|-
+|また来週も観てくれるかな
+|mata raishuu mo mite kureru kana
+|-
+|-|Official English lyrics =
+{{Translation|jpn|official English|Producer}}
+<poem style="margin-left:1em;">
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+In a world where pureness backfires on us 
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+Can I fight again next week? 
+<br />
+I'll wear a cute costume and shine in a pose 
+Turn my pure feelings into magic 
+I’ll wish peace for everyone and stand up to the evil 
+That, the anonymous dissed 
+<br />
+"You're really XXX, aren't you?" 
+“To be honest, you’re XXX, aren't you?" 
+Because that's what you believe, 
+You want everyone to be XXX, don't you 
+With a worn-out, common rumor 
+My magic stick rusts away 
+<br />
+Who knows, who knows 
+<br />
+To be honest, I want to quit (sigh) 
+I want to quit being a magical girl (sigh) 
+'Cause I don't know who's friend or foe 
+“Sly”, “Greedy”, “Ridiculous”, “Outrageous” 
+Like chocolate that melts magic
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+In a world where pureness backfires on us 
+To be honest, I want to quit (sigh) 
+I want to quit being a magical girl (sigh) 
+I only want to protect the ones I love 
+<br />
+Я DAN-DAN-DI-DAN-DAN-DAN-DI-DAN Я DAN-DAN-DI-DAN-DAN-DAN-DI 
+I'm getting more and more selfish 
+My magic is boiling over 
+The potion mixed with dissatisfaction goes poof 
+<br />
+"You're all XXX, right?” 
+"You’re all XXX deep inside, right?” 
+I’m so angry, I’ll XXX you all in my head 
+Retaliation is nonsense, don't let it bother me 
+A brooch that lost its light
+<br />
+I’m rotting, I’m rotting 
+<br />
+To be honest, I want to quit (sigh) 
+I want to quit being a magical girl (sigh) 
+Every time I meet the expectations of my audience 
+“Perfect", “Superhuman", “Honest”, “Innocent" 
+Like chocolate covered with lies 
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+The sweet taste is addictive, isn't it 
+To be honest, I want to quit (sigh) 
+I want to quit being a magical girl (sigh) 
+Aren’t you waiting for everyone to say “please don’t quit”? 
+<br />
+The good-intentioned XXX 
+And the worrying XXX of my fans 
+XXXXX!! 
+It's all fallen on deaf ears 
+<br />
+To be honest, I want to quit (sigh) 
+I want to quit being a magical girl (sigh) 
+'Cause I don't know who's friend or foe 
+“Sly”, “Greedy”, “Ridiculous”, “Outrageous” 
+Like chocolate that melts magic 
+<br />
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+I’ll use my magic to erase them all 
+To be honest, I want to quit (sigh) 
+I want to quit being a magical girl (sigh) 
+I’ve erased myself as well, goodbye 
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+In a world where pureness backfires on us 
+Я LALI-PA-PALA-PA-PA-PALA-PA 
+I hope you'll watch me again next week
+</poem>
+</tabber>
+
+==Other media appearances==
+===Discography===
+This song was featured in the following albums:
+*''魔法少女とチョコレゐト (Mahou Shoujo to Chocolate) (single)''
+*''META''
+
+===Video games===
+This song was featured in the following video games:
+*DANCE aROUND
+*maimai
+*CHUNITHM SUN
+* {{IW|world-dai-star|World Dai Star Wiki|World Dai Star: Yume no Stellarium}} (covered by Gekidan Denki)
+* {{MH|bandori|BanG Dream! Girls Band Party!}} (covered by Pastel✽Palettes)
+* {{IW|polarischord|Polaris Chord}} (covered by Itoi Toi)
+* {{wp|Fitness Boxing|Fitness Boxing feat. HATSUNE MIKU}} (DLC)
+* {{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by Hatsune Miku; SEKAI version by MORE MORE JUMP! and Hatsune Miku)
+
+==Gallery==
+<tabber>
+Games =
+<gallery hideaddbutton="true" position="center">
+Games - World Dai Star - 魔法少女とチョコレゐト.png|Music jacket featured in ''World Dai Star: Yume no Stellarium''
+Games - BanG Dream - Mahou Shoujo to Chocolate.png|Music jacket featured in ''BanG Dream! Girls Band Party!''
+Pet10545 Magical Girl and Chocolate.png|A monster from {{IW|towerofsaviors|Tower of Saviors Wiki|Tower of Saviors}} named "{{IW|towerofsaviors|Chocolatey Magic - Hatsune Miku}}" symbolized its song image during the [https://en.towerofsaviors.com/2023/10/05/tower-of-savior-x-hatsune-miku-2nd-crossover-event-unfolds-new-diamond-seal-series-virtual-vocalists-new-transmigration-stage-of-possessive-bite-hatsune-miku/ collaboration] in October 2023
+</gallery>
+|-|Merchandising =
+<gallery hideaddbutton="true" position="center">
+PinocchioP - 魔法少女とチョコレゐト (single).jpg|Cover art of the digital single<br>''魔法少女とチョコレゐト (Mahou Shoujo to Chocolate)'', also featured as the music jacket in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+Mahou Shoujo to Chocolate Aimaina rubber keychain.jpg|Mahou Shoujo to Chocolate Aimaina rubber keychain
+Fancy Fukuya Aimaina Minifigure Capsule Toy.jpg|Aimaina Minifigure Capsule Toy featuring [[神っぽいな (Kamippoi na)]], 魔法少女とチョコレゐト (Mahou Shoujo to Chocolate), [[内臓ありますか (Naizou Arimasu ka)]] & [[アルティメットセンパイ (Ultimate Senpai)]]
+</gallery>
+|-|Misc =
+<gallery hideaddbutton="true" position="center">
+Mahou Shoujo to Chocolate 1M views Pino.jpg|1 million YouTube views commemorative artwork by Pinocchio-P
+Mahou Shoujo to Chocolate 5M views Pino.jpg|5 million YouTube views commemorative artwork by Pinocchio-P
+Mahou Shoujo to Chocolate 10M views Pino.jpg|10 million YouTube views commemorative artwork by Pinocchio-P
+Mahou Shoujo to Chocolate 20M views Pino.jpg|20 million YouTube views commemorative artwork by Pinocchio-P
+Mahou Shoujo to Chocolate 30M views Pino.jpg|30 million YouTube views commemorative artwork by Pinocchio-P
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [https://www.dropbox.com/s/nx386znarrw6jnr/magical_girl_and_chocolate_offvocal.zip?dl=0 Off-vocal] - Dropbox
+  |media = [https://www.pixiv.net/en/artworks/96530062 Illustration] - pixiv
+}}
+
+===Unofficial ===
+{{Unofficial
+  |at     = 47453
+  |nico   = sm40089113 
+  |vocadb = 387848
+  |mgp    = 魔法少女与巧克力
+  |tag    = 魔法少女とチョコレゐト
+  |vlw    = 魔法少女とチョコレゐト (Mahou Shoujo to Chocolate)
+  |url    = {{IW|world-dai-star|Mahou Shoujo to Chocolate|World Dai Star Wiki}}
+* {{MH|bandori|Mahou Shoujo to Chocolate|BanG Dream! Wiki}}
+* {{IW|projectsekai|Mahou Shoujo to Chocolate|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]

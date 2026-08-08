@@ -1,0 +1,426 @@
+{{Song box 2
+  |color     = #3DA9E7; color:black
+  |image     = halyosy I'm Mine.jpg
+  |title     = "'''アイムマイン'''"
+* Romaji: Aimu Main
+* Official English: I'm Mine
+  |date      = October 5, 2023
+  |views     = {{v|nn|304,696}} and {{v|yt|2,197,370}}
+  |singers   = [[Hatsune Miku]], [[Kagamine Rin]], [[Kagamine Len]], [[MEIKO]], [[KAITO]], and [[Megurine Luka]]
+  |producers = [[halyosy]] (music, arrangement, lyrics, instruments, strings arrangement, direction, editing, background illustration)
+* Meis Clauson (mixing, mastering)
+* Rio.T (guitar, guitar arrangement, chord editing)
+* drm (bass, bass arrangement)
+* Issaku Matsumoto (violin, viola, strings arrangement)
+* Shimano (illustration)
+* sobomen (direction, editing)
+  |links     = {{l|nn|sm42848749}} {{l|yt|yVMHWv7hKTE}}
+}}
+
+==Background==
+{{Quote|Thank you for watching and listening! I'm crying whilst reading the comments, I'm happy that I can deliver my feelings…|Author's Comment}}
+"'''I'm Mine'''" is an original song produced by halyosy. It was commissioned for the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+This song has entered the ''[[Hall of Fame]]'' and exceeded 2 million views on YouTube.
+
+==Preceding and succeeding versions==
+{{Derivative
+  |color       = #00CDBA; color:white
+  |title       = Project SEKAI Version [VIRTUAL SINGER] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - アイムマイン.png
+  |singers     = {{IW|projectsekai|VIRTUAL SINGER}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Kagamine Rin}}, {{IW|projectsekai|Kagamine Len}}, {{IW|projectsekai|Megurine Luka}}, {{IW|projectsekai|MEIKO}}, {{IW|projectsekai|KAITO}}
+  |producers   = Murakami Masaki (choreography), Jakko, Atarashi Maimi, Momoka, Narita Chika, Okuyama Keito, Murakami Masaki (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture), [https://www.marza.com/ MARZA ANIMATION PLANET] (overall direction, staging, camerawork, animation supervision)<br>{{Wp|SEGA}}, [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Piapro Studio Vocal; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''. This version uses the Piapro Studio voicebanks.
+  |links       = nn so42823471; yt sUAyGGf-hOk
+}}
+{{Derivative
+  |color       = #3DA9E7; color:black
+  |title       = Vocalist Version
+  |singers     = {{UIW|halyosy}}, {{UIW|Uratanuki|Urata}}, {{IW|odorite|Aoi}}, {{UIW|Amatsuki}}, {{UIW|Shoose}}, and {{UIW|Gero}}
+  |producers   = halyosy (music, arrangement, lyrics, instruments, strings arrangement, direction, editing, background illustration), Meis Clauson (mixing, mastering), Rio.T (guitar, guitar arrangement, chord editing), drm (bass, bass arrangement), Issaku Matsumoto (violin, viola, strings arrangement), Marutiyo (illustration), sobomen (direction, editing)
+  |categories  = Human Cover
+  |links       = yt pd90F7wjQcY
+}}
+{{clr}}
+{{Derivative
+  |color       = #3DA9E7; color:black
+  |title       = Official Concert Footage
+  |singers     = Hatsune Miku, Kagamine Rin, Kagamine Len, Megurine Luka, MEIKO, KATIO
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Concert Performance; Singalong
+  |description = Short official footage from the {{IW|projectsekai|Project SEKAI COLORFUL LIVE 3rd -Evolve-}} concert.
+  |links       = yt iOFCa8N7eZY
+}}
+{{Derivative
+  |color       = #3DA9E7; color:black
+  |title       = STUDY WITH MIKU ver.
+  |producers   = jny, YOUSHIKIBI STUDIO (arrange), anbiyori (video)
+  |categories  = Arrangement
+  |description = An instrumental medley arrangement of various VOCALOID songs that can be played as background music while the listener studies.
+  |links       = yt tOvZInzmokc&t=1878s
+}}
+{{clr}}
+
+==Lyrics==
+{{lrc legend|#3DA9E7; color:black
+|Miku
+|Luka
+|Rin
+|Len
+|KAITO
+|MEIKO
+|All|n7=y}}
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|未来を操縦できるのは
+|mirai o soujuu dekiru no wa
+|-
+|世界中でたった一人だ
+|sekaijuu de tatta hitori da
+|-
+|素直さを再起動したら── {{lrc color|miku|■}}{{lrc color|luka|■}}
+|sunao sa o sakidou shitara── {{lrc color|miku|■}}{{lrc color|luka|■}}
+|-
+|<br>
+|-
+|{{Shared}}|I-I-I-I-I-I'm mine (I)
+|-
+|<br>
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|次世代の創造者 {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|jisedai no souzousha {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|言え言え言え言え言え {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|ie ie ie ie ie {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|<br>
+|-
+|{{lrc color|kaito|切捨御免な総監視社会}}
+|{{lrc color|kaito|kirisute gomenna sou kanshi shakai}}
+|-
+|{{lrc color|kaito|って割り切れない}}
+|{{lrc color|kaito|tte warikirenai}}
+|-
+|{{lrc color|meiko|センシティブな基板が}}
+|{{lrc color|meiko|senshitibu na kiban ga}}
+|-
+|{{lrc color|meiko|接続不良で相容れない}}
+|{{lrc color|meiko|setsuzoku furyou de aiirenai}}
+|-
+|今すぐに抱き締めて {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|ima sugu ni dakishimete {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|<br>
+|-
+|{{lrc color|rin|水没→腐食}} (抵抗)
+|{{lrc color|rin|suibotsu ￫ fushoku}} (teikou)
+|-
+|{{lrc color|len|暴走→短絡}} (抵抗)
+|{{lrc color|len|bousou ￫ tanraku}} (teikou)
+|-
+|断線した〈心〉が分岐した夜 {{lrc color|len|■}}{{lrc color|rin|■}}
+|dansen shita 〈kokoro〉 ga bunki shita yoru {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|miku|〈愛〉は並列？}} (法則)
+|{{lrc color|miku|〈ai〉 wa heiretsu?}} (housoku)
+|-
+|{{lrc color|luka|〈夢〉は直列？}} (法則)
+|{{lrc color|luka|〈yume〉 wa chokuretsu?}} (housoku)
+|-
+|〈想い〉の無限増幅回路 {{lrc color|miku|■}}{{lrc color|luka|■}} (Ω)
+|〈omoi〉 no mugen zoufuku kairo {{lrc color|miku|■}}{{lrc color|luka|■}} (oomu)
+|-
+|<br>
+|-
+|誰にも (V) 邪魔 (W) されないような (A)
+|darenimo (boruto) jama (watto) sarenai youna (anpea)
+|-
+|僕たちだけの秘密基地
+|bokutachi dake no himitsu kichi
+|-
+|転んだって良い {{lrc color|kaito|■}}{{lrc color|meiko|■}} (Hz)
+|koron datte ii {{lrc color|kaito|■}}{{lrc color|meiko|■}} (herutsu)
+|-
+|汚れたって良い {{lrc color|len|■}}{{lrc color|rin|■}} (Hz)
+|kegareta tte ii {{lrc color|len|■}}{{lrc color|rin|■}} (herutsu)
+|-
+|失敗のチャンスを奪わないで {{lrc color|miku|■}}{{lrc color|luka|■}}
+|shippai no chansu o ubawanaide {{lrc color|miku|■}}{{lrc color|luka|■}}
+|-
+|<br>
+|-
+|未来を (V) 操縦 (W) できるのは (A)
+|mirai o (boruto) soujuu (watto) dekiru no wa (anpea)
+|-
+|世界中でたった一人だ
+|sekaijuu de tatta hitori da
+|-
+|素直さを再起動したら {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}} (Hz)
+|sunao sa o sakidou shitara {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}} (herutsu)
+|-
+|優しさを再検索したら {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}} (Hz)
+|yasashi sa o sai kensaku shitara {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}} (herutsu)
+|-
+|<br>
+|-
+|{{Shared}}|I-I-I-I-I-I'm mine (I)
+|-
+|<br>
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|次世代の創造者 {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|jisedai no souzousha {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|言え言え言え言え言え {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|ie ie ie ie ie {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|<br>
+|-
+|{{lrc color|rin|技術的特異点な全自動時代}}
+|{{lrc color|rin|gijutsuteki tokuiten na zenjidou jidai}}
+|-
+|{{lrc color|rin|って遣り切れない}}
+|{{lrc color|rin|tte yari kirenai}}
+|-
+|{{lrc color|len|人生タイムラインの}}配線が {{lrc color|len|■}}{{lrc color|rin|■}}
+|{{lrc color|len|jinsei taimurain no}} haisen ga {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|len|傷なし美品で混じり気ない}}
+|{{lrc color|len|kizu nashi bihin de majirike nai}}
+|-
+|どうでもいい抱き締めて {{lrc color|len|■}}{{lrc color|rin|■}}
+|dou demo ii dakishimete {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|真空管→半導体}} (抵抗)
+|{{lrc color|meiko|shinkuukan ￫ handoutai}} (teikou)
+|-
+|{{lrc color|kaito|珪素→金剛石}} (抵抗)
+|{{lrc color|kaito|keiso ￫ kongouseki}} (teikou)
+|-
+|形ある物は移ろう〈宿命〉ならば {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|katachi aru mono wa utsurou 〈shukumei〉 naraba {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|luka|〈愛〉は陰極？}} (法則)
+|{{lrc color|luka|〈ai〉 wa inkyoku?}} (housoku)
+|-
+|{{lrc color|miku|〈夢〉は陽極？ (法則)}}
+|{{lrc color|miku|〈yume〉 wa youkyoku?}} (housoku)
+|-
+|〈才〉の有限集積回路 {{lrc color|miku|■}}{{lrc color|luka|■}} (Ω)
+|〈sai〉 no yuugen shuueki kairo {{lrc color|miku|■}}{{lrc color|luka|■}} (oomu)
+|-
+|<br>
+|-
+|誰にも (V) 理解 (W) されないような (A)
+|darenimo (boruto) rikai (watto) sarenai youna (anpea)
+|-
+|僕たちだけの主義主張
+|bokutachi dake no shugi shuchou
+|-
+|ダサくたって良い {{lrc color|len|■}}{{lrc color|rin|■}} (Hz)
+|dasaku tatte ii {{lrc color|len|■}}{{lrc color|rin|■}} (herutsu)
+|-
+|トガったって良い {{lrc color|kaito|■}}{{lrc color|meiko|■}} (Hz)
+|togatta tte ii {{lrc color|kaito|■}}{{lrc color|meiko|■}} (herutsu)
+|-
+|進化のサインを見逃さないで {{lrc color|miku|■}}{{lrc color|luka|■}}
+|shinka no sain o minogasanaide {{lrc color|miku|■}}{{lrc color|luka|■}}
+|-
+|<br>
+|-
+|{{Shared}}|You're yours
+|-
+|<br>
+|-
+|{{lrc color|kaito|コバルト}}・{{lrc color|luka|コーラル}}・{{lrc color|meiko|アルマンディンレッド}}
+|{{lrc color|kaito|kobaruto}} {{lrc color|luka|kooraru}} {{lrc color|meiko|arumandinreddo}}
+|-
+|育つ心欠け何回目 {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|sodatsu kokoro kake nankaime {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|rin|コハク}}・{{lrc color|miku|トルマリン}}・{{lrc color|len|ファイアオパールイエロー}}
+|{{lrc color|rin|kohaku}} {{lrc color|miku|torumarin}} {{lrc color|len|faiaopaaruieroo}}
+|-
+|染まるその度に感謝してる {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|somaru sono do ni kansha shiteru {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|<br>
+|-
+|夢の叶え方も教えられんで {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|yume no kanae kata mo oshie rarende {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|「夢を持て」とか適当よう言わんわ {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|"yume o mote" toka tekitou you iwan wa {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|十数年前に起きたあの日から {{lrc color|len|■}}{{lrc color|rin|■}}
+|juusuunen mae ni okita ano hi kara {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|まさかこうなるとは思わんわ {{lrc color|len|■}}{{lrc color|rin|■}}
+|masaka kou naru to wa omowan wa {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|世界の誰もが予想もしとらん奇跡は {{lrc color|miku|■}}{{lrc color|luka|■}}
+|sekai no daremo ga yosou mo shitoran kiseki wa {{lrc color|miku|■}}{{lrc color|luka|■}}
+|-
+|諦めなかった自己満 {{lrc color|miku|■}}{{lrc color|luka|■}}
+|akirame nakatta jikoman {{lrc color|miku|■}}{{lrc color|luka|■}}
+|-
+|ねぇ君だってそうでしょ {{lrc color|miku|■}}{{lrc color|luka|■}}
+|nee kimi datte sou desho {{lrc color|miku|■}}{{lrc color|luka|■}}
+|-
+|<br>
+|-
+|{{lrc color|luka|僕が祝福を願ったあの時}}
+|{{lrc color|luka|boku ga shukufuku o negatta ano toki}}
+|-
+|{{lrc color|kaito|蕾だった君たちが花咲くように}}
+|{{lrc color|kaito|tsubomi datta kimi tachi ga hana saku you ni}}
+|-
+|{{lrc color|meiko|強い願いは将来に繋がって}}
+|{{lrc color|meiko|tsuyoi negai wa shourai ni tsunagatte}}
+|-
+|{{lrc color|len|歌って踊って描いて弾くから}}
+|{{lrc color|len|utatte odotte egaite hajiku kara}}
+|-
+|{{lrc color|rin|その灯火を消す前に}}
+|{{lrc color|rin|sono tomoshibi o kesu mae ni}}
+|-
+|{{lrc color|miku|最初の一秒を思い出せ}}
+|{{lrc color|miku|saisho no ichibyou o omoidase}}
+|-
+|<br>
+|-
+|〈痛み〉も〈後悔〉も消せないような {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|〈itami〉 mo 〈koukai〉 mo kesenai youna {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|こんな不完全な設計図が {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|konna fukanzen na sekkeizu ga {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|それでも〈僕は僕だ〉と叫んでる {{lrc color|len|■}}{{lrc color|rin|■}}
+|soredemo 〈boku wa boku da〉 to saken deru {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|<br>
+|-
+|過去には {{lrc color|len|■}}{{lrc color|rin|■}}
+|kako ni wa {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|誰にも (V) 絶対 (W)
+|darenimo (boruto) zettai (watto)
+|-
+|に戻れない {{lrc color|miku|■}}{{lrc color|luka|■}} (A)
+|ni modorenai {{lrc color|miku|■}}{{lrc color|luka|■}} (anpea)
+|-
+|期間限定の少年時代
+|kikan gentei no shounen jidai
+|-
+|強さを半田付けしたら {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}} (Hz)
+|tsuyo sa o handa tsuke shitara {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}} (herutsu)
+|-
+|弱さを絶縁塗装したら {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}} (Hz)
+|yowa sa o zetsuen tosou shitara {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}} (herutsu)
+|-
+|<br>
+|-
+|{{Shared}}|I-I-I-I-I-I'm mine (I)
+|-
+|<br>
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|次世代の創造者 {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|jisedai no souzousha {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|言え言え言え言え言え {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|ie ie ie ie ie {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|<br>
+|-
+|{{Shared}}|{{lrc color|luka|(Yeah)}} Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}} {{lrc color|meiko|(alright)}}
+|-
+|次世代の創造者 {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|jisedai no souzousha {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|len|(創)}} {{lrc color|rin|(Ah Ah)}}
+|{{lrc color|len|(sou)}} {{lrc color|rin|(Ah Ah)}}
+|-
+|{{Shared}}|Everything's gonna be alright {{lrc color|miku|■}}{{lrc color|len|■}}{{lrc color|rin|■}} {{lrc color|kaito|(alright)}}
+|-
+|言え言え言え言え言え {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|ie ie ie ie ie {{lrc color|luka|■}}{{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|miku|(言え言え言え)}}
+|{{lrc color|miku|(ie ie ie)}}
+|}
+
+==Other media appearances==
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#3DA9E7">
+Games - Project SEKAI - アイムマイン.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#3DA9E7">
+halyosy - I'm Mine (single).jpg|Cover art of the digital single<br>''アイムマイン (I'm Mine)''
+</gallery>
+|-|Misc =
+<gallery position="center" hideaddbutton="true" bordercolor="#3DA9E7">
+I'm Mine 1M 100K views halyosy.jpg|1 million YouTube views & 100,000 Niconico views commemorative artwork
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.co.jp/gp/product/B0CPPN7QR1 Amazon Music]
+** [https://music.amazon.co.jp/albums/B0CPPN7QR1 Amazon Music Unlimited]
+** [https://music.apple.com/jp/album/アイムマイン-single/1720108974 Apple Music]
+** [https://s.awa.fm/album/db8574705b04e29a0937 AWA]
+** [https://music.line.me/webapp/album/mb000000000340fe3f LINE MUSIC]
+** [https://mora.jp/package/43000033/PA00132853-0-1/ mora]
+** [https://nex-tone.link/A00132853 NexTone.Link]
+** [https://ototoy.jp/_/default/p/1925110 OTOTOY]
+** [https://recochoku.jp/album/A2003948131 recochoku]
+** [https://open.spotify.com/album/2MOj5xuMWrck4QIckhCvls Spotify]
+** [https://music.youtube.com/playlist?list=OLAK5uy_meU_oeFlo6tuJqLV7jyflrdOGXtvPGwcM YouTube Music]
+  |dwlds = [https://halyosy.com/downloads Instrumental] — halyosy official website
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 56186
+  |nico   = sm42848749
+  |vocadb = 534187
+  |mgp    = I'm_Mine
+  |tag    = アイムマイン
+  |vlw    = アイムマイン (I'm Mine)
+  |url    = {{IW|projectsekai|I'm Mine|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Songs featuring KAITO]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Self-covers]]
+[[Category:Mobile game songs]]

@@ -1,0 +1,359 @@
+{{NoReprint}}
+<tabber>25-ji, Nightcord de. Version =
+{{Song box 2
+  |color     = white; color:#F69CA6
+  |image     = Yoka ni Mitorete 25-ji.jpg
+  |title     = "'''余花にみとれて'''"
+* Romaji: Yoka ni Mitorete
+* English: Admiring the Late-Blooming Cherry Blossoms
+  |date      = December 9, 2024
+  |views     = {{v|yt|7,535,464}}, {{v|nn|650,833}}, and {{v|bb|71,000}}
+  |singers   = [[MEIKO SP]], {{IW|projectsekai|Shinonome Ena}}, {{IW|projectsekai|Akiyama Mizuki}}, {{IW|projectsekai|Yoisaki Kanade}}, and {{IW|projectsekai|Asahina Mafuyu}}
+  |producers = [[keeno]] (music, arrangement, lyrics)
+* Bouno Satoshi (illustration)
+* AKITO(CASANE. by THINGS.) (video)
+  |links     = {{l|yt|agbpbVVA78U}} {{l|nn|so44397958}} {{l|bb|BV1GP2jBmEoe}}
+}}
+|-|VOCALOID Version =
+{{Song box 2
+  |color     = white; color:#FFB6C9
+  |image     = Yoka ni Mitorete.png
+  |title     = "'''余花にみとれて'''"
+* Romaji: Yoka ni Mitorete
+* English: Admiring the Late-Blooming Cherry Blossoms
+  |date      = December 9, 2024 (game release) and February 22, 2026 (MV)
+  |views     = {{v|nn|2,175}} and {{v|yt|29,823}}
+  |singers   = [[Hatsune Miku Append]] Dark
+  |producers = [[keeno]] (music, arrangement, lyrics)
+* Niina (illustration)
+* oino (video)
+  |links     = {{l|nn|sm45962188}} {{l|yt|BTsrA2SRqhk}}
+}}
+</tabber>
+
+==Background==
+"'''Yoka ni Mitorete'''" is an original song produced by keeno. It was commissioned for the unit {{IW|projectsekai|25-ji, Nightcord de.}} from the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+The VOCALOID version of the song, sung by Hatsune Miku, was originally exclusive to the game but later received an MV over a year after the song's inclusion.
+
+The 25-ji, Nightcord de. version has exceeded 7 million views on YouTube and has entered the ''[[Hall of Fame]]''.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #884499; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - 余花にみとれて.png
+  |singers     = {{IW|projectsekai|25-ji, Nightcord de.}}: {{IW|projectsekai|MEIKO}}, Shinonome Ena (CV: {{IW|projectsekai|Suzuki Minori}}), Akiyama Mizuki (CV: {{IW|projectsekai|Satou Hinata}}), Yoisaki Kanade (CV: {{IW|projectsekai|Kusunoki Tomori}}), Asahina Mafuyu (CV: {{IW|projectsekai|Tanabe Rui}})
+  |producers   = akari (choreography), Jakko, Kisumi Reika, Nakanishi Yuka, Atarashi Maimi, Reika (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture), [https://www.marza.com/ MARZA ANIMATION PLANET] (overall direction, staging, camerawork supervision, animation supervision)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Vocal; Human Vocal; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so44395935; yt e0FCPmgWRmM
+}}
+{{Derivative
+  |color       = #884499; color: white
+  |title       = Project SEKAI Version [Another Vocal (1)]
+  |thumb       = Games - Project SEKAI - 余花にみとれて.png
+  |singers     = 25-ji, Nightcord de.: Shinonome Ena (CV: Suzuki Minori)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #00CDBA; color: white
+  |title       = Project SEKAI Version [Another Vocal (2)]
+  |thumb       = Games - Project SEKAI - 余花にみとれて.png
+  |singers     = {{IW|projectsekai|VIRTUAL SINGER}}: MEIKO
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = VOCALOID Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>25-ji, Nightcord de. Version =
+{{lrc legend|white; color:#F69CA6
+|MEIKO:#DE4444
+|Ena:#CCAA87
+|Mizuki:#E4A8CA
+|Kanade:#BB6588
+|Mafuyu:#8889CC
+|Chorus
+}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|mafuyu|私たちが思うよりも}}{{lrc color|mizuki|この世界は優しくないから}}
+|{{lrc color|mafuyu|watashitachi ga omou yori mo}} {{lrc color|mizuki|kono sekai wa yasashikunai kara}}
+|-
+|{{lrc color|kanade|せめて私くらいはあなたの}}{{lrc color|ena|そばにいたかったんだ}}
+|{{lrc color|kanade|semete watashi kurai wa anata no}} {{lrc color|ena|soba ni itakattan da}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|ザラついた手触りの言葉で}}{{lrc color|kanade|あなたのこと汚した私は}}
+|{{lrc color|meiko|zaratsuita tezawari no kotoba de}} {{lrc color|kanade|anata no koto yogoshita watashi wa}}
+|-
+|{{lrc color|meiko|妙に目にしみる茜色に}}{{lrc color|mafuyu|縫い付けられたままで}}
+|{{lrc color|meiko|myou ni me ni shimiru akaneiro ni}} {{lrc color|mafuyu|nuitsukerareta mama de}}
+|-
+|{{lrc color|mizuki|動けないままで}}
+|{{lrc color|mizuki|ugokenai mama de}}
+|-
+|<br>
+|-
+|{{lrc color|ena|きつく抱きしめて くしゃくしゃになった}}
+|{{lrc color|ena|kitsuku dakishimete kushakusha ni natta}}
+|-
+|{{lrc color|ena|あなたの孤独を見つけたのに}}
+|{{lrc color|ena|anata no kodoku o mitsuketa no ni}}
+|-
+|<br>
+|-
+|{{lrc color|ena|もう傷つける 場所もないあなたの心臓が}}
+|{{lrc color|ena|mou kizutsukeru basho mo nai anata no shinzou ga}}
+|-
+|{{lrc color|mafuyu|切なくなるくらい 柔らかく音を立てて}}
+|{{lrc color|mafuyu|setsunaku naru kurai yawarakaku oto o tatete}}
+|-
+|{{lrc color|mizuki|酷く膿んだ傷を押さえながら}}
+|{{lrc color|mizuki|hidoku unda kizu o osaenagara}}
+|-
+|{{lrc color|meiko|それでもあなたは笑っていたのでしょう}}
+|{{lrc color|meiko|sore demo anata wa waratteita no deshou}}
+|-
+|{{lrc color|kanade|それがどうしようもなく嫌なのです}}
+|{{lrc color|kanade|sore ga doushiyou mo naku iya na no desu}}
+|-
+|{{lrc color|ena|せめて私の前では 泣いて欲しいのに}}
+|{{lrc color|ena|semete watashi no mae de wa naite hoshii no ni}}
+|-
+|<br>
+|-
+|{{lrc color|mizuki|ボクたちが息をする世界はもうとっくに壊れていたけど}}
+|{{lrc color|mizuki|bokutachi ga iki o suru sekai wa mou tokku ni kowareteita kedo}}
+|-
+|{{lrc color|mafuyu|それでもあなたと見たその色はただあまりにも美しいかったんだ}}
+|{{lrc color|mafuyu|sore demo anata to mita sono iro wa tada amari ni mo utsukushii kattan da}}
+|-
+|<br>
+|-
+|{{lrc color|kanade|歩き方を忘れた私たちはどこまで行けるのかな}}
+|{{lrc color|kanade|arukikata o wasureta watashi tachi wa dokomade ikeru no ka na}}
+|-
+|{{lrc color|meiko|どこにも行きたくないのならそれでもいいよ}}
+|{{lrc color|meiko|doko ni mo ikitakunai no nara sore demo ii yo}}
+|-
+|{{lrc color|ena|ここで話をしようか}}
+|{{lrc color|ena|koko de hanashi o shiyou ka}}
+|-
+|{{lrc color|ena|何も話したくないから}}{{lrc color|meiko|ここから見える景色を見ていよう}}
+|{{lrc color|ena|nanimo hanashi shitakunai kara}} {{lrc color|meiko|koko kara mieru keshiki o miteiyou}}
+|-
+|<br>
+|-
+|{{lrc color|ena|何も見たくないのならずっとこのままふたり目を閉じていようよ}}
+|{{lrc color|ena|nanimo mitakunai no nara zutto kono mama futari me o tojiteiyou yo}}
+|-
+|{{lrc color|ena|あなたがいればいいよ}}
+|{{lrc color|ena|anata ga ireba ii yo}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|その躰の真ん中で軋んで割れそうな噛み殺した声が聞こえて走り出した}}
+|{{lrc color|meiko|sono karada no mannaka de kishinde waresou na kamikoroshita koe ga kikoete hashiridashita}}
+|-
+|{{lrc color|ena|私が今すぐそばに行くからあなたはあなたのままで待っていて}}
+|{{lrc color|ena|watashi ga ima sugu soba ni iku kara anata wa anata no mama de matteite}}
+|-
+|<br>
+|-
+|その指先が{{ruby|体温|ねつ}}が触れた僕の心臓は {{lrc color|meiko|■}}{{lrc color|mizuki|■}}
+|sono yubisaki ga netsu ga fureta boku no shinzou wa {{lrc color|meiko|■}}{{lrc color|mizuki|■}}
+|-
+|隠せないくらいにあなたへと音を立てて {{lrc color|meiko|■}}{{lrc color|mafuyu|■}}
+|kakusenai kurai ni anata e to oto o tatete {{lrc color|meiko|■}}{{lrc color|mafuyu|■}}
+|-
+|酷く爛れて濁っていた空さえ {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|hidoku tadarete nigotteita sora sae {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|-
+|切なくなるくらい透き通って見えた {{lrc color|meiko|■}}{{lrc color|kanade|■}}
+|setsunaku naru kurai sukitootte mieta {{lrc color|meiko|■}}{{lrc color|kanade|■}}
+|-
+|<br>
+|-
+|私たちの心臓が {{lrc color|ena|■}}{{lrc color|mafuyu|■}} {{lrc color|meiko|音を立てて}}
+|watashitachi no shinzou ga {{lrc color|ena|■}}{{lrc color|mafuyu|■}} {{lrc color|meiko|oto o tatete}}
+|-
+|重なるくらい {{lrc color|mizuki|■}}{{lrc color|kanade|■}} {{lrc color|meiko|近づいたなら}}
+|kasanaru kurai {{lrc color|mizuki|■}}{{lrc color|kanade|■}} {{lrc color|meiko|chikazuita nara}}
+|-
+|壊れたままで 進んで行く世界の中 {{lrc color|kanade|■}}{{lrc color|mafuyu|■}}
+|kowareta mama de susunde iku sekai no naka {{lrc color|kanade|■}}{{lrc color|mafuyu|■}}
+|-
+|それでもふたりで息をしている {{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|sore demo futari de iki o shiteiru {{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|}
+|-|VOCALOID Version =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|私たちが思うよりもこの世界は優しくないから
+|watashitachi ga omou yori mo kono sekai wa yasashikunai kara
+|-
+|せめて私くらいはあなたのそばにいたかったんだ
+|semete watashi kurai wa anata no soba ni itakattan da
+|-
+|<br>
+|-
+|ザラついた手触りの言葉であなたのこと汚した私は
+|zaratsuita tezawari no kotoba de anata no koto yogoshita watashi wa
+|-
+|妙に目にしみる茜色に縫い付けられたままで
+|myou ni me ni shimiru akaneiro ni nuitsukerareta mama de
+|-
+|動けないままで
+|ugokenai mama de
+|-
+|<br>
+|-
+|きつく抱きしめて くしゃくしゃになった
+|kitsuku dakishimete kushakusha ni natta
+|-
+|あなたの孤独を見つけたのに
+|anata no kodoku o mitsuketa no ni
+|-
+|<br>
+|-
+|もう傷つける場所もないあなたの心臓が
+|mou kizutsukeru basho mo nai anata no shinzou ga
+|-
+|切なくなるくらい柔らかく音を立てて
+|setsunaku naru kurai yawarakaku oto o tatete
+|-
+|酷く膿んだ傷を押さえながら
+|hidoku unda kizu o osaenagara
+|-
+|それでもあなたは笑っていたのでしょう
+|sore demo anata wa waratteita no deshou
+|-
+|それがどうしようもなく嫌なのです
+|sore ga doushiyou mo naku iya na no desu
+|-
+|せめて私の前では泣いて欲しいのに
+|semete watashi no mae de wa naite hoshii no ni
+|-
+|<br>
+|-
+|ボクたちが息をする世界はもうとっくに壊れていたけど
+|bokutachi ga iki o suru sekai wa mou tokku ni kowareteita kedo
+|-
+|それでもあなたと見たその色はただあまりにも美しいかったんだ
+|sore demo anata to mita sono iro wa tada amari ni mo utsukushii kattan da
+|-
+|<br>
+|-
+|歩き方を 忘れた私たちはどこまで行けるのかな
+|arukikata o wasureta watashi tachi wa dokomade ikeru no ka na
+|-
+|どこにも行きたくないのならそれでもいいよ
+|doko ni mo ikitakunai no nara sore demo ii yo
+|-
+|ここで話をしようか
+|koko de hanashi o shiyou ka
+|-
+|何も話したくないからここから見える景色を見ていよう
+|nanimo hanashi shitakunai kara koko kara mieru keshiki o miteiyou
+|-
+|何も見たくないのならずっとこのままふたり目を閉じていようよ
+|nanimo mitakunai no nara zutto kono mama futari me o tojiteiyou yo
+|-
+|あなたがいればいいよ
+|anata ga ireba ii yo
+|-
+|<br>
+|-
+|その躰の真ん中で軋んで割れそうな 噛み殺した声が聞こえて走り出した
+|sono karada no mannaka de kishinde waresou na kamikoroshita koe ga kikoete hashiridashita
+|-
+|私が今すぐそばに行くからあなたはあなたのままで待っていて
+|watashi ga ima sugu soba ni iku kara anata wa anata no mama de matteite
+|-
+|<br>
+|-
+|その指先が{{ruby|体温|ねつ}}が触れた僕の心臓は
+|sono yubisaki ga netsu ga fureta boku no shinzou wa
+|-
+|隠せないくらいにあなたへと音を立てて
+|kakusenai kurai ni anata e to oto o tatete
+|-
+|酷く爛れて濁っていた空さえ
+|hidoku tadarete nigotteita sora sae
+|-
+|切なくなるくらい透き通って見えた
+|setsunaku naru kurai sukitootte mieta
+|-
+|<br>
+|-
+|私たちの心臓が 音を立てて
+|watashitachi no shinzou ga  oto o tatete
+|-
+|重なるくらい 近づいたなら
+|kasanaru kurai  chikazuita nara
+|-
+|壊れたままで 進んで行く世界の中
+|kowareta mama de susunde iku sekai no naka
+|-
+|それでもふたりで息をしている
+|sore demo futari de iki o shiteiru
+|}
+</tabber>
+
+==Other media appearances==
+===Discography===
+The 25-ji, Nightcord de. version of the this song was featured on the single ''余花にみとれて / D/N/A (Yoka ni Mitorete / D/N/A)''.
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku; SEKAI version by 25-ji, Nightcord de. and MEIKO).
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="white">
+Games - Project SEKAI - 余花にみとれて.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="white">
+keenoAzari - YokaNiMitoreteDNA (single).png|Cover art of the single<br>''余花にみとれて / D/N/A (Yoka ni Mitorete / D/N/A)''
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://karent.jp/album/5162 KARENT (25-ji, Nightcord de. Version)]
+** [https://nodee.net/a/rqpipn8fu3a7 nodee (25-ji, Nightcord de. Version)]
+  |dwlds = [https://piapro.jp/t/labG Instrumental & Lyrics] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 64562
+  |nico    = sm45962188
+  |vocadb  = 711283 VOCALOID Version —
+  |vocadb2 = 711281 25-ji, Nightcord de. Version —
+  |mgp     = 心醉余花
+  |tag     = 余花にみとれて
+  |vlw     = 余花にみとれて (Yoka ni Mitorete)
+  |url     = {{IW|projectsekai|Yoka ni Mitorete|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Mobile game songs]]

@@ -199,7 +199,7 @@ func (w *Watcher) Start() {
 		if w.ctx.Err() != nil {
 			return
 		}
-		if !w.cfg.GetBool(config.KeySchedulerOn, true) {
+		if !w.cfg.GetBool(config.KeySchedulerOn, false) {
 			fmt.Println("[upstream] scheduler disabled by config")
 			w.setStatus(func(s *Status) { s.Enabled = false })
 			return

@@ -1,0 +1,483 @@
+{{Song box 2
+  |color     = #FFF1F6; color:#C26A66
+  |image     = Nostalogic yuukiss.png
+  |title     = "'''Nostalogic'''"
+  |date      = February 9, 2008
+  |views     = {{v|nn|669,106}} (radio edit) and {{v|nn|1,173,003}} (single edit)
+  |singers   = [[MEIKO]]
+  |producers = [[yuukiss]] (music, lyrics)
+* rose (lyrics)
+* Various illustrators from PIAPRO
+  |links     = {{l|nn|sm2268739|Radio edit}} {{l|nn|sm9874560|Single 拝郷メイコ edit}}
+}}
+
+==Background==
+"'''Nostalogic'''" is a J-pop, dance-pop, EDM, eurodance, electronic, electropop, pop rock song composed by yuukiss, featuring MEIKO, with additional lyric contribution by rose. The song became one of the triggers for the "Loli Meiko" also the development of the official derivative [[Sakine Meiko]] by [[Nanameue-P]] and [[Daigoman]]. The full version was featured in the album "''VOCALOID Produced by Yamaha''" under the name '''Nostalogic (THE VOCALOID edit)'''. The full version, featuring the PV by yumiko, was uploaded 2 years after the original, which surpassed the original in popularity.
+
+A short WIP titled '''I Tried to Tune MEIKO Like a Loli in an Original Song''' was uploaded in September 2007, in which yuukiss had tuned MEIKO to sound younger than she naturally sounds. The song was an early version of Nostalogic. The song was further worked upon over the next four months, and received another short upload in late January 2008 under the name Nostalogic, showcasing the results up to that point. Compared to the WIP four months prior, the melody had been reworked into the finalized version, and the pitching of MEIKO improved. The finalized version of the song was uploaded seventeen days later in early February, which was the radio edit. The full version was included in the aforementioned album that released in September 2011.
+
+The song has various meanings; it may tell of MEIKO who longed for the days of the past. Yuukiss has a tendency to add parts of lyrics / melodies to his other works (so they all are somehow connected); a melody of Nostalogic can be heard in the song "''[[FLOWER TAIL]]''" sung by [[KAITO]]; and "''FLOWER TAIL''" has similar lyrics with "''[[Fairy-taled]]''" sung by MEIKO. Some may interpret that, even though the genre and singers of the three songs are completely different, they may be related in terms of lyrics and melody.
+
+On November 5, 2014, yuukiss uploaded a version called, "Nostalogic (MEIKO-SAN mix)" in celebration of MEIKO's 10th Anniversary. This version uses MEIKO's natural tone as opposed to "Loli Meiko". It was however, featured in the album ''[[EXIT TUNES PRESENTS Vocalospace feat. 初音ミク|Vocalospace]]'' beforehand. This day also marks where Nostalogic had reached #1 on NicoNico Daily VOCALOID Ranking.
+
+On November 8, 2015 the single edit version had reached one million views, reaching the ''[[Hall of Legend]]''. Whereas the radio edit entered the Hall of Fame.
+
+The word ''Nostalogic'' is a combination of ''nostalgia'' and ''logic''.
+
+==Succeeding versions==
+{{derivative
+  |color       = #FFF1F6; color:#C26A66
+  |title       = Nostalogic (single edit)
+  |singers     = MEIKO
+  |producers   = {{OW|Yumiko}}
+  |categories  = VOCALOID Cover
+  |description = The "full" version of the song with added lyrics and a dance PV by yumiko.
+  |links       = nn sm9874560
+}}
+{{derivative
+  |color       = #FFF1F6; color:#C26A66
+  |title       = Nostalogic Vocalogenesis
+  |singers     = MEIKO
+  |producers   = Brother-P
+  |categories  = Original PV
+  |description = A promotional video to promote the song Nostalogic in the album "Vocalogenesis".
+  |links       = nn sm10976837
+}}
+{{derivative
+  |color       = #FFF1F6; color:#C26A66
+  |title       = THE VOCALOID edit
+  |singers     = MEIKO
+  |producers   = yuukiss
+  |categories  = Remix
+  |description = A version released on [[The VOCALOID]].
+}}
+{{derivative
+  |color       = #FFF1F6; color:#C26A66
+  |title       = Nostalogic (MEIKO-SAN mix)
+  |singers     = MEIKO
+  |producers   = yuukiss (music), [[SEGA]] (PV)
+  |categories  = Remix
+  |description = A version which uses MEIKO's natural tone. It was uploaded during MEIKO's 10th Anniversary and uses the PV of Nostalogic from [[Hatsune Miku -Project DIVA- Arcade|Project DIVA Arcade]]. This version has gained over 1,000,000 views on niconico.
+  |links       = nn sm24848610
+}}
+{{derivative
+  |color       = #FFF1F6; color:#C26A66
+  |thumb       = 初音ミクシンフォニー～Miku_Symphony_2019_オーケストラ_ライブ_CD.jpg
+  |title       = Miku Symphony 2019's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version is featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2019~ Orchestra Live CD''.
+}}
+{{Derivative
+  |color       = #6CCB20; color:white
+  |title       = Project SEKAI Version [SEKAI] (Game size)
+  |thumb       = Games - Project SEKAI - Nostalogic.png
+  |singers     = {{IW|projectsekai|MORE MORE JUMP!}}: {{IW|projectsekai|MEIKO}}, {{IW|projectsekai|Kiritani Haruka}} (CV: {{IW|projectsekai|Yoshioka Mayu}}), {{IW|projectsekai|Hinomori Shizuku}} (CV: {{IW|projectsekai|Honnizumi Rina}})
+  |producers   = anko (illust), omu (video)<br>SEGA, [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Cover; Human Cover; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''. A 2DMV is also available in-game.
+  |links       = yt 7bZ3EHDK7gg
+}}
+{{Derivative
+  |color       = #6CCB20; color:white
+  |title       = Project SEKAI Version [Another Vocal (1)]
+  |thumb       = Games - Project SEKAI - Nostalogic.png
+  |singers     = MORE MORE JUMP!: Kiritani Haruka (CV: Yoshioka Mayu)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured on the compilation album ''{{IW|projectsekai|MORE MORE JUMP! Another Vocal Album}}'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt phKOtWQvhQQ
+}}
+{{Derivative
+  |color       = #6CCB20; color:white
+  |title       = Project SEKAI Version [Another Vocal (2)]
+  |thumb       = Games - Project SEKAI - Nostalogic.png
+  |singers     = MORE MORE JUMP!: Hinomori Shizuku (CV: Honnizumi Rina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured on the compilation album ''MORE MORE JUMP! Another Vocal Album'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt 8V7poyuSHiU
+}}
+{{Derivative
+  |color       = #6CCB20; color:white
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |thumb       = Games - Project SEKAI - Nostalogic.png
+  |singers     = MORE MORE JUMP!: MEIKO, Kiritani Haruka (CV: Yoshioka Mayu), Hinomori Shizuku (CV: Honnizumi Rina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = VOCALOID Cover; Human Cover; Album-exclusive Content
+  |description = Full version, featured in MORE MORE JUMP!'s 1st full album ''MORE MORE JUMP! SEKAI ALBUM Vol.1'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+  |links       = yt zi8yhbAI4F4
+}}
+{{Clr}}
+
+==Lyrics==
+<tabber>Radio edit=
+{| style="width:100%"
+|{{shared}}|(M-E-I-K-O M-E-I-K-O…)
+|-
+|{{shared}}|(Uh Yeah A-ha…)
+|-
+|{{shared}}|(Fuh Ooh…)
+|-
+|<br />
+|-
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|ふいに{{ruby|過|よ}}ぎる　ハシャギ声
+|fui ni yogiru hashagi goe
+|-
+|"0"と"1"で残された　Passed days
+|"Zero" to "ichi" de noko sareta Passed days
+|-
+|胸を{{ruby|衝|つ}}く　痛みの{{ruby|理由|わけ}}は
+|mune o tsuku itami no wake wa
+|-
+|後悔？　それともNostalogic…？
+|akirame? soretomo Nostalogic...?
+|-
+|<br />
+|-
+|{{ruby|瞬|またた}}く　光に誘われ
+|matataku hikari ni sasoware
+|-
+|過去を　辿り・巡り・我に返り
+|kako o tadori meguri ware ni kaeri
+|-
+|目の前に　広がる景色は
+|me no mae ni hirogaru keshiki wa
+|-
+|君と観た　未来と同じ
+|Kimi to mita mirai to onaji
+|-
+|<br />
+|-
+|遠くに消えた
+|touku ni kieta
+|-
+|落描きの唄　きっと
+|rakugaki no uta kitto
+|-
+|色{{ruby|褪|あ}}せないで
+|iro ase naide
+|-
+|今も　僕に　聴こえてる
+|Ima mo boku ni kikoeteru
+|-
+|<br />
+|-
+|遠くに見えた
+|touku ni kieta
+|-
+|約束の場所　ずっと
+|yakusoku no basho zutto
+|-
+|息　弾ませて
+|iki hazumasete
+|-
+|今も　僕は　目指してる
+|Ima mo boku ni kikoeteru
+|-
+|今も　君は　目指してる…？
+|Ima mo kimi ni kikoeteru...?
+|-
+|<br />
+|-
+|{{shared}}|(La La La La　Ha-aah…)
+|}|-|Single edit=
+{| style="width:100%"
+|{{shared}}|（M-E-I-K-O　M-E-I-K-O…）
+|-
+|<br />
+|-
+|{{shared}}|（Uh Yeah A-ha…）
+|-
+|<br />
+|-
+|{{shared}}|（Fuh Ooh…）
+|-
+|<br />
+|-
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|不意に{{ruby|過|よ}}ぎる　ハシャギ声
+|fui ni yo giru hashagi goe
+|-
+|"0"と"1"で残された　Passed days
+|"zero" to "ichi" de noko sareta Passed days
+|-
+|胸を{{ruby|衝|つ}}く　痛みの{{ruby|理由|わけ}}は
+|mune o tsuku itami no wake wa
+|-
+|諦め？　それとも　Nostalogic…？
+|akirame? soretomo Nostalogic...?
+|-
+|<br />
+|-
+|{{ruby|瞬|またた}}く　光に誘われ
+|Matataku hikari ni sasoware
+|-
+|過去を　辿り・巡り・我に返り
+|kako o tadori meguri ga ni kaeri
+|-
+|目の前に　広がる景色は
+|me no mae ni hirogaru keshiki wa
+|-
+|君と観た　未来と同じ
+|kimi to mita mirai to onaji
+|-
+|<br />
+|-
+|遠くに消えた　落描きの唄　きっと
+|tooku ni kieta rakugaki no uta kitto
+|-
+|色{{ruby|褪|あ}}せないで
+|iro ase nai de
+|-
+|今も　僕に　聴こえてる
+|ima mo boku ni kikoeteru
+|-
+|今も　僕に　聴こえてる
+|ima mo boku ni kikoeteru
+|-
+|<br />
+|-
+|{{shared}}|（M-E-I-K-O　M-E-I-K-O…）
+|-
+|<br />
+|-
+|{{shared}}|（Uh Yeah A-ha…）
+|-
+|<br />
+|-
+|{{shared}}|（Fuh Ooh…）
+|-
+|<br />
+|-
+|無為に過ぎる　時間だけ
+|mui ni sugiru jikan dake
+|-
+|同じ位置で眺めてた　Like chess pieces
+|onaji ichi de nagameteta Like chess pieces
+|-
+|薄れ往く輝き　それは
+|usure iku kagayaki sore wa
+|-
+|目的？　それとも　Nostalogic…？
+|mokuteki? soretomo Nostalogic...?
+|-
+|<br />
+|-
+|羽ばたく翼を横目に
+|habataku tsubasa o yokome ni
+|-
+|空回り・ばかり・焦り募り
+|karamawari bakari aseri tsunori
+|-
+|語り合った　「希望＋可能性」
+|katariatta "kibou + kanousei"
+|-
+|あの日々が　ただ恋しい
+|ano hibi ga tada koishii
+|-
+|<br />
+|-
+|遠く見据えた　始まりの場所　きっと
+|tooku misueta hajimari no basho kitto
+|-
+|ただそれだけが
+|tada sore dake ga
+|-
+|今の　僕を　支えてる
+|ima no boku o sasaeteru
+|-
+|今の　僕を　支えてる
+|ima no boku o sasaeteru
+|-
+|<br />
+|-
+|{{shared}}|（M-E-I-K-O　M-E-I-K-O…）
+|-
+|<br />
+|-
+|{{shared}}|（Nostalogic...）
+|-
+|<br />
+|-
+|{{shared}}|（Nostalogic...）
+|-
+|<br />
+|-
+|朝が来るまで　目を閉じて
+|asagakuru made me o tojite
+|-
+|そして羊と後悔を　数えるの
+|soshite hitsuji to koukai o kazoeru no
+|-
+|戻れないことぐらい　判ってるけど
+|modorenai koto gurai wakatteru kedo
+|-
+|でも　だけど　理想は捨てずに
+|demo dakedo risou wa sutezu ni
+|-
+|<br />
+|-
+|遠くに消えた　落描きの唄　きっと
+|tooku ni kieta rakugaki no uta kitto
+|-
+|色{{ruby|褪|あ}}せないで
+|iro ase nai de
+|-
+|今も　僕に　聴こえてる
+|ima mo boku ni kikoeteru
+|-
+|<br />
+|-
+|遠く目指した　約束の場所　ずっと
+|tooku mezashita yakusoku no basho zutto
+|-
+|息　弾ませて
+|iki hazuma sete
+|-
+|今も　僕は　目指してる
+|ima mo boku wa mezashiteru
+|-
+|今も　君は　目指してる…？
+|ima mo kimi wa mezashiteru...?
+|-
+|<br />
+|-
+|{{shared}}|（La La La La　Ha-aah…）
+|}
+</tabber>
+
+==Derivatives==
+{{Derivative
+|title = Kakaria ft. GUMI's cover
+|color = gumi
+|links = nn sm15091677
+|producers = Kakaria
+|categories = VOCALOID cover
+|singers = [[GUMI]]
+|description = GUMI's cover by Kakaria; along with an MMD PV to for MMD Fes 2011.
+}}
+{{Derivative
+|title = hanafie ft. Teto's cover
+|color = utau
+|links = yt zOOLv2by_Ok
+|producers = hanafie, @cupdcake (UST)
+|categories = UTAU cover
+|singers = [[Kasane Teto]]
+}}
+{{clr}}
+{{Derivative
+|title = Dance cover
+|color = #FFF1F6; color:#C26A66
+|links = nn sm7472308
+|producers = Giriko
+|categories = Dance cover
+|singers = MEIKO
+|description = A dance cover of the song by Giriko.
+}}
+{{Derivative
+|title = Saya Scarlet's Cover
+|color = #FFF1F6; color:#C26A66
+|links = yt kqvuW8TNe58
+|producers = Saya Scarlet (vocals), Felya (mixing)
+|categories = Human Cover, cosplay PV
+|singers = Saya Scarlet
+}}
+{{Derivative
+|title = Cosplay + Cover PV
+|color = #FFF1F6; color:#C26A66
+|links = yt 4EnJEY7Jzf4
+|producers = 7 Dolls
+|categories = Human, Dance Cover
+|singers = 7 Dolls
+|description = 7 Dolls' cover of the song; along with a cosplay PV dance cover.
+}}
+{{Derivative
+|title = Nostalogic's MMD PV
+|color = #FFF1F6; color:#C26A66
+|links = nn sm13568129
+|producers = Saboten-P
+|categories = MMD PV
+|singers = MEIKO
+|description = An MMD PV by Saboten-P for the 6th MMD Cup.}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song was featured in the following compilation albums:
+*[[EXIT TUNES PRESENTS Vocalogenesis feat. 初音ミク|Vocalogenesis]]
+*[[The VOCALOID]]
+*[[EXIT TUNES PRESENTS Vocalospace feat. 初音ミク|Vocalospace]]
+
+===Concerts===
+This song was featured in the following concerts:
+*[[Hatsune Miku Magical Mirai 2015|Magical Mirai 2015]]
+*[[Hatsune Miku Magical Mirai 2016|Magical Mirai 2016]]
+*[[Hatsune Miku Magical Mirai 2018|Magical Mirai 2018]]
+*[[MIKU WITH YOU 2018]]
+*[[HATSUNE MIKU EXPO 2019 Taiwan & Hong Kong|MIKU EXPO 2019 Taiwan & Hong Kong]]
+*[[Hatsune Miku Magical Mirai 2020|Magical Mirai 2020]] (Osaka day 1)
+
+===Video games===
+This song was featured in the following video games:
+
+====[[Hatsune Miku -Project DIVA- (series)|Hatsune Miku -Project DIVA-]] Series====
+{{col-2b|
+* [[Hatsune Miku -Project DIVA- f]]
+* [[Hatsune Miku -Project DIVA- Arcade Future Tone]]
+* [[Hatsune Miku -Project DIVA- Future Tone]]
+|
+* [[Hatsune Miku: Project DIVA Mega Mix]]
+* {{IW|project-diva|Hatsune Miku: Project DIVA MegaMix+}}}}
+
+====Other games====
+* [[Hatsune Miku: Dreamy Vocal]]
+* {{IW|projectsekai|Nostalogic|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by MEIKO; SEKAI version by MORE MORE JUMP! and MEIKO)
+
+==Gallery==
+<tabber>Games =
+<gallery hideaddbutton="true" position="center" bordercolor="#C26A66">
+Blue crystal concept.png|Concept art for the module "Blue Crystal" by Anko.
+Nostalogic_Meiko.jpg|Meiko's ''Blue Crystal'' module for the song "Nostalogic", designed by Anko. From the video game ''Hatsune Miku -Project DIVA- f''.
+Nostalogic f loading screen.png|Anko's loading screen, for the song "Nostalogic". From the video game "''-Project DIVA- f''".
+Meiko 24.jpg|Meiko's ''Blue Crystal'' module for the song "Nostalogic", designed by Anko. From the video game ''Hatsune Miku -Project DIVA- Arcade Future Tone''.
+Games - Project DIVA - Nostalogic.jpg|Music jacket featured in ''-Project DIVA- Arcade Future Tone'' and ''Mega Mix''
+Games - Project SEKAI - Nostalogic.png|Music jacket featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+</gallery>
+|-|Concerts =
+<gallery hideaddbutton="true" position="center" bordercolor="#C26A66">
+Miku Expo 2019 TWHK Nostalogic.png|Meiko performing Nostalogic in the ''Miku Expo 2019 in Hong Kong & Taiwan'' concert.
+</gallery>
+</tabber>
+
+==External links==
+===Unofficial===
+{{Unofficial
+  |at     = 691
+  |nico   = sm2268739
+  |nico2  = a/nostalogic
+  |vocadb = 23950
+  |utadb  = 40695
+  |mgp    = Nostalogic
+  |pixiv  = Nostalogic
+  |tag    = Nostalogic
+  |vlw    = Nostalogic
+  |url    = [http://www5.atwiki.jp/hmiku/pages/8943.html 初音ミク Wiki]
+* {{IW|projectsekai|Nostalogic|Project SEKAI Wiki}}
+* {{IW|project-diva|Nostalogic|Project DIVA Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Partially bilingual songs]]
+[[Category:Concert songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]
+[[Category:Remastered songs]]
