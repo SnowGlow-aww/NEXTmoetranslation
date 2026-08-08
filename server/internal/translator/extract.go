@@ -1,11 +1,41 @@
 package translator
 
-import "moesekai/server/internal/store"
+import (
+	"sort"
+	"strings"
+
+	"moesekai/server/internal/model"
+	"moesekai/server/internal/store"
+)
 
 const jpInformationURL = "https://baijing.exmeaning.com/jp/information"
 
 // extractResult is the per-category output: field -> {pairs, trace}.
 type extractResult map[string]store.CNApplyField
+
+type cnExtractedCategory struct {
+	fields           map[string]store.CNApplyField
+	musicCatalog     []store.MusicCatalogRecord
+	performerCatalog []store.PerformerCatalogRecord
+	err              error
+}
+
+func extractCNFields(fn func() (map[string]store.CNApplyField, error)) func() cnExtractedCategory {
+	return func() cnExtractedCategory {
+		fields, err := fn()
+		return cnExtractedCategory{fields: fields, err: err}
+	}
+}
+
+func (t *Translator) extractMusicCategory() cnExtractedCategory {
+	fields, catalog, err := t.extractMusic()
+	return cnExtractedCategory{fields: fields, musicCatalog: catalog, err: err}
+}
+
+func (t *Translator) extractCharactersCategory() cnExtractedCategory {
+	fields, catalog, err := t.extractCharacters()
+	return cnExtractedCategory{fields: fields, performerCatalog: catalog, err: err}
+}
 
 func newExtractResult(fields ...string) extractResult {
 	r := make(extractResult, len(fields))
@@ -155,19 +185,33 @@ func (t *Translator) extractComics() (map[string]store.CNApplyField, error) {
 	return out.withTrace(tm), nil
 }
 
-func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
+func (t *Translator) extractMusic() (map[string]store.CNApplyField, []store.MusicCatalogRecord, error) {
 	musics, err := t.fetchMasterdata("musics.json", "jp")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	vocals, _ := t.fetchMasterdata("musicVocals.json", "jp")
+	vocals, err := t.fetchMasterdata("musicVocals.json", "jp")
+	if err != nil {
+		return nil, nil, err
+	}
 	out := newExtractResult("title", "artist", "vocalCaption")
 	tm := newTraceMap("title", "artist", "vocalCaption")
+	vocalSignals := musicVocalSignals(vocals)
+	catalog := make([]store.MusicCatalogRecord, 0, len(musics))
 	for _, m := range musics {
 		musicID := getInt(m, "id")
 		if title := getString(m, "title"); title != "" {
 			out["title"].Pairs[title] = ""
 			tm.add("title", title, musicID)
+			newlyWritten, _ := m["isNewlyWrittenMusic"].(bool)
+			lyricsVersion, lyricsVersionKnown := catalogLyricsVersion(m)
+			catalog = append(catalog, store.MusicCatalogRecord{
+				MusicID: musicID, JapaneseTitle: title, IsNewlyWrittenMusic: newlyWritten,
+				ProducerMetadata: musicProducerMetadata(m), Lyricist: getString(m, "lyricist"),
+				Composer: getString(m, "composer"), Arranger: getString(m, "arranger"),
+				AssetbundleName: getString(m, "assetbundleName"), VersionHint: catalogVersionHint(m),
+				LyricsVersion: lyricsVersion, LyricsVersionKnown: lyricsVersionKnown, Vocals: vocalSignals[musicID],
+			})
 		}
 		for _, key := range []string{"lyricist", "composer", "arranger"} {
 			if v := getString(m, key); v != "" && v != "-" {
@@ -186,7 +230,103 @@ func (t *Translator) extractMusic() (map[string]store.CNApplyField, error) {
 			tm.add("vocalCaption", caption, vocalID)
 		}
 	}
-	return out.withTrace(tm), nil
+	return out.withTrace(tm), catalog, nil
+}
+
+func musicVocalSignals(vocals []map[string]any) map[int][]model.CatalogVocalSignal {
+	result := map[int][]model.CatalogVocalSignal{}
+	for _, vocal := range vocals {
+		musicID := getInt(vocal, "musicId")
+		if musicID <= 0 {
+			continue
+		}
+		base := model.CatalogVocalSignal{
+			VocalID: getInt(vocal, "id"), VocalType: getString(vocal, "musicVocalType"),
+			Caption: getString(vocal, "caption"), AssetbundleName: getString(vocal, "assetbundleName"),
+		}
+		characters := toMapSlice(vocal["characters"])
+		if len(characters) == 0 {
+			result[musicID] = append(result[musicID], base)
+			continue
+		}
+		for _, character := range characters {
+			signal := base
+			signal.CharacterType = getString(character, "characterType")
+			signal.CharacterID = getInt(character, "characterId")
+			signal.CharacterSequence = getInt(character, "seq")
+			result[musicID] = append(result[musicID], signal)
+		}
+	}
+	for musicID := range result {
+		sort.Slice(result[musicID], func(i, j int) bool {
+			left, right := result[musicID][i], result[musicID][j]
+			if left.VocalID != right.VocalID {
+				return left.VocalID < right.VocalID
+			}
+			return left.CharacterSequence < right.CharacterSequence
+		})
+	}
+	return result
+}
+
+func catalogLyricsVersion(music map[string]any) (string, bool) {
+	signals := make([]string, 0, 4)
+	if _, exists := music["isFullLength"]; exists {
+		full, ok := getBool(music, "isFullLength")
+		if !ok {
+			signals = append(signals, "unknown")
+		} else if full {
+			signals = append(signals, "full")
+		} else {
+			signals = append(signals, "game_size")
+		}
+	}
+	for _, key := range []string{"musicVersion", "lyricsVersion", "versionType"} {
+		if _, exists := music[key]; !exists {
+			continue
+		}
+		value := strings.ToLower(strings.TrimSpace(getString(music, key)))
+		switch value {
+		case "full", "full_length", "full-length", "long":
+			signals = append(signals, "full")
+		case "game", "game_size", "game-size":
+			signals = append(signals, "game_size")
+		default:
+			signals = append(signals, "unknown")
+		}
+	}
+	if len(signals) == 0 {
+		return "unknown", false
+	}
+	version := signals[0]
+	if version == "unknown" {
+		return "unknown", true
+	}
+	for _, signal := range signals[1:] {
+		if signal == "unknown" || signal != version {
+			return "unknown", true
+		}
+	}
+	return version, true
+}
+
+func catalogVersionHint(music map[string]any) string {
+	for _, key := range []string{"assetbundleName", "musicAssetbundleName", "versionHint"} {
+		if value := strings.TrimSpace(getString(music, key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func musicProducerMetadata(music map[string]any) string {
+	values := make([]string, 0, 3)
+	for _, key := range []string{"lyricist", "composer", "arranger"} {
+		if value := strings.TrimSpace(getString(music, key)); value != "" && value != "-" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, " | ")
 }
 
 func (t *Translator) extractMysekai() (map[string]store.CNApplyField, error) {
@@ -286,17 +426,17 @@ func (t *Translator) extractCostumes() (map[string]store.CNApplyField, error) {
 	return out.withTrace(tm), nil
 }
 
-func (t *Translator) extractCharacters() (map[string]store.CNApplyField, error) {
+func (t *Translator) extractCharacters() (map[string]store.CNApplyField, []store.PerformerCatalogRecord, error) {
 	fields := []string{"hobby", "specialSkill", "favoriteFood", "hatedFood", "weak", "introduction"}
 	out := newExtractResult(fields...)
 	tm := newTraceMap(fields...)
 	jp, err := t.fetchMasterdata("characterProfiles.json", "jp")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cn, err := t.fetchMasterdata("characterProfiles.json", "cn")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cnByID := byIntID(cn, "characterId")
 	for _, profile := range jp {
@@ -308,7 +448,32 @@ func (t *Translator) extractCharacters() (map[string]store.CNApplyField, error) 
 			collectPair(out[field].Pairs, jpText, safeText(getString(cnProfile, field)))
 		}
 	}
-	return out.withTrace(tm), nil
+	jpCharacters, err := t.fetchMasterdata("gameCharacters.json", "jp")
+	if err != nil {
+		return nil, nil, err
+	}
+	cnCharacters, err := t.fetchMasterdata("gameCharacters.json", "cn")
+	if err != nil {
+		return nil, nil, err
+	}
+	cnCharactersByID := byIntID(cnCharacters, "id")
+	records := make([]store.PerformerCatalogRecord, 0, len(jpCharacters))
+	for _, character := range jpCharacters {
+		id := getInt(character, "id")
+		records = append(records, store.PerformerCatalogRecord{
+			PerformerID:  id,
+			JapaneseName: characterName(character),
+			ChineseName:  characterName(cnCharactersByID[id]),
+		})
+	}
+	return out.withTrace(tm), records, nil
+}
+
+func characterName(character map[string]any) string {
+	if name := strings.TrimSpace(getString(character, "name")); name != "" {
+		return name
+	}
+	return strings.TrimSpace(strings.Join([]string{getString(character, "firstName"), getString(character, "givenName")}, " "))
 }
 
 func (t *Translator) extractUnits() (map[string]store.CNApplyField, error) {

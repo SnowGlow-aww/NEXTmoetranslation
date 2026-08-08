@@ -1,0 +1,345 @@
+{{NoReprint}}
+<tabber>Leo/need Version =
+{{Song box 2
+  |color     = #0681BC; color: white
+  |image     = Sympathy Leoneed.jpg
+  |title     = "'''Sympathy'''"
+  |date      = March 30, 2025 (game release) and April 6, 2025 (PV)
+  |views     = {{v|yt|1,153,031}}, {{v|nn|118,228}}, and {{v|bb|5,021}}
+  |singers   = [[Hatsune Miku SP]], {{IW|projectsekai|Hinomori Shiho}}, {{IW|projectsekai|Hoshino Ichika}}, {{IW|projectsekai|Tenma Saki}}, and {{IW|projectsekai|Mochizuki Honami}}
+  |producers = [[Eve (producer)|Eve]] (music, lyrics)
+* [[Numa]] (arrangement)
+* Kotatiyu (illustration)
+* SeeyuAge (R11R) (video)
+  |links     = {{l|yt|cCZOz1RbvHs}} {{l|nn|so44806039}} {{l|bb|BV14PXPBDEHm}}
+}}
+|-|VOCALOID Version =
+{{Song box 2
+  |color     = #446984; color: white
+  |image     = Sympathy Miku.jpg
+  |title     = "'''Sympathy'''"
+  |date      = April 7, 2025
+  |views     = {{v|yt|183,008}} and {{v|nn|10,736}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[Eve (producer)|Eve]] (music, lyrics)
+* [[Numa]] (arrangement)
+* Nitaka (illustration)
+* Yoshi (video)
+  |links     = {{l|yt|jBcvuTUgQsI}} {{l|nn|so44841783}}
+}}
+</tabber>
+
+==Background==
+"'''Sympathy'''" is an original song produced by Eve. It was commissioned for the unit {{IW|projectsekai|Leo/need}} from the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+The Leo/need version has exceeded 1 million views on YouTube and has entered the ''[[Hall of Fame]]''.
+
+==Lyrics==
+<tabber>Leo/need Version =
+{{lrc legend|#0681BC; color: white
+|Miku:#33CCBB
+|Shiho:#BBDE22
+|Ichika:#33AAEE
+|Saki:#FFDD45
+|Honami:#EE6666
+|Chorus}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|ichika|想い返していた}}
+|{{lrc color|ichika|omoi kaeshiteita}}
+|-
+|{{lrc color|ichika|思い出の中で泣いていた}}
+|{{lrc color|ichika|omoide no naka de naiteita}}
+|-
+|{{lrc color|shiho|不確かな夢と}}
+|{{lrc color|shiho|futashika na yume to}}
+|-
+|{{lrc color|shiho|孤独を抱えて笑ってた}}
+|{{lrc color|shiho|kodoku o kakaete waratteta}}
+|-
+|<br>
+|-
+|この痛みも傷もいたいけな瞳も {{lrc color|miku|■}}{{lrc color|saki|■}}
+|kono itami mo kizu mo itaike na hitomi mo {{lrc color|miku|■}}{{lrc color|saki|■}}
+|-
+|無に帰してしまいそうな {{lrc color|miku|■}}{{lrc color|ichika|■}}
+|mu ni kaeshite shimaisou na {{lrc color|miku|■}}{{lrc color|ichika|■}}
+|-
+|焦りと不安が滲んで {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|honami|■}}
+|aseri to fuan ga nijinde {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|honami|■}}
+|-
+|涙に飲まれてしまう {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|honami|■}}
+|namida ni nomarete shimau {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|honami|■}}
+|-
+|<br>
+|-
+|{{lrc color|ichika|誰一人欠けることはないちぐはぐだった}}
+|{{lrc color|ichika|dare hitori kakeru koto wa nai chiguhagu datta}}
+|-
+|{{lrc color|saki|僕らの}}{{lrc color|honami|想いが}}{{lrc color|shiho|音になって繋ぐ}}
+|{{lrc color|saki|bokura no}} {{lrc color|honami|omoi ga}} {{lrc color|shiho|oto ni natte tsunagu}}
+|-
+|<br>
+|-
+|こだまして {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}} 忘れないようかき鳴らした日々を {{lrc color|shiho|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|kodama shite {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}} wasurenai you kakinarashita hibi o {{lrc color|shiho|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|{{lrc color|miku|あの日僕らは}}間違っていなかっただと知る {{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|{{lrc color|miku|ano hi bokura wa}} machigatte inakattan da to shiru {{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|<br>
+|-
+|閉ざしてしまいこんだ一閃の光探して {{lrc color|miku|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|tozashite shimaikonda issen no hikari sagashite {{lrc color|miku|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|{{lrc color|miku|君の声を聴かせて}}{{lrc color|shiho|ここにいるって}}叫んでくれよ {{lrc color|shiho|■}}{{lrc color|saki|■}}
+|{{lrc color|miku|kimi no koe o kikasete}} {{lrc color|shiho|koko ni iru tte}} sakende kure yo {{lrc color|shiho|■}}{{lrc color|saki|■}}
+|-
+|その {{lrc color|ichika|■}}{{lrc color|saki|■}} 手を離さないで {{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|sono {{lrc color|ichika|■}}{{lrc color|saki|■}} te o hanasanaide {{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|<br>
+|-
+|{{lrc color|miku|世界に僕だけが}}
+|{{lrc color|miku|sekai ni boku dake ga}}
+|-
+|{{lrc color|miku|取り残されてしまったような}}
+|{{lrc color|miku|torinokosarete shimatta you na}}
+|-
+|{{lrc color|saki|暗闇の中で}}
+|{{lrc color|saki|kurayami no naka de}}
+|-
+|{{lrc color|honami|立ち止まり}}{{lrc color|ichika|手放してしまう}}
+|{{lrc color|honami|tachidomari}} {{lrc color|ichika|tebanashite shimau}}
+|-
+|<br>
+|-
+|心が通じ会えない孤独感を {{lrc color|ichika|■}}{{lrc color|saki|■}}
+|kokoro ga tsuujiaenai kodokukan o {{lrc color|ichika|■}}{{lrc color|saki|■}}
+|-
+|押し殺してしまうなら {{lrc color|ichika|■}}{{lrc color|saki|■}}
+|oshikoroshite shimau nara {{lrc color|ichika|■}}{{lrc color|saki|■}}
+|-
+|１人でいたほうが楽に生きられたかな {{lrc color|shiho|■}}{{lrc color|honami|■}}
+|hitori de ita hou ga raku ni ikirareta ka na {{lrc color|shiho|■}}{{lrc color|honami|■}}
+|-
+|<br>
+|-
+|{{lrc color|ichika|憧れ理想に強く怒れる感情が}}
+|{{lrc color|ichika|akogare risou ni tsuyoku ikareru kanjou ga}}
+|-
+|僕らを引き寄せてしまうのなら {{lrc color|shiho|■}}{{lrc color|ichika|■}}
+|bokura o hikiyosete shimau no nara {{lrc color|shiho|■}}{{lrc color|ichika|■}}
+|-
+|応えて {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|kotaete {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|<br>
+|-
+|{{lrc color|ichika|こだましていくまだ終わっちゃいないんだ僕ら}}
+|{{lrc color|ichika|kodama shite iku mada owaccha inain da bokura}}
+|-
+|{{lrc color|ichika|延長戦だろう}} {{lrc color|saki|この音が途切れるまで}}
+|{{lrc color|ichika|enchousen darou}} {{lrc color|saki|kono oto ga togireru made}}
+|-
+|{{lrc color|honami|子供の頃に描いたヒーロー}}
+|{{lrc color|honami|kodomo no koro ni egaita hiiroo}}
+|-
+|{{lrc color|shiho|君の出番が待ってる}}
+|{{lrc color|shiho|kimi no deban ga matteru}}
+|-
+|<br>
+|-
+|こだまして {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}} 忘れないようかき鳴らした日々を {{lrc color|shiho|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|kodama shite {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}} wasurenai you kakinarashita hibi o {{lrc color|shiho|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|{{lrc color|miku|あの日僕らは}}間違っていなかっただと知る {{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|{{lrc color|miku|ano hi bokura wa}} machigatte inakattan da to shiru {{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|<br>
+|-
+|閉ざしてしまいこんだ一閃の光探して {{lrc color|miku|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|tozashite shimaikonda issen no hikari sagashite {{lrc color|miku|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|{{lrc color|miku|君の声を聴かせて}}{{lrc color|shiho|ここにいるって}}叫んでくれよ {{lrc color|shiho|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|{{lrc color|miku|kimi no koe o kikasete}} {{lrc color|shiho|koko ni iru tte}} sakende kure yo {{lrc color|shiho|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|-
+|その手を離さないで {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|sono te o hanasanaide {{lrc color|shiho|■}}{{lrc color|ichika|■}}{{lrc color|saki|■}}{{lrc color|honami|■}}
+|}
+|-|VOCALOID Version =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|想い返していた
+|omoi kaeshiteita
+|-
+|思い出の中で泣いていた
+|omoide no naka de naiteita
+|-
+|不確かな夢と
+|futashika na yume to
+|-
+|孤独を抱えて笑ってた
+|kodoku o kakaete waratteta
+|-
+|<br>
+|-
+|この痛みも傷もいたいけな瞳も
+|kono itami mo kizu mo itaike na hitomi mo
+|-
+|無に帰してしまいそうな
+|mu ni kaeshite shimaisou na
+|-
+|焦りと不安が滲んで
+|aseri to fuan ga nijinde
+|-
+|涙に飲まれてしまう
+|namida ni nomarete shimau
+|-
+|<br>
+|-
+|誰一人欠けることはないちぐはぐだった
+|dare hitori kakeru koto wa nai chiguhagu datta
+|-
+|僕らの想いが音になって繋ぐ
+|bokura no omoi ga oto ni natte tsunagu
+|-
+|<br>
+|-
+|こだまして忘れないようかき鳴らした日々を
+|kodama shite wasurenai you kakinarashita hibi o
+|-
+|あの日僕らは間違っていなかっただと知る
+|ano hi bokura wa machigatte inakattan da to shiru
+|-
+|<br>
+|-
+|閉ざしてしまいこんだ一閃の光探して
+|tozashite shimaikonda issen no hikari sagashite
+|-
+|君の声を聴かせてここにいるって叫んでくれよ
+|kimi no koe o kikasete koko ni iru tte sakende kure yo
+|-
+|その手を離さないで
+|sono te o hanasanaide
+|-
+|<br>
+|-
+|世界に僕だけが
+|sekai ni boku dake ga
+|-
+|取り残されてしまったような
+|torinokosarete shimatta you na
+|-
+|暗闇の中で
+|kurayami no naka de
+|-
+|立ち止まり手放してしまう
+|tachidomari tebanashite shimau
+|-
+|<br>
+|-
+|心が通じ会えない孤独感を
+|kokoro ga tsuujiaenai kodokukan o
+|-
+|押し殺してしまうなら
+|oshikoroshite shimau nara
+|-
+|１人でいたほうが楽に生きられたかな
+|hitori de ita hou ga raku ni ikirareta ka na
+|-
+|<br>
+|-
+|憧れ理想に強く怒れる感情が
+|akogare risou ni tsuyoku ikareru kanjou ga
+|-
+|僕らを引き寄せてしまうのなら
+|bokura o hikiyosete shimau no nara
+|-
+|応えて
+|kotaete
+|-
+|<br>
+|-
+|こだましていくまだ終わっちゃいないんだ僕ら
+|kodama shite iku mada owacchainain da bokura
+|-
+|延長戦だろう この音が途切れるまで
+|enchousen darou kono oto ga togireru made
+|-
+|子供の頃に描いたヒーロー
+|kodomo no koro ni egaita hiiroo
+|-
+|君の出番が待ってる
+|kimi no deban ga matteru
+|-
+|<br>
+|-
+|こだまして忘れないようかき鳴らした日々を
+|kodama shite wasurenai you kakinarashita hibi o
+|-
+|あの日僕らは間違っていなかっただと知る
+|ano hi bokura wa machigatte inakattan da to shiru
+|-
+|<br>
+|-
+|閉ざしてしまいこんだ一閃の光探して
+|tozashite shimaikonda issen no hikari sagashite
+|-
+|君の声を聴かせてここにいるって叫んでくれよ
+|kimi no koe o kikasete koko ni iru tte sakende kure yo 
+|-
+|その手を離さないで
+|sono te o hanasanaide
+|}
+</tabber>
+
+==Other media appearances==
+===Discography===
+The Leo/need version of this song was featured on the single ''その音が鳴るなら/Sympathy (Sono Oto ga Naru Nara/Sympathy)''.
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku; SEKAI version by Leo/need and Hatsune Miku).
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#0681BC">
+Games - Project SEKAI - Sympathy.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#0681BC">
+IshifuroEve - SonoOtoSympathy (single).png|Cover art of the single<br>''その音が鳴るなら/Sympathy (Sono Oto ga Naru Nara/Sympathy)''
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://karent.jp/album/5018 KARENT (Leo/need Version)]
+** [https://nodee.net/a/vkxrcp8ecb46 nodee (Leo/need Version)]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 66085
+  |nico    = so44841783
+  |vocadb  = 769680 Leo/need Version —
+  |vocadb2 = 774010 VOCALOID Version —
+  |utadb   = 72754 Leo/need Version —
+  |mgp     = Sympathy(Eve)
+  |tag     = Sympathy(Eve)
+  |vlw     = Sympathy/Eve
+  |url     = {{IW|projectsekai|Sympathy|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Mobile game songs]]

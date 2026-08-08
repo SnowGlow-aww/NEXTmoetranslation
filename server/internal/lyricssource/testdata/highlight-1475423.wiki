@@ -1,0 +1,241 @@
+{{Epileptic Warning}}
+{{NoReprint}}
+<tabber>Lyric video = 
+{{Song box 2
+  |color     = #6ec7c7; color:#fdf6f6
+  |image     = Highlightkira2.jpg
+  |title     = "'''Highlight'''"
+  |date      = December 11, 2020
+  |views     = {{v|yt|943,888}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[KIRA]] (music, arrangement, lyrics)
+* ryota (illustration)
+  |links     = {{l|yt|3lce-CE50SE}}
+}}
+|-|Music video = 
+{{Song box 2
+  |color     = #304f4c; color: #5cffef
+  |image     = Highlightkira.jpg
+  |title     = "'''Highlight'''"
+  |date      = January 12, 2021
+  |views     = {{v|yt|2,457,520}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[KIRA]] (music, arrangement, lyrics)
+* [[Ekkoberry]] (illustration)
+* riguruma (animation)
+  |links     = {{l|yt|AYUNaQaDfa8}}
+}}
+</tabber>
+
+==Background==
+"'''Highlight'''" is an original song by [[KIRA]] featuring [[Hatsune Miku]] and is the official theme song for [[HATSUNE MIKU EXPO 2021 Online]].
+
+==Succeeding versions==
+{{Derivative
+  |color       = #6ec7c7; color:#fdf6f6
+  |title       = Tokyo Elvis' Remix
+  |singers     = Hatsune Miku
+  |producers   = Tokyo Elvis (arrange)
+  |categories  = Remix
+  |description = This remix is featured on the ''MIKU EXPO 2021 Online SONOCA'' card.
+}}
+{{clr}}
+
+==Lyrics==
+{{Lyrics|Turn it up to the top
+Let's get it started, go non-stop
+Bust through the door, we don't knock
+(Just have a good time)
+
+Like we never cared about what they say
+Tear up the place like it's our own
+Get wilder than a cyclone
+And leave it on a high note
+
+And it's just like magic lighting up the sky
+Yeah when we're together we don't have to try
+If you wanna join then this is your invite
+Show 'em what you got, come on
+Don't be shy!
+
+We
+We are breaking through borders
+Free
+Like the clouds are beneath us, oh
+We
+We're like diamonds in starlight
+We shine in the dark night
+'Cause we are the highlight
+
+We (We are)
+We're just living this moment
+Free (Free, yeah)
+On this path that we've chosen, oh
+We (We are)
+We're like diamonds in starlight
+We shine in the dark night
+'Cause we are the highlight
+
+Caught inside a bubble full of doubts
+It's time to make it pop!
+Baby, just believe it, feel it
+Lose control, it's in your blood
+You know there ain't nobo-bo-body getting down like we do
+There ain't no pa-pa-party like a party with Miku!!!
+
+And it's just like magic lighting up the sky
+Yeah when we're together we don't have to try
+If you wanna join then this is your invite
+Show 'em what you got, come on
+Don't be shy!
+
+We
+We are breaking through borders
+Free
+Like the clouds are beneath us, oh
+We (We are)
+We're like diamonds in starlight
+We shine in the dark night
+'Cause we are the highlight
+
+We (We are)
+We're just living this moment
+Free (Free, yeah)
+On this path that we've chosen, oh
+We (We are)
+We're like diamonds in starlight
+We shine in the dark night
+'Cause we are the highlight
+
+Ah yeah
+
+Don't lose your dream
+Make it reality, baby
+Don't lose your dream
+Make it
+Now everybody let me hear you say..
+(Oh yeah!!) Don't lose your dream
+Go and make history, baby
+Don't lose your dream
+
+We
+We are breaking through borders
+Free
+Like nobody can stop us, oh
+We are diamonds in starlight
+('Cause you know that we are)
+
+We (We are)
+We are breaking through borders
+Free (Free, yeah)
+Like the clouds are beneath us, oh
+We (We are)
+We're like diamonds in starlight
+We shine in the dark night
+'Cause we are the highlight
+
+We (We are)
+We're just living this moment
+Free (Free, yeah)
+On this path that we've chosen, oh
+We (We are)
+We're like diamonds in starlight
+We shine in the dark night
+'Cause we are the highlight}}
+
+==Derivatives==
+{{Derivative
+  |color       = utau
+  |title       = MystSaphyr's Cover ft. Kikyuune Aiko
+  |singers     = {{Utau|Aiko Kikyuune|Kikyuune Aiko}}
+  |producers   = [[MystSaphyr]] (tuning, mixing, video), Syphn (SVP)
+  |categories  = UTAU Cover
+  |links       = nn sm39012900; yt XPGRyEak6rs
+  |description = This cover was uploaded in celebration of Kikyuune Aiko's 12th anniversary.
+}}
+{{Derivative
+  |color       = synthesizer v
+  |title       = Syphn's Cover ft. Tsurumaki Maki
+  |singers     = {{IW|synthv|Tsurumaki Maki}} AI English
+  |producers   = Syphn (SVP, tuning, mixing, illust), Dän (video)
+  |categories  = Synthesizer V Cover
+  |links       = yt zp46rlFTtyg
+}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song is featured on the following albums:
+* MIKU EXPO 2021 Online SONOCA
+* MIKU EXPO 2021 Online Live Arrangement
+* Highlight (single)
+* HATSUNE MIKU EXPO 10th Anniversary E.P.
+
+===Concerts===
+This song was featured in the following concerts:
+* [[HATSUNE MIKU EXPO 2021 Online]]
+* [[HATSUNE MIKU EXPO Rewind]]
+* [[HATSUNE MIKU EXPO 2024 North America|MIKU EXPO 2024 North America]]
+* [[Coachella Valley Music and Arts Festival 2024]]
+* [[HATSUNE MIKU EXPO 2024 EUROPE|MIKU EXPO 2024 EUROPE]]
+* [[HATSUNE MIKU EXPO 2024 New Zealand & Australia|MIKU EXPO 2024 New Zealand & Australia]]
+
+===Video games===
+This song was featured in the following video games:
+* ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''
+* ''{{IW|crypt-of-the-necrodancer|Crypt of the NecroDancer Wiki|Crypt of the NecroDancer}}'' (DLC)
+* ''{{IW|cytus|Cytus II}}'' (Hatsune Miku Collaboration)
+
+==Gallery==
+<tabber>Games =
+<gallery hideaddbutton="true" position="center" bordercolor="#6ec7c7">
+Games - Project SEKAI - Highlight.png|Music jacket featured in ''Project SEKAI Colorful Stage! feat. Hatsune Miku''
+Games - Cytus II - Highlight.png|Music jacket featured in ''Cytus II''
+</gallery>
+|-|Merchandising =
+<gallery hideaddbutton="true" position="center" bordercolor="#6ec7c7">
+KIRA - Highlight (single).jpg|Cover art of the digital single<br>''Highlight''
+</gallery>
+|-|Other (PV Screenshots)=
+<gallery hideaddbutton="true" position="center" bordercolor="#6ec7c7">
+Hoodie Jacket outfitted Miku doing the shush.jpeg
+Miku holding the Earth.jpeg
+Miku holding a Microphone while standing on Earth.jpeg
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.co.jp/dp/B0C7QBNT7R/ Amazon Music]
+** [https://music.amazon.co.jp/albums/B0C7QBNT7R Amazon Music Unlimited]
+** [https://music.apple.com/jp/album/highlight-single/1692133259 Apple Music]
+** [https://s.awa.fm/album/9b19b9fd290f80188f84?t=1687471239 AWA]
+** [https://karent.jp/album/3641 KARENT]
+** [https://www.kkbox.com/jp/ja/album/OlWNjLy5CCud8QoDBh KKBOX]
+** [https://music.line.me/webapp/album/mb0000000002e5d47d LINE MUSIC]
+** [https://mora.jp/package/43000018/KRHS-96022/ mora]
+** [https://mysound.jp/song/9813628/ mysound]
+** [https://music.oricon.co.jp/php/music/MusicTop.php?music=10356243 Oricon Music Store]
+** [https://ototoy.jp/_/default/p/1699986 OTOTOY]
+** [https://open.spotify.com/album/2OqBUrc53EeZYBFY8ixpzR?si=gcu_bfjNQK6u2AWtD_Qu8g&nd=1 Spotify]
+** [https://music.youtube.com/playlist?list=OLAK5uy_lk23evxUQXIZhncgAeOSRjpS0E0pnOUik YouTube Music]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 48869
+  |vocadb = 304790
+  |mgp    = Highlight
+  |vlw    = Highlight
+  |url    = {{IW|projectsekai|Highlight|Project SEKAI Wiki}}
+* {{IW|cytus|Highlight|Cytus Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:English songs]]
+[[Category:Concert songs]]
+[[Category:Mobile game songs]]
+[[Category:Video game songs]]

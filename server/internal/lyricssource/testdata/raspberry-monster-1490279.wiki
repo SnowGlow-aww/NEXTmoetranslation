@@ -1,0 +1,349 @@
+{{Questionable|Offensive Gestures and Profanity}}
+{{Epileptic Warning}}
+{{Song box 2
+  |color     = #D4E431; color:#ff043f
+  |image     = RaspberryMonster.png
+  |title     = "'''ラズベリー＊モンスター'''"
+* Romaji: Razuberii＊Monsutaa
+* Official English: Raspberry＊Monster
+  |date      = June 6, 2013
+  |views     = {{v|nn|1,166,814}} and {{v|yt|2,762,432}}
+  |singers   = [[Hatsune Miku]]
+  |producers = '''[[HoneyWorks]]''':
+* <small>Gom (music, lyrics)
+* shito (lyrics)
+* HoneyWorks (arrange)
+* Oji (guitar)
+* Shito (bass)</small>
+* [[Akiakane]] (movie)
+* kenken (encode)
+  |links     = {{l|nn|sm21051219}} {{l|yt|P4dhSf8pEeE}}
+}}
+
+==Background==
+"'''Raspberry*Monster'''" is an original song by HoneyWorks. The lyrics are somewhat vague, but it could be about a girl who has social problems and lives in a fantasy world where she is a superhero.
+
+This song has entered the ''[[Hall of Fame|Hall of Legend]]'' and exceeded over 2 million YouTube views. It is featured in the albums ''[[六弦アストロジー (Rokugen Astrology)|Rokugen Astrology]]'' and ''[[ずっと前から好きでした。 (Zutto Mae Kara Suki Deshita.)|Zutto Mae Kara Suki Deshita.]]''. It's also featured in the game [[Hatsune Miku -Project DIVA- X]], being the song featured in the game's first trailer.
+
+==Succeeding versions==
+{{derivative
+  |color       = #D4E431; color:#ff043f|thumb = yt
+  |title       = Hanatan's Cover
+  |singers     = {{UIW|Hanatan}}<br><small>Gom, shito, Kaizoku Ou (chorus)</small>
+  |producers   = HoneyWorks (music, lyrics), kenken (encode), Akiakane (illust, video)
+  |categories  = Original Song; Human Vocals
+  |links       = nn sm21051211; yt K4QIVBgwo0M
+}}
+{{derivative
+  |color       = #ff043f; color:#D4E431|thumb = yt
+  |title       = CHiCO with HoneyWorks Cover
+  |singers     = CHiCO<br><small>Gom, shito, Kaizoku Ou (chorus)</small>
+  |producers   = HoneyWorks (music, lyrics), kenken (encode), Akiakane (illust, video)
+  |categories  = Original Song; Human Vocals
+  |links       = nnd sm32567675
+}}
+{{Derivative
+  |color       = #4455DD; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - ラズベリー＊モンスター.png
+  |singers     = {{IW|projectsekai|Leo/need}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Hoshino Ichika}} (CV: {{IW|projectsekai|Noguchi Ruriko}}), {{IW|projectsekai|Tenma Saki}} (CV: {{IW|projectsekai|Isobe Karin}}), {{IW|projectsekai|Mochizuki Honami}} (CV: {{IW|projectsekai|Ueda Reina}}), {{IW|projectsekai|Hinomori Shiho}} (CV: {{IW|projectsekai|Nakashima Yuki}})
+  |producers   = Jakko, Kisumi Reika, Atarashi Maimi, Momoka, suzuka, Tsukigami Hiyu, Hirakawa Moe, [[Magical Mirai (band)|chloe]], Ushitani Kotone (motion actor)<br>[https://www.marza.com/ MARZA ANIMATION PLANET] (overall MV direction, staging, camerwork, animation supervision), [https://www.actonica.jp/ Actonica] (motion capture, actor coordination)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Cover; Human Cover; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so46393751; yt rPDLhDIrjAw
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Japanese Lyrics =
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|3，2，1 って合図カマしたら舌を出せ
+|surii, tsuu, wantte aizu kamashitara shita o dase
+|-
+|中指立てて絶好調
+|nakayubi tatete zekkouchou
+|-
+|味も薄れたラズベリーのガムを吐き捨てて
+|aji mo usureta razuberii no gamu o hakisutete
+|-
+|Bye {{ruby|LOVE|アイ}}
+|bai ai
+|-
+|<br>
+|-
+|AM6：00　目覚まし時計を起こして
+|AM shikkusu mezamashidokei o okoshite
+|-
+|ボリューム全開ロックで
+|boryuumu zenkai rokku de
+|-
+|現実世界 ギャップに眩暈冷や汗をかいて
+|genjitsu sekai gyappu ni memai hiyaase o kaite
+|-
+|PM6：00　いつものガムは売り切れで
+|PM shikkusu itsumo no gamu wa urikire de
+|-
+|電波も圏外どうして？
+|denpa mo kengai doushite?
+|-
+|現実世界　勝手に期待もう構わないで消して！
+|genjitsu sekai katte ni kitai mou kamawanaide keshite!
+|-
+|<br>
+|-
+|{{Shared}}|(tick tack tick tack，tick tack tick tack…)
+|-
+|{{ruby|愛と愛|めとめ}}が苦手です隠れたいよ
+|me to me ga nigate desu kakuretai yo
+|-
+|{{ruby|仮想|ドチラ}}が{{ruby|現実|コチラ}}です？
+|dochira ga kochira desu?
+|-
+|わかんないよ！
+|wakannai yo!
+|-
+|身体を残して僕と繋ぐ仮想ドライブ
+|karada o nokoshite boku to tsunagu kasou doraibu
+|-
+|<br>
+|-
+|ラズベリー＊モンスター
+|razuberii*monsutaa
+|-
+|赤く気高く立ち向かうたった一人
+|akaku kedakaku tachimukau tatta hitori
+|-
+|ラズベリー＊モンスター
+|razuberii*monsutaa
+|-
+|君を止められるヤツは此処には居ない　Yeah！
+|kimi o tomerareru yatsu wa koko ni wa inai Yeah!
+|-
+|<br>
+|-
+|いつからこんな風になってしまっちゃったの？
+|itsukara konna fuu ni natte shimachatta no?
+|-
+|笑顔さえもぎこちないや
+|egao sae mo gikochinai ya
+|-
+|君は僕だ　僕だけの君だ
+|kimi wa boku da boku dake no kimi da
+|-
+|早く助けてよ
+|hayaku tasukete yo
+|-
+|<br>
+|-
+|{{Shared}}|(tick tack tick tack，tick tack tick tack…)
+|-
+|やる気はあります 空回ります
+|yaruki wa arimasu karamawarimasu
+|-
+|何方が味方です？
+|donata ga mikata desu?
+|-
+|わかんないよ！
+|wakannai yo!
+|-
+|近づきたいんだ赤い少女
+|chikazukitain da akai shoujo
+|-
+|<br>
+|-
+|ラズベリー＊モンスター
+|razuberii*monsutaa
+|-
+|纏う　攻撃は最大の防御なのに誰もが逃げてる
+|matou kougeki wa saidai no bougyo nanoni daremo ga nigeteru
+|-
+|ラズベリー＊モンスター
+|razuberii*monsutaa
+|-
+|僕を止められるヤツは何処にも居ない
+|boku o tomerareru yatsu wa doko ni mo inai
+|-
+|<br>
+|-
+|ラズベリー＊モンスター
+|razuberii*monsutaa
+|-
+|ラズベリー＊モンスター　Yeah！
+|razuberii*monsutaa Yeah!
+|}
+|-|Approved English Lyrics =
+{{Translation|jpn|unofficial English|Project DIVA|notes = Featured in [[Hatsune Miku -Project DIVA- X]], the writer is uncredited.}}
+<poem style="margin-left:1em;">
+3, 2, 1, on my count, stick out your tongue
+Lift that middle finger, there ya go
+Spit out that spent raspberry gum
+Bye Love (AAAAAAIIIIII!)
+
+AM, 6:00, wake up your alarm clock
+Rock out at max volume
+The real world, sweating, stunned by the gap
+
+PM, 6:00, your usual gum is all sold out
+And you're out of cell range, why?
+The real world, cut it with the expectations
+
+I'm no good with ai-contact, I want to hide
+Which way is reality?
+I don't care!
+Leave your body behind and take a virtual drive with me
+
+Raspberry * Monster
+Red, proud, the only one taking a stand
+Raspberry * Monster
+There's no one who can stop you, yeah!
+
+Since when have you been like this?
+Even your smile is awkward
+You are me, you're all mine
+Please help me, quick
+
+I'm ready to go, I'm spinning my wheels
+Do I have any allies?
+I don't know!
+I want to get closer to that little red girl
+
+Raspberry * Monster
+Get it on! Offense is the best defense, so why is everyone running?
+Raspberry * Monster
+There's no one who can stop me
+
+Raspberry * Monster
+Raspberry * Monster, yeah!
+</poem>
+</tabber>
+
+==Derivatives==
+{{derivative
+  |color       = utau
+  |title       = mirlunne's Cover ft. Kasane Teto
+  |singers     = [[Kasane Teto]]
+  |producers   = mirlunne (cover, UST)
+  |categories  = UTAU Cover
+  |links       = yt ozVthBHrxOc
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f|thumb = yt
+  |title       = Reol's Cover
+  |singers     = {{UIW|Reol}}<br><small>Okiku, kradness, HoneyWorks (chorus)</small>
+  |producers   = Gom (mixing), [[Okiku]] (encode)
+  |categories  = Human Cover
+  |links       = nn sm21170340; yt GfsYZ_FRJLA
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f
+  |title       = Akatin's Cover
+  |singers     = {{UIW|Akatin}}
+  |producers   = {{UIW|Madotsuki@}} (mixing)
+  |categories  = Human Cover
+  |links       = nn sm21098476
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f|thumb = yt
+  |title       = kradness's Cover
+  |singers     = kradness
+  |producers   = kradness (mixing)
+  |categories  = Human Cover
+  |links       = nn sm21242341; yt U-LoUIlihTg
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f
+  |title       = Ayaponzu＊'s Cover
+  |singers     = {{UIW|Ayaponzu*|Ayaponzu＊}}
+  |producers   = Mimiisun (mixing, encode)
+  |categories  = Human Cover
+  |links       = nn sm21157876
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f
+  |title       = sana's Cover
+  |singers     = {{UIW|sana}}
+  |producers   = Gom (mixing), Yamako (encode)
+  |categories  = Human Cover
+  |links       = nn sm24198472
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f
+  |title       = Sisam's Cover
+  |singers     = Sisam
+  |producers   = Sisam (mixing), omu (encode)
+  |categories  = Human Cover
+  |links       = nn sm23227787
+}}
+{{derivative
+  |color       = #D4E431; color:#ff043f
+  |title       = rachie's English Cover
+  |singers     = {{UIW|rachie}}
+  |producers   = rachie (English lyrics adaption), crashtest (mixing)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt aK2vQlEbSCA; sc splendiferachie/raspberry-monster-english-cover
+}}
+{{clr}}
+
+==Other media appearances==
+===Concerts===
+This song was featured in the following concerts:
+{{Col-2b|
+*[[Hatsune Miku Magical Mirai 2015|Magical Mirai 2015]]
+*[[Hatsune Miku Magical Mirai 2016|Magical Mirai 2016]]
+*[[MIKU WITH YOU 2017 SHANGHAI|MIKU WITH YOU 2017]]
+*[[HATSUNE MIKU EXPO 2017 MALAYSIA|MikuExpo Malaysia]]
+*[[HATSUNE MIKU EXPO 2018 USA & MEXICO|MikuExpo Live in USA and Mexico 2018]] (San Jose, Austin, and New York only)
+|
+*[[HATSUNE MIKU EXPO 2020 EUROPE|MIKU EXPO 2020 EUROPE]] (London, Berlin, and Barcelona only)
+*[[Miku FES'24 (Haru) ~Happy 16th Birthday~|Miku Fes'24]]
+*[[HATSUNE MIKU EXPO 2026 North America|MIKU EXPO 2026 North America]] (Setlist C)
+}}
+
+===Video games===
+This song was featured in the following video games:
+* [[Hatsune Miku -Project DIVA- X]]
+* [https://lovecommittee.fandom.com/wiki/HoneyWorks_Premium_Live HoneyWorks Premium Live] (sung by CHiCO)
+* {{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by Hatsune Miku; SEKAI version by Leo/need and Hatsune Miku)
+
+==Gallery==
+<tabber>Games=
+<gallery hideaddbutton="true" position="center" bordercolor="#D4E431">
+X_module_raspberryism.png|Miku's ''Raspberryism'' module for the song "Raspberry＊Monster", designed by Akiakane. From the video game ''Hatsune Miku -Project DIVA- X''.
+Games - Project SEKAI - ラズベリー＊モンスター.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery hideaddbutton="true" position="center" bordercolor="#D4E431">
+Nendoroid_Co-de_Hatsune_Miku_Raspberryism.jpg|A Nendoroid "Co-de" figure based on Hatsune Miku's "Rasberryism" module from the "Hatsune Miku -Project DIVA- X" video game.
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [http://commons.nicovideo.jp/material/nc143766 Off-vocal] — Niconi Commons
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 25741
+  |nico   = sm21051219
+  |vocadb = 28549
+  |utadb  = 1073
+  |pixiv  = ラズベリー＊モンスター
+  |mgp    = ラズベリー＊モンスター
+  |tag    = ラズベリー＊モンスター
+  |vlw    = ラズベリー＊モンスター (Raspberry＊Monster)
+  |url    = {{IW|project-diva|Raspberry*Monster|Project DIVA Wiki}}
+* {{IW|projectsekai|Raspberry＊Monster|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Concert songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]

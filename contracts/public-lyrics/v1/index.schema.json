@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "index.schema.json",
+  "title": "NEXTmoetranslation public lyrics index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "songs"],
+  "properties": {
+    "version": { "const": 1 },
+    "songs": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["musicId", "revision", "updatedAt", "title"],
+        "properties": {
+          "musicId": { "type": "integer", "minimum": 1 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "title": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ja-JP"],
+            "properties": {
+              "ja-JP": { "type": "string", "minLength": 1, "maxLength": 65536 },
+              "zh-CN": { "type": "string", "minLength": 1, "maxLength": 65536 },
+              "en-US": { "type": "string", "minLength": 1, "maxLength": 65536 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

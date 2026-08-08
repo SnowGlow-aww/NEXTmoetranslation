@@ -1,0 +1,474 @@
+{{Questionable|Murder-suicide}}
+<tabber>Original Version =
+{{Song box 2
+  |color     = lightsteelblue
+  |image     = mothy - 眠らせ姫からの贈り物.jpg
+  |title     = "'''眠らせ姫からの贈り物'''"
+* Romaji: Nemurase Hime kara no gift
+* English: Gift from the Princess who Brought Sleep
+  |date      = May 23, 2011
+  |views     = {{v|nn|848,090}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[mothy/2008+|mothy]] (music, lyrics, video)
+* [[Ichika]] (illustrations)
+  |links     = {{l|nn|sm14539838}}
+}}
+|-|SCP Version =
+{{Song box 2
+  |color     = lightsteelblue
+  |image     = mothy - 眠らせ姫からの贈り物.jpg
+  |title     = "'''眠らせ姫からの贈り物'''"
+* Romaji: Nemurase Hime kara no gift
+* English: Gift from the Princess who Brought Sleep
+  |date      = February 25, 2015 (album release) and May 4, 2020 (MV)
+  |views     = {{v|yt|1,000,010}}
+  |singers   = [[Hatsune Miku]] Append Solid
+  |producers = [[mothy/2015+|mothy]] (music, lyrics, video)
+* [[Ichika]] (illustrations)
+  |links     = {{l|yt|hmDK_uJu7kQ}}
+}}
+</tabber>
+
+==Background==
+{{Quote|For the sake of your happiness|Author's comment}}
+
+One of the tracks of mothy's [[Seven Deadly Sins|Seven Deadly Sins series]].
+
+Margarita Blankenheim (Miku) is married to Marquis Kaspar Blankenheim (KAITO). She knows that he only married her for her wealth and that he has forgotten their childhood promise, but claims that she doesn't care as long as she can be with him. One day, she makes him a medicine to "relieve him of all his stress", and later decides that since everyone has troubles, the whole town should try her "gift". As it turns out, her "gift" to the townspeople was poison. Her husband's horrible treatment of her had driven her to the point of lunacy and she wanted everyone to die. She then drinks her own poison, finally falling asleep herself like the others.
+
+At the end of the PV, a dialogue between Elluka Clockworker and Gumillia is shown, hinting the relationship of Margarita Blankenheim and Julia Abelard with Père Noël.
+
+The original version of this song has entered the [[Hall of Fame]] while the SCP version has surpassed 1 million views on YouTube.
+
+{{Main|Seven Deadly Sins|The Evillious Chronicles}}
+
+==Succeeding versions==
+{{derivative
+  |color       = #68b1dc; color:white
+  |thumb       = 初音ミクシンフォニー ～Miku Symphony 2023 オーケストラ ライブ CD.jpg
+  |title       = Miku Symphony 2023's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version is featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2023~ Orchestra Live CD''.
+  |links       = yt qXyJu0MjVrg
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Niconico ver =
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|眠りなさいこのgiftで
+|nemurinasai kono gifuto de
+|-
+|よく眠れるこのgiftで
+|yoku nemureru kono gifuto de
+|-
+|私はそう　眠らせ姫
+|watashi wa sou nemurase hime
+|-
+|貴方の幸せの為に…
+|anata no shiawase no tame ni…
+|-
+|<br>
+|-
+|政略の果て　決められた婚姻
+|seiryaku no hate kimerareta konin
+|-
+|それでも貴方を愛した
+|soredemo anata o aishita
+|-
+|欲に溺れる　無能な遊び人
+|yoku ni oboreru munou na asobinin
+|-
+|だけど前から好きだった
+|dakedo mae kara suki datta
+|-
+|<br>
+|-
+|医者の娘の　財産だけ目当て
+|isha no musume no zaisan dake meate
+|-
+|別にそれでも幸せよ
+|betsu ni soredemo shiawase yo
+|-
+|幼い頃の　約束も忘れて
+|osanai koro no yakusoku mo wasurete
+|-
+|いいのあなたのそばにいられれば
+|ii no anata no soba ni irarereba
+|-
+|<br>
+|-
+|不安な情緒　悩む貴方に
+|fuan na jousho nayamu anata ni
+|-
+|とてもいい薬があるのよ
+|totemo ii kusuri ga aru no yo
+|-
+|良い夢が見れるから　疲れた身癒せるわ
+|yoi yume ga mireru kara tsukareta mi iyaseru wa
+|-
+|私からのプレゼント
+|watashi kara no purezento
+|-
+|<br>
+|-
+|眠りなさいこの{{ruby|薬|gift}}で
+|nemurinasai kono gifuto de
+|-
+|よく眠れるこの{{ruby|薬|gift}}で
+|yoku nemureru kono gifuto de
+|-
+|私はそう　眠らせ姫
+|watashi wa sou nemurase hime
+|-
+|貴方の幸せの為に…
+|anata no shiawase no tame ni…
+|-
+|<br>
+|-
+|誰もが悩み　抱えているのよ
+|dare mo ga nayami kakaete iru no yo
+|-
+|父も母も　街の人達も
+|chichi mo haha mo machi no hitotachi mo
+|-
+|夜に眠れぬ　みんなの為に
+|yoru ni nemurenu minna no tame ni
+|-
+|giftを作る　眠れる薬
+|gifuto o tsukuru nemureru kusuri
+|-
+|<br>
+|-
+|嫌な現実　叶わぬ想い
+|iya na genjitsu kanawanu omoi
+|-
+|夢の中なら　忘れられるわ
+|yume no naka nara wasurerareru wa
+|-
+|ゆりかごの中　赤子のように
+|yurikago no naka akago no you ni
+|-
+|目を閉じたまま　委ねなさい
+|me o tojita mama yudanenasai
+|-
+|<br>
+|-
+|私のgiftをみんなが飲んで
+|watashi no gifuto o minna ga nonde
+|-
+|幸せになった　みんながみんな
+|shiawase ni natta minna ga minna
+|-
+|ただ一人眠れぬ　私は代わりに
+|tada hitori nemurenu watashi wa kawari ni
+|-
+|自由と財を得た
+|jiyuu to zai o eta
+|-
+|<br>
+|-
+|眠りなさいこの{{ruby|毒|gift}}で
+|nemurinasai kono gifuto de
+|-
+|よく眠れるこの{{ruby|毒|gift}}で
+|yoku nemureru kono gifuto de
+|-
+|私はそう　眠らせ姫
+|watashi wa sou nemurase hime
+|-
+|希望を求めた女
+|kibou o motometa onna
+|-
+|<br>
+|-
+|お飾りのドールのように
+|okazari no dooru no you ni
+|-
+|利用されるだけの日々に
+|riyou sareru dake no hibi ni
+|-
+|もうとっくに壊れていた
+|mou tokku ni kowarete ita
+|-
+|全てを壊したかったの
+|subete o kowashitakatta no
+|-
+|<br>
+|-
+|とてもよく効く薬なの
+|totemo yoku kiku kusuri nano
+|-
+|{{ruby|永遠|とわ}}に眠れるほどによく効くの
+|towa ni nemureru hodo ni yoku kiku no
+|-
+|これでようやく私も眠れる
+|kore de youyaku watashi mo nemureru
+|-
+|眠らせ姫から眠り姫に…
+|nemurase hime kara nemuri hime ni…
+|-
+|<br>
+|-
+|{{color|mediumvioletred|''「……酷い有様ね」''}}
+|{{color|mediumvioletred|''"……hidoi arisama ne"''}}
+|-
+|{{color|forestgreen|''「お待たせ、しました」''}}
+|{{color|forestgreen|''"omatase, shimashita"''}}
+|-
+|{{color|mediumvioletred|''「お疲れ様。で、どうだった？」''}}
+|{{color|mediumvioletred|''"otsukaresama. de, dou datta?"''}}
+|-
+|{{color|forestgreen|''「はい、器は、すでに、持ち去られた後の、ようで……」''}}
+|{{color|forestgreen|''"hai, utsuwa wa, sude ni, mochisarareta nochi no, you de……"''}}
+|-
+|{{color|mediumvioletred|''「そう……」''}}
+|{{color|mediumvioletred|''"sou……"''}}
+|-
+|{{color|forestgreen|''「それから、今回の件、やはりあの女……ジュリアが、関わっているようです」''}}
+|{{color|forestgreen|''"sore kara, konkai no kudan, yahari ano onna…… juria ga, kakawatte iru you desu"''}}
+|-
+|{{color|mediumvioletred|''「ペールノエル……深く調べてみる必要がありそうね」''}}
+|{{color|mediumvioletred|''"peeru noeru…… fukaku shirabete miru hitsuyou ga arisou ne"''}}
+|-
+|{{color|forestgreen|''「……」''}}
+|{{color|forestgreen|''"……"''}}
+|-
+|{{color|mediumvioletred|''「行きましょう、グーミリア。ルシフェニアへ。」''}}
+|{{color|mediumvioletred|''"ikimashou, guumiria. rushifenia e."''}}
+|-
+|{{color|forestgreen|''「はい、わかりました、エルルカ」''}}
+|{{color|forestgreen|''"hai, wakarimashita, eruruka"''}}
+|}
+|-|SCP Version =
+{| style="width:100%"
+|{{Shared}}|「さあ　眠りなさい…｣
+|-
+|{{Shared}}|"saa nemurinasai…"
+|-
+|<br>
+|-
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|眠りなさいこのgiftで
+|nemurinasai kono gifuto de
+|-
+|よく眠れるこのgiftで
+|yoku nemureru kono gifuto de
+|-
+|私はそう　眠らせ姫
+|watashi wa sou nemurase hime
+|-
+|貴方の幸せの為に…
+|anata no shiawase no tame ni…
+|-
+|<br>
+|-
+|政略の果て　決められた婚姻
+|seiryaku no hate kimerareta konin
+|-
+|それでも貴方を愛した
+|soredemo anata o aishita
+|-
+|欲に溺れる　無能な遊び人
+|yoku ni oboreru munou na asobinin
+|-
+|だけど前から好きだった
+|dakedo mae kara suki datta
+|-
+|<br>
+|-
+|医者の娘の　財産だけ目当て
+|isha no musume no zaisan dake meate
+|-
+|別にそれでも幸せよ
+|betsu ni soredemo shiawase yo
+|-
+|幼い頃の　約束も忘れて
+|osanai koro no yakusoku mo wasurete
+|-
+|いいのあなたのそばにいられれば
+|ii no anata no soba ni irarereba
+|-
+|<br>
+|-
+|不安な情緒　悩む貴方に
+|fuan na jousho nayamu anata ni
+|-
+|とてもいい薬があるのよ
+|totemo ii kusuri ga aru no yo
+|-
+|良い夢が見れるから　疲れた身癒せるわ
+|yoi yume ga mireru kara tsukareta mi iyaseru wa
+|-
+|私からのプレゼント
+|watashi kara no purezento
+|-
+|<br>
+|-
+|眠りなさいこの{{ruby|薬|gift}}で
+|nemurinasai kono gifuto de
+|-
+|よく眠れるこの{{ruby|薬|gift}}で
+|yoku nemureru kono gifuto de
+|-
+|私はそう　眠らせ姫
+|watashi wa sou nemurase hime
+|-
+|貴方の幸せの為に…
+|anata no shiawase no tame ni…
+|-
+|<br>
+|-
+|誰もが悩み　抱えているのよ
+|dare mo ga nayami kakaete iru no yo
+|-
+|父も母も　街の人達も
+|chichi mo haha mo machi no hitotachi mo
+|-
+|夜に眠れぬ　みんなの為に
+|yoru ni nemurenu minna no tame ni
+|-
+|giftを作る　眠れる薬
+|gifuto o tsukuru nemureru kusuri
+|-
+|<br>
+|-
+|嫌な現実　叶わぬ想い
+|iya na genjitsu kanawanu omoi
+|-
+|夢の中なら　忘れられるわ
+|yume no naka nara wasurerareru wa
+|-
+|ゆりかごの中　赤子のように
+|yurikago no naka akago no you ni
+|-
+|目を閉じたまま　委ねなさい
+|me o tojita mama yudanenasai
+|-
+|<br>
+|-
+|私のgiftをみんなが飲んで
+|watashi no gifuto o minna ga nonde
+|-
+|幸せになった　みんながみんな
+|shiawase ni natta minna ga minna
+|-
+|ただ一人眠れぬ　私は代わりに
+|tada hitori nemurenu watashi wa kawari ni
+|-
+|自由と財を得た
+|jiyuu to zai o eta
+|-
+|<br>
+|-
+|眠りなさいこの{{ruby|毒|gift}}で
+|nemurinasai kono gifuto de
+|-
+|よく眠れるこの{{ruby|毒|gift}}で
+|yoku nemureru kono gifuto de
+|-
+|私はそう　眠らせ姫
+|watashi wa sou nemurase hime
+|-
+|希望を求めた女
+|kibou o motometa onna
+|-
+|<br>
+|-
+|お飾りのドールのように
+|okazari no dooru no you ni
+|-
+|利用されるだけの日々に
+|riyou sareru dake no hibi ni
+|-
+|もうとっくに壊れていた
+|mou tokku ni kowarete ita
+|-
+|全てを壊したかったの
+|subete o kowashitakatta no
+|-
+|<br>
+|-
+|とてもよく効く薬なの
+|totemo yoku kiku kusuri nano
+|-
+|{{ruby|永遠|とわ}}に眠れるほどによく効くの
+|towa ni nemureru hodo ni yoku kiku no
+|-
+|これでようやく私も眠れる
+|kore de youyaku watashi mo nemureru
+|-
+|眠らせ姫から眠り姫に…
+|nemurase hime kara nemuri hime ni…
+|-
+|<br>
+|-
+|{{Shared}}|さあ{{ruby|王子様|アダム}}
+|-
+|{{Shared}}|saa oujisama
+|-
+|{{Shared}}|あの森で私にキスをして
+|-
+|{{Shared}}|ano mori de watashi ni kisu o shite
+|}
+</tabber>
+
+==Derivatives==
+{{Derivative
+|links = nn sm29293032 ; yt UjwTMcSSuFc
+|thumb = yt
+|producers = R3 Music Box
+|categories = Arrangement
+|title = Music Box Arrangement
+|color = midnightblue; color:lightsteelblue}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song is featured in following albums:
+* ''[[EVILS COURT]]''
+
+The SCP version of this song was featured in the following albums:
+* ''[[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Nanatsu no Tsumi to Batsu]]''
+* ''Saribitotachi no Waltz Aku no Taizai SEKAI EDITION+''
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" color="lightsteelblue">
+Games - Project SEKAI - 眠らせ姫からの贈り物.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [http://the-heavenly-yard.net/mp3/nemurase.zip The Heavenly Yard] - Off Vocal and Lyrics
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 16196
+  |nico2   = a/眠らせ姫からの贈り物
+  |vocadb  = 1612 Original -
+  |vocadb2 = 448962 SCP Version -
+  |mgp     = 安眠公主的赠礼
+  |tag     = 眠らせ姫からの贈り物
+  |vlw     = 眠らせ姫からの贈り物 (Nemurase Hime kara no gift)
+  |url     = {{IW|theevilliouschronicles|Gift from the Princess who Brought Sleep|Evillious Chronicles Wiki}}
+* {{IW|projectsekai|Nemurase Hime kara no gift|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Evillious Chronicles series]]
+[[Category:Remastered songs]]
+[[Category:Mobile game songs]]

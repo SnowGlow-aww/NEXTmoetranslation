@@ -1,0 +1,334 @@
+{{SongWIP/Background}}
+{{NoReprint}}
+{{Questionable}}
+{{Song box 2
+  |color     = #9AD1AA; color:#EFFCCE
+  |image     = Eve-Oki_ni_Mesu_mama.png
+  |title     = "'''お気に召すまま'''"
+* Romaji: Oki ni Mesu mama
+* Official English: As You Like It
+  |date      = November 28, 2017
+  |views     = {{v|nn|2,646,262}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[Eve (producer)|Eve]] (music, lyrics)
+* [[Numa]] (arrangement)
+* nenene-united (production)
+* [[Waboku]] (illustration, video)
+* Sakana No.69 (drawing assistant)
+* Osatsu Sandoicchi (CG modeling)
+* Tanahashi "UNA" Shinhito, [[KaiseiP]] (mixing)
+  |links     = {{l|nn|sm32338124}}
+}}
+
+==Background==
+{{Quote|I've come to party.<br />Miku-san did me the favor of singing this song; thank you to everyone who helped out with this. See you next year.|Author's comment}}
+
+"'''Oki ni Mesu mama'''" is an orginal song by Eve featuring Hatsune Miku.
+
+This song has entered ''[[Hall of Legend]]''.
+
+==Succeeding versions==
+{{derivative
+  |color       = #9AD1AA; color:#EFFCCE
+  |title       = Eve's Version
+  |singers     = {{UIW|Eve}}
+  |producers   = Eve (music, lyrics), Numa (arrangement), nenene-united (production), Waboku (illust, video), Sakana No.69 (drawing assistant), Osatsu Sandoicchi (CG modeling), Tanahashi "UNA" Shinhito (mixing), KaiseiP (vocals mixing)
+  |categories  = Human Version
+  |links       = yt nROvY9uiYYk; bb av49230879
+  |description = Eve's self-cover, featured in his album '''Bunka'''.
+}}
+{{Derivative
+  |color       = #FF9900; color:white
+  |thumb       = Games - Project SEKAI - お気に召すまま.png
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |singers     = {{IW|projectsekai|Wonderlands x Showtime}}: {{IW|projectsekai|Kagamine Len}}, {{IW|projectsekai|Tenma Tsukasa}} (CV: {{IW|projectsekai|Hirose Daisuke}}), {{IW|projectsekai|Otori Emu}} (CV: {{IW|projectsekai|Kino Hina}}), {{IW|projectsekai|Kamishiro Rui}} (CV: {{IW|projectsekai|Toki Shunichi}}), {{IW|projectsekai|Kusanagi Nene}} (CV: {{IW|projectsekai|Machico}})
+  |producers   = Fukushima Keiko (choreography), Okuyama Keito, Kisumi Reika, Jakko, Acchan, TACCHI (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |categories  = Piapro Studio Cover; Human Cover; In-game Content
+  |links       = nn so40969513; yt M_9lPZyS-eQ; yt XwNXhdxuR6w
+}}
+{{Derivative
+  |color       = #FF9900; color:white
+  |thumb       = Games - Project SEKAI - お気に召すまま.png
+  |title       = Project SEKAI Version [Another Vocal]
+  |singers     = Wonderlands x Showtime: Kamishiro Rui (CV: Toki Shunichi)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |description = Featured on the compilation album ''{{IW|projectsekai|Wonderlands x Showtime Another Vocal Album}}'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |categories  = Human Cover; In-game Content
+  |links       = yt 2ekJD3LpIl4
+}}
+{{Derivative
+  |color       = #FF9900; color:white
+  |thumb       = Games - Project SEKAI - お気に召すまま.png
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |singers     = Wonderlands x Showtime: Kagamine Len, Tenma Tsukasa (CV: Hirose Daisuke), Otori Emu (CV: Kino Hina), Kamishiro Rui (CV: Toki Shunichi), Kusanagi Nene (CV: Machico)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |description = Full version, featured in Wonderlands x Showtime's 1st full album ''Wonderlands x Showtime SEKAI ALBUM Vol.1'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |categories  = Piapro Studio Cover; Human Cover; Album-exclusive Content
+  |links       = yt bQGTyl6V178
+}}
+{{clr}}
+
+==Lyrics==
+{| style="width:100%"
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|淡々　言葉を吐いた
+|tantan kotoba o haita
+|-
+|あんな思い出に泣いたのは
+|anna omoide ni naita no wa
+|-
+|今日で終わりにしないか
+|kyou de owari ni shinai ka
+|-
+|<br />
+|-
+|1,2の合図を待って
+|1, 2 no aizu o matte
+|-
+|ユーエンミー手を取りあったのは
+|yuu en mii te o toriatta no wa
+|-
+|僕の勇気ある行動
+|boku no yuuki aru koudou
+|-
+|<br />
+|-
+|フェイズ <nowiki><１></nowiki>
+|feizu
+|-
+|立ち止まんないでいいんだからね
+|tachidomannai de iin dakara ne
+|-
+|空々しいな　この人生
+|sorazorashii na kono jinsei
+|-
+|できないだなんて　言わないでね
+|dekinai da nante iwanaide ne
+|-
+|言わないでね
+|iwanai de ne
+|-
+|<br />
+|-
+|今更なんて　言わないでね
+|imasara nante iwanai de ne
+|-
+|<br />
+|-
+|僕ら今
+|bokura ima
+|-
+|さあさあ輪になって　回り始める
+|saa saa wa ni natte mawari hajimeru
+|-
+|段々嫌になって　でも好きになる
+|dandan iya ni natte demo suki ni naru
+|-
+|ねえねえ　わかんないや　自分会議も
+|nee nee wakannai ya jibun kaigi mo
+|-
+|どんどん　中に寄って
+|dondon chuu ni yotte
+|-
+|でも離れてく
+|demo hanareteku
+|-
+|ぱっぱっ　音に乗って　踊り始める
+|pappa oto ni notte odori hajimeru
+|-
+|散々嫌になって　でも好きになる
+|sanzan iya ni natte demo suki ni naru
+|-
+|ねえねえ　わかんないや　この先もずっと
+|nee nee wakannaiya kono saki mo zutto
+|-
+|僕の心を　シェイクシェイク
+|boku no kokoro o sheiku sheiku
+|-
+|いえい
+|iei
+|-
+|<br />
+|-
+|大正解なんてないのさ
+|daiseikai nante nai no sa
+|-
+|じゃあ一体どこに向かえば
+|jaa ittai doko ni mukaeba
+|-
+|物語は終わりますか
+|monogatari wa owarimasu ka
+|-
+|<br />
+|-
+|1,2の合図を待って 
+|1, 2 no aizu o matte
+|-
+|ユーエンミー手が触れ合ったのは 
+|yuu en mii te ga fureatta no wa
+|-
+|僕の勇気ある行動 
+|boku no yuuki aru koudou
+|-
+|<br />
+|-
+|フェイズ <nowiki><２></nowiki>
+|feizu
+|-
+|畏まったって　意味ないんだって
+|kashikomattatte imi nain datte
+|-
+|恥ずかしがった　夢にばいばいです 
+|hazukashigatta yume ni bai bai desu
+|-
+|この先ずっとよろしくね、
+|kono saki zutto yoroshiku ne,
+|-
+|よろしくね。
+|yoroshiku ne.
+|-
+|<br />
+|-
+|君と今
+|kimi to ima
+|-
+|さあさあ交わって　目を逸らしあう
+|saa saa majiwatte me o sorashiau
+|-
+|段々嫌になって　でも好きになる
+|dandan iya ni natte demo suki ni naru
+|-
+|ねえねえ　わかんないや　自分会議も
+|nee nee wakannai ya jibun kaigi mo
+|-
+|どんどん　様になって
+|dondon sama ni natte
+|-
+|崩れ落ちてく
+|kuzure ochiteku
+|-
+|ぱっぱっ　触れる前に　消えてしまうの
+|pappa fureru mae ni kiete shimau no
+|-
+|散々嫌になって　でも好きになる
+|sanzan iya ni natte demo suki ni naru
+|-
+|ねえねえ　わかんないや　この先もずっと
+|nee nee wakannaiya kono saki mo zutto
+|-
+|わかりあえるまで僕たちは
+|wakari aeru made bokutachi wa
+|-
+|<br />
+|-
+|今更なんて　言わないでね
+|imasara nante iwanai de ne
+|-
+|<br />
+|-
+|僕ら今
+|bokura ima
+|-
+|さあさあ輪になって　回り始める
+|saa saa wa ni natte mawari hajimeru
+|-
+|段々嫌になって　でも好きになる
+|dandan iya ni natte demo suki ni naru
+|-
+|ねえねえ　わかんないや　自分会議も
+|nee nee wakannai ya jibun kaigi mo
+|-
+|どんどん　中に寄って
+|dondon chuu ni yotte
+|-
+|でも離れてく
+|demo hanareteku
+|-
+|ぱっぱっ　音に乗って　踊り始める
+|pappa oto ni notte odori hajimeru
+|-
+|散々嫌になって　でも好きになる
+|sanzan iya ni natte demo suki ni naru
+|-
+|ねえねえ　わかんないや　この先もずっと
+|nee nee wakannaiya kono saki mo zutto
+|-
+|僕の心を　シェイクシェイク
+|boku no kokoro o sheiku sheiku
+|-
+|いえい
+|iei
+|}
+
+==Derivatives==
+{{derivative
+  |color       = #9AD1AA; color:#EFFCCE
+  |title       = Yoo Junho's Cover
+  |singers     = Yoo Junho
+  |producers   = MarbleP (video)
+  |categories  = Human Cover
+  |links       = yt WikrJq4A7Rg
+}}
+{{derivative
+  |color       = #9AD1AA; color:#EFFCCE
+  |title       = Umi Kun's Cover
+  |singers     = Umi Kun
+  |categories  = Human Cover
+  |links       = yt PEPUd4cMJCU
+}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* [[Eve Vocaloid 01]]
+
+===Video games===
+This song was featured in the following video games:
+
+===={{Wp|Maimai (video game)|maimai}} Series====
+{{col-2b|
+* maimai FiNALE
+* maimai Deluxe / Deluxe PLUS
+|
+* maimai Deluxe Splash / Splash PLUS
+* maimai UNiVERSE / UNiVERSE PLUS}}
+
+====Other games====
+*{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by Hatsune Miku; SEKAI version by Wonderlands × Showtime and Kagamine Len)
+
+==Gallery==
+<gallery hideaddbutton=true position=center>
+Games - Project SEKAI - お気に召すまま.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [http://piapro.jp/t/-87a Off-Vocal] — piapro
+  |url   = [http://piapro.jp/t/6T_r Lyrics] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 36994
+  |nico   = sm32338124
+  |utadb  = 37498
+  |vocadb = 175905
+  |mgp    = 皆大欢喜
+  |pixiv  = お気に召すまま
+  |tag    = お気に召すまま
+  |vlw    = お気に召すまま (Oki ni Mesu mama)
+  |url    = {{IW|projectsekai|Oki ni Mesu mama|Project SEKAI Wiki}}
+* {{IW|kara-no-kioku-eve|As You Like It|Kara No Kioku/ Eve Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Mobile game songs]]
+[[Category:Self-covers]]
+[[Category:Video game songs]]

@@ -1,0 +1,72 @@
+{
+  "version": 3,
+  "musicId": 10,
+  "revision": 1,
+  "updatedAt": "2026-07-31T00:00:00Z",
+  "state": "complete",
+  "renditions": [
+    {
+      "key": "original",
+      "kind": "original",
+      "label": "Original Version",
+      "availableVersions": ["full"],
+      "performers": [],
+      "full": {
+        "version": {"kind": "original", "label": "Original Version"},
+        "lines": [
+          {
+            "id": "full-000001",
+            "order": 0,
+            "japanese": "歌う",
+            "segments": [
+              {
+                "text": "歌う",
+                "performerIds": [],
+                "ruby": [
+                  {"text": "歌", "reading": "うた"},
+                  {"text": "う"}
+                ]
+              }
+            ],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "relation": {"kind": "none"},
+      "sourceTabPaths": [["Original Version"]],
+      "provenance": [
+        {
+          "component": "renditions/original/full_text",
+          "provider": "vocaloid_fandom",
+          "title": "Original Version",
+          "revisionId": 1201,
+          "revisionUrl": "https://vocaloid.fandom.com/wiki/Public_Test?oldid=1201",
+          "licenseName": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+        },
+        {
+          "component": "renditions/original/relation",
+          "provider": "vocaloid_fandom",
+          "title": "Original Version",
+          "revisionId": 1201,
+          "revisionUrl": "https://vocaloid.fandom.com/wiki/Public_Test?oldid=1201",
+          "licenseName": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+        },
+        {
+          "component": "renditions/original/version",
+          "provider": "vocaloid_fandom",
+          "title": "Original Version",
+          "revisionId": 1201,
+          "revisionUrl": "https://vocaloid.fandom.com/wiki/Public_Test?oldid=1201",
+          "licenseName": "CC BY-SA 3.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+        }
+      ],
+      "translationCredits": {
+        "translation": "Legacy Translator",
+        "proofreading": "Legacy Proofreader"
+      }
+    }
+  ]
+}

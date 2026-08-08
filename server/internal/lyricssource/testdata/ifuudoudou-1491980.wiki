@@ -1,0 +1,561 @@
+{{Explicit|Sexual themes}}
+{{Song box 2
+  |color     = #D0ADC1; color:#663352
+  |image     = Ifuudoudou.png
+  |title     = "'''威風堂々'''"
+* Romaji: Ifuudoudou
+* English: Pomp and Circumstance
+  |date      = October 29, 2012
+  |views     = {{v|nn|4,067,709}} and {{v|yt|5,581,435}}
+  |singers   = [[DIVINE-DIVA (group)|DIVINE-DIVA]]:
+* <small>[[Megurine Luka]], [[Hatsune Miku]], [[GUMI]], [[IA]], and [[Kagamine Rin]]</small>
+  |producers = [[Umetora]] (music, lyrics)
+* Masami Chie (illustration)
+  |links     = {{l|nn|sm19233263}} {{l|yt|xGNQOqtGU_E}}
+}}
+
+==Background==
+{{Quote|There is no "If you do do."|Author's comment}}
+"'''Ifuudoudou'''" is an original song by Umetora and is his most notable song. It was uploaded to YouTube on March 30, 2016.
+
+This song is about a group of 5 girls and their sexual encounters, with Luka being the leader.
+
+This song is in the ''[[Hall of Legend]]''.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |thumb       = V0calo_future.jpg
+  |title       = Vocalofuture ver.
+  |singers     = DIVINE-DIVA and [[MAYU]]
+  |producers   = Umetora
+  |categories  = VOCALOID Cover
+  |description = This version is featured in the [[EXIT TUNES]] compilation album [[EXIT TUNES PRESENTS Vocalofuture feat. 初音ミク|''Vocalofuture'']].
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = ACTORS Verison (Mitsuki ver.)
+  |singers     = {{IW|actors-songs-connection|Mitsuki Akika}} (CV: {{wp|Kenji Nojima}})
+  |producers   = [[EXIT TUNES]]
+  |categories  = Human Cover; Album-exclusive Content
+  |description = A cover featured in the ACTORS series. Featured on the album ''ACTORS'', released by EXIT TUNES.
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = ACTORS Version (Ryunosuke ver.)
+  |singers     = {{IW|actors-songs-connection|Ryunosuke Hanakuma}} (CV: {{wp|Kensho Ono}})
+  |producers   = EXIT TUNES
+  |categories  = Human Cover; Album-exclusive Content
+  |description = A cover featured in the ACTORS series. Featured on the albums ''ACTORS -Extra Edition 5-'' and ''ACTORS -Extra Edition- BEST'', released by EXIT TUNES.
+  |links       = yt p21F7VScN3w 
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = いふぅどーどー
+  |translation = Ifuudodo
+  |singers     = Onta
+  |producers   = Umetora
+  |categories  = Arrangement
+  |links       = yt NDDrEnm3u0w
+  |description = This short and calm version has been published on Umetora's YouTube channel on December 20, 2018.
+}}
+{{Derivative
+  |color       = #EE1166; color:white
+  |thumb       = Games - Project SEKAI - 威風堂々.png
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |singers     = {{IW|projectsekai|Vivid BAD SQUAD}}: {{IW|projectsekai|KAITO}}, {{IW|projectsekai|Shinonome Akito}} (CV: {{IW|projectsekai|Imai Fumiya}}), {{IW|projectsekai|Aoyagi Toya}} (CV: {{IW|projectsekai|Itou Kent}})
+  |producers   = Okuyama Keito (choreography), Okuyama Keito, YOUKEY★, TACCHI (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture)<br>{{Wp|SEGA}}, [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Human Cover; Piapro Studio Cover; Arrangement; In-game Content
+  |links       = nn so40969511; yt KvnS-TCq05Y; yt qO9BJxdHKm8
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{Derivative
+  |color       = #EE1166; color:white
+  |thumb       = Games - Project SEKAI - 威風堂々.png
+  |title       = Project SEKAI Version [Another Vocal (1)]
+  |singers     = Vivid BAD SQUAD: Shinonome Akito (CV: Imai Fumiya)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; Arrangement; In-game Content
+  |description = Featured on the compilation album ''{{IW|projectsekai|Vivid BAD SQUAD Another Vocal Album}}'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt uSVdytGQFpo
+}}
+{{clr}}
+{{Derivative
+  |color       = #EE1166; color:white
+  |thumb       = Games - Project SEKAI - 威風堂々.png
+  |title       = Project SEKAI Version [Another Vocal (2)]
+  |singers     = Vivid BAD SQUAD: Aoyagi Toya (CV: Itou Kent)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; Arrangement; In-game Content
+  |description = Featured on the compilation album ''Vivid BAD SQUAD Another Vocal Album'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt zDXBfdCYYVA
+}}
+{{Derivative
+  |color       = #00cdba; color:white
+  |thumb       = Games - Project SEKAI - 威風堂々.png
+  |title       = Project SEKAI Version [Another Vocal (3)]
+  |singers     = VIRTUAL SINGER: KAITO
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; Arrangement; In-game Content
+  |description = Featured on the compilation album ''[[バーチャル・シンガーボーカルアルバム (Virtual Singer Vocal Album)|Virtual Singer Vocal Album]]'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt Ob0rMxZwgqg
+}}
+{{clr}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = Project SEKAI Version [April Fool's 2022]
+  |singers     = {{IW|projectsekai|Fantasista SQUAD}}: KAITO, Shinonome Akito (CV: Imai Fumiya), Aoyagi Toya (CV: Itou Kent), {{IW|projectsekai|Tenma Tsukasa}} (CV: {{IW|projectsekai|Hirose Daisuke}}), {{IW|projectsekai|Kamishiro Rui}} (CV: {{IW|projectsekai|Toki Shunichi}})
+  |producers   = [[OTOIRO]] (movie), GA (director), [[Roduki]] (illust), Cona Nitanda (background artist)<br>[[SEGA]], Colorful Palette, [[Crypton Future Media, Inc.]]
+  |categories  = Human Cover; Piapro Studio Cover; Original MV
+  |links       = nn so40969476; yt 6i79cbsbRrs
+  |description = Created for April Fool's Day 2022. Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{Derivative
+  |color       = #EE1166; color:white
+  |thumb       = Game - Project SEKAI - ifuuudoudou 2DMV.jpg
+  |title       = Project SEKAI Version [SEKAI] (Full - 2DMV)
+  |singers     = Vivid BAD SQUAD: KAITO, Shinonome Akito (CV: Imai Fumiya), Aoyagi Toya (CV: Itou Kent)
+  |producers   = [[Akiakane]] (illust), Akito Nakayama(THINGS.) (editor)<br>SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Original MV; Human Cover; Piapro Studio Cover; Arrangement; In-game Content
+  |links       = nn so40968863; yt I36IQ3cEPAo; yt gp1Rw5h-tHk
+  |description = Full version, featured in Vivid BAD SQUAD's 1st full album ''Vivid BAD SQUAD SEKAI ALBUM Vol.1'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''. The full-length 2DMV was uploaded on April 26th, 2022.
+}}
+{{clr}}
+{{Derivative
+  |color       = #223bc9; color:white
+  |title       = Link! Like! Love Live! Version (Game Size)
+  |thumb       = Games - Link Like Love Live - 威風堂々.png
+  |singers     = {{IW|love-live|DOLLCHESTRA}}: {{IW|love-live|Sayaka Murano|Murano Sayaka}} (CV: {{IW|Kokona Nanoka|Nonaka Kokona}}), {{IW|love-live|Tsuzuri Yugiri|Yugiri Tsuzuri}} (CV: {{IW|love-live|Kotoka Sasaki|Sasaki Kotoko}})
+  |producers   = {{Wp|Lantis (company)|Lantis}}, {{Wp|Bushiroad}}, ODD NO. Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured in the game ''{{IW|love-live|Link! Like! Love Live!}}''.
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Original Version =
+{{lrc legend|#D0ADC1; color:#663352
+|Luka:#F06291
+|Miku:#06A3C9
+|GUMI:lime
+|IA:violet
+|Rin:#F0D000
+|All}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|luka|時には噛んだりして　痛みを覚えさせて}}
+|{{lrc color|luka|toki ni wa kandari shite itami o oboesasete}} 
+|-
+|{{lrc color|luka|溢れるエキタイで　汚してよ　全部}}
+|{{lrc color|luka|afureru ekitai de yogoshite yo zenbu}}
+|-
+|{{lrc color|miku|足の先から　ずっと　這わせたその神経はもう}}
+|{{lrc color|miku|ashi no saki kara zutto hawaseta sono shinkei wa mou}}
+|-
+|{{lrc color|miku|感触に溺れる　身体ココロを連れて}}
+|{{lrc color|miku|kanshoku ni oboreru karada kokoro o tsurete}}
+|-
+|{{lrc color|gumi|指くわえた我慢の中　欲してんのが理想？}}
+|{{lrc color|gumi|yubi kuwaeta gaman no naka hosshiten no ga risou?}}
+|-
+|<br>
+|-
+|いらない　全てはいらない　磨き上げてる邪魔な PRIDE
+|iranai subete wa ira nai migaki ageteru jama na PRIDE
+|-
+|無意味な世界のルールくらい　無駄としか言い様がない
+|muimi na sekai no ruuru kurai muda to shika ii you ga nai
+|-
+|隠しているあなたの STYLE　剥き出しにあるがまま DIVE
+|kakushiteiru anata no STYLE mukidashi ni aru ga mama DIVE
+|-
+|そこに生まれるのは期待　外れなんかじゃない　頂の SMILE
+|soko ni umareru no wa kitai hazure nanka ja nai itadaki no SMILE
+|-
+|<br>
+|-
+|{{lrc color|ia|吐息を合わせた相性　耳に吹きかける感情}}
+|{{lrc color|ia|toiki o awaseta aishou mimi ni fukikakeru kanjou}}
+|-
+|{{lrc color|ia|破裂しそうな胸　騒ぎだす細胞}}
+|{{lrc color|ia|haretsushi sou na mune sawagidasu saibou}}
+|-
+|{{lrc color|rin|脱ぎかけてるシャツ　優しく裂いてよ　まず　かまわず}}
+|{{lrc color|rin|nugikaketeru shatsu yasashiku saite yo mazu kamawazu}}
+|-
+|{{lrc color|rin|Get フライングも有り　{{ruby|躊躇|ためら}}わないで　darlin'}}
+|{{lrc color|rin|Get furaingu mo ari tamerawanaide darlin'}}
+|-
+|{{lrc color|miku|自由な世界のど真ん中　夢見てんのが本性？}}
+|{{lrc color|miku|jiyuu na sekai no domannaka yume miten no ga honshou?}}
+|-
+|<br>
+|-
+|いらない　全てはいらない　{{ruby|怖気|おじけ}}づいた野望の TRY
+|iranai subete wa iranai ojikezuita yabou no TRY
+|-
+|満足なんてそこにない　目に見える哀れな未来
+|manzoku nante soko ni nai me ni mieru aware na mirai
+|-
+|思い通りにできる LIFE　手にできるかはあなた次第
+|omoidoori ni dekiru LIFE te ni dekiru ka wa anata shidai
+|-
+|隠したりなんかはしない　誰よりも誇らしげに　できる MIND
+|kakushi tari nan ka wa shinai dare yori mo hokorashige ni dekiru MIND
+|-
+|<br>
+|-
+|{{lrc color|rin|ホラこの世界の中}} {{lrc color|gumi|他にはない}}
+|{{lrc color|rin|hora kono sekai no naka}} {{lrc color|gumi|hoka ni wa nai}}
+|-
+|{{lrc color|ia|確かなもの　自分以外は皆無}}
+|{{lrc color|ia|tashika na mono jibun igai wa kaimu}}
+|-
+|<br> 
+|-
+|小さくなってる場合じゃない　いつだってNo Time! ALL RIGHT {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|chiisaku natteru baai ja nai itsu datte No Time ! ALL RIGHT {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|-
+|上限値超え　エンジン　全開でいっちゃえ　BURN BURN BURN {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|jougen chi koe enjin zenkai de icchae BURN BURN BURN {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|-
+|欲しがってんのは　そう　気持ちいいの more… {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|hoshi gatten no wa sou kimochi ii no more… {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|rin|あるがままの想いでDANCE!}}　{{lrc color|gumi|イイナリでGET DOWN!}}
+|{{lrc color|rin|aru ga mama no omoi de DANCE!}}　{{lrc color|gumi|iinari de GET DOWN!}}
+|-
+|<br>
+|-
+|いらない　全てはいらない　磨き上げてる邪魔な PRIDE
+|iranai subete wa iranai migaki ageteru jama na PRIDE
+|-
+|無意味な世界のルールくらい　無駄としか言い様がない
+|muimi na sekai no ruuru kurai muda to shika ii you ga nai
+|-
+|隠しているあなたの STYLE　剥き出しにあるがまま DIVE
+|kakushiteiru anata no STYLE mukidashi ni aru ga mama DIVE
+|-
+|そこに生まれるのは期待　外れなんかじゃない　頂の SMILE 
+|soko ni umareru no wa kitai hazure nanka janai itadaki no SMILE
+|-
+|<br>
+|-
+|{{lrc color|miku|ホラこの世界で今}}　{{lrc color|ia|解き放って}}
+|{{lrc color|miku|hora kono sekai de ima}} {{lrc color|ia|tokihanatte}} 
+|-
+|{{lrc color|luka|鋭くギラつかせた希望　もっと本気出していいよ}}
+|{{lrc color|luka|surudoku gira tsukaseta kibou motto honki dashi te ii yo}}
+|}
+|-|Vocalofuture Version =
+{{lrc legend|#D0ADC1; color:#663352
+|Luka:#F06291
+|Miku:#06A3C9
+|GUMI:lime
+|IA:violet
+|Rin:#F0D000
+|MAYU
+|All|n7=y}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|luka|時には噛んだりして　痛みを覚えさせて}}
+|{{lrc color|luka|toki ni wa kandari shite itami o oboesasete}} 
+|-
+|{{lrc color|rin|溢れるエキタイで　汚してよ　全部}}
+|{{lrc color|rin|afureru ekitai de yogoshite yo zenbu}}
+|-
+|{{lrc color|mayu|足の先から　ずっと　這わせたその神経はもう}}
+|{{lrc color|mayu|ashi no saki kara zutto hawaseta sono shinkei wa mou}}
+|-
+|{{lrc color|miku|感触に溺れる　身体ココロを連れて}}
+|{{lrc color|miku|kanshoku ni oboreru karada kokoro o tsurete}}
+|-
+|{{lrc color|ia|指くわえた我慢の中}}　{{lrc color|gumi|欲してんのが理想？}}
+|{{lrc color|ia|yubi kuwaeta gaman no naka}} {{lrc color|gumi|hosshiten no ga risou?}}
+|-
+|<br>
+|-
+|いらない　全てはいらない　磨き上げてる邪魔な PRIDE
+|iranai subete wa ira nai migaki ageteru jama na PRIDE
+|-
+|無意味な世界のルールくらい　無駄としか言い様がない
+|muimi na sekai no ruuru kurai muda to shika ii you ga nai
+|-
+|隠しているあなたの STYLE　剥き出しにあるがまま DIVE
+|kakushiteiru anata no STYLE mukidashi ni aru ga mama DIVE
+|-
+|そこに生まれるのは期待　外れなんかじゃない　頂の SMILE
+|soko ni umareru no wa kitai hazure nanka ja nai itadaki no SMILE
+|-
+|<br>
+|-
+|{{lrc color|ia|吐息を合わせた相性　耳に吹きかける感情}}
+|{{lrc color|ia|toiki o awaseta aishou mimi ni fukikakeru kanjou}}
+|-
+|{{lrc color|gumi|破裂しそうな胸　騒ぎだす細胞}}
+|{{lrc color|gumi|haretsushi sou na mune sawagidasu saibou}}
+|-
+|{{lrc color|rin|脱ぎかけてるシャツ}}　{{lrc color|mayu|優しく裂いてよ　まず}}　かまわず{{lrc color|rin|■}}{{lrc color|mayu|■}}
+|{{lrc color|rin|nugikaketeru shatsu}} {{lrc color|mayu|yasashiku saite yo mazu}} kamawazu {{lrc color|rin|■}}{{lrc color|mayu|■}}
+|-
+|{{lrc color|mayu|Get フライングも有り}}　{{lrc color|rin|{{ruby|躊躇|ためら}}わないで　darlin'}}
+|{{lrc color|mayu|Get furaingu mo ari}} {{lrc color|rin|tamerawanaide darlin'}}
+|-
+|{{lrc color|luka|自由な世界のど真ん中}}　{{lrc color|miku|夢見てんのが本性？}}
+|{{lrc color|luka|jiyuu na sekai no domannaka}} {{lrc color|miku|yume miten no ga honshou?}}
+|-
+|<br>
+|-
+|いらない　全てはいらない　{{ruby|怖気|おじけ}}づいた野望の TRY
+|iranai subete wa iranai ojikezuita yabou no TRY
+|-
+| 満足なんてそこにない　目に見える哀れな未来
+|manzoku nante soko ni nai me ni mieru aware na mirai
+|-
+|思い通りにできる LIFE　手にできるかはあなた次第
+|omoidoori ni dekiru LIFE te ni dekiru ka wa anata shidai
+|-
+|隠したりなんかはしない　誰よりも誇らしげに　できる MIND
+|kakushi tari nan ka wa shinai dare yori mo hokorashige ni dekiru MIND
+|-
+|<br>
+|-
+|{{lrc color|rin|ホラこの世界の中}} {{lrc color|gumi|他にはない}}
+|{{lrc color|rin|hora kono sekai no naka}} {{lrc color|gumi|hoka ni wa nai}}
+|-
+|{{lrc color|ia|確かなもの　自分以外は皆無}}
+|{{lrc color|ia|tashika na mono jibun igai wa kaimu}}
+|-
+|<br> 
+|-
+|小さくなってる場合じゃない　いつだってNo Time! ALL RIGHT {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|chiisaku natteru baai ja nai itsu datte No Time ! ALL RIGHT {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|-
+|上限値超え　エンジン　全開でいっちゃえ　BURN BURN BURN {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|jougen chi koe enjin zenkai de icchae BURN BURN BURN {{lrc color|gumi|■}}{{lrc color|rin|■}}
+|-
+|{{lrc color|mayu|欲しがってんのは　そう　気持ちいいの more…}}
+|{{lrc color|mayu|hoshi gatten no wa sou kimochi ii no more…}}
+|-
+|{{lrc color|mayu|あるがままの想いでDANCE!}}　{{lrc color|gumi|イイナリでGET DOWN!}}
+|{{lrc color|mayu|aru ga mama no omoi de DANCE!}}　{{lrc color|gumi|iinari de GET DOWN!}}
+|-
+|<br>
+|-
+|いらない　全てはいらない　磨き上げてる邪魔な PRIDE
+|iranai subete wa iranai migaki ageteru jama na PRIDE
+|-
+|無意味な世界のルールくらい　無駄としか言い様がない
+|muimi na sekai no ruuru kurai muda to shika ii you ga nai
+|-
+|隠しているあなたの STYLE　剥き出しにあるがまま DIVE
+|kakushiteiru anata no STYLE mukidashi ni aru ga mama DIVE
+|-
+|そこに生まれるのは期待　外れなんかじゃない　頂の SMILE 
+|soko ni umareru no wa kitai hazure nanka janai itadaki no SMILE
+|-
+|<br>
+|-
+|{{lrc color|miku|ホラこの世界で今}}　{{lrc color|ia|解き放って}}
+|{{lrc color|miku|hora kono sekai de ima}} {{lrc color|ia|tokihanatte}} 
+|-
+|{{lrc color|mayu|鋭くギラつかせた希望}}　{{lrc color|luka|もっと本気出していいよ}}
+|{{lrc color|mayu|surudoku gira tsukaseta kibou}} {{lrc color|luka|motto honki dashi te ii yo}}
+|}
+</tabber>
+
+==Derivatives ==
+{{Derivatives tabber
+  |vocaloid = 
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = DarkAngelAlhena's Cover ft. 5 VOCALOIDs
+  |singers     = [[Kagamine Len]], [[Camui Gackpo]], [[KAITO]], [[VY2]], and [[Utatane Piko]]
+  |producers   = DarkAngelAlhena
+  |categories  = VOCALOID Cover
+  |links       = yt 2MyiATiZYH4
+}}
+{{Derivative
+  |color       = meiko
+  |title       = Nashito's Cover ft. MEIKO
+  |singers     = [[MEIKO]] V1 & V3
+  |producers   = Nashito
+  |categories  = VOCALOID Cover
+  |links       = nn sm22589106
+}}
+{{clr}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = MattplusBC's Cover ft. 5 VOCALOIDs & Iku Acme
+  |singers     = [[Tone Rion]], [[Aoki Lapis]], [[MAYU]], [[Luo Tianyi]], [[Macne Nana]], and {{UW|Iku Acme}}
+  |producers   = MattplusBC
+  |categories  = VOCALOID Cover
+  |links       = nn sm22831183 ; yt 88OQNXhKkg4
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = TsuBaSa's Cover ft. Yuzuki Yukari and Lily
+  |singers     = [[Yuzuki Yukari]], [[Lily]] V3
+  |producers   = TsuBaSa
+  |categories  = VOCALOID Cover
+  |links       = nn sm20858727
+}}
+{{clr}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = Pablo Bablo's Cover ft. 5 VOCALOIDs
+  |singers     = [[Nekomura Iroha V4]], MEIKO V3, [[kokone]], [[flower]], Megurine Luka V4X
+  |producers   = Pablo Bablo
+  |categories  = VOCALOID Cover
+  |links       = yt 6Z4qfvYQTAQ
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = Mahiruno's Cover ft. 5 VOCALOIDs
+  |singers     = Utatane Piko, [[SF-A2 miki]], [[VY1]], [[VY2]], [[Kagamine Len]]
+  |producers   = [[Mahiruno]]
+  |categories  = VOCALOID Cover
+  |links       = nn sm23918773
+}}
+  |human = 
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = Kururu's Cover
+  |singers     = Kururu
+  |producers   = Colate (arrangement), Neo (illust), Kururu (mixing), Hiroto (video)
+  |categories  = Human Cover
+  |links       = yt zmiJ1IPPSS8; sc kuruwu/kururu-pomp-and-circumstance
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = Kuraiinu and rachie's English Cover
+  |singers     = Kuraiinu, rachie
+  |producers   = Kuraiinu (English lyrics adaption)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt YpJV_3tK5AE
+}}{{clr}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = Shirayuki Tomoe's Cover
+  |singers     = {{IW|VirtualYOUTUBER|Shirayuki Tomoe}}
+  |producers   = ヘリを (illust), YAB (mixing), いとさん (movie)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt Iv6PljhtAPU
+}}
+{{Derivative
+|links=yt cIg3alBCSWg
+|singers=Sumi Tomomi Jiena
+|title=Sumi Tomomi Jiena's cover
+|categories=Human Cover
+|color=#00BBDC; color:white
+}}
+{{Derivative
+  |color       = #8f87b2; color:#544e5d
+  |title       = Yura Rikudou's Cover
+  |singers     = {{IW|virtualyoutuber|Rikudou Yura}}
+  |producers   = Cawang (illust), Markkoo (mixing), Lance (Animator), Cat (2D Animation)
+  |categories  = Human Cover
+  |links       = yt GNko-uEyirg
+}}
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = SIXFONIA's Cover
+  |singers     = {{UIW|SIXFONIA}}: {{UIW|Hima72}}, {{UIW|Ameno Kosame}}, {{UIW|Illma}}, {{UIW|LAN}}, {{UIW|Suchi}}, {{UIW|Mikoto}}
+  |producers   = Illma (rap lyrics), Akatin (mixing), Syunka (illust), HONETSUKI QARUBI (video), Suchi (thumbnail)
+  |categories  = Human Cover; Fanmade PV
+  |description = This cover has exceeded 1 million views on YouTube.
+  |links       = yt Fyp2PKUj5ds
+}}
+
+{{clr}}
+  |fanmadepv = 
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = towa's MMD PV
+  |singers     = Megurine Luka, Hatsune Miku, GUMI, IA, Kagamine Rin
+  |producers   = towa
+  |categories  = Fanmade PV
+  |links       = nn sm21607721
+}}
+  |arrangement = 
+{{Derivative
+  |color       = #D0ADC1; color:#663352
+  |title       = ifkazoozoo
+  |producers   = UN3H
+  |categories  = Instrumental Arrangement; Parody
+  |links       = sc un3h/ifkazoozoo
+  |description = A cover of the song featuring a kazoo.
+}}
+}}
+
+==Other media appearances==
+===Discography===
+====Original Version====
+This version is featured on the following albums:
+*Entrance Dream Music 3
+
+====Vocalofuture Version====
+This version is featured on the following albums:
+*[[EXIT TUNES PRESENTS Vocalofuture feat. 初音ミク|Vocalofuture]]
+
+====D/D Version====
+A remastered D/D version is featured in the following albums: 
+*[[DIVINE-DIVA]]
+
+===Video games===
+This song is featured in the following video games:
+*''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Megurine Luka, Hatsune Miku, GUMI, IA, and Kagamine Rin; SEKAI version by Vivid BAD SQUAD and KAITO)
+*''{{IW|compass-live-arena|COMPASS Live Arena Wiki|#COMPASS Live Arena}}''
+*''{{IW|lovelive|Link! Like! Love Live!}}''  (covered by DOLLCHESTRA)
+
+==Gallery==
+<gallery hideaddbutton="true" position="center">
+Games - Project SEKAI - 威風堂々.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+Games - Live Arena - 威風堂々.jpg|Music jacket featured in ''#COMPASS Live Arena''
+Games - Link Like Love Live - 威風堂々.png|Music jacket featured in ''Link! Like! Love Live!''
+</gallery>
+
+== External links==
+===Official===
+{{Official
+  |web   = [https://umemaru2umemaru.blog86.fc2.com/blog-entry-41.html Umetora's Blog]
+  |media = Illustration:
+** [https://seiga.nicovideo.jp/seiga/im2543373 Niconico Seiga]
+** [https://www.pixiv.net/artworks/31136031 pixiv]
+  |prchs = Purchases:
+** [https://pc.dwango.jp/portals/music/993754 DIVINE-DIVA ver.] — Dwango
+** [https://open.spotify.com/track/65VI9MZUZIpNQJbGmNKmIp DIVINE-DIVA ver.] — Spotify
+  |dwlds = Off-vocal:
+** [https://piapro.jp/t/xQv7 Off-vocal] — piapro
+** [https://piapro.jp/t/XZZI Off-vocal with chorus] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 23236
+  |nico    = sm19233263
+  |vocadb  = 17673 Original Version -
+  |vocadb2 = 42977 Vocalofuture Version -
+  |vocadb3 = 79679 D/D Version -
+  |mgp     = 威风堂堂
+  |pixiv   = 威風堂々%28梅とら%29
+  |tag     = 威風堂々
+  |vlw     = 威風堂々 (Ifuudoudou)
+  |url     = {{IW|projectsekai|Ifuudoudou|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring GUMI]]
+[[Category:Songs featuring IA]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring MAYU]]
+[[Category:Mobile game songs]]

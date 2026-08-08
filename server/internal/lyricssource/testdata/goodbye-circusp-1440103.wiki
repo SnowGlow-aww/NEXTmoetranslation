@@ -1,0 +1,145 @@
+{{Questionable|Suicide themes}}
+{{Epileptic Warning}}
+{{Song box 2
+  |color     = #FEC4EC; color:#5D7D6E
+  |image     = GoodbyeCircusP.jpg
+  |title     = "'''Goodbye'''"
+  |date      = October 14, 2014
+  |views     = {{v|nn|70,444}} and {{v|yt|6,603,850}}
+  |singers   = [[Hatsune Miku]] V3 English
+  |producers = [[CircusP/2010+|CircusP]] (music, lyrics)
+* 6LIN (video)
+  |links     = {{l|nn|sm24696485}} {{l|yt|AH5_sKwDw1E}} {{l|bc|circus-p goodbye}}
+}}
+
+==Background==
+{{Quote|{{color|purple|This is my goodbye...}}}}
+"'''Goodbye'''" was originally written as a vent song. After the song underwent several changes, he decided to re-write it from Miku's perspective.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #FEC4EC; color:#5D7D6E
+  |title       = BIGHEAD Remix
+  |singers     = Hatsune Miku V3 English
+  |producers   = BIGHEAD
+  |categories  = Remix
+  |description = This version is featured on the compilation ''01 FRIENDS''.
+  |thumb       = 01_Friends.jpg
+}}
+{{clr}}
+
+==Lyrics==
+<poem style="margin-left:1em;">
+When I was little
+I was taught that the world wasn't my story
+All the tears I will cry
+Wouldn't even make up a sea
+
+Tell me how I'll be found
+Let it be known
+Tell me who will become still
+When I am shown
+
+And I'll be forgotten in time
+no matter how hard I try
+I'll be a wasted life
+So this is my goodbye
+Wake me when I
+have the courage to die
+Cause I'm too scared to try
+I am a wasted life
+So this is my goodbye
+
+I never wanted fame
+Cause when we are dead it's all the same
+Human mortality is a test on our memory
+
+Let me know when I'll go
+Will I be loved
+Will someone care I'm not there
+Am I enough
+
+And I'll be forgotten in time
+no matter how hard I try
+I'll be a wasted life
+So this is my goodbye
+Wake me when I
+have the courage to die
+Cause I'm too scared to try
+I am a wasted life
+So this is my goodbye
+
+So this is my goodbye
+
+I'll stop hoping stop wishing
+stop singing stop living
+Stop, I'll stop
+
+I'll stop moving stop breathing
+Stop thinking stop living
+Stop, Just stop
+
+And I'll be forgotten in time
+no matter how hard I try
+I'll be a wasted life
+So this is my goodbye
+Wake me when I
+have the courage to die
+Cause I'm too scared to try
+I am a wasted life
+So this is my goodbye
+</poem>
+
+==Derivatives==
+{{Derivative
+  |color      = utau
+  |title      = PaperKirby's cover ft. Kasane Teto
+  |singers    = [[Kasane Teto]]
+  |producers  = PaperKirby
+  |categories = UTAU Cover
+  |links      = sc paperkirby/goodbye-teto
+}}
+
+{{Derivative
+  |color       = #FEC4EC; color:#5D7D6E
+  |title       = Araki's cover
+  |producers   = {{UIW|Araki}}
+  |categories  = Human Cover
+  |description = This cover has achieved 100,000 views on Niconico.
+  |links       = nn sm26673075;yt 9CjZsyqzeYY
+  |thumb       = yt
+}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song was featured in the following albums:
+* [[FIVE]]
+* 01 Friends
+===Video Games===
+This song is featured in mobile game ''[https://projectsekai.fandom.com/wiki/Goodbye Project SEKAI Colorful Stage! feat. Hatsune Miku]''.
+==Gallery==
+<gallery hideaddbutton="true" position="center">
+Games - Project SEKAI - Goodbye.png|Music jacket featured in Project ''SEKAI Colorful Stage! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |prchs = [https://circus-p.bandcamp.com/track/goodbye Bandcamp]
+  |dwlds = [http://www.mediafire.com/download/i16ssreu570x4jn/Goodbye+Inst+%2B+VSQ.zip VSQ & Instrumental]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 31722
+  |nico   = sm24696485
+  |vocadb = 69187
+  |vlw    = Goodbye/Circus-P
+  |url    = {{IW|projectsekai|Goodbye|Project SEKAI Wiki}}
+}}
+{{DISPLAYTITLE:Goodbye}}
+[[Category:Original songs]]
+[[Category:English songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Mobile game songs]]

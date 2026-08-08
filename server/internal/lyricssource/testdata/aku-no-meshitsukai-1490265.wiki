@@ -1,0 +1,863 @@
+{{Questionable|Violence}}
+<tabber>
+Original = 
+{{Song box 2
+  |color     = #c6cd49; color: black
+  |image     = TSoE.jpg
+  |title     = "'''悪ノ召使'''"
+* Romaji: Aku no Meshitsukai
+* Official Translation: The Servant of Evil
+* Official English: His Significance of Existence
+  |date      = April 16, 2008 (piapro), April 28, 2008 (Niconico), and December 26, 2019 (YouTube)
+  |views     = {{v|pp|143,298}}, {{v|nn|4,968,277}} and {{v|yt|1,316,114}}
+  |singers   = [[Kagamine Rin & Len|Kagamine Len]]
+* <small>Kagamine Rin (chorus)</small>
+  |producers = [[mothy/2008+|mothy]] (music, lyrics, video)
+* [[Ichika]], Kishida, Mameari, Hitsuji, [[Shiuka]], Kiro, meimei, imin, Sincerity, Yuu., piano, noDuki, Haru, Yamada Rokkaku, sirose, myk, sabo, Yagami (illustrations)
+  |links     = {{l|nn|sm3133304}} {{l|pp|5DWU/20080416233525}} {{l|yt|yzpNpaS0uLc|revised ver.}}
+}}
+|-|
+Remaster = 
+{{Song box 2
+  |color     = #c6cd49; color: black
+  |image     = TSoE.jpg
+  |title     = "'''悪ノ召使 リマスター版'''"
+* Romaji: Aku no Meshitsukai Rimasutaa Ban
+* English: The Servant of Evil Remaster Edition
+  |date      = July 29, 2008
+  |views     = {{v|nn|340,953}} and {{v|pp|143,298}}
+  |singers   = [[Kagamine Rin & Len act2|Kagamine Len act2]]
+* <small>Kagamine Rin act2 (chorus) </small>
+  |producers = mothy (music, lyrics, video)
+* [[Ichika]], Kishida, Mameari, Hitsuji, [[Shiuka]], Kiro, meimei, imin, Sincerity, Yuu., piano, noDuki, Haru, Yamada Rokkaku, sirose, myk, sabo, Yagami (illustrations)
+  |links     = {{l|nn|sm4119128}} {{l|pp|5DWU}}
+}}
+|-|
+～velvet mix～ = 
+{{Song box 2
+  |color     = #551112; color: #efdf87
+  |image     = GamuServantVelvet.jpg
+  |title     = "'''悪ノ召使～velvet mix～'''"
+* Romaji: Aku no Meshitsukai ~velvet mix~
+* English: The Servant of Evil ~velvet mix~
+  |date      = December 27, 2009
+  |views     = {{v|nn|315,548}} and {{v|pp|18,852}}
+  |singers   = Kagamine Len
+* <small>Kagamine Rin (chorus)</small>
+  |producers = mothy (music, lyrics)
+* gamu, [[melou]], Utsuki Rin<!--空木　琳-->, Ikeda, Minami, [[carl]], Niya Shuu, [[7:24]], Akaza, Ichiko<!--イチ子-->, Tokimura<!--時村-->, AKI, touno, Hakuseki, Hizuki, Takanashi<!--小鳥遊-->, Aki-t, habuki, Ichibyo Ria<!--一秒リア-->, Yuzuki<!--柚木-->, Mareson<!--稀存-->, Akiko<!--秋子-->, Suzunya, onigiri565, Saku, Pochin, ametoyo, chiSa, TO MU (illustration)
+  |links     = {{l|nn|sm9212993}} {{l|pp|LVXD}}
+}}
+</tabber>
+
+==Background==
+{{Quote|I'll protect you, so be there smiling}}
+
+This song was uploaded on April 28, 2008, and has reached over 3,000,000 views. It's considered one of Len's most notable songs.
+
+This song takes during the events of [[悪ノ娘 (Aku no Musume)|The Daughter of Evil]], except from her (Riliane's) servant Allen's point of view. It details the story of how the twins were separated when they were very small and how the only thing of Riliane he could ever see was her soft, kind side, how she ordered him to kill Michaela (Miku) (who he fell in love with) and eventually traded places with Riliane when she is to be executed.
+
+{{Main|Story of Evil|The Evillious Chronicles}}
+
+==Succeeding Versions==
+{{Basic scrollbox|
+{{derivative
+  |color       = goldenrod; color: darkred
+  |title       = ver1.5
+  |singers     = Kagamine Len<br><small>Kagamine Rin</small>
+  |producers   = mothy
+  |categories  = Remastered Version
+  |links       = pp 5DWU/20080615191123
+  |description = The first remastering of the song.
+}}
+{{derivative
+  |color       = #090b02; color: #e3e361
+  |thumb       = Evils Theatre.png
+  |title       = Evils Theater version
+  |singers     = Kagamine Len act2, Kagamine Rin act2 (chorus)
+  |producers   = mothy
+  |categories  = Remastered Version
+  |description = A remaster of the song for [[Evils Theater]].
+}}
+{{clr}}
+{{derivative
+  |color       = gold; color: white
+  |title       = Append Demo version
+  |singers     = Kagamine Len Append Power and Cold
+  |producers   = mothy
+  |categories  = VOCALOID Cover; Demonstration Song
+  |links       = 00 http://www.crypton.co.jp/mp/pages/download/demosong/vocaloid/cv02a_another/19_3_meshi.mp3
+  |description = A cover of the song for a Kagamine Append demo.
+}}
+{{derivative
+  |color       = saddlebrown; color: darkgoldenrod
+  |title       = Vocalolegend PV
+  |singers     = Kagamine Len act2
+  |producers   = mothy, [[Mienohito]] (video)
+  |categories  = PV
+  |links       = nn sm9374407
+  |description = The song's preview for the Vocalolegend album.
+}}
+{{clr}}
+{{Derivative
+  |color       = darkslategrey; color: yellow
+  |title       = Joint Vocalolegend PV
+  |singers     = Kagamine Rin and Len
+  |producers   = mothy, [[Nagimiso.SYS]] (video)
+  |categories    = Mash-Up; PV
+  |links       = nn sm9397312
+  |description = The song's preview for the Vocalolegend album, along with its preceding song, The Daughter of Evil.
+}}
+{{derivative
+  |color       = #e0d112; color: #1fb8da
+  |thumb       = GeminiofCharm.jpg
+  |title       = Asami Shimoda's cover
+  |singers     = [[Asami Shimoda]]
+  |producers   = mothy, Kangarou SUZUKI (arrangement)
+  |categories  = Human Cover; Arrangement
+  |description = Asami Shimoda's cover for the Alluring Gemini musical.
+}}
+{{clr}}
+{{derivative
+  |color       = #dfd458; color: #6a141d
+  |thumb       = EKingdom.jpg
+  |title       = Evils Kingdom version
+  |singers     = Kagamine Len<br><small>Kagamine Rin</small>
+  |producers   = mothy
+  |categories  = Remastered Version
+  |description = A remaster of the song for [[悪ノ王国〜Evils Kingdom〜 (Aku no Oukoku 〜Evils Kingdom〜)|Evils Kingdom]].
+}}
+{{derivative
+  |color       = #c8d68b; color: #f1ea78
+  |thumb       = AteYWYnCMAEWwLA.jpg
+  |title       = 悪ノ娘ト召使
+  |translation = Aku no Musume to Meshitsukai (The Daughter and Servant of Evil)
+  |producers   = mothy
+  |categories  = Mash-Up; Instrumental; Arrangement
+  |description = An instrumental mash-up between the song and The Daughter of Evil for [[悪ノ四楽奏～悪ノ娘ノベル楽曲集～ (Aku no Yongakusou ~Aku no Musume Novel Gakkyoku Shuu~)|Four Melodies of Evil]].
+}}
+{{clr}}
+{{derivative
+  |color       = white; color: teal
+  |thumb       = HatsuneMikuprojectmiraiCOMPLETE.jpg
+  |title       = Project mirai version
+  |singers     = Kagamine Len
+  |producers   = mothy
+  |categories  = Remastered Version
+  |description = A remaster of the song for [[Hatsune Miku and Future Stars Project mirai|Project mirai]].
+}}
+{{derivative
+  |color       = black; color: #706722
+  |thumb       = BGMcover2.png
+  |title       = アレンジバージョン
+  |translation = Arrange Version
+  |producers   = mothy, [[Toraboruta-P]] (Arrangement)
+  |categories  = Arrangement
+  |description = An instrumental version for [[「悪ノ娘」 読書のためのBGM集 ("Aku no Musume" Dokusho no Tame no BGM Shuu)|"The Daugther of Evil" BGM Reading Collection]].
+}}
+{{derivative
+  |color       = black; color: white
+  |thumb       = Seven Crimes and Punishments album.jpg
+  |title       = Seven Crimes and Punishments version
+  |singers     = Kagamine Len<br><small>Kagamine Rin</small>
+  |producers   = mothy
+  |categories  = Revised Version
+  |description =  A remaster of the song for [[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Seven Crimes and Punishments]].
+}}
+{{derivative
+  |color       = #68b1dc; color:white
+  |thumb       = 初音ミクシンフォニー ～Miku Symphony 2023 オーケストラ ライブ CD.jpg
+  |title       = Miku Symphony 2023's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version is featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2023~ Orchestra Live CD''.
+  |links       = yt FYCJe_4u1Gw
+}}
+}}
+
+==Lyrics==
+{{lrc legend|#c6cd49; color: black
+|Len:black
+|Rin
+|Both:#E5C100|n3=y}}
+<tabber>
+|-|Niconico Ver =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|君は王女　僕は召使
+|kimi wa oujo boku wa meshitsukai
+|-
+|運命分かつ　哀れな双子
+|unmei wakatsu awarena futago
+|-
+|君を守る　その為ならば
+|kimi o mamoru sono tame naraba
+|-
+|僕は悪にだってなってやる
+|boku wa aku ni datte natte yaru
+|-
+|<br>
+|-
+|期待の中僕らは生まれた
+|kitai no naka bokura wa umareta
+|-
+|祝福するは教会の鐘
+|shukufuku suru wa kyoukai no kane
+|-
+|大人たちの勝手な都合で
+|otona tachi no kattena tsugou de
+|-
+|僕らの未来は二つに裂けた
+|bokura no mirai wa futatsu ni saketa
+|-
+|<br>
+|-
+|たとえ世界の全てが
+|tatoe sekai no subete ga
+|-
+|君の敵になろうとも
+|kimi no teki ni narou tomo
+|-
+|僕が君を守るから
+|boku ga kimi o mamoru kara
+|-
+|君はそこで笑っていて
+|kimi wa sokode waratte ite
+|-
+|<br>
+|-
+|君は王女　僕は召使
+|kimi wa oujo boku wa meshitsukai
+|-
+|運命分かつ　哀れな双子
+|unmei wakatsu awarena futago
+|-
+|君を守る　その為ならば
+|kimi o mamoru sono tame naraba
+|-
+|僕は悪にだってなってやる
+|boku wa aku ni datte natte yaru
+|-
+|<br>
+|-
+|隣の国へ出かけたときに
+|tonari no kuni e dekaketa toki ni
+|-
+|街で見かけた緑のあの娘
+|machi de mikaketa midori no ano ko
+|-
+|その優しげな声と笑顔に
+|sono yasashigena koe to egao ni
+|-
+|一目で僕は恋に落ちました
+|hitome de boku wa koi ni ochimashita
+|-
+|<br>
+|-
+|だけど王女があの娘のこと
+|dakedo oujo ga ano ko no koto
+|-
+|消してほしいと願うなら
+|keshite hoshii to negau nara
+|-
+|僕はそれに応えよう
+|boku wa sore ni kotaeyou
+|-
+|<br>
+|-
+|どうして？涙が止まらない
+|doushite? namida ga tomara nai
+|-
+|<br>
+|-
+|君は王女　僕は召使
+|kimi wa oujo boku wa meshitsukai
+|-
+|運命分かつ　狂おしき双子
+|unmei wakatsu kuruoshiki futago
+|-
+|「今日のおやつはブリオッシュだよ」
+|"kyou no oyatsu wa buriosshu dayo"
+|-
+|君は笑う　無邪気に笑う
+|kimi wa warau mujaki ni warau
+|-
+|<br>
+|-
+|もうすぐこの国は終わるだろう
+|mou sugu kono kuni wa owaru darou
+|-
+|怒れる国民たちの手で
+|ikareru kokumin tachi no te de
+|-
+|これが報いだというのならば
+|kore ga mukui dato iuno naraba
+|-
+|僕はあえて　それに逆らおう
+|boku wa aete sore ni sakaraou
+|-
+|<br>
+|-
+|「ほら僕の服を貸してあげる」
+|"hora boku no fuku o kashite ageru"
+|-
+|「これを着てすぐお逃げなさい」
+|"kore o kite sugu onige nasai"
+|-
+|「大丈夫僕らは双子だよ」
+|"daijoubu bokura wa futago dayo"
+|-
+|「きっとだれにもわからないさ」
+|"kitto dare nimo wakara nai sa"
+|-
+|<br>
+|-
+|僕は王女　君は逃亡者
+|boku wa oujo kimi wa toubousha
+|-
+|運命分かつ　悲しき双子
+|unmei wakatsu kanashiki futago
+|-
+|君を悪だというのならば
+|kimi o aku dato iuno naraba
+|-
+|僕だって同じ　血が流れてる
+|boku datte onaji chi ga nagareteru
+|-
+|<br>
+|-
+|むかしむかしあるところに
+|mukashi mukashi aru tokoro ni
+|-
+|悪逆非道の王国の
+|akugyaku hidou no oukoku no
+|-
+|頂点に君臨してた
+|chouten ni kunrin shiteta
+|-
+|とても可愛い僕の姉弟
+|totemo kawaii boku no kyoudai
+|-
+|<br>
+|-
+|たとえ世界の全てが
+|tatoe sekai no subete ga
+|-
+|君の敵になろうとも
+|kimi no teki ni narou tomo
+|-
+|僕が君を守るから
+|boku ga kimi o mamoru kara
+|-
+|君はどこかで笑っていて
+|kimi wa dokoka de waratte ite
+|-
+|<br>
+|-
+|{{lrc color|rin|(ついにその時はやってきて}}
+|{{lrc color|rin|(tsui ni sono toki wa yatte kite}}
+|-
+|{{lrc color|rin|終わりを告げる鐘が鳴る}}
+|{{lrc color|rin|owari o tsugeru kane ga naru}}
+|-
+|{{lrc color|rin|民衆などには目もくれず}}
+|{{lrc color|rin|minshuu nado ni wa me mo kurezu}}
+|-
+|{{lrc color|rin|君は私の口癖を言う)}}
+|{{lrc color|rin|kimi wa watashi no kuchiguse o iu)}}
+|-
+|<br>
+|-
+|{{lrc color|both|君は王女　僕は召使}}
+|{{lrc color|both|kimi wa oujo boku wa meshitsukai}}
+|-
+|{{lrc color|both|運命分かつ　哀れな双子}}
+|{{lrc color|both|unmei wakatsu awarena futago}}
+|-
+|{{lrc color|both|君を守る　その為ならば}}
+|{{lrc color|both|kimi o mamoru sono tame naraba}}
+|-
+|{{lrc color|both|僕は悪にだってなってやる}}
+|{{lrc color|both|boku wa aku ni datte natte yaru}}
+|-
+|<br>
+|-
+|もしも生まれ変われるならば
+|moshimo umare kawareru naraba
+|-
+|その時はまた遊んでね
+|sono toki wa mata asonde ne
+|}
+|-|
+SCP ver = 
+{| style="width:100%"
+|{{shared}}|もしも 生まれ変われるならば
+|-
+|{{shared}}|moshimo umarekawareru nara ba
+|-
+|<br>
+|-
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|君は王女　僕は召使
+|kimi wa oujo boku wa meshitsukai
+|-
+|運命分かつ　哀れな双子
+|unmei wakatsu awarena futago
+|-
+|君を守る　その為ならば
+|kimi o mamoru sono tame naraba
+|-
+|僕は悪にだってなってやる
+|boku wa aku ni datte natte yaru
+|-
+|<br>
+|-
+|期待の中僕らは生まれた
+|kitai no naka bokura wa umareta
+|-
+|祝福するは教会の鐘
+|shukufuku suru wa kyoukai no kane
+|-
+|大人たちの勝手な都合で
+|otona tachi no kattena tsugou de
+|-
+|僕らの未来は二つに裂けた
+|bokura no mirai wa futatsu ni saketa
+|-
+|<br>
+|-
+|たとえ世界の全てが
+|tatoe sekai no subete ga
+|-
+|君の敵になろうとも
+|kimi no teki ni narou tomo
+|-
+|僕が君を守るから
+|boku ga kimi o mamoru kara
+|-
+|君はそこで笑っていて
+|kimi wa sokode waratte ite
+|-
+|<br>
+|-
+|君は王女　僕は召使
+|kimi wa oujo boku wa meshitsukai
+|-
+|運命分かつ　哀れな双子
+|unmei wakatsu awarena futago
+|-
+|君を守る　その為ならば
+|kimi o mamoru sono tame naraba
+|-
+|僕は悪にだってなってやる
+|boku wa aku ni datte natte yaru
+|-
+|<br>
+|-
+|隣の国へ出かけたときに
+|tonari no kuni e dekaketa toki ni
+|-
+|街で見かけた緑のあの娘
+|machi de mikaketa midori no ano ko
+|-
+|その優しげな声と笑顔に
+|sono yasashigena koe to egao ni
+|-
+|一目で僕は恋に落ちました
+|hitome de boku wa koi ni ochimashita
+|-
+|<br>
+|-
+|だけど王女があの娘のこと
+|dakedo oujo ga ano ko no koto
+|-
+|消してほしいと願うなら
+|keshite hoshii to negau nara
+|-
+|僕はそれに応えよう
+|boku wa sore ni kotaeyou
+|-
+|<br>
+|-
+|どうして？涙が止まらない
+|doushite? namida ga tomara nai
+|-
+|<br>
+|-
+|君は王女　僕は召使
+|kimi wa oujo boku wa meshitsukai
+|-
+|運命分かつ　狂おしき双子
+|unmei wakatsu kuruoshiki futago
+|-
+|「今日のおやつはブリオッシュだよ」
+|"kyou no oyatsu wa brioche dayo"
+|-
+|君は笑う　無邪気に笑う
+|kimi wa warau mujaki ni warau
+|-
+|<br>
+|-
+|もうすぐこの国は終わるだろう
+|mou sugu kono kuni wa owaru darou
+|-
+|怒れる国民たちの手で
+|ikareru kokumin tachi no te de
+|-
+|これが報いだというのならば
+|kore ga mukui dato iuno naraba
+|-
+|僕はあえて　それに逆らおう
+|boku wa aete sore ni sakaraou
+|-
+|<br>
+|-
+|「ほら僕の服を貸してあげる」
+|"hora boku no fuku o kashite ageru"
+|-
+|「これを着てすぐお逃げなさい」
+|"kore o kite sugu onige nasai"
+|-
+|「大丈夫僕らは双子だよ」
+|"daijoubu bokura wa futago dayo"
+|-
+|「きっとだれにもわからないさ」
+|"kitto dare nimo wakara nai sa"
+|-
+|<br>
+|-
+|僕は王女　君は逃亡者
+|boku wa oujo kimi wa toubousha
+|-
+|運命分かつ　悲しき双子
+|unmei wakatsu kanashiki futago
+|-
+|君を悪だというのならば
+|kimi o aku dato iuno naraba
+|-
+|僕だって同じ　血が流れてる
+|boku datte onaji chi ga nagareteru
+|-
+|<br>
+|-
+|むかしむかしあるところに
+|mukashi mukashi aru tokoro ni
+|-
+|悪逆非道の王国の
+|akugyaku hidou no oukoku no
+|-
+|頂点に君臨してた
+|chouten ni kunrin shiteta
+|-
+|とても可愛い僕の姉弟
+|totemo kawaii boku no kyoudai
+|-
+|<br>
+|-
+|たとえ世界の全てが
+|tatoe sekai no subete ga
+|-
+|君の敵になろうとも
+|kimi no teki ni narou tomo
+|-
+|僕が君を守るから
+|boku ga kimi o mamoru kara
+|-
+|君はどこかで笑っていて
+|kimi wa dokoka de waratte ite
+|-
+|<br>
+|-
+|{{lrc color|rin|(ついにその時はやってきて}}
+|{{lrc color|rin|(tsui ni sono toki wa yatte kite}}
+|-
+|{{lrc color|rin|終わりを告げる鐘が鳴る}}
+|{{lrc color|rin|owari o tsugeru kane ga naru}}
+|-
+|{{lrc color|rin|民衆などには目もくれず}}
+|{{lrc color|rin|minshuu nado ni wa me mo kurezu}}
+|-
+|{{lrc color|rin|君は私の口癖を言う)}}
+|{{lrc color|rin|kimi wa watashi no kuchiguse o iu)}}
+|-
+|<br>
+|-
+|{{lrc color|both|君は王女　僕は召使}}
+|{{lrc color|both|kimi wa oujo boku wa meshitsukai}}
+|-
+|{{lrc color|both|運命分かつ　哀れな双子}}
+|{{lrc color|both|unmei wakatsu awarena futago}}
+|-
+|{{lrc color|both|君を守る　その為ならば}}
+|{{lrc color|both|kimi o mamoru sono tame naraba}}
+|-
+|{{lrc color|both|僕は悪にだってなってやる}}
+|{{lrc color|both|boku wa aku ni datte natte yaru}}
+|-
+|<br>
+|-
+|もしも生まれ変われるならば
+|moshimo umare kawareru naraba
+|-
+|その時はまた遊んでね
+|sono toki wa mata asonde ne
+|}
+</tabber>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{derivative
+  |color       = camui gackpo
+  |title       = Lucifer's Cover ft. Camui Gackpo
+  |singers     = [[Camui Gackpo]]<br><small>[[Yuzuki Yukari]]</small>
+  |producers   = Lucifer (cover, VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt VBg_hc4kayo
+}}
+{{derivative
+  |color       = kagamine len
+  |title       = ryusouta's Cover ft. Kagamine Len [velvet mix]
+  |singers     = Kagamine Len V4X<br><small>Kagamine Rin V4X</small>
+  |producers   = ryusouta (cover), xXMachiiXx (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt gOs5CFNMjH4
+}}
+{{derivative
+  |color       = kagamine len
+  |title       = Lucifer's Cover ft. Kagamine Len [Symphonic Version]
+  |singers     = Kagamine Len V4X<br><small>Kagamine Rin V4X</small>
+  |producers   = Lucifer (cover, VSQx), Iwakamu (illust), Mogelatte (video), Kiseki@CAxis (3Dvideo), Jounetsu-P (arrangement)
+  |categories  = VOCALOID Cover
+  |links       = yt xMvp5vQIv7E
+}}
+{{derivative
+  |color       = kaito
+  |title       = Marshall Lee's Cover ft. KAITO [Symphonic Version]
+  |singers     = [[KAITO]] V3<br><small>[[Hatsune Miku]]</small>
+  |producers   = Marshall Lee (cover, mixing), Lucifer (VSQx), Iwakamu (illust), Mogelatte (video), Kiseki@CAxis (3Dvideo), Jounetsu-P (arrangement)
+  |categories  = VOCALOID Cover
+  |links       = yt j6J26FD-a20
+}}
+  |human = 
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = Mac's Classical Chorus
+  |singers     = {{UIW|ASK}}, Creamzone, {{UIW|SquaDus}}, xiao, Π, Zensai, Fuuwon, Komodai, Kagamine Len
+  |producers   = Mac
+  |categories  = Human Cover; Chorus
+  |links       = nn sm9921651
+}}
+{{derivative
+  |color       = #c6cd49; color: black|thumb = yt
+  |title       = Gero's Cover (Classical Version)
+  |singers     = {{UIW|Gero}}
+  |producers   = Iwakamu (illust), [[Mogelatte]] (video), Kiseki@CAxis (3Dvideo), Atarime-P (mixing)
+  |categories  = Human Cover; Chorus
+  |links       = nn sm19165284; yt iQHuJF4GjFI
+}}
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = JubyPhonic's English Cover
+  |singers     = {{UIW|JubyPhonic}}
+  |producers   = JubyPhonic (English lyrics, mixing, animation), {{UIW|Reoni}} (harmonies), bjbabababa (illust), pricecheck, Hikarin (translation reference)
+  |categories  = Human Cover; Alternative Language; Original MV
+  |links       = yt tXDk16jD378
+}}
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = LEN & j.am's Russian Cover
+  |singers     = {{UIW|Ren Reiss}} (aka. LEN) & j.am (aka. higanbanban)
+  |producers   = LEN (Russian lyrics, mix), Epistafy (mix), Sentenia (subs)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt KWmqiSqY13U
+}}
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = Raon's Cover
+  |singers     = {{UIW|Raon Lee}}
+  |producers   = Tranquillo (video), Wzeck (illust), Daitch (at Accelers studio)(inst arrange), TRMX Sound Lab (mix, mastering)
+  |categories  = Human Cover; Arrangement; Fanmade PV
+  |links       = yt EkdyB6gf7xY
+  |comments    = 
+  |description = 
+}}
+  |arrangement = 
+{{derivative
+  |color       = #c6cd49; color: black|thumb = yt
+  |title       = Classical Version
+  |singers     = Kagamine Len<br><small>Kagamine Rin (chorus)</small>
+  |producers   = [[Jounetsu-P]] (arrangement), [[Mari no Hito]] (illust)
+  |categories  = Arrangement
+  |links       = nn sm4839818; yt s3r564sHvNI
+}}
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = Symphonic Version
+  |singers     = Kagamine Len<br><small>Kagamine Rin (chorus)</small>
+  |producers   = Jounetsu-P (arrangement), [[Shiuka]] (illust)
+  |categories  = Arrangement
+  |links       = nn sm10330203; pp 87JL
+}}
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = Opera Style Arrangement
+  |singers     = Yuudai
+  |producers   = Yuudai (arrangement), Mari no Hito, Yoshi, Aoikouta, Waako, Oreshiki, Mizuki, Nigayomogi, Zaa, Izuin, Takemon (illust)
+  |categories  = Arrangement
+  |links       = nn sm13111059
+  |description = An arrangement done to celebrate the released on Evils Kingdom.
+}}
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = Classical Version II
+  |singers     = Kagamine Len
+  |producers   = Jounetsu-P (arrangement), Urahanabi, Amaki (illust)
+  |categories  = Arrangement
+  |links       = nn sm15599146
+}}
+{{clr}}
+{{derivative
+  |color       = #c6cd49; color: black|thumb = yt
+  |title       = Music Box Arrangement
+  |producers   = R3 Music Box
+  |categories  = Music Box Arrangement
+  |links       = nn sm28092435; yt lzllmXU41Qg
+}}
+  |fanmadepv = 
+{{derivative
+  |color       = #c6cd49; color: black
+  |title       = leftmoon's Manga PV
+  |producers   = leftmoon
+  |categories  = Fanmade Hand-drawn PV
+  |links       = nn sm4617869
+  |description = A manga version of the song.
+}}
+  |spinoff = 
+{{derivative
+  |color       = kagamine
+  |title       = 悪ノメイド
+  |translation = Aku no Meido (The Maid of Evil)
+  |singers     = Kagamine Rin<br><small>Kagamine Len</small>
+  |producers   = [[Namagoroshi-P]] (lyrics), チョコパ幻聴Ｐ (PV), yucco (illust), [[melou]] (video)
+  |categories  = Spin-off
+  |links       = nn sm14580683
+  |description = This is the reverse "Servant of Evil", where instead of Allen it is now Riliane that becomes the Prince's Maid. Minor things have been changed like instead of Michaela dying it is instead Prince Kyle that dies at the hands of Riliane.
+}}
+}}
+
+==Other media appearances==
+===Literatures===
+This song was featured in the following literatures: 
+* [[ギター弾き語り ボカロ・スーパー・ヒッツ (Guitar Hikigatari VOCALO ・Super ・Hits)|VOCALO ・Super ・Hits]] (sheet music)
+
+===Discography===
+This song was featured in the following albums: 
+* [[Evils Theater]]
+* [[EXIT TUNES PRESENTS Vocalolegend feat. 初音ミク|Vocalolegend]]
+* [[Prelude to forest]] (velvet mix)
+* [[悪ノ王国〜Evils Kingdom〜 (Aku no Oukoku 〜Evils Kingdom〜)|Evils Kingdom]]
+* [[VOCALOID BEST from ニコニコ動画 (あお) (VOCALOID BEST from Nico Nico Douga (Ao))|VOCALOID BEST from Nico Nico Douga (Blue)]]
+* [[The VOCALOID]]
+* [[EXIT TUNES PRESENTS Vocalogemini feat. 鏡音リン・レン|Vocalogemini]] (Append Version) 
+* [[KARENT presents Fairy tale & Girl's talk feat. 初音ミク|Fairy tale & Girl's talk]]
+* [[Gekkaneta Vol.08 (月刊eta Vol.08)|Gekkaneta Vol.08]]
+* [[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Seven Crimes and Punishments]]
+* [[初音ミク Project mirai こんぷり～と (Hatsune Miku Project mirai Complete)|Project mirai COMPLETE]]
+* [[EXIT TUNES PRESENTS Kagaminext feat. 鏡音リン、鏡音レン ―10th ANNIVERSARY BEST―|Kagaminext]]
+* ''Saribitotachi no Waltz Aku no Taizai SEKAI EDITION+''
+
+It is the second track in the Story of Evil series.
+
+===Concerts===
+This song was featured in the following concerts:
+* [[Hatsune Miku Live Party 2011 (Mikupa)/Tokyo|MikuExpo Live in Tokyo 2011]]
+* [[Hatsune Miku Live Party 2011 (Mikupa)/Sapporo|MikuExpo Live in Sapporo 2011]]
+* [[Hatsune Miku Live Party 2012 (Mikupa)/Tokyo|MikuExpo Live in Tokyo 2012]]
+
+===Video games===
+This song was featured in the following video games:
+
+====[[Hatsune Miku -Project DIVA- (series)|Hatsune Miku -Project DIVA-]] Series====
+{{col-2b|
+* [[Hatsune Miku and Future Stars Project mirai]]
+* [[Hatsune Miku Project mirai 2]]
+|
+* {{IW|project-diva|Hatsune Miku: Project Mirai DX|Hatsune Miku Project mirai DX}}}}
+
+====Other games====
+* {{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}
+* GROOVE COASTER 4MAX DIAMOND GALAXY
+* CHRONO CIRCLE
+
+==Gallery==
+<tabber>
+|-|Concerts=
+<gallery hideaddbutton="true" position="center" bordercolor="#c6cd49">
+RinLenServantOfEvil.jpg|A Screenshot of Rin and Len performing Servant of Evil "live" in MikuPa Sapporo 2011
+</gallery>
+|-|Games=
+<gallery hideaddbutton="true" position="center" bordercolor="#c6cd49">
+Games - Project SEKAI - 悪ノ召使.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+Servant of Evil PM.jpg|Len's Servant of Evil costume from the song Servant of Evil for the video game Project Mirai
+SoE TinierMe.jpg|Servant of Evil in Hatsune Miku Persona Gacha TinierMe
+</gallery>
+|-|Merchandising=
+<gallery hideaddbutton="true" position="center" bordercolor="#c6cd49">
+Agon1354301513.jpg|Servant of Evil papercraft
+Navigation_22993.png|[[Good Smile Company]]'s Servant of Evil nendoroid petit
+Dollfie Dream Len Servant of Evil.jpeg|[[Dollfie Dream|VOLKS]]'s Servant of Evil Dollfie
+Nendoroid Kagamine Len The Servant of Evil Ver.jpg|Good Smile Company's Nendoroid: Kagamine Len The Servant of Evil Ver.
+</gallery>
+|-|Misc=
+<gallery hideaddbutton="true" position="center" bordercolor="#c6cd49">
+Aku no meshitsukai piapro.png|Illustration for the original song by Mito
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |media = '''Illustrations''':
+** [http://piapro.jp/t/sohw Official Illustration] — piapro
+** [http://piapro.jp/bookmark/folder_contents/?pid=mothy&view=image&folder_id=16387 PV illustrations] — piapro
+** [http://piapro.jp/bookmark/folder_contents/?pid=mothy&view=image&folder_id=107815 Velvet mix PV illustrations] — piapro
+  |prchs = '''Single purchase''':
+** [https://open.spotify.com/track/1DiDJHGtYuM1GQVYKt5yvB Spotify]
+** [https://open.spotify.com/track/4ulM7t5Dp0bkDXNdfNdxGR Spotify] (EXIT TUNES PRESENTS Kagaminext)
+  |dwlds = [http://piapro.jp/t/mw5J Off-vocal] — piapro
+  |url   = [http://piapro.jp/t/C6VE Lyrics] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 803
+  |nico   = sm3133304
+  |vocadb = 1358
+  |utadb  = 8535
+  |mgp    = 恶之召使
+  |pixiv  = 悪ノ召使
+  |tag    = 悪ノ召使
+  |vlw    = 悪ノ召使 (Aku no Meshitsukai)
+  |url    = [https://ja.chordwiki.org/wiki/悪の召使 ChordWiki]
+* {{IW|theevilliouschronicles|The Servant of Evil|The Evillious Chronicles Wiki}}
+* {{IW|project-diva|Aku no Meshitsukai|Project DIVA Wiki}}
+* {{IW|projectsekai|Aku no Meshitsukai|Project SEKAI Wiki}}
+}}
+[[de:Servant of Evil (Diener des Bösen)]]
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Concert songs]]
+[[Category:Evillious Chronicles series]]
+[[Category:Demonstration songs]]
+[[Category:Japanese demonstration songs]]
+[[Category:Video game songs]]
+[[Category:Songs featured in literatures]]
+[[Category:Remastered songs]]
+[[Category:Mobile game songs]]

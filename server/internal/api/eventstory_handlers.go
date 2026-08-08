@@ -2,21 +2,33 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/sse"
+	"moesekai/server/internal/store"
 )
 
 // handleEventStories lists event story summaries.
 //
 // GET /api/event-stories
 func (s *Server) handleEventStories(w http.ResponseWriter, r *http.Request) {
-	stories, err := s.eventStore.List()
+	locale, explicit, ok := requestLocale(w, r, "")
+	if !ok {
+		return
+	}
+	var stories []model.EventStorySummary
+	var err error
+	if explicit {
+		stories, err = s.eventStore.ListLocale(locale)
+	} else {
+		stories, err = s.eventStore.List()
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if stories == nil {
@@ -33,16 +45,68 @@ func (s *Server) handleEventStory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	detail, err := s.eventStore.Detail(id)
+	locale, explicit, localeOK := requestLocale(w, r, "")
+	if !localeOK {
+		return
+	}
+	var detail model.EventStoryDetail
+	var err error
+	if explicit {
+		detail, err = s.eventStore.DetailLocale(id, locale)
+	} else {
+		detail, err = s.eventStore.Detail(id)
+	}
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "event story not found")
 		return
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, detail)
+}
+
+func (s *Server) handleEventEpisodeSnapshot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	eventID, ok := parseEventID(w, r.URL.Query().Get("eventId"))
+	if !ok {
+		return
+	}
+	episodeNo := strings.TrimSpace(r.URL.Query().Get("episodeNo"))
+	if episodeNo == "" {
+		writeContractError(w, http.StatusBadRequest, "invalid_query", []string{"episodeNo required"}, nil)
+		return
+	}
+	locale, explicit, localeOK := requestLocale(w, r, "")
+	if !localeOK {
+		return
+	}
+	if !explicit {
+		writeContractError(w, http.StatusBadRequest, "locale_required", []string{"explicit locale required"}, nil)
+		return
+	}
+	snapshot, err := s.eventStore.EpisodeSnapshot(eventID, episodeNo, locale)
+	if err == sql.ErrNoRows {
+		writeContractError(w, http.StatusNotFound, "not_found", nil, nil)
+		return
+	}
+	if errors.Is(err, store.ErrEventScenarioConflict) {
+		writeContractError(w, http.StatusConflict, "scenario_conflict", nil, nil)
+		return
+	}
+	if errors.Is(err, store.ErrEventScenarioInvalid) {
+		writeContractError(w, http.StatusInternalServerError, "scenario_invalid", nil, nil)
+		return
+	}
+	if err != nil {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, snapshot)
 }
 
 // handleUpdateEventStory updates one talk line or episode title.
@@ -54,12 +118,17 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req struct {
-		EventID   int    `json:"eventId"`
-		EpisodeNo string `json:"episodeNo"`
-		JpKey     string `json:"jpKey"`
-		CnText    string `json:"cnText"`
-		Source    string `json:"source"`
-		EntryType string `json:"entryType"`
+		EventID    int     `json:"eventId"`
+		EpisodeNo  string  `json:"episodeNo"`
+		JpKey      string  `json:"jpKey"`
+		CnText     string  `json:"cnText"`
+		Source     string  `json:"source"`
+		EntryType  string  `json:"entryType"`
+		Locale     string  `json:"locale"`
+		SegmentID  string  `json:"segmentId"`
+		SourceHash *string `json:"sourceHash"`
+		Revision   *int    `json:"revision"`
+		ClientID   string  `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -75,17 +144,58 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 	if req.Source == "" {
 		req.Source = "human"
 	}
-	err := s.eventStore.UpdateLine(req.EventID, req.EpisodeNo, req.JpKey, req.CnText, req.Source, req.EntryType)
+	if !model.IsValidSource(req.Source) {
+		writeErr(w, http.StatusBadRequest, "invalid translation source")
+		return
+	}
+	locale, explicit, ok := requestLocale(w, r, req.Locale)
+	if !ok {
+		return
+	}
+	if locale == model.LocaleJapanese {
+		writeErr(w, http.StatusBadRequest, "locale is read-only")
+		return
+	}
+	if explicit && (req.SegmentID == "" || req.SourceHash == nil || strings.TrimSpace(req.EpisodeNo) == "") {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"segmentId, sourceHash, and episodeNo are required"}, nil)
+		return
+	}
+	if explicit && req.EntryType != "title" && req.EntryType != "talk" {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"entryType must be title or talk"}, nil)
+		return
+	}
+	if explicit && ((req.EntryType == "talk" && req.JpKey == "") || (req.EntryType == "title" && req.JpKey != "")) {
+		writeContractError(w, http.StatusBadRequest, "source_identity_required", []string{"jpKey is required for talk entries and must be empty for titles"}, nil)
+		return
+	}
+	var err error
+	if explicit {
+		sourceHash := ""
+		if req.SourceHash != nil {
+			sourceHash = *req.SourceHash
+		}
+		err = s.eventStore.UpdateLineLocaleRevision(req.EventID, req.EpisodeNo, req.JpKey, req.SegmentID, sourceHash, req.CnText, req.Source, req.EntryType, locale, currentUser(r), req.Revision)
+	} else {
+		err = s.eventStore.UpdateLine(req.EventID, req.EpisodeNo, req.JpKey, req.CnText, req.Source, req.EntryType)
+	}
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "target line not found")
 		return
 	}
+	if errors.Is(err, store.ErrEventSourceConflict) {
+		writeContractError(w, http.StatusConflict, "source_conflict", []string{"event source identity changed; reload before saving"}, nil)
+		return
+	}
+	if errors.Is(err, store.ErrEventRevisionConflict) {
+		writeContractError(w, http.StatusConflict, "revision_conflict", []string{"event translation changed; reload before saving"}, nil)
+		return
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	s.store.NotifyChange() // event story files are regenerated too
-	s.broadcast(sse.EventStoryUpdated, map[string]any{
+	payload := map[string]any{
 		"eventId":   req.EventID,
 		"episodeNo": req.EpisodeNo,
 		"jpKey":     req.JpKey,
@@ -93,7 +203,26 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		"source":    req.Source,
 		"entryType": req.EntryType,
 		"user":      currentUser(r),
-	})
+		"clientId":  req.ClientID,
+	}
+	if explicit {
+		payload["locale"] = locale
+	}
+	if req.SegmentID != "" {
+		payload["segmentId"] = req.SegmentID
+	}
+	if req.Revision != nil {
+		payload["revision"] = *req.Revision + 1
+	}
+	event := sse.EventStoryUpdated
+	if explicit && locale != model.LocaleChinese {
+		event = sse.EventStoryLocaleUpdated
+	}
+	s.broadcast(event, payload)
+	if explicit && req.Revision != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "revision": *req.Revision + 1})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

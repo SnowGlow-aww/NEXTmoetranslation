@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
-  BackupStatus, UpstreamStatus, User,
-  checkUpstream, createUser, deleteUser, getBackupStatus, getSettings,
-  getUpstreamStatus, listUsers, pushBackup, restoreBackup,
+  APIError, BackupStatus, UpstreamStatus, User,
+  checkUpstream, clearSession, createUser, deleteUser, getBackupStatus, getSettings,
+  getUpstreamStatus, getUsername, listUsers, pushBackup, restoreBackup,
   updateSettings, updateUser,
 } from "@/lib/api";
 
@@ -79,7 +79,11 @@ const SETTING_HINTS: Record<string, React.ReactNode> = {
   ),
 };
 
-export function AdminModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AdminModal({ open, onClose, guardProducerMutation }: {
+  open: boolean;
+  onClose: () => void;
+  guardProducerMutation: (label: string, action: () => Promise<void>) => void;
+}) {
   const { show } = useToast();
 
   return (
@@ -87,9 +91,9 @@ export function AdminModal({ open, onClose }: { open: boolean; onClose: () => vo
       <div className="modal-cards">
         <UsersCard show={show} />
         <SettingsCard title="LLM 翻译" keys={LLM_KEYS} show={show} />
-        <UpstreamCard show={show} />
+        <UpstreamCard show={show} guardProducerMutation={guardProducerMutation} />
         <SettingsCard title="上游更新检测" keys={UPSTREAM_KEYS} show={show} />
-        <BackupCard show={show} />
+        <BackupCard show={show} guardProducerMutation={guardProducerMutation} />
         <SettingsCard title="备份配置" keys={BACKUP_KEYS} show={show} />
       </div>
     </Modal>
@@ -110,8 +114,16 @@ function UsersCard({ show }: { show: ShowFn }) {
     catch (e) { show(e instanceof Error ? e.message : "创建失败", "err"); }
   };
   const setRole = async (u: User, role: "admin" | "editor") => {
-    try { await updateUser(u.username, { role }); reload(); show("已更新角色", "ok"); }
-    catch (e) { show(e instanceof Error ? e.message : "更新失败", "err"); }
+    try {
+      await updateUser(u.username, { role });
+      if (u.username === getUsername()) {
+        await clearSession();
+        show("当前账号角色已变化，请重新登录", "ok");
+        return;
+      }
+      reload();
+      show("已更新角色", "ok");
+    } catch (e) { show(e instanceof Error ? e.message : "更新失败", "err"); }
   };
   const resetPw = async (u: User) => {
     const pw = prompt(`为 ${u.username} 设置新密码`);
@@ -135,7 +147,11 @@ function UsersCard({ show }: { show: ShowFn }) {
             <tr key={u.id}>
               <td>{u.username}</td>
               <td>
-                <select value={u.role} onChange={(e) => setRole(u, e.target.value as "admin" | "editor")}>
+                <select
+                  aria-label={`${u.username} 的角色`}
+                  value={u.role}
+                  onChange={(e) => setRole(u, e.target.value as "admin" | "editor")}
+                >
                   <option value="admin">管理员</option>
                   <option value="editor">校对员</option>
                 </select>
@@ -149,10 +165,10 @@ function UsersCard({ show }: { show: ShowFn }) {
         </tbody>
       </table>
       <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div className="form-row" style={{ margin: 0 }}><label>用户名</label><input value={nu} onChange={(e) => setNu(e.target.value)} /></div>
-        <div className="form-row" style={{ margin: 0 }}><label>密码</label><input type="password" value={np} onChange={(e) => setNp(e.target.value)} /></div>
-        <div className="form-row" style={{ margin: 0 }}><label>角色</label>
-          <select value={nr} onChange={(e) => setNr(e.target.value as "admin" | "editor")}>
+        <div className="form-row" style={{ margin: 0 }}><label htmlFor="new-username">用户名</label><input id="new-username" value={nu} onChange={(e) => setNu(e.target.value)} /></div>
+        <div className="form-row" style={{ margin: 0 }}><label htmlFor="new-password">密码</label><input id="new-password" type="password" minLength={12} value={np} onChange={(e) => setNp(e.target.value)} /></div>
+        <div className="form-row" style={{ margin: 0 }}><label htmlFor="new-role">角色</label>
+          <select id="new-role" value={nr} onChange={(e) => setNr(e.target.value as "admin" | "editor")}>
             <option value="editor">校对员</option><option value="admin">管理员</option>
           </select>
         </div>
@@ -184,18 +200,22 @@ function SettingsCard({ title, keys, show }: { title: string; keys: readonly (re
     <div className="card">
       <h3>{title}</h3>
       {!hasMasterKey && <p style={{ color: "var(--warn)", fontSize: 12, marginBottom: 10 }}>未配置 MOESEKAI_MASTER_KEY，密钥项无法保存</p>}
-      {keys.map(([k, label]) => (
-        <div className="form-row" key={k}>
-          <label>{label}</label>
-          <input
-            type={k.includes("key") || k.includes("secret") ? "password" : "text"}
-            value={values[k] ?? ""}
-            onChange={(e) => setValues((p) => ({ ...p, [k]: e.target.value }))}
-            placeholder={values[k] === "********" ? "（已设置，留空不变）" : ""}
-          />
-          {SETTING_HINTS[k] && <p className="form-hint">{SETTING_HINTS[k]}</p>}
-        </div>
-      ))}
+      {keys.map(([k, label]) => {
+        const inputID = `setting-${k.replaceAll(".", "-")}`;
+        return (
+          <div className="form-row" key={k}>
+            <label htmlFor={inputID}>{label}</label>
+            <input
+              id={inputID}
+              type={k.includes("key") || k.includes("secret") ? "password" : "text"}
+              value={values[k] ?? ""}
+              onChange={(e) => setValues((p) => ({ ...p, [k]: e.target.value }))}
+              placeholder={values[k] === "********" ? "（已设置，留空不变）" : ""}
+            />
+            {SETTING_HINTS[k] && <p className="form-hint">{SETTING_HINTS[k]}</p>}
+          </div>
+        );
+      })}
       <button className="btn btn-primary" onClick={saveAll}>保存</button>
     </div>
   );
@@ -203,7 +223,7 @@ function SettingsCard({ title, keys, show }: { title: string; keys: readonly (re
 
 // ---- Upstream ----
 
-function UpstreamCard({ show }: { show: ShowFn }) {
+function UpstreamCard({ show, guardProducerMutation }: { show: ShowFn; guardProducerMutation: (label: string, action: () => Promise<void>) => void }) {
   const [status, setStatus] = useState<UpstreamStatus | null>(null);
   const reload = useCallback(() => { getUpstreamStatus().then(setStatus).catch(() => {}); }, []);
   useEffect(() => { reload(); }, [reload]);
@@ -235,8 +255,8 @@ function UpstreamCard({ show }: { show: ShowFn }) {
         </table>
       )}
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn btn-secondary" onClick={() => check(false)}>立即检查</button>
-        <button className="btn btn-secondary" onClick={() => check(true)}>强制同步</button>
+        <button className="btn btn-secondary" onClick={() => guardProducerMutation("检查上游更新", () => check(false))}>立即检查</button>
+        <button className="btn btn-secondary" onClick={() => guardProducerMutation("强制同步上游", () => check(true))}>强制同步</button>
       </div>
     </div>
   );
@@ -244,24 +264,43 @@ function UpstreamCard({ show }: { show: ShowFn }) {
 
 // ---- Backup ----
 
-function BackupCard({ show }: { show: ShowFn }) {
+function BackupCard({ show, guardProducerMutation }: { show: ShowFn; guardProducerMutation: (label: string, action: () => Promise<void>) => void }) {
   const [status, setStatus] = useState<BackupStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<"s3" | "git" | null>(null);
+  const [restoreConfirmation, setRestoreConfirmation] = useState("");
   const reload = useCallback(() => { getBackupStatus().then(setStatus).catch(() => {}); }, []);
   useEffect(() => { reload(); }, [reload]);
 
   const doPush = async () => {
     setBusy(true);
     try { const r = await pushBackup(); show(`备份完成: ${JSON.stringify(r.results)}`, "ok"); reload(); }
-    catch (e) { show(e instanceof Error ? e.message : "备份失败", "err"); }
+    catch (e) {
+      if (e instanceof APIError && e.results) show(`备份未全部完成: ${JSON.stringify(e.results)}`, "err");
+      else show(e instanceof Error ? e.message : "备份失败", "err");
+    }
     finally { setBusy(false); }
   };
-  const doRestore = async (target: "s3" | "git") => {
-    if (!confirm(`从 ${target} 恢复将覆盖当前数据，确认？`)) return;
+  const performRestore = async (target: "s3" | "git", confirmation: string) => {
     setBusy(true);
-    try { await restoreBackup(target); show(`已从 ${target} 恢复`, "ok"); }
-    catch (e) { show(e instanceof Error ? e.message : "恢复失败", "err"); }
+    try {
+      await restoreBackup(target, confirmation);
+      reload();
+      setRestoreTarget(null);
+      setRestoreConfirmation("");
+      show(`已从 ${target === "git" ? "GitHub" : "S3"} 恢复`, "ok");
+    } catch (e) { show(e instanceof Error ? e.message : "恢复失败", "err"); }
     finally { setBusy(false); }
+  };
+  const requestRestore = (target: "s3" | "git") => {
+    setRestoreTarget(target);
+    setRestoreConfirmation("");
+  };
+  const confirmRestore = () => {
+    if (!restoreTarget || restoreConfirmation !== `RESTORE:${restoreTarget}`) return;
+    const target = restoreTarget;
+    const confirmation = restoreConfirmation;
+    guardProducerMutation(`从 ${target} 恢复`, () => performRestore(target, confirmation));
   };
 
   return (
@@ -280,9 +319,21 @@ function BackupCard({ show }: { show: ShowFn }) {
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button className="btn btn-primary" onClick={doPush} disabled={busy}>立即备份</button>
-        <button className="btn btn-secondary" onClick={() => doRestore("git")} disabled={busy}>从 GitHub 恢复</button>
-        <button className="btn btn-secondary" onClick={() => doRestore("s3")} disabled={busy}>从 S3 恢复</button>
+        <button className="btn btn-secondary" onClick={() => requestRestore("git")} disabled={busy}>从 GitHub 恢复</button>
+        <button className="btn btn-secondary" onClick={() => requestRestore("s3")} disabled={busy}>从 S3 恢复</button>
       </div>
+      {restoreTarget && (
+        <div className="restore-confirmation" role="alert">
+          <strong>恢复会覆盖当前内容数据</strong>
+          <p>先确认已完成最新备份且当前没有其他管理员操作。请输入 <code>RESTORE:{restoreTarget}</code> 才能继续从 {restoreTarget === "git" ? "GitHub" : "S3"} 恢复。</p>
+          <label htmlFor="restore-confirmation-input">恢复确认文字</label>
+          <input id="restore-confirmation-input" value={restoreConfirmation} onChange={(event) => setRestoreConfirmation(event.target.value)} autoComplete="off" disabled={busy} />
+          <div className="dirty-guard-actions">
+            <button className="btn btn-secondary" onClick={confirmRestore} disabled={busy || restoreConfirmation !== `RESTORE:${restoreTarget}`}>确认覆盖并恢复</button>
+            <button className="btn btn-ghost" onClick={() => { setRestoreTarget(null); setRestoreConfirmation(""); }} disabled={busy}>取消</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

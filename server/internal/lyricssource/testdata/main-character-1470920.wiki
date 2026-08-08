@@ -1,0 +1,502 @@
+{{Song box 2
+  |color     = #2B5072; color:orange
+  |image     = Main Character.png
+  |title     = "'''メインキャラクター'''"
+* Romaji: Mein Kyarakutaa
+* Official English: Main Character
+  |date      = April 23, 2016
+  |views     = {{v|nn|394,814}} and {{v|yt|835,500}}
+  |singers   = [[Kagamine Len]]
+  |producers = [[*Luna]] (music, lyrics)
+* [[Bibi]] (tuning)
+* Haluo (mix, mastering)
+* moka (video)
+  |links     = {{l|nn|sm28696493}} {{l|yt|xZ8WPyJCkJY}}
+}}
+
+==Background==
+{{Quote|I'm going to prove it, that I'm the main charcter of this story.|Author's comment}}
+"'''Main Character'''" is an original rock song by *Luna featuring Kagamine Len, it was one of his notable songs and also their first work of using Len.
+
+The song presents a bittersweet reflective narrative and themes about ambition, conviction, inevitable divergence of life paths, and the conflict between what is normal life vs. personal dreams.
+
+The story follows a boy who is a pianist. has always viewed himself as the "main protagonist" of his own story. This is not born of arrogance, but from a steadfast belief in following what he perceives to be the "right" path, regardless of where it leads. In his youth, he shared a close bond with a friend who is a guitarist, With whom he dreamed of becoming musicians. Together, they were united by lofty ambitions and a shared determination to ''make something happen''.
+
+As time passed, however, his friend chose a conventional, stable path into adulthood, leaving those musical dreams behind. Unwilling to follow suit, the boy rejected what he saw as an ordinary and uninspired future, choosing instead a more uncertain, arduous route in pursuit of something extraordinary. This decision left him isolated, facing setbacks, hardship, and a point of no return. Though no one openly predicted his failure, he felt the unspoken doubts surrounding him. Nevertheless, he remained resolute, believing that the role of a true protagonist demands persistence.
+
+As the years unfolded, he recognized the widening gulf between himself and his former friend, their lives now existing in worlds too different for mutual understanding. While he does not regret the path he chose, he resents the pain it has brought and the impossibility of turning back, embodying the paradox of finding strength and purpose in a journey that is both empowering and profoundly isolating.
+
+However, in the new version of the song with the "'''Remaster'''" subtitle, the added lyrics conclude with the boy's unwavering resolve to take full control of his own life, without compromise and without reliance on others. This shift reframes the narrative into one of absolute independence, where every choice, success, and failure rests entirely on his shoulders. In doing so, the song captures both the liberating sense of agency that comes with such freedom, and the inevitable solitude it brings, leaving the listener with a bittersweet reflection on what it truly means to live entirely for oneself.
+
+This song has entered the ''[[Hall of Fame]]''.
+
+The original version is featured in the album of the [[メインキャラクター (Main Character) (album)|same name]].
+
+The remastered version is featured in the albums ''[[初音ミク「マジカルミライ 2019」OFFICIAL ALBUM (Hatsune Miku "Magical Mirai 2019" OFFICIAL ALBUM)|Hatsune Miku "Magical Mirai 2019" OFFICIAL ALBUM]]'' and ''[[KARENT presents 鏡音リン・レン 10th Anniversary -LODESTAR-]]''.
+
+==Suceeding Versions==
+{{Derivative
+  |color       = #f67fc3; color: white
+  |title       = Omake Character version
+  |singers     = Kagamine Len
+  |producers   = [[*Luna]] (music, lyrics, arrangment)
+  |categories  = Arrangement; Remix
+  |description = A piano ballad version, available from the album ''Haru no Mahou - Magic of Youth -''.
+  |links       =
+}}
+{{Derivative
+  |color       = #2B5072; color:orange
+  |title       = Remaster version
+  |singers     = Kagamine Len
+  |producers   = [[*Luna]] (music, lyrics), [[Bibi]] (tuning), Haluo (mixing, mastering)
+  |categories  = Remaster
+  |description = A remastered version with additional lyrics near the end (2:53), available from two albums: ''Kagamine Rin Len 10th Anniversary -LODESTAR-'' and ''Hatsune Miku "Magical Mirai 2019" OFFICIAL ALBUM'
+  |links       =
+}}
+{{clr}}
+{{Derivative
+  |color       = #0f4490; color: white
+  |title       = Yuaru version
+  |singers     = {{Utaite|Yuaru}}
+  |producers   = [[*Luna]] (music, lyrics, arrangment)
+  |categories  = Human Cover;
+  |description = An official human vocal version, available from the album ''Lazuli no Yume''. 
+  |links       =
+}}
+{{Derivative
+  |color       = #102658; color: white
+  |title       = Nobody version
+  |singers     = Kagamine Len
+  |producers   = [[*Luna]] (music, lyrics), [[Bibi]] (tuning), Haluo (mixing, mastering)
+  |categories  = Remaster;
+  |description = An another remake version available from the album ''Nobody'', Unlike the first, this does not contain additional lyrics but being faithful to the original.
+  |links       =
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Original version =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|それから僕たちは肩を組んで
+|sore kara bokutachi wa kata o kunde
+|-
+|「何かを起こそう、やり返してやるんだ」って
+|"nanika o okosou, yarikaeshite yan da" tte
+|-
+|何となく、確かに
+|nantonaku, tashika ni
+|-
+|巫山戯て、真剣に思っていた
+|fuzakete, shinken ni omotteta
+|-
+|<br>
+|-
+|「見たくないって瞑ってたって
+|"mitakunai tte tsubuttetatte
+|-
+|聴きたくないって塞いだって
+|kikitakunai tte fusaidatte
+|-
+|現実はそこにあるんだって
+|genjitsu wa soko ni an da tte
+|-
+|お前に一体何が出来るんだ」
+|omae ni ittai nani ga deki nda"
+|-
+|<br>
+|-
+|そんなの僕に言われたって知らないよ
+|sonna no boku ni iwaretatte shiranai yo
+|-
+|だっていつだって主人公は絶対に
+|datte itsudatte shujinkou wa zettai ni
+|-
+|特別な何かを持ってた
+|tokubetsu na nanika o motteta
+|-
+|<br>
+|-
+|それから僕たちは別々の道
+|sore kara bokutachi wa betsubetsu no michi
+|-
+|未来は平凡、平均点、平行線
+|mirai wa heibon, heikinten, heikousen
+|-
+|足並み揃えてさ
+|ashinami soroete sa
+|-
+|大人の階段を上る
+|otona no kaidan o noboru
+|-
+|<br>
+|-
+|それが耐えられなくて
+|sore ga taerarenakute
+|-
+|投げ出して、逃げ出して
+|nagedashite, nigedashite
+|-
+|転げ落ちたんだ
+|korogeochita nda
+|-
+|拗らせて悪化した病状はもう
+|kojirasete akka shita byoujou wa mou
+|-
+|治らない
+|naoranai
+|-
+|<br>
+|-
+|「望みは無いよ、やめておけって
+|"nozomi wa nai yo, yamete oke tte
+|-
+|博打だ、どうせ外れだよ
+|bakuchi da douse hazure da yo
+|-
+|現実は甘くないんだって
+|genjitsu wa amakunai nda tte
+|-
+|ヒーローなんて成れやしないんだ」
+|hiiroo nante nare ya shinai nda"
+|-
+|<br>
+|-
+|そんなこと言われなくたって
+|sonna koto iwarenakutatte
+|-
+|知ってるよだって今だって
+|shitteru yo datte ima datte
+|-
+|不安で泣き出しそうになる
+|fuan de nakidashisou ni naru
+|-
+|君と同じように
+|kimi to onaji you ni
+|-
+|<br>
+|-
+|忠告はたくさんあった
+|chuukoku wa takusan atta
+|-
+|でもこれを選び取ったんだ
+|demo kore o erabitotta nda
+|-
+|正しいと証明するんだ
+|tadashii to shoumei sunda
+|-
+|この物語の主人公だって
+|kono monogatari no shujinkou da tte
+|-
+|<br>
+|-
+|信じ続ければ真実に
+|shinjitsuzukereba shinjitsu ni
+|-
+|実現するんだ現実に
+|jitsugen surun da genjitsu ni
+|-
+|もう戻れないんだから
+|mou modorenai ndakara
+|-
+|<br>
+|-
+|あれから僕だけは置いてけぼり
+|are kara boku dake wa oitekebori
+|-
+|「何かを起こそう、やり返してやる」なんて
+|"nanika o okosou yarikaeshite yaru" nante
+|-
+|大層な思想で空想に取り憑かれて
+|taisou na shisou de kuusou ni tori tsukarete
+|-
+|<br>
+|-
+|それに気づかずに大人になって
+|sore ni kizukazu ni otona ni natte
+|-
+|見渡せばそこに優劣など無い
+|miwataseba soko ni yuuretsu nado nai
+|-
+|きっと同じくらい思いを抱えて…
+|kitto onaji kurai omoi o kakaete…
+|-
+|<br>
+|-
+|君が立つ場所はきっと
+|kimi ga tatsu basho wa kitto
+|-
+|僕が諦めた未来で
+|boku ga akirameta mirai de
+|-
+|選んだものが違うから
+|eranda mono ga chigau kara
+|-
+|分かり合えないこともあるけど
+|wakariaenai koto mo aru kedo
+|-
+|<br>
+|-
+|諦めたやつが口を出して
+|akirameta yatsu ga kuchi o dashite
+|-
+|指差して笑うなんて
+|yubisashite warau nante
+|-
+|おかしいだろ？
+|okashii daro?
+|-
+|嫌いだ、僕は
+|kirai da, boku wa…
+|-
+|{{Shared}}|(Ah)
+|}
+|-|Remastered version =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|それから僕たちは肩を組んで
+|sore kara bokutachi wa kata o kunde
+|-
+|「何かを起こそう、やり返してやるんだ」って
+|"nanika o okosou, yarikaeshite yan da" tte
+|-
+|何となく、確かに
+|nantonaku, tashika ni
+|-
+|巫山戯て、真剣に思っていた
+|fuzakete, shinken ni omotteta
+|-
+|<br>
+|-
+|「見たくないって瞑ってたって
+|"mitakunai tte tsubuttetatte
+|-
+|聴きたくないって塞いだって
+|kikitakunai tte fusaidatte
+|-
+|現実はそこにあるんだって
+|genjitsu wa soko ni an da tte
+|-
+|お前に一体何が出来るんだ」
+|omae ni ittai nani ga deki nda"
+|-
+|<br>
+|-
+|そんなの僕に言われたって知らないよ
+|sonna no boku ni iwaretatte shiranai yo
+|-
+|だっていつだって主人公は絶対に
+|datte itsudatte shujinkou wa zettai ni
+|-
+|特別な何かを持ってた
+|tokubetsu na nanika o motteta
+|-
+|<br>
+|-
+|それから僕たちは別々の道
+|sore kara bokutachi wa betsubetsu no michi
+|-
+|未来は平凡、平均点、平行線
+|mirai wa heibon, heikinten, heikousen
+|-
+|足並み揃えてさ
+|ashinami soroete sa
+|-
+|大人の階段を上る
+|otona no kaidan o noboru
+|-
+|<br>
+|-
+|それが耐えられなくて
+|sore ga taerarenakute
+|-
+|投げ出して、逃げ出して
+|nagedashite, nigedashite
+|-
+|転げ落ちたんだ
+|korogeochita nda
+|-
+|拗らせて悪化した病状はもう
+|kojirasete akka shita byoujou wa mou
+|-
+|治らない
+|naoranai
+|-
+|<br>
+|-
+|「望みは無いよ、やめておけって
+|"nozomi wa nai yo, yamete oke tte
+|-
+|博打だ、どうせ外れだよ
+|bakuchi da douse hazure da yo
+|-
+|現実は甘くないんだって
+|genjitsu wa amakunai nda tte
+|-
+|ヒーローなんて成れやしないんだ」
+|hiiroo nante nare ya shinai nda"
+|-
+|<br>
+|-
+|そんなこと言われなくたって
+|sonna koto iwarenakutatte
+|-
+|知ってるよだって今だって
+|shitteru yo datte ima datte
+|-
+|不安で泣き出しそうになる
+|fuan de nakidashisou ni naru
+|-
+|君と同じように
+|kimi to onaji you ni
+|-
+|<br>
+|-
+|忠告はたくさんあった
+|chuukoku wa takusan atta
+|-
+|でもこれを選び取ったんだ
+|demo kore o erabitotta nda
+|-
+|正しいと証明するんだ
+|tadashii to shoumei sunda
+|-
+|この物語の主人公だって
+|kono monogatari no shujinkou da tte
+|-
+|<br>
+|-
+|信じ続ければ真実に
+|shinjitsuzukereba shinjitsu ni
+|-
+|実現するんだ現実に
+|jitsugen surun da genjitsu ni
+|-
+|もう戻れないんだから
+|mou modorenai ndakara
+|-
+|<br>
+|-
+|あれから僕だけは置いてけぼり
+|are kara boku dake wa oitekebori
+|-
+|「何かを起こそう、やり返してやる」なんて
+|"nanika o okosou yarikaeshite yaru" nante
+|-
+|大層な思想で空想に取り憑かれて
+|taisou na shisou de kuusou ni tori tsukarete
+|-
+|<br>
+|-
+|それに気づかずに大人になって
+|sore ni kizukazu ni otona ni natte
+|-
+|見渡せばそこに優劣など無い
+|miwataseba soko ni yuuretsu nado nai
+|-
+|きっと同じくらい思いを抱えて…
+|kitto onaji kurai omoi o kakaete…
+|-
+|<br>
+|-
+|君が立つ場所はきっと
+|kimi ga tatsu basho wa kitto
+|-
+|僕が諦めた未来で
+|boku ga akirameta mirai de
+|-
+|選んだものが違うから
+|eranda mono ga chigau kara
+|-
+|分かり合えないこともあるけど
+|wakariaenai koto mo aru kedo
+|-
+|<br>
+|-
+|諦めたやつが口を出して
+|akirameta yatsu ga kuchi o dashite
+|-
+|指差して笑うなんて
+|yubisashite warau nante
+|-
+|おかしいだろ？
+|okashii daro?
+|-
+|嫌いだ、僕は
+|kirai da, boku wa
+|-
+|{{Shared}}|(Ah)
+|-
+|<br>
+|-
+|僕は僕でこの物語を紡ぐ
+|boku wa boku de kono monogatari o tsumugu
+|-
+|それは僕のための僕による僕だけの
+|sore wa boku no tame no boku ni yoru boku dake no
+|-
+|ストーリーだ
+|sutoorii da
+|-
+|{{Shared}}|(Yay Ah)
+|}
+</tabber>
+
+==Other media appearances==
+===Discogrpahy===
+The original version of this song was featured on the following albums:
+*[[メインキャラクター (Main Character) (album)]]
+*初音ミク「マジカルミライ 2019」Blu-ray＆DVD (Hatsune Miku "Magical Mirai 2019" Blu-ray＆DVD)
+Omake Character is featured on the following album:
+*春の魔法 - Magic of Youth - (Haru no Mahou - Magic of Youth -) 
+A remastered version of this song was featured on the following album:
+*鏡音リン・レン 10th Anniversary -LODESTAR- (Kagamine Rin Len 10th Anniversary -LODESTAR-)
+*初音ミク「マジカルミライ 2019」OFFICIAL ALBUM (Hatsune Miku "Magical Mirai 2019" OFFICIAL ALBUM)
+*Traverse
+An another remastered version of this song was featured on the following album:
+*Nobody
+
+===Concerts===
+The remastered version was featured in the following concerts:
+* [[Hatsune Miku Magical Mirai 2019|Magical Mirai 2019]]
+* [[MIKU WITH YOU 2019]]
+* [[Kagamine Rin & Len Happy 14th Birthday Party 「Two You☆★」]]
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="#2B5072">
+Games - Project SEKAI - メインキャラクター.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |dwlds  = [https://piapro.jp/t/v8-t Off-vocal] — piapro
+ }}
+
+===Unofficial===
+{{Unofficial
+  |at     = 34343
+  |nico   = sm28696493
+  |vocadb = 123940
+  |vocadb2 = 252707 Remastered ver －
+  |vocadb3 = 159009 Omake Characrter ver －
+  |vocadb4 = 239265 Yuaru ver －
+  |vocadb4 = 575815 Nobody ver －
+  |vocadb5 = 239265 Yuaru ver －
+  |mgp    = Main_Character
+  |vlw    = メインキャラクター (Main Character)
+  |url    = {{IW|projectsekai|Main Character|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Concert songs]]
+[[Category:Mobile game songs]]

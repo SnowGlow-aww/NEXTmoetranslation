@@ -1,0 +1,453 @@
+{{Epileptic Warning}}
+{{NoReprint}}
+<tabber>25-ji, Nightcord de. Version =
+{{Song box 2
+  |color     = #555561; color:#E0E0DE
+  |image     = Nihil-san N25.jpg
+  |title     = "'''虚無さん'''"
+* Hiragana: にひるさん
+* Romaji: Nihiru-san
+* Latin: Nihil
+* English: Ms. Nihility
+* Official English: Mx.Nihil
+  |date      = May 6, 2025
+  |views     = {{v|yt|8,608,628}}, {{v|nn|467,208}}, and {{v|bb|4,206}}
+  |singers   = [[Kagamine Len SP]], {{IW|projectsekai|Asahina Mafuyu}}, {{IW|projectsekai|Yoisaki Kanade}}, {{IW|projectsekai|Akiyama Mizuki}}, and {{IW|projectsekai|Shinonome Ena}}
+  |producers = ¿?shimon (music, arrangement, lyrics)
+* TKS (illustration)
+* Usumizu (Shiroiro Mode) (video)
+* Tamano Hazuki (logo design, lyrics design)
+  |links     = {{l|yt|LWHwJMGP9Rw}} {{l|nn|so44976097}} {{l|bb|BV1Lt9YBQEsr}}
+}}
+|-|VOCALOID Version =
+{{Song box 2
+  |color     = #DAAC4E; color: black
+  |image     = Nihil-san flower.jpg
+  |title     = "'''虚無さん'''"
+* Hiragana: にひるさん
+* Romaji: Nihiru-san
+* Latin: Nihil
+* English: Ms. Nihility
+* Official English: Mr.nihil
+  |date      = May 6, 2025
+  |views     = {{v|nn|265,634}} and {{V|yt|
+2,102,125}}
+  |singers   = [[v4 flower]]
+  |producers = ¿?shimon (music, arrangement, lyrics)
+* Kuroume (illustration)
+* Yotabaito (video)
+  |links     = {{l|nn|sm44953291}} {{l|yt|jaCSrluJBUE}}
+}}
+</tabber>
+
+==Background==
+"'''Mx.Nihil'''", or "'''Mr.nihil'''" for the VOCALOID version, is an original song produced by ¿?shimon. It was commissioned for the unit {{IW|projectsekai|25-ji, Nightcord de.}} from the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+Both the 25-ji, Nightcord de. version and the VOCALOID version of the song have entered the ''[[Hall of Fame]]'' on Niconico, while their YouTube uploads have exceeded 8 million views and 2 million views respectively.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #884499; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - 虚無さん.png
+  |singers     = {{IW|projectsekai|25-ji, Nightcord de.}}: {{IW|projectsekai|Kagamine Len}}, Asahina Mafuyu (CV: {{IW|projectsekai|Tanabe Rui}}), Yoisaki Kanade (CV: {{IW|projectsekai|Kusunoki Tomori}}), Akiyama Mizuki (CV: {{IW|projectsekai|Satou Hinata}}), Shinonome Ena (CV: {{IW|projectsekai|Suzuki Minori}})
+  |producers   = TACCHI (choreography), Jakko, Kisumi Reika, Nakanishi Yuka, Suzuka, TACCHI (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture), [https://www.marza.com/ MARZA ANIMATION PLANET] (overall direction, staging, camerawork, animation supervision)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Vocal; Human Vocal; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so44958354; yt 7bsJDMmWbrk
+}}
+{{Derivative
+  |color       = #DAAC4E; color: black
+  |title       = ¿?shimon's Self-Cover
+  |singers     = ¿?shimon
+  |producers   = ¿?shimon (music, arrange, lyrics), Kuroume (illust), Yotabaito (video)
+  |categories  = Human Cover
+  |description = ¿?shimon's cover features a rap section not featured in both the 25-ji, Nightcord de. and VOCALOID versions.
+  |links       = nn sm44964876; yt sRBPkugDXWQ
+}}
+{{clr}}
+{{Derivative
+  |color       = #884499; color: white
+  |title       = Project SEKAI Version [Another Vocal (1)]
+  |thumb       = Games - Project SEKAI - 虚無さん.png
+  |singers     = 25-ji, Nightcord de.: Asahina Mafuyu (CV: Tanabe Rui)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{Derivative
+  |color       = #00CDBA; color: white
+  |title       = Project SEKAI Version [Another Vocal (2)]
+  |thumb       = Games - Project SEKAI - 虚無さん.png
+  |singers     = {{IW|projectsekai|VIRTUAL SINGER}}: Kagamine Len
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = VOCALOID Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #DAAC4E; color: black
+  |title       = Tuning Process Livestream
+  |singers     = [[Hatsune Miku V4X]], [[Kagamine Rin V4X]], [[Kagamine Len V4X]], [[Megurine Luka V4X]], [[MEIKO V3]], and [[KAITO V3]]
+  |producers   = ¿?shimon
+  |categories  = VOCALOID Cover
+  |description = A nearly 3 hour livestream featuring ¿?shimon going over the tuning process for the first half this song.
+  |links       = yt G3MfhmtdV48
+}}
+{{Derivative
+  |color       = #DAAC4E; color: black
+  |title       = Piapro Characters Version
+  |singers     = Hatsune Miku V4X, Kagamine Rin V4X, Kagamine Len V4X, Megurine Luka V4X, MEIKO V3, and KAITO V3
+  |producers   = ¿?shimon
+  |categories  = VOCALOID Cover
+  |description = A finalized version of the short Piapro Characters cover ¿?shimon tuned in his livestream.
+  |links       = 00 https://twitter.com/Shimon0518/status/2052708988769492998
+  |comments    = Twitter
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>25-ji, Nightcord de. Version =
+{{lrc legend|#555561; color:#E0E0DE
+|Len:#FFEE12
+|Mafuyu:#8889CC
+|Kanade:#BB6588
+|Mizuki:#E4A8CA
+|Ena:#CCAA87
+|Chorus
+}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|mafuyu|虚無っぽいなんかもうだめみたい}}
+|{{lrc color|mafuyu|kyomu ppoi nanka mou dame mitai}}
+|-
+|{{lrc color|mafuyu|もうバラバラです}} {{lrc color|len|{{ruby|空|からから}}です}}
+|{{lrc color|mafuyu|mou barabara desu}} {{lrc color|len|karakara desu}}
+|-
+|{{lrc color|mafuyu|くだんない本当もう馬鹿みたい}}
+|{{lrc color|mafuyu|kudannai hontou mou baka mitai}}
+|-
+|{{lrc color|len|もう虜みたい静かな世界}}
+|{{lrc color|len|mou toriko mitai shizuka na sekai}}
+|-
+|<br>
+|-
+|{{lrc color|kanade|君の期待応えたいし}}
+|{{lrc color|kanade|kimi no kitai kotaetai shi}}
+|-
+|{{lrc color|mizuki|心次第に枯れちゃうし}}
+|{{lrc color|mizuki|kokoro shidai ni karechau shi}}
+|-
+|{{lrc color|ena|きりない焦燥と期待で痛くなる未来}}
+|{{lrc color|ena|kirinai shousou to kitai de itaku naru mirai}}
+|-
+|{{lrc color|kanade|孤独に囚われちゃうし}}
+|{{lrc color|kanade|kodoku ni torawarechau shi}}
+|-
+|{{lrc color|mizuki|トラウマが脳支配しちゃうし}}
+|{{lrc color|mizuki|torauma ga noushihai shichau shi}}
+|-
+|{{lrc color|mafuyu|最低な日々だ}}
+|{{lrc color|mafuyu|saitei na hibi da}}
+|-
+|<br>
+|-
+|{{lrc color|mafuyu|痛い}}
+|{{lrc color|mafuyu|itai}}
+|-
+|<br>
+|-
+|バイオレンス バイオレンス {{lrc color|len|■}}{{lrc color|mafuyu|■}}{{lrc color|mizuki|■}}
+|baiorensu baiorensu {{lrc color|len|■}}{{lrc color|mafuyu|■}}{{lrc color|mizuki|■}}
+|-
+|何も分かんない分かんないよ {{lrc color|len|■}}{{lrc color|mafuyu|■}}{{lrc color|mizuki|■}}
+|nanmo wakannai wakannai yo {{lrc color|len|■}}{{lrc color|mafuyu|■}}{{lrc color|mizuki|■}}
+|-
+|{{lrc color|len|難解愛をロスト 愛をロスト 愛して 愛して}}
+|{{lrc color|len|nankai ai o rosuto ai o rosuto aishite aishite}}
+|-
+|アイロニー アイロニー {{lrc color|len|■}}{{lrc color|kanade|■}}{{lrc color|ena|■}}
+|aironii aironii {{lrc color|len|■}}{{lrc color|kanade|■}}{{lrc color|ena|■}}
+|-
+|クラクラする毎日だ {{lrc color|len|■}}{{lrc color|kanade|■}}{{lrc color|ena|■}}
+|kurakura suru mainichi da {{lrc color|len|■}}{{lrc color|kanade|■}}{{lrc color|ena|■}}
+|-
+|{{lrc color|mafuyu|脳内エンドレス エンドレス 討論}}
+|{{lrc color|mafuyu|nounai endoresu endoresu touron}}
+|-
+|{{lrc color|mafuyu|やめてくれよもう}}
+|{{lrc color|mafuyu|yamete kure yo mou}}
+|-
+|<br>
+|-
+|{{lrc color|mizuki|何も期待しないで居たいし}}
+|{{lrc color|mizuki|nanimo kitai shinaide itai shi}}
+|-
+|{{lrc color|ena|見つからないって泣いた毎日}}
+|{{lrc color|ena|mitsukaranai tte naita mainichi}}
+|-
+|{{lrc color|kanade|苦しくて暖かいあの日が夢のようで}}
+|{{lrc color|kanade|kurushikute attakai ano hi ga yume no you de}}
+|-
+|{{lrc color|len|スポンジみたいなショートケーキ}}
+|{{lrc color|len|suponji mitai na shootokeeki}}
+|-
+|{{lrc color|mafuyu|悪気ない愛は痛いが平気なフリ}}
+|{{lrc color|mafuyu|warugi nai ai wa itai ga heiki na furi}}
+|-
+|{{lrc color|mafuyu|もう疲れた}}
+|{{lrc color|mafuyu|mou tsukareta}}
+|-
+|<br>
+|-
+|{{lrc color|mafuyu|ただ ただ ただ}}
+|{{lrc color|mafuyu|tada tada tada}}
+|-
+|{{lrc color|mafuyu|愛してほしい 愛してほしい}}
+|{{lrc color|mafuyu|aishite hoshii aishite hoshii}}
+|-
+|カラカラ乾いた {{lrc color|len|■}}{{lrc color|mafuyu|■}} {{lrc color|len|心満たして}}
+|karakara kawaita {{lrc color|len|■}}{{lrc color|mafuyu|■}} {{lrc color|len|kokoro mitashite}}
+|-
+|{{lrc color|len|消えたくないから}}
+|{{lrc color|len|kietakunai kara}}
+|-
+|<br>
+|-
+|{{lrc color|mafuyu|くだらないな}}
+|{{lrc color|mafuyu|kudaranai na}}
+|-
+|<br>
+|-
+|バイオレンス バイオレンス
+|baiorensu baiorensu
+|-
+|何も分かんない分かんないよ
+|nanmo wakannai wakannai yo
+|-
+|{{lrc color|len|難解愛をロスト 愛をロスト 愛して 愛して}}
+|{{lrc color|len|nankai ai o rosuto ai o rosuto aishite aishite}}
+|-
+|アイロニー アイロニー
+|aironii aironii
+|-
+|クラクラする毎日だ
+|kurakura suru mainichi da
+|-
+|あーネガっては願ってるから {{lrc color|len|■}}{{lrc color|mafuyu|■}}
+|aa negatte wa negatteru kara {{lrc color|len|■}}{{lrc color|mafuyu|■}}
+|-
+|{{lrc color|mafuyu|それぞれの愛が暖かな場所がある}}
+|{{lrc color|mafuyu|sorezore no ai ga atataka na basho ga aru}}
+|-
+|<br>
+|-
+|{{lrc color|mafuyu|痛い}}
+|{{lrc color|mafuyu|itai}}
+|}
+|-|VOCALOID Version =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|虚無っぽいなんかもうだめみたい
+|kyomu ppoi nanka mou dame mitai
+|-
+|もうバラバラです {{ruby|空|からから}}です
+|mou barabara desu karakara desu
+|-
+|くだんない本当もう馬鹿みたい
+|kudannai hontou mou baka mitai
+|-
+|もう虜みたい静かな世界
+|mou toriko mitai shizuka na sekai
+|-
+|<br>
+|-
+|君の期待応えたいし
+|kimi no kitai kotaetai shi
+|-
+|心次第に枯れちゃうし
+|kokoro shidai ni karechau shi
+|-
+|きりない焦燥と期待で痛くなる未来
+|kirinai shousou to kitai de itaku naru mirai
+|-
+|孤独に囚われちゃうし
+|kodoku ni torawarechau shi
+|-
+|トラウマが脳支配しちゃうし
+|torauma ga noushihai shichau shi
+|-
+|最低な日々だ
+|saitei na hibi da
+|-
+|<br>
+|-
+|痛い
+|itai
+|-
+|<br>
+|-
+|バイオレンス バイオレンス
+|baiorensu baiorensu
+|-
+|何も分かんない分かんないよ
+|nanmo wakannai wakannai yo
+|-
+|難解愛をロスト 愛をロスト 愛して 愛して
+|nankai ai o rosuto ai o rosuto aishite aishite
+|-
+|アイロニー アイロニー
+|aironii aironii
+|-
+|クラクラする毎日だ
+|kurakura suru mainichi da
+|-
+|脳内エンドレス エンドレス 討論
+|nounai endoresu endoresu touron
+|-
+|やめてくれよもう
+|yamete kure yo mou
+|-
+|<br>
+|-
+|何も期待しないで居たいし
+|nanimo kitai shinaide itai shi
+|-
+|見つからないって泣いた毎日
+|mitsukaranai tte naita mainichi
+|-
+|苦しくて暖かいあの日が夢のようで
+|kurushikute attakai ano hi ga yume no you de
+|-
+|スポンジみたいなショートケーキ
+|suponji mitai na shootokeeki
+|-
+|悪気ない愛は痛いが平気なフリ
+|warugi nai ai wa itai ga heiki na furi
+|-
+|もう疲れた
+|mou tsukareta
+|-
+|<br>
+|-
+|ただ ただ ただ
+|tada tada tada
+|-
+|愛してほしい 愛してほしい
+|aishite hoshii aishite hoshii
+|-
+|カラカラ乾いた 心満たして
+|karakara kawaita kokoro mitashite
+|-
+|消えたくないから
+|kietakunai kara
+|-
+|<br>
+|-
+|くだらないな
+|kudaranai na
+|-
+|<br>
+|-
+|バイオレンス バイオレンス
+|baiorensu baiorensu
+|-
+|何も分かんない分かんないよ
+|nanmo wakannai wakannai yo
+|-
+|難解愛をロスト 愛をロスト 愛して 愛して
+|nankai ai o rosuto ai o rosuto aishite aishite
+|-
+|アイロニー アイロニー
+|aironii aironii
+|-
+|クラクラする毎日だ
+|kurakura suru mainichi da
+|-
+|あーネガっては願ってるから
+|aa negatte wa negatteru kara
+|-
+|それぞれの愛が暖かな場所がある
+|sorezore no ai ga atataka na basho ga aru
+|-
+|<br>
+|-
+|痛い
+|itai
+</tabber>
+
+==Other media appearances==
+===Discography===
+The VOCALOID version of the song was featured on the single ''虚無さん (Nihil-san)''.
+
+The 25-ji, Nightcord de. version of the song was featured on the single ''虚無さん/飾って (Nihil-san/Kazatte)''.
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by flower; SEKAI version by 25-ji, Nightcord de. and Kagamine Len).
+
+==Trivia==
+*In the 25-ji, Nightcord de. PV, the beginning verse of the music video shows a questionaire that reads the following:
+**Question 1: What is your future aspiration?<br>"I don't know."
+**Question 2: What do you like?<br>"I don't know."
+**Question 3: What do you dislike?<br>"I don't know."
+**Question 4: What is love?<br>"I don't know."
+*The PV also shows Mafuyu's phone with the notifactions from the other members of Nightcord:
+**Nightcord at 25:00, now<br>K (Yoisaki Kanade)<br>1 Notification
+**Nightcord at 25:00, now<br>Enanan (Shinonome Ena)<br>1 Notification
+**Nightcord at 25:00, now<br>Amia (Akiyama Mizuki)<br>1 Notification
+*The phone shows up again in the middle of the PV, but now shows a notification from Mafuyu's mother:
+**Mom, now<br>1 Notification<br>Mom, now<br>1 Notification
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#555561">
+Games - Project SEKAI - 虚無さん.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#DAAC4E">
+shimon - Nihil-san (single).jpg|Cover art of the digital single<br>''虚無さん (Nihil-san)''
+shimonOonuma - Nihil-sanKazatte (single).png|Cover art of the single<br>''虚無さん/飾って (Nihil-san/Kazatte)''
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://linkco.re/QpdBNA9n TuneCore Japan (VOCALOID Version)]
+** [https://karent.jp/album/5485 KARENT (25-ji, Nightcord de. Version)]
+** [https://nodee.net/a/i6rs55k5e9g5 nodee (25-ji, Nightcord de. Version)]
+  |dwlds = '''Instrumental:'''
+** [https://www.dropbox.com/scl/fo/yas3ql8g7d5ornww1h26k/AHKa8cMQOkjYDo-8OSeK5I4?rlkey=4vvavua665ni6vmgmk9iv5z5p&st=s5kxk481&dl=0 Dropbox]
+** [https://drive.google.com/drive/folders/15YYvy-dbfCRiyvafzIM9J6tYFlViCRv- Google Drive]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 66403
+  |nico    = sm44953291
+  |vocadb  = 786031 25-ji, Nightcord de. Version —
+  |vocadb2 = 786030 VOCALOID Version —
+  |mgp     = 虚无桑
+  |tag     = 虚無さん
+  |vlw     = 虚無さん (Nihil-san)
+  |url     = {{IW|projectsekai|Nihil-san|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring flower]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring KAITO]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Mobile game songs]]
+[[Category:Self-covers]]

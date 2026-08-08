@@ -1,0 +1,503 @@
+{{SongWIP|Add the info regarding the novel}}
+{{Song box 2
+  |color     = #87D7B4; color:white
+  |image     = RinMelancholic.jpg
+  |title     = "'''メランコリック'''"
+* Romaji: Merankorikku
+* Official English: Melancholic
+  |date      = April 19, 2010
+  |views     = {{v|nn|5,962,686}} and {{v|yt|13,201,305}}
+  |singers   = [[Kagamine Rin]]
+  |producers = [[Junky]] (music, lyrics)
+* [[Chiho-P]] (illustration, video)
+  |links     = {{l|nn|sm10444862}} {{l|yt|86_kvUqhY-A}}
+}}
+
+==Background==
+"'''Melancholic'''" is an original song by Junky and is his most notable song. It was uploaded to YouTube on May 22, 2012.
+
+The song tells the story of a confused and conflicted tsundere girl (Rin), and her first time having a crush on a boy. Originally thinking all those feelings were "melancholy", the girl later realized it was love she felt, not sadness. Though her experience may have been bittersweet, she recognizes her feelings and moves on by the song's finish.
+
+One day later, its "reply" song, "[[トゥインクル (Twinkle)|Twinkle]]", with the same illustrator and composer, was uploaded, explaining more background to the song Melancholic.
+
+Nine days after the song was uploaded, it quickly became a hit and entered the ''[[Hall of Fame]]''. A year after, on July 12, 2011, it became Junky's first work to enter the ''Hall of Legend''.  It also exceeded over 10 million YouTube views. Hence, this is one of Junky's most notable songs, and one of Rin's most notable songs.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #87D7B4; color:#593B5E
+  |title       = Girl's ROCK mix
+  |singers     = Kagamine Rin
+  |producers   = Junky (music), Sakakibara Daisuke (video), Studio Hard Deluxe (production)
+  |categories  = Self-cover; Arrangement
+  |description = An arrangement included with preorders of the novel. A short sample and PV has been uploaded PHP-COMIX, the novel's publisher.
+  |links       = nn 1398161110; yt ona9M6dHRuI; nn so26259579; yt ulT7-UfTy7A
+}}
+{{Derivative
+  |color       = #87D7B4; color:white
+  |title       = ACTORS Version
+  |singers     = {{IW|actors-songs-connection|Hajime Kiriyama}} (CV: {{wp|Yuichiro Umehara}})
+  |producers   = [[EXIT TUNES]]
+  |categories  = Human Cover; Album-exclusive Content
+  |description = A cover featured in the ACTORS series. Featured on the album ''ACTORS -Extra Edition 9-'', released by EXIT TUNES.
+}}
+{{clr}}
+{{derivative
+  |color       = #FF3377; color:white
+  |title       = Bandori Version (Game size)
+  |thumb       = Games - BanG Dream - Melancholic.png
+  |singers     = {{MH|bandori|Poppin'Party}}: {{MH|bandori|Toyama Kasumi}} (CV: {{MH|bandori|Aimi}})
+  |producers   = Kasai Yuta (arrangement),<br>{{wp|Bushiroad}}
+  |categories  = Human Cover; Arrangement; In-game Content
+  |links       = yt FLY1zhYa5TQ
+  |comments    = game size
+  |description = Featured in the game ''{{MH|bandori|BanG Dream! Girls Band Party!}}''.
+}}
+{{derivative
+  |color       = #FF3377; color:white
+  |title       = Bandori Version (Full)
+  |thumb       = Games - BanG Dream - Melancholic.png
+  |singers     = Poppin'Party: Toyama Kasumi (CV: Aimi)
+  |producers   = Kasai Yuta (arrangement),<br>Bushiroad
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |links       = yt 2YAIxzVrkVI
+  |comments    = full audio
+  |description = Full version, featured in the album ''{{MH|bandori|Garupa Vocaloid Cover Collection}}'' from the game ''BanG Dream! Girls Band Party!''
+}}
+{{Derivative
+  |color       = #6CCB20; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size)
+  |thumb       = Games - Project SEKAI - メランコリック.png
+  |singers     = {{IW|projectsekai|MORE MORE JUMP!}}: {{IW|projectsekai|Kagamine Rin}}, {{IW|projectsekai|Hanasato Minori}} (CV: {{IW|projectsekai|Ogura Yui}}), {{IW|projectsekai|Kiritani Haruka}} (CV: {{IW|projectsekai|Yoshioka Mayu}}), {{IW|projectsekai|Momoi Airi}} (CV: {{IW|projectsekai|Furihata Ai}}), {{IW|projectsekai|Hinomori Shizuku}} (CV: {{IW|projectsekai|Honnizumi Rina}})
+  |producers   = {{Wp|SEGA}}, [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Piapro Studio Cover; Human Cover; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{Derivative
+  |color       = #6CCB20; color: white
+  |title       = Project SEKAI Version [Another Vocal]
+  |thumb       = Games - Project SEKAI - メランコリック.png
+  |singers     = MORE MORE JUMP!: Hanasato Minori (CV: Ogura Yui)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{Derivative
+  |color       = #6CCB20; color: white
+  |thumb       = Games - Project SEKAI - メランコリック.png
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |singers     = MORE MORE JUMP!: Kagamine Rin, Hanasato Minori (CV: Ogura Yui), Kiritani Haruka (CV: Yoshioka Mayu), Momoi Airi (CV: Furihata Ai), Hinomori Shizuku (CV: Honnizumi Rina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; Human Cover; Album-exclusive Content
+  |description = Full version, featured in MORE MORE JUMP!'s 3rd full album ''MORE MORE JUMP! SEKAI ALBUM Vol.3'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt TBVecP6BWPA
+}}
+{{Derivative
+  |color       = linear-gradient(to right, #6CCB20 0 50%,#FF9900 0 50%); color: white
+  |title       = Project SEKAI Version [SEKAI] (Full - Connect Live)
+  |thumb       = Games - Project SEKAI - メランコリック.png
+  |singers     = MORE MORE JUMP! x {{IW|projectsekai|Wonderlands x Showtime}}: Kagamine Rin, Hanasato Minori (CV: Ogura Yui), Kiritani Haruka (CV: Yoshioka Mayu), Momoi Airi (CV: Furihata Ai), Hinomori Shizuku (CV: Honnizumi Rina), {{IW|projectsekai|Tenma Tsukasa}} (CV: {{IW|projectsekai|Hirose Daisuke}}), {{IW|projectsekai|Otori Emu}} (CV: {{IW|projectsekai|Kino Hina}}), {{IW|projectsekai|Kusanagi Nene}} (CV: {{IW|projectsekai|Machico}}), {{IW|projectsekai|Kamishiro Rui}} (CV: {{IW|projectsekai|Toki Shunichi}})
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = VOCALOID Cover; Human Cover; In-game Content
+  |description = Featured in the ''{{IW|projectsekai|MORE MORE JUMP! x Wonderlands x Showtime Connect Live WON! MORE! HAPPY TIME}}'' event, from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''. This version uses Rin's VOCALOID voicebank from the original version rather than the Piapro Studio voicebank from the game size and ''SEKAI ALBUM'' version.
+}}
+{{clr}}
+{{derivative
+  |color       = #87D7B4; color:white
+  |title       = CrosSing Version
+  |categories  = Human Cover; Album-exclusive Content
+  |singers     = {{wp|Aguri Ōnishi|Onishi Aguri}}
+  |producers   = Junky (music, lyrics), Fujishiro Yutaro (arrangement)
+  |description = Featured in the YouTube channel ''[https://www.youtube.com/@CrosSing_official CrosSing]''.
+  |links       = yt msYr4WgJPV0
+}}
+{{Derivative
+  |color       = #87D7B4; color:white
+  |title       = McDonald's Japan Version
+  |singers     = {{Wp|Ayumu Murase|Murase Ayumu}}
+  |producers   = Junky (music, lyrics), Chiho (illust)<br>{{Wp|McDonald's}}
+  |categories  = Human Cover
+  |links       = 00 https://twitter.com/McDonaldsJapan/status/2031512928604541189
+  |comments    = Twitter
+  |description = Arrangement with lyrics themed of McDonald's Japan.
+}}
+{{clr}}
+
+==Lyrics==
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|全然つかめないきみのこと
+|zenzen tsukamenai kimi no koto
+|-
+|全然しらないうちに
+|zenzen shiranai uchi ni
+|-
+|ココロ奪われるなんてこと
+|kokoro ubawareru nante koto
+|-
+|あるはずないでしょ
+|aru hazu nai desho
+|-
+|<br>
+|-
+|それは無愛想な笑顔だったり
+|sore wa buaisou na egao dattari
+|-f
+|それは日曜日の日暮れだったり
+|sore wa nichiyoubi no higure dattari
+|-
+|それはテスト{{ruby|∞|ばっか}}の期間だったり
+|sore wa tesuto bakka no kikan dattari
+|-
+|それはきみとゆう名のメランコリンニスト。
+|sore wa kimi to yuu na no merankorin'nisuto.
+|-
+|<br>
+|-
+|手当たり次第強気でぶつかっても
+|teatari shidai tsuyoki de butsukatte mo
+|-
+|なんにも手には残らないって思い込んでる
+|nannimo te ni wa nokoranaitte omoikonderu
+|-
+|ちょっとぐらいの勇気にだって
+|chotto gurai no yuuki ni datte
+|-
+|ちっちゃくなって塞ぎこんでる
+|chicchaku natte fusagi konderu
+|-
+|わたしだから
+|watashi dakara
+|-
+|<br>
+|-
+|全然つかめないきみのこと
+|zenzen tsukamenai kimi no koto
+|-
+|全然しらないうちに
+|zenzen shiranai uchi ni
+|-
+|ココロ奪われるなんてこと
+|kokoro ubawareru nante koto
+|-
+|あるはずないでしょ
+|aru hazu nai desho
+|-
+|<br>
+|-
+|全然気づかないきみなんて
+|zenzen kizukanai kimi nante
+|-
+|全然知らない×知らないもん
+|zenzen shiranai shiranai mon
+|-
+|「ねぇねぇ」じゃないわ　この笑顔
+|"nee nee" janai wa kono egao
+|-
+|また眠れないでしょ
+|mata nemurenai desho
+|-
+|<br>
+|-
+|明日も　おんなじ　わたしが　いるのかな
+|ashita mo onnaji watashi ga iru no kana
+|-
+|無愛想で無口なままの　カワいくないヤツ
+|buaisou de mukuchi na mama no kawaikunai yatsu
+|-
+|<br>
+|-
+|あの夢にきみが出てきたときから
+|ano yume ni kimi ga dete kita toki kara
+|-
+|素直じゃないの　だって
+|sunao janai no datte
+|-
+|<br>
+|-
+|全然つかめないきみのこと
+|zenzen tsukamenai kimi no koto
+|-
+|全然しらないうちに
+|zenzen shiranai uchi ni
+|-
+|こころ奪おうとしてたのは
+|kokoro ubaou to shiteta no wa
+|-
+|わたしのほうだもん×××
+|watashi no hou da mon
+|-
+|<br>
+|-
+|そういう時期なの
+|souiu jiki na no
+|-
+|おぼれたいのいとしの
+|oboretai no itoshi no
+|-
+|メランコリー
+|merankorii
+|}
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{Derivative
+  |color      = kagamine len
+  |title      = macozi's Cover ft. Kagamine Len
+  |singers    = [[Kagamine Len]]
+  |producers  = [[macozi]]
+  |categories = VOCALOID Cover; Fanmade PV
+  |links      = nn sm23222014
+}}
+{{Derivative
+  |color      = kaito
+  |title      = zu's Cover ft. KAITO
+  |singers    = [[KAITO]] V3
+  |producers  = zu (cover), yuma (illust)
+  |categories = VOCALOID Cover
+  |links      = nn sm20329434
+}}
+  |utau = 
+{{Derivative
+  |color      = utau
+  |title      = Daiya's Cover ft. Ooka Miko
+  |singers    = {{UW|Miko Ooka|Ooka Miko}} (Kire, 2nd Form Powerscale), Whisper Re-edition, Loli)
+  |producers  = Daiya (cover), Umbellaguns (UST)
+  |categories = UTAU Cover
+  |links      = nn sm22904802;yt Q-9S4sXrV-8
+  |thumb      = yt
+}}
+{{Derivative
+  |color      = utau
+  |title      = Prince Syo's Korean Cover ft. Hyang Gyuhwa
+  |singers    = {{UW|Gyuhwa Hyang|Hyang Gyuhwa}}
+  |producers  = Prince Syo
+  |categories = UTAU Cover; Alternative Language
+  |links      = nn sm15283788
+}}
+  |human = 
+{{Derivative
+  |color       = #87D7B4; color:white
+  |title       = Nico Chorus Arranged
+  |singers     = {{UIW|meian}}, {{UIW|Wotamin}}, {{UIW|Kurenai}}, {{UIW|himawari}}, {{UIW|Nayugorou}}, {{UIW|Wataame}}, {{UIW|Guriri}}, {{UIW|Usa}}, {{UIW|miy}}, {{UIW|ENE}}, {{UIW|Hanatan}}, Colorful Sounds Port, 70, Nayuru<br><small>{{UIW|Montea}}, {{UIW|Reji}}, {{UIW|Kakichoco}}, *airi, Tsukareta Otoko, Yuge</small>
+  |producers   = mallory (production)
+  |categories  = Human Cover; Chorus
+  |description = A 15 person's chorus arrangement by mallory.
+  |links       = nn sm11372113
+}}
+{{Derivative
+  |color       = #87D7B4; color:white
+  |title       = Tokino Sora's Cover
+  |singers     = Tokino Sora
+  |producers   = Razunon (mixing)
+  |categories  = Human Cover
+  |links       = yt zcU6WIaT9DA
+}}
+{{Derivative
+  |color       = #87D7B4; color:white
+  |title       = Glutamine's Cover
+  |singers     = Glutamine
+  |producers   = 
+  |categories  = Human Cover
+  |links       = sp 0xshX2niT4pn06YrKYzi1T
+}}
+{{Derivative
+|color=#a1cbc1; color:white
+|title=Amicia Michella's Cover
+|singers={{IW|VirtualYoutuber|Amicia Michella}}
+|links=yt dvd6Tk89fjk
+|producers=Junk## (mixing), Sihanjir (illust), autumnwhitecat (movie)
+|categories=Human Cover; Fanmade PV
+}}
+{{Derivative
+|color=#b5efe0; color:white
+|title=Gaon's Cover
+|singers={{IW|VirtualYoutuber|Gaon}}
+|links=yt OGGzkx1Yl5o 
+|producers=OOZ (mixing), baeksook (illust), H2de (movie)
+|categories=Human Cover; Fanmade PV
+}}
+  |arrangement = 
+{{Derivative
+  |color       = aoki lapis
+  |title       = C.S. Port's Arrange ft. Aoki Lapis
+  |singers     = [[Aoki Lapis]]
+  |producers   = Colorful Sounds Port (arrange), rapidacty (cover)
+  |categories  = VOCALOID Cover, Remix
+  |description = An arrangement of Melancholic with Aoki Lapis as the vocals.
+  |links       = nn sm17482367
+}}
+{{Derivative
+  |color       = kagamine
+  |title       = PONPOCholicTeliesta
+  |singers     = Kagamine Rin, [[Kagamine Len]]
+  |producers   = Sa (mix), [[Giga-P]] (PONPONPON), Junky (Melancholic), [[cosMo]] (In the Ruined City, Ateliesta)
+  |categories  = Mash-up
+  |description = Sa's mash of ''[[PONPONPON]]'', ''Melancholic'', and ''{{VLW|廃都アトリエスタにて (Haito Ateliesta nite)|In the Ruined City, Ateliesta}}''.
+  |links       = nn sm16477750
+}}
+{{Derivative
+  |color       = #87D7B4; color:white|thumb = yt
+  |title       = neko and Nano's English Cover
+  |singers     = {{UIW|neko}}, {{UIW|nano}}
+  |producers   = neko (arrangement), nano (English lyrics adaption), omu (illust), [[ke-sanβ]] (video)
+  |categories  = Human Cover; Arrangement; Fanmade PV
+  |links       = nn sm16929392; yt fKdbfdv1sjY
+}}
+{{Derivative
+  |color      = #87D7B4; color:white
+  |title      = Kizuna AI's Cover
+  |producers  = {{IW|virtualyoutuber|Kizuna AI}}
+  |categories = Human Cover; Arrangement
+  |links      = yt _GByIfCSGL4
+}}
+{{clr}}
+{{Derivative
+  |color       = #87D7B4; color:white|thumb = yt
+  |title       = Tsunomaki Watame's wataAme Remix
+  |singers     = Tsunomaki Watame
+  |producers   = Jan Paisen (mixing, arrangement), Shinobu Shinotsuki (illust), Karasawa (video)
+  |categories  = Human Cover; Arrangement
+  |links       = yt i6woCvMq5Xg
+}}
+ |fanmadepv = 
+{{Derivative
+  |color       = #87D7B4; color:white
+  |title       = Nayuru's MMD PV
+  |producers   = Nayuru (vocals), Shine (video), C.S. Port Arrange (remix)
+  |categories  = Human Cover, MMD PV
+  |description = Nayuru's PV for MMDFes2011 using the C.S. Port Arrange.
+  |links       = nn sm15116898
+}}
+  |spinoff = 
+{{Derivative
+  |color      = luo tianyi
+  |title      = Small Fish's Chinese Parody Cover ft. Luo Tianyi
+  |singers    = [[Luo Tianyi]]
+  |producers  = Small Fish (lyrics, illust, tuning), Sola (video)
+  |categories = VOCALOID Cover; Fanmade PV; Parody; Alternative Language
+  |links      = bb av330493
+}}
+}}
+
+==Other media appearances==
+===Literatures===
+This song was featured in the following literatures:
+*[[ピアノソロ やさしくひける (Piano Solo Yasashiku Hikeru)#ピアノソロ やさしく弾ける ボーカロイド Selection for Piano 2|Piano Solo Yasashiku Hikeru 2]] collection. (piano sheet music)
+*[[ピアノソロ やさしくひける (Piano Solo Yasashiku Hikeru)#Super Piano Hits|Piano Solo Super Piano Hits]] (piano sheet music)
+*[[Vocaloid Superselection piano solo]]
+*[[ボカロ☆バンドスコア|VOCALO☆Band Score]]
+
+===Discography===
+This song was featured in the following albums:
+*[[EXIT TUNES PRESENTS Vocaloanthems feat. 初音ミク|Vocaloanthems]]
+*[[Vocaloid Love Songs ~Girl's Side~]]
+*[[VOCALOID BEST from ニコニコ動画 (あお) (VOCALOID BEST from Nico Nico Douga (Ao))|VOCALOID BEST from Nico Nico Douga (Ao)]]
+*[[Rink ～Junky×鏡音リン THE BEST～]]
+*[[初音ミク -Project DIVA- F Complete Collection]]
+*[[初音ミク Project mirai こんぷり～と (Hatsune Miku Project mirai Complete)|Hatsune Miku Project mirai Complete]]
+*[[EXIT TUNES PRESENTS Kagaminext feat. 鏡音リン、鏡音レン ―10th ANNIVERSARY BEST―|Kagaminext]]
+
+===Concerts===
+This song was featured in the following concerts:
+{{Col-2b|
+*[[Hatsune Miku Live Party 2011 (Mikupa)/Tokyo|MikuPa Live in Tokyo 2011]]
+*[[Hatsune Miku Live Party 2011 (Mikupa)/Sapporo|MikuPa Live in Sapporo 2011]]
+*[[Hatsune Miku Live Party 2011 (Mikupa)/Singapore|MikuPa Live in Singapore 2011]]
+*[[Hatsune Miku Live Party 2012 (Mikupa)/Tokyo|MikuPa Live in Tokyo 2012]]
+*[[Hatsune Miku Live Party 2012 (Mikupa)/Hong Kong and Taiwan|MikuPa Live in Hong Kong and Taiwan 2012]]
+*[[Hatsune Miku Live Party 2013 (MikuPa)/Sapporo|MikuPa Live in Sapporo 2013]]
+*[[Hatsune Miku Live Party 2013 (MikuPa)/Kansai|MikuPa Live in Kansai 2013]]
+|
+*[[HATSUNE MIKU EXPO 2014 in INDONESIA|MikuExpo Live in Indonesia 2014]]
+*[[HATSUNE MIKU EXPO 2014 in LOS ANGELES and NEW YORK|MikuExpo Live in LA and NY 2014]]
+*[[SNOW MIKU LIVE! 2015 Presents MIKU EXPO Live Set|SNOW MIKU LIVE!]]
+*[[Hatsune Miku Magical Mirai 2017|Magical Mirai 2017]] (Day 1)
+*[[MIKU WITH YOU 2017 SHANGHAI|MIKU WITH YOU 2017]]
+*[[Kagamine Rin & Len Happy 14th Birthday Party 「Two You☆★」]]
+*[[Hatsune Miku JAPAN LIVE TOUR 2025 ～BLOOMING～]] (Tokyo, Day 2)}}
+
+===Video games===
+This song was featured in the following video games:
+{{Col-2b|
+* ''[[Hatsune Miku and Future Stars Project mirai]]''
+* ''[[Hatsune Miku -Project DIVA- f|-Project DIVA- f / F]]''
+* ''[[Hatsune Miku Project mirai 2]]''
+* ''[[Hatsune Miku -Project DIVA- Arcade Future Tone|-Project DIVA- Arcade Future Tone]]''
+* ''[[Hatsune Miku: Project DIVA Mega Mix]]''
+* ''{{MH|bandori|BanG Dream! Girls Band Party!}}'' (covered by Poppin'Party)
+|
+* ''maimai''
+* ''jubeat festo''
+* ''jubeat plus'' (Niconico Music pack 02)
+* ''jubeat plus (Android)'' (Niconico Music pack 02)
+* ''SOUND VOLTEX III GRAVITY WARS''
+* ''Fit Boxing feat. Hatsune Miku''
+* ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Kagamine Rin; SEKAI version by MORE MORE JUMP! and Kagamine Rin)
+* ''O.N.G.E.K.I bright MEMORY''
+* ''crossbeats REV. Sunrise''
+}}
+
+==Gallery==
+<tabber>
+Concerts =
+<gallery hideaddbutton="true" position="center" bordercolor="#87D7B4">
+RinMelancholicLive.jpg |A screenshot of Rin performing Melancholic live in Sapporo.
+</gallery>
+|-|
+Games = 
+<gallery hideaddbutton="true" position="center" bordercolor="#87D7B4">
+Costume melancholic.jpg|Chiho-P's Melancholic costume for the game ''Hatsune Miku and Future Stars Project mirai''
+Melancholic_module_PSP_VITA_Rin.jpg|Rin's ''Melancholy'' module for the song "Melancholic", designed by Chiho-P. From the video game ''Hatsune Miku -Project DIVA- f''
+Melancholic f loading screen.png|Chiho-P's loading screen, for the song "Melancholic". From the video game "''-Project DIVA- f''"
+rin 27.jpg|Rin's ''Melancholy'' module for the song "Melancholic", designed by Chiho-P. From the video game ''Hatsune Miku -Project DIVA- Arcade Future Tone''
+Games - Project DIVA - Melancholic.jpg|Music jacket featured in ''-Project DIVA- Arcade Future Tone'' and ''Mega Mix''
+Games - BanG Dream - Melancholic.png|Music jacket featured in ''BanG Dream! Girls Band Party!''
+Games - Project SEKAI - メランコリック.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|
+Merchandising =
+<gallery hideaddbutton="true" position="center" bordercolor="#87D7B4">
+Chiho_Bottle.jpg|One of the merchandises for the game -Project DIVA- f; a bottle designed by Chiho-P
+3b19523f.jpg|[[Resin Kits#figureneet|figureneet]]'s ''Melancholic'' Resin Kit figurine
+G140527 melancolic.jpg|Cover art of the "Melancholic" novel.
+Melancho.manga|Cover art of the "Melancholic" manga adaptation.
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = Instrumental:
+** [http://piapro.jp/t/98QL Karaoke] — piapro
+** [http://commons.nicovideo.jp/material/nc219179 Instrumental] — Niconi Commons
+  |media = [https://www.pixiv.net/en/artworks/10129322 Illustration] — pixiv
+  |web   =<s>[http://melancholic-novel.info/ Novel Website]</s> {{Deadlink}}
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 9729
+  |nico   = sm10444862
+  |vocadb = 4129
+  |utadb  = 1549
+  |mgp    = Melancholic
+  |pixiv  = メランコリック
+  |tag    = メランコリック
+  |vlw    = メランコリック (Melancholic)
+  |url    = {{MH|bandori|Melancholic|BanG Dream! Wiki}}
+* {{IW|project-diva|Melancholic|Project DIVA Wiki}}
+* {{IW|projectsekai|Melancholic|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featured in literatures]]
+[[Category:Concert songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]
+[[Category:Self-covers]]
+[[Category:Remastered songs]]

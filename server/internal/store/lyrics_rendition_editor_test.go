@@ -1,0 +1,571 @@
+package store
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
+	"moesekai/server/internal/lyricsevidencepack"
+	"moesekai/server/internal/lyricsrecoveryimport"
+	"moesekai/server/internal/lyricsrootmanifest"
+	"moesekai/server/internal/lyricsstaging"
+	"moesekai/server/internal/model"
+)
+
+func TestLyricsRenditionEditorLoadSaveConflictAndImmutableFacts(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.MusicID != 10 || current.Status != "draft" || current.Revision != 1 ||
+		current.PublishedRevision != 0 || current.UpdatedAt == "" || len(current.Renditions) != 2 {
+		t.Fatalf("initial editor document=%+v", current)
+	}
+
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	changedExactProjection := false
+	for renditionIndex := range requested.Renditions {
+		rendition := &requested.Renditions[renditionIndex]
+		if rendition.Full == nil {
+			continue
+		}
+		rendition.Full.Lines[0].Chinese = "更新后的简中"
+		rendition.TranslationCredits = &PublicLyricsV3TranslationCredits{
+			Translation: "新译者", Proofreading: "新校对",
+		}
+		if rendition.Relation.Kind != model.LyricsSourceRenditionRelationExactProjection || rendition.Game == nil {
+			continue
+		}
+		fullByID := make(map[string]string, len(rendition.Full.Lines))
+		for _, line := range rendition.Full.Lines {
+			fullByID[line.ID] = line.Chinese
+		}
+		for lineIndex, lineID := range rendition.Relation.LineIDs {
+			rendition.Game.Lines[lineIndex].Chinese = fullByID[lineID]
+		}
+		changedExactProjection = true
+	}
+	if !changedExactProjection {
+		t.Fatal("fixture has no exact projection rendition")
+	}
+
+	saved, changed, err := s.SaveLyricsRenditionMutation(requested, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || saved.Revision != 2 || saved.Status != "draft" || saved.PublishedRevision != 0 {
+		t.Fatalf("saved=%+v changed=%v", saved, changed)
+	}
+	for _, rendition := range saved.Renditions {
+		if rendition.Relation.Kind != model.LyricsSourceRenditionRelationExactProjection {
+			continue
+		}
+		fullByID := make(map[string]string, len(rendition.Full.Lines))
+		for _, line := range rendition.Full.Lines {
+			fullByID[line.ID] = line.Chinese
+		}
+		for lineIndex, lineID := range rendition.Relation.LineIDs {
+			if rendition.Game.Lines[lineIndex].Chinese != fullByID[lineID] {
+				t.Fatalf("projection translation[%d]=%q want=%q", lineIndex,
+					rendition.Game.Lines[lineIndex].Chinese, fullByID[lineID])
+			}
+		}
+	}
+
+	if replay, replayChanged, err := s.SaveLyricsRenditionMutation(saved, "alice"); err != nil || replayChanged || replay.Revision != 2 {
+		t.Fatalf("no-op replay=%+v changed=%v err=%v", replay, replayChanged, err)
+	}
+
+	_, _, err = s.SaveLyricsRenditionMutation(requested, "bob")
+	var conflict *LyricsRenditionContractError
+	if !errors.As(err, &conflict) || conflict.Code != "revision_conflict" || conflict.Current == nil || conflict.Current.Revision != 2 {
+		t.Fatalf("stale save error=%#v", err)
+	}
+
+	tampered := cloneLyricsRenditionEditorDocument(t, saved)
+	tampered.Renditions[0].Performers[0].Name = "tampered performer"
+	_, _, err = s.SaveLyricsRenditionMutation(tampered, "mallory")
+	var contractErr *LyricsRenditionContractError
+	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+		t.Fatalf("immutable tamper error=%#v", err)
+	}
+
+	var localizationCount, revisionTwoCount int
+	if err := s.db.QueryRow(`SELECT COUNT(*),SUM(CASE WHEN revision=2 THEN 1 ELSE 0 END)
+		FROM song_lyrics_rendition_localizations`).Scan(&localizationCount, &revisionTwoCount); err != nil {
+		t.Fatal(err)
+	}
+	if localizationCount != len(saved.Renditions) || revisionTwoCount != localizationCount {
+		t.Fatalf("localizations=%d revisionTwo=%d renditions=%d", localizationCount, revisionTwoCount, len(saved.Renditions))
+	}
+
+}
+
+func TestLyricsRenditionEditorSaveDoesNotMoveUpdatedAtBackward(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	futureUpdatedAt := time.Now().Add(24 * time.Hour).Truncate(time.Second).Unix()
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET updated_at=?`, futureUpdatedAt); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.UpdatedAt != formatTimestamp(futureUpdatedAt) {
+		t.Fatalf("current updatedAt=%q want=%q", current.UpdatedAt, formatTimestamp(futureUpdatedAt))
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	if requested.Renditions[0].TranslationCredits == nil {
+		t.Fatal("fixture has no translation credits")
+	}
+	requested.Renditions[0].TranslationCredits.Translation = "future-safe translator"
+
+	saved, changed, err := s.SaveLyricsRenditionMutation(requested, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || saved.Revision != current.Revision+1 || saved.UpdatedAt != current.UpdatedAt {
+		t.Fatalf("saved=%+v changed=%v current=%+v", saved, changed, current)
+	}
+	var backwardRows int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_rendition_localizations WHERE updated_at<?`, futureUpdatedAt).Scan(&backwardRows); err != nil {
+		t.Fatal(err)
+	}
+	if backwardRows != 0 {
+		t.Fatalf("localization rows moved backward=%d", backwardRows)
+	}
+}
+
+func TestLyricsRenditionEditorFirstLocalizationSaveStartsAtRevisionTwo(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	if _, err := s.db.Exec(`DELETE FROM song_lyrics_rendition_localizations`); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Revision != 1 {
+		t.Fatalf("initial revision=%d", current.Revision)
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	requested.Renditions[0].Full.Lines[0].Chinese = " 首次本地化\n续行 "
+	requested.Renditions[1].TranslationCredits = &PublicLyricsV3TranslationCredits{Translation: "仅署名"}
+	saved, changed, err := s.SaveLyricsRenditionMutation(requested, "alice")
+	if err != nil || !changed || saved.Revision != 2 {
+		t.Fatalf("saved=%+v changed=%v err=%v", saved, changed, err)
+	}
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_rendition_localizations WHERE revision=2`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != len(saved.Renditions) {
+		t.Fatalf("revision-two localization rows=%d want=%d", count, len(saved.Renditions))
+	}
+
+	exported, err := s.ExportLyricsContent()
+	if err != nil {
+		t.Fatalf("export partial and credit-only localization: %v", err)
+	}
+	if len(exported.RenditionLocalizations) != 2 || len(exported.RenditionTranslationLines) != 3 {
+		t.Fatalf("exported localization shape=%+v lines=%+v", exported.RenditionLocalizations, exported.RenditionTranslationLines)
+	}
+	if exported.RenditionTranslationLines[0].Text != " 首次本地化\n续行 " || exported.RenditionTranslationLines[1].Text != "" ||
+		exported.RenditionTranslationLines[2].Text != "" {
+		t.Fatalf("exported partial/empty translations=%+v", exported.RenditionTranslationLines)
+	}
+
+	restored := setupLyricsStore(t)
+	if err := restored.ImportTranslationContent(nil, EventContentExport{}, exported); err != nil {
+		t.Fatalf("restore partial and credit-only localization: %v", err)
+	}
+	restoredDocument, err := restored.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restoredDocument.Revision != saved.Revision || restoredDocument.UpdatedAt != saved.UpdatedAt ||
+		restoredDocument.Renditions[0].Full.Lines[0].Chinese != " 首次本地化\n续行 " ||
+		restoredDocument.Renditions[0].Full.Lines[1].Chinese != "" ||
+		restoredDocument.Renditions[1].TranslationCredits == nil ||
+		restoredDocument.Renditions[1].TranslationCredits.Translation != "仅署名" {
+		t.Fatalf("restored partial/credit-only document=%+v", restoredDocument)
+	}
+}
+
+func cloneLyricsRenditionEditorDocument(t *testing.T, input LyricsRenditionDocument) LyricsRenditionDocument {
+	t.Helper()
+	body, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result LyricsRenditionDocument
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func TestOrdinaryV3EditorReadsOnlyLegacyProvenanceGraph(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	var recoveryItems, recoveryArtifacts, recoveryContributions int
+	if err := s.db.QueryRow(`SELECT
+		(SELECT COUNT(*) FROM lyrics_recovery_import_items),
+		(SELECT COUNT(*) FROM lyrics_recovery_import_artifacts),
+		(SELECT COUNT(*) FROM lyrics_recovery_import_component_contributions)`).Scan(
+		&recoveryItems, &recoveryArtifacts, &recoveryContributions); err != nil {
+		t.Fatal(err)
+	}
+	if recoveryItems != 0 || recoveryArtifacts != 0 || recoveryContributions != 0 {
+		t.Fatalf("ordinary v3 fixture unexpectedly owns recovery provenance items=%d artifacts=%d contributions=%d",
+			recoveryItems, recoveryArtifacts, recoveryContributions)
+	}
+	document, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("ordinary v3 editor GET from legacy provenance: %v", err)
+	}
+	if document.MusicID != 10 || len(document.Renditions) != 2 {
+		t.Fatalf("ordinary v3 editor document=%+v", document)
+	}
+}
+
+type recoveryRenditionV3EditorFixture struct {
+	store     *Store
+	batchSHA  string
+	document  model.LyricsSourceDocument
+	artifacts []lyricsstaging.Artifact
+}
+
+func TestRecoveryImportedV3EditorReadsRecoveryGraphSavesAndSurvivesBackup(t *testing.T) {
+	fixture := setupRecoveryRenditionV3EditorFixture(t)
+	var legacyLyrics, legacyArtifacts, legacyEvidenceLinks, legacyEvidence, legacyContributions int
+	if err := fixture.store.db.QueryRow(`SELECT
+		(SELECT COUNT(*) FROM song_lyrics),
+		(SELECT COUNT(*) FROM song_lyrics_source_artifacts),
+		(SELECT COUNT(*) FROM song_lyrics_source_artifact_index_evidence),
+		(SELECT COUNT(*) FROM lyrics_source_index_evidence),
+		(SELECT COUNT(*) FROM song_lyrics_component_contributions)`).Scan(
+		&legacyLyrics, &legacyArtifacts, &legacyEvidenceLinks, &legacyEvidence, &legacyContributions); err != nil {
+		t.Fatal(err)
+	}
+	if legacyLyrics != 0 || legacyArtifacts != 0 || legacyEvidenceLinks != 0 || legacyEvidence != 0 || legacyContributions != 0 {
+		t.Fatalf("recovery v3 import wrote legacy editable/provenance rows lyrics=%d artifacts=%d evidenceLinks=%d evidence=%d contributions=%d",
+			legacyLyrics, legacyArtifacts, legacyEvidenceLinks, legacyEvidence, legacyContributions)
+	}
+
+	current, err := fixture.store.GetLyricsDocument(10)
+	if err != nil {
+		t.Fatalf("recovery v3 editor GET: %v", err)
+	}
+	plural, ok := current.(LyricsRenditionDocument)
+	if !ok || plural.MusicID != 10 || plural.Revision != 1 || len(plural.Renditions) != len(fixture.document.Renditions) {
+		t.Fatalf("recovery v3 editor document=%T %+v", current, current)
+	}
+
+	requested := cloneLyricsRenditionEditorDocument(t, plural)
+	requested.Renditions[0].Full.Lines[0].Chinese = "恢复后的简中"
+	requested.Renditions[0].TranslationCredits = &PublicLyricsV3TranslationCredits{
+		Translation: "恢复译者", Proofreading: "恢复校对",
+	}
+	if requested.Renditions[0].Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
+		fullByID := make(map[string]string, len(requested.Renditions[0].Full.Lines))
+		for _, line := range requested.Renditions[0].Full.Lines {
+			fullByID[line.ID] = line.Chinese
+		}
+		for index, lineID := range requested.Renditions[0].Relation.LineIDs {
+			requested.Renditions[0].Game.Lines[index].Chinese = fullByID[lineID]
+		}
+	}
+	saved, changed, err := fixture.store.SaveLyricsRenditionMutation(requested, "recovery-editor")
+	if err != nil || !changed || saved.Revision != 2 {
+		t.Fatalf("recovery v3 editor save saved=%+v changed=%v err=%v", saved, changed, err)
+	}
+	if saved.Renditions[0].Full.Lines[0].Chinese != "恢复后的简中" || saved.Renditions[0].TranslationCredits == nil ||
+		saved.Renditions[0].TranslationCredits.Translation != "恢复译者" ||
+		saved.Renditions[0].TranslationCredits.Proofreading != "恢复校对" {
+		t.Fatalf("recovery v3 editor save lost localization=%+v", saved.Renditions[0])
+	}
+
+	reloaded, err := fixture.store.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("recovery v3 editor GET after save: %v", err)
+	}
+	if reloaded.Revision != 2 || reloaded.Renditions[0].Full.Lines[0].Chinese != "恢复后的简中" ||
+		reloaded.Renditions[0].TranslationCredits == nil || reloaded.Renditions[0].TranslationCredits.Translation != "恢复译者" {
+		t.Fatalf("recovery v3 editor reload=%+v", reloaded)
+	}
+
+	candidate, err := fixture.store.RecoveryPublicLyricsV3(fixture.batchSHA)
+	if err != nil {
+		t.Fatalf("public v3 candidate after editor save: %v", err)
+	}
+	detail, detailFound := candidate.Details[10]
+	if !detailFound || len(detail.Renditions) == 0 || detail.Renditions[0].Full == nil ||
+		detail.Renditions[0].Full.Lines[0].Chinese != "恢复后的简中" ||
+		detail.Renditions[0].TranslationCredits == nil ||
+		detail.Renditions[0].TranslationCredits.Translation != "恢复译者" {
+		t.Fatalf("public v3 candidate lost editor localization found=%v detail=%+v", detailFound, detail)
+	}
+
+	backup, err := fixture.store.ExportLyricsContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored := setupLyricsStore(t)
+	if err := restored.ImportTranslationContent(nil, EventContentExport{}, backup); err != nil {
+		t.Fatalf("restore recovery v3 backup: %v", err)
+	}
+	afterBackup, err := restored.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("recovery v3 editor GET after backup: %v", err)
+	}
+	if afterBackup.Revision != 2 || afterBackup.Renditions[0].Full.Lines[0].Chinese != "恢复后的简中" ||
+		afterBackup.Renditions[0].TranslationCredits == nil ||
+		afterBackup.Renditions[0].TranslationCredits.Translation != "恢复译者" {
+		t.Fatalf("recovery v3 editor after backup=%+v", afterBackup)
+	}
+	restoredCandidate, err := restored.RecoveryPublicLyricsV3(fixture.batchSHA)
+	if err != nil {
+		t.Fatalf("public v3 candidate after backup restore: %v", err)
+	}
+	restoredDetail, restoredFound := restoredCandidate.Details[10]
+	if !restoredFound || len(restoredDetail.Renditions) == 0 || restoredDetail.Renditions[0].Full == nil ||
+		restoredDetail.Renditions[0].Full.Lines[0].Chinese != "恢复后的简中" {
+		t.Fatalf("public v3 candidate after backup lost localization found=%v detail=%+v", restoredFound, restoredDetail)
+	}
+}
+
+func TestRecoveryRenditionEditorFailsClosedOnOwnershipMixAndGraphDrift(t *testing.T) {
+	t.Run("batch does not own document", func(t *testing.T) {
+		fixture := setupRecoveryRenditionV3EditorFixture(t)
+		if _, err := fixture.store.db.Exec(`DROP TRIGGER lyrics_recovery_import_items_immutable_update`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.db.Exec(`UPDATE lyrics_recovery_import_items SET document_sha256=? WHERE batch_sha256=? AND music_id=?`,
+			strings.Repeat("f", 64), fixture.batchSHA, 10); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.GetLyricsRenditionDocument(10); err == nil || !strings.Contains(err.Error(), "exact document") {
+			t.Fatalf("document ownership drift error=%v", err)
+		}
+	})
+
+	t.Run("fixed identity drift", func(t *testing.T) {
+		fixture := setupRecoveryRenditionV3EditorFixture(t)
+		if _, err := fixture.store.db.Exec(`DROP TRIGGER lyrics_recovery_import_artifacts_immutable_update`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.db.Exec(`UPDATE lyrics_recovery_import_artifacts SET fixed_identity_sha256=? WHERE batch_sha256=? AND music_id=? AND rendition_key=?`,
+			strings.Repeat("f", 64), fixture.batchSHA, 10, fixture.artifacts[0].Identity.RenditionKey); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.GetLyricsRenditionDocument(10); err == nil || !strings.Contains(err.Error(), "artifact") {
+			t.Fatalf("fixed identity drift error=%v", err)
+		}
+	})
+
+	t.Run("component contribution drift", func(t *testing.T) {
+		fixture := setupRecoveryRenditionV3EditorFixture(t)
+		if _, err := fixture.store.db.Exec(`DROP TRIGGER lyrics_recovery_import_component_contributions_immutable_update`); err != nil {
+			t.Fatal(err)
+		}
+		var component string
+		if err := fixture.store.db.QueryRow(`SELECT component FROM lyrics_recovery_import_component_contributions
+			WHERE batch_sha256=? AND music_id=? ORDER BY component LIMIT 1`, fixture.batchSHA, 10).Scan(&component); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.db.Exec(`UPDATE lyrics_recovery_import_component_contributions SET contribution_sha256=?
+			WHERE batch_sha256=? AND music_id=? AND component=?`, strings.Repeat("f", 64), fixture.batchSHA, 10, component); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.GetLyricsRenditionDocument(10); err == nil || !strings.Contains(err.Error(), "contribution") {
+			t.Fatalf("component contribution drift error=%v", err)
+		}
+	})
+
+	t.Run("legacy and recovery graphs are never mixed", func(t *testing.T) {
+		fixture := setupRecoveryRenditionV3EditorFixture(t)
+		identity := fixture.artifacts[0].Identity
+		identityJSON, err := json.Marshal(identity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		categoriesJSON, _ := json.Marshal(identity.Categories)
+		evidenceJSON, _ := json.Marshal(identity.IndexEvidenceRefs)
+		identitySHA := sha256.Sum256(identityJSON)
+		var documentID int64
+		if err := fixture.store.db.QueryRow(`SELECT document_id FROM song_lyrics_source_documents WHERE music_id=?`, 10).Scan(&documentID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.db.Exec(`INSERT INTO song_lyrics_source_artifacts
+			(document_id,provider,rendition_key,origin,page_id,revision_id,revision_timestamp,mediawiki_sha1,page_title,
+			 canonical_revision_url,fetched_at,categories_json,section,composition_rendition_key,version_reason,
+			 index_evidence_refs_json,fixed_identity_json,fixed_identity_sha256,raw_byte_count,raw_wikitext_sha256,artifact_sha256)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, documentID, identity.Provider, identity.RenditionKey,
+			identity.Origin, identity.PageID, identity.RevisionID, identity.RevisionTimestamp, identity.SHA1, identity.Title,
+			identity.CanonicalURL, identity.FetchedAt, string(categoriesJSON), identity.Section, identity.CompositionRenditionKey,
+			identity.VersionReason, string(evidenceJSON), string(identityJSON), hex.EncodeToString(identitySHA[:]), 1,
+			strings.Repeat("1", 64), strings.Repeat("2", 64)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.store.GetLyricsRenditionDocument(10); err == nil || !strings.Contains(err.Error(), "mixes recovery and legacy") {
+			t.Fatalf("mixed provenance error=%v", err)
+		}
+	})
+}
+
+func setupRecoveryRenditionV3EditorFixture(t *testing.T) recoveryRenditionV3EditorFixture {
+	t.Helper()
+	s := setupLyricsStore(t)
+	document, evidenceByIdentity := renditionV3PersistenceDocument(t)
+	artifacts := make([]lyricsstaging.Artifact, len(document.FixedIdentities))
+	for index, identity := range document.FixedIdentities {
+		artifact, err := lyricsstaging.NewRecoveryArtifact(identity, evidenceByIdentity[index][0].Raw)
+		if err != nil {
+			t.Fatalf("build recovery v3 artifact %q: %v", identity.RenditionKey, err)
+		}
+		artifacts[index] = artifact
+	}
+	fingerprint := recoveryRenditionTestCatalogFingerprint(t, s, 10)
+	draft, err := lyricsstaging.BuildRecoveryPeerDraft(10, "新曲", fingerprint, 10, []int{}, document, artifacts, nil)
+	if err != nil {
+		t.Fatalf("build recovery v3 draft: %v", err)
+	}
+	batchSHA := recoveryEditorTestSHA("batch")
+	createdAt := time.Date(2026, time.August, 8, 12, 0, 0, 0, time.UTC).Unix()
+	ctx := context.Background()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback := func(err error) error {
+		_ = tx.Rollback()
+		return err
+	}
+	musicIDsSHA, err := lyricsrootmanifest.OrderedMusicIDsSHA256([]int{10, 20})
+	if err != nil {
+		t.Fatal(rollback(err))
+	}
+	refs := make([]lyricsevidencepack.EvidenceRef, 0, len(evidenceByIdentity))
+	seenEvidence := make(map[string]struct{})
+	var rawByteCount int64
+	evidenceOrdinal := 0
+	for _, parents := range evidenceByIdentity {
+		for _, parent := range parents {
+			if _, duplicate := seenEvidence[parent.EvidenceID]; duplicate {
+				continue
+			}
+			seenEvidence[parent.EvidenceID] = struct{}{}
+			ref := lyricsevidencepack.EvidenceRef{
+				Provider: parent.Provider, AcquisitionID: recoveryEditorTestSHA(fmt.Sprintf("acquisition-%d", evidenceOrdinal)),
+				EvidenceID: parent.EvidenceID, SHA256: parent.RawSHA256,
+				EnvelopeSHA256: recoveryEditorTestSHA(fmt.Sprintf("envelope-%d", evidenceOrdinal)),
+			}
+			refs = append(refs, ref)
+			evidenceOrdinal++
+			rawByteCount += int64(len(parent.Raw))
+		}
+	}
+	sort.Slice(refs, func(left, right int) bool { return refs[left].EvidenceID < refs[right].EvidenceID })
+	selectionSHA, err := lyricsevidencepack.OrderedSelectionSHA256(refs)
+	if err != nil {
+		t.Fatal(rollback(err))
+	}
+	coverage := lyricsrootmanifest.Coverage{
+		Total: 2, Complete: 1, Missing: 1, SelectionRefCount: len(refs),
+		UniqueAcquisitionCount: len(refs), UniqueEvidenceCount: len(refs),
+	}
+	coverageJSON, err := json.Marshal(coverage)
+	if err != nil {
+		t.Fatal(rollback(err))
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO lyrics_recovery_import_batches
+		(batch_sha256,schema_version,root_schema_version,root_id,root_sha256,catalog_count,music_ids_sha256,
+		 coverage_json,evidence_receipt_sha256,pack_sha256,selection_sha256,evidence_count,shard_count,
+		 raw_byte_count,encoded_byte_count,actor,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		batchSHA, 1, lyricsrootmanifest.SchemaVersionV2, "recovery-editor-root", recoveryEditorTestSHA("root"), 2,
+		musicIDsSHA, string(coverageJSON), recoveryEditorTestSHA("receipt"), recoveryEditorTestSHA("pack"), selectionSHA,
+		len(refs), 1, rawByteCount, 1, "recovery-editor-test", createdAt); err != nil {
+		t.Fatal(rollback(err))
+	}
+	for index, parents := range evidenceByIdentity {
+		for _, parent := range parents {
+			ref := refs[0]
+			for _, candidate := range refs {
+				if candidate.EvidenceID == parent.EvidenceID {
+					ref = candidate
+					break
+				}
+			}
+			if err := insertOrVerifyRecoveryEvidenceTx(ctx, tx, ref, parent, createdAt); err != nil {
+				t.Fatalf("insert recovery evidence %d: %v", index, rollback(err))
+			}
+		}
+	}
+	item := lyricsrecoveryimport.Item{
+		MusicID: 10, JapaneseTitle: "新曲", CatalogFingerprint: fingerprint, TargetMusicID: 10,
+		AssociationMusicIDs: []int{}, State: lyricsrootmanifest.CoverageComplete,
+		ResultSHA256: recoveryEditorTestSHA("result-10"), Draft: &draft,
+	}
+	if err := insertRecoveryImportItemTx(ctx, tx, batchSHA, item, createdAt); err != nil {
+		t.Fatal(rollback(err))
+	}
+	if err := insertRecoveryV3DraftItemTx(ctx, tx, batchSHA, item, createdAt); err != nil {
+		t.Fatal(rollback(err))
+	}
+	if err := insertRecoveryProvenanceGraphTx(ctx, tx, batchSHA, item, createdAt); err != nil {
+		t.Fatal(rollback(err))
+	}
+
+	missingAvailability := model.LyricsAvailabilityDocument{
+		SchemaVersion:   model.LyricsAvailabilityDocumentSchemaVersion,
+		State:           model.LyricsAvailabilityStateMissing,
+		ReasonCode:      model.LyricsSourceVersionReasonVersionConflict,
+		FixedIdentities: []model.LyricsSourceFixedIdentity{},
+	}
+	missingSHA, err := lyricsrecoveryimport.AvailabilityDocumentSHA256(missingAvailability)
+	if err != nil {
+		t.Fatal(rollback(err))
+	}
+	missingBody, err := json.Marshal(missingAvailability)
+	if err != nil {
+		t.Fatal(rollback(err))
+	}
+	missingItem := lyricsrecoveryimport.Item{
+		MusicID: 20, JapaneseTitle: "旧曲", CatalogFingerprint: recoveryRenditionTestCatalogFingerprint(t, s, 20), TargetMusicID: 20,
+		AssociationMusicIDs: []int{}, State: lyricsrootmanifest.CoverageMissing,
+		ResultSHA256: recoveryEditorTestSHA("result-20"), Availability: &missingAvailability,
+		AvailabilityDocumentSHA256: missingSHA,
+	}
+	if err := insertRecoveryImportItemTx(ctx, tx, batchSHA, missingItem, createdAt); err != nil {
+		t.Fatal(rollback(err))
+	}
+	if err := insertRecoveryAvailabilityItemTx(ctx, tx, batchSHA, missingItem, string(missingBody), createdAt); err != nil {
+		t.Fatal(rollback(err))
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	return recoveryRenditionV3EditorFixture{store: s, batchSHA: batchSHA, document: document, artifacts: artifacts}
+}
+
+func recoveryRenditionTestCatalogFingerprint(t *testing.T, s *Store, musicID int) string {
+	t.Helper()
+	var fingerprint string
+	if err := s.db.QueryRow(`SELECT lyrics_catalog_fingerprint FROM catalog_music WHERE music_id=?`, musicID).Scan(&fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	return fingerprint
+}
+
+func recoveryEditorTestSHA(value string) string {
+	digest := sha256.Sum256([]byte("recovery-editor-v3-test:" + value))
+	return hex.EncodeToString(digest[:])
+}

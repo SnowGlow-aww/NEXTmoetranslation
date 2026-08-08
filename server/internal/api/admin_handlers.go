@@ -69,6 +69,9 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		if s.hub != nil {
+			s.hub.RevokeUser(req.Username)
+		}
 	}
 	if req.Role != "" {
 		if err := s.auth.SetRole(req.Username, req.Role); err != nil {
@@ -78,6 +81,9 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			}
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
+		}
+		if s.hub != nil {
+			s.hub.RevokeUser(req.Username)
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -103,6 +109,9 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if s.hub != nil {
+		s.hub.RevokeUser(username)
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -144,16 +153,17 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	applied := 0
+	patch := make(map[string]string, len(req))
 	for k, v := range req {
 		if config.IsSecret(k) && v == "********" {
 			continue // unchanged masked secret
 		}
-		if err := s.cfg.Set(k, v); err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		applied++
+		patch[k] = v
+	}
+	applied, err := s.cfg.SetMany(patch)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "applied": applied})
 }
@@ -198,8 +208,11 @@ func (s *Server) handleUpstreamCheck(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Force bool `json:"force"`
 	}
-	_ = decodeOptional(r, &req)
-	status, err := s.upstream.CheckNow(req.Force)
+	if err := decodeOptional(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	status, err := s.upstream.CheckNowContext(r.Context(), req.Force)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

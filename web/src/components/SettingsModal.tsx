@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
-  BackupStatus, CategoryInfo, EventStorySummary, UpstreamStatus,
+  APIError, BackupStatus, CategoryInfo, EventStorySummary, UpstreamStatus,
   getBackupStatus, getCategories, getEventStories,
   getUpstreamStatusPublic, getUsername, getRole,
   pushBackup, runCNSync,
@@ -14,8 +14,13 @@ import { CATEGORY_LABELS, FIELD_LABELS } from "@/lib/labels";
 
 type ShowFn = (msg: string, type?: "ok" | "err") => void;
 
-export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function SettingsModal({ open, onClose, guardProducerMutation }: {
+  open: boolean;
+  onClose: () => void;
+  guardProducerMutation: (label: string, action: () => Promise<void>) => void;
+}) {
   const { show } = useToast();
+  const [role] = useState(getRole());
   const [upstreamRefreshKey, setUpstreamRefreshKey] = useState(0);
 
   return (
@@ -24,8 +29,8 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         <AccountCard />
         <AppearanceCard />
         <ShortcutCard />
-        <BadgeFilterCard show={show} />
-        <DataManagementCard show={show} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
+        <BadgeFilterCard />
+        <DataManagementCard canMutate={role === "admin"} show={show} guardProducerMutation={guardProducerMutation} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
         <UpstreamStatusCard show={show} refreshKey={upstreamRefreshKey} />
       </div>
     </Modal>
@@ -61,15 +66,15 @@ function AppearanceCard() {
     <div className="card">
       <h3>外观</h3>
       <div className="form-row">
-        <label>主题</label>
+        <label htmlFor="appearance-theme">主题</label>
         {mounted ? (
-          <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+          <select id="appearance-theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
             <option value="system">跟随系统</option>
             <option value="light">亮色</option>
             <option value="dark">深色</option>
           </select>
         ) : (
-          <select disabled><option>加载中…</option></select>
+          <select id="appearance-theme" disabled><option>加载中…</option></select>
         )}
       </div>
     </div>
@@ -93,8 +98,8 @@ function ShortcutCard() {
     <div className="card">
       <h3>快捷键</h3>
       <div className="form-row">
-        <label>保存快捷键</label>
-        <select value={enterSaves ? "enter" : "shift-enter"} onChange={(e) => toggle(e.target.value === "enter")}>
+        <label htmlFor="save-shortcut">保存快捷键</label>
+        <select id="save-shortcut" value={enterSaves ? "enter" : "shift-enter"} onChange={(e) => toggle(e.target.value === "enter")}>
           <option value="shift-enter">Shift+Enter 保存（默认）</option>
           <option value="enter">Enter 保存</option>
         </select>
@@ -105,6 +110,12 @@ function ShortcutCard() {
           <tr><td><kbd>{enterSaves ? "Enter" : "Shift+Enter"}</kbd></td><td>保存并下一条</td></tr>
           <tr><td><kbd>Escape</kbd></td><td>取消选中</td></tr>
           <tr><td><kbd>Ctrl+↑</kbd> / <kbd>Ctrl+↓</kbd></td><td>切换上/下一条目</td></tr>
+          <tr><th colSpan={2}>歌词原文抓取审核</th></tr>
+          <tr><td><kbd>Cmd/Ctrl+↑</kbd> / <kbd>Cmd/Ctrl+↓</kbd></td><td>切换当前打开的审核项</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>切换当前项的批量勾选</td></tr>
+          <tr><td><kbd>Cmd/Ctrl+A</kbd></td><td>选择/清除当前已加载的待审核原文抓取结果</td></tr>
+          <tr><td><kbd>Shift+A</kbd> / <kbd>Shift+R</kbd></td><td>打开批量确认可用/标记有问题确认框</td></tr>
+          <tr><td><kbd>Enter</kbd> / <kbd>Escape</kbd></td><td>确认框内确认/关闭；无确认框时 Escape 清空多选</td></tr>
         </tbody>
       </table>
     </div>
@@ -113,7 +124,7 @@ function ShortcutCard() {
 
 // ---- Badge filter (per-field hide) ----
 
-function BadgeFilterCard({ show }: { show: ShowFn }) {
+function BadgeFilterCard() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -194,7 +205,12 @@ function BadgeFilterCard({ show }: { show: ShowFn }) {
 
 // ---- Data management (CN sync + manual backup) ----
 
-function DataManagementCard({ show, onSyncFinished }: { show: ShowFn; onSyncFinished: () => void }) {
+function DataManagementCard({ canMutate, show, guardProducerMutation, onSyncFinished }: {
+  canMutate: boolean;
+  show: ShowFn;
+  guardProducerMutation: (label: string, action: () => Promise<void>) => void;
+  onSyncFinished: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,7 +258,11 @@ function DataManagementCard({ show, onSyncFinished }: { show: ShowFn; onSyncFini
       show(`备份完成: ${Object.entries(r.results).map(([k, v]) => `${k}: ${v}`).join(", ")}`, "ok");
       reloadBackup();
     } catch (e) {
-      show(e instanceof Error ? e.message : "备份失败", "err");
+      if (e instanceof APIError && e.results) {
+        show(`备份未全部完成: ${Object.entries(e.results).map(([k, v]) => `${k}: ${v}`).join(", ")}`, "err");
+      } else {
+        show(e instanceof Error ? e.message : "备份失败", "err");
+      }
     } finally {
       setBusy(false);
     }
@@ -251,9 +271,14 @@ function DataManagementCard({ show, onSyncFinished }: { show: ShowFn; onSyncFini
   return (
     <div className="card">
       <h3>数据管理</h3>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+        Git/S3 仅用于内容数据备份/归档，不是部署或公开发布流程，也不会触发 CDN 同步或刷新。
+      </p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <button className="btn btn-primary" onClick={doSync} disabled={busy}>数据更新（CN 同步）</button>
-        <button className="btn btn-secondary" onClick={doBackup} disabled={busy}>手动备份</button>
+        {canMutate && <>
+          <button className="btn btn-primary" onClick={() => guardProducerMutation("运行 CN 同步", doSync)} disabled={busy}>数据更新（CN 同步）</button>
+          <button className="btn btn-secondary" onClick={doBackup} disabled={busy}>手动备份</button>
+        </>}
         <button className="btn btn-ghost" onClick={reloadBackup} disabled={loading}>刷新状态</button>
       </div>
 

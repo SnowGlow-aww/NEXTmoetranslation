@@ -4,10 +4,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useToast } from "@/app/providers";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AdminModal } from "@/components/AdminModal";
+import { LyricsEditor, LyricsEditorHandle } from "@/components/LyricsEditor";
+import { LyricsSourceReview, LyricsSourceReviewHandle } from "@/components/LyricsSourceReview";
+import { Modal } from "@/components/Modal";
 import {
-  CategoryInfo, EventStorySummary, TranslationEntry,
-  clearSession, getCategories, getEntries, getEventStories, getEventStory,
-  getRole, getUsername, runCNSync, triggerAIStory,
+  CategoryInfo, EditorGateStatus, EventStorySummary, Locale, TranslationEntry,
+  acceptLoadedProducerState, clearLoadedProducerState, clearSession,
+  getCategories, getEditorGateStatus, getEntries, getEventStories, getEventStory,
+  getClientID, getRole, getUsername, triggerAIStory,
+  subscribeProducerProofInvalidated,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
 } from "@/lib/api";
 import {
@@ -18,6 +23,11 @@ import {
 import { useSSE } from "@/lib/sse";
 
 interface Progress { label: string; current: number; total: number }
+interface ContentConflict {
+  reason: "restore" | "gap";
+  draft: string | null;
+  reloadFailed: boolean;
+}
 
 // localStorage-backed boolean preference. Falls back gracefully on SSR.
 function usePref(key: string, fallback: boolean): [boolean, (v: boolean) => void] {
@@ -70,10 +80,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const [username] = useState(getUsername());
   const [role] = useState(getRole());
+  const [clientID] = useState(getClientID());
 
   // Modal states
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [locale, setLocale] = useState<Locale>("zh-CN");
+  const [lyricsDirty, setLyricsDirty] = useState(false);
+  const [pendingActionLabel, setPendingActionLabel] = useState("");
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const lyricsEditorRef = useRef<LyricsEditorHandle>(null);
+  const lyricsSourceReviewRef = useRef<LyricsSourceReviewHandle>(null);
 
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
@@ -88,6 +105,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [progress, setProgress] = useState<Progress | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const savingRef = useRef(false);
+  const loadGenerationRef = useRef(0);
+  const contextGenerationRef = useRef(0);
+  const [restoreGeneration, setRestoreGeneration] = useState(0);
+  const [writesLocked, setWritesLocked] = useState(true);
+  const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
+  const writeFenceRef = useRef(true);
+  const reconciliationGenerationRef = useRef(0);
+  const contentEventGenerationRef = useRef(0);
+  const sseConnectedRef = useRef(false);
+  const preservedConflictDraftRef = useRef<string | null>(null);
+  const reconcileContentRef = useRef<(reason: "restore" | "gap", draft?: string | null) => Promise<void>>(async () => {});
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -102,63 +130,66 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const isEventStory = category === "eventStory";
+  const isLyrics = category === "lyrics";
+  const isLyricsSourceReview = category === "lyricsSourceReview";
+  const isReadOnly = locale === "ja-JP";
 
   // ---- Load categories + event stories ----
-  const reloadSidebar = useCallback(() => {
-    getCategories().then(setCategories).catch((e) => show(e.message, "err"));
-    getEventStories().then(setEventStories).catch(() => setEventStories([]));
-  }, [show]);
+  const reloadSidebar = useCallback(async (): Promise<boolean> => {
+    let loaded = true;
+    await Promise.all([
+      getCategories(locale).then(setCategories).catch((e) => { loaded = false; show(e.message, "err"); }),
+      getEventStories(locale).then(setEventStories).catch(() => { loaded = false; setEventStories([]); }),
+    ]);
+    return loaded;
+  }, [locale, show]);
 
-  useEffect(() => { reloadSidebar(); }, [reloadSidebar]);
+  useEffect(() => { void reloadSidebar(); }, [reloadSidebar]);
 
   // ---- Load entries on selection change ----
-  const loadEntries = useCallback(() => {
-    if (!category || !field) return;
-    setLoading(true);
+  const loadEntries = useCallback(async (): Promise<boolean> => {
+    const generation = ++loadGenerationRef.current;
+    if (!category || !field) {
+      setEntries([]);
+      setSelectedKey(null);
+      setEditValue("");
+      return true;
+    }
+    setEntries([]);
     setSelectedKey(null);
-    if (isEventStory) {
-      getEventStory(Number(field))
-        .then((detail) => {
-          const list = buildEventStoryEntries(detail);
-          setEntries(list);
-          if (list.length) { setSelectedKey(list[0].key); setEditValue(list[0].text); }
-        })
-        .catch((e) => show(e.message, "err"))
-        .finally(() => setLoading(false));
-      return;
+    setEditValue("");
+    if (isLyrics || isLyricsSourceReview) {
+      setLoading(false);
+      return true;
     }
-    getEntries(category, field)
-      .then((data) => {
-        data.sort((a, b) => {
-          const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
-          return d !== 0 ? d : a.key.localeCompare(b.key, undefined, { numeric: true });
-        });
-        setEntries(data);
-        if (data.length) { setSelectedKey(data[0].key); setEditValue(data[0].text); }
-      })
-      .catch((e) => show(e.message, "err"))
-      .finally(() => setLoading(false));
-  }, [category, field, isEventStory, show]);
-
-  useEffect(() => { loadEntries(); }, [loadEntries]);
-
-  // ---- SSE realtime ----
-  useSSE((event, data) => {
-    const d = data as Record<string, unknown>;
-    if (event === "sync.progress" || event === "translate.progress") {
-      setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
-      if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
-    } else if (event === "entry.updated") {
-      if (d.category === category && d.field === field && d.user !== username) {
-        setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: String(d.text), source: String(d.source) } : e)));
-        show(`${d.user} 修改了一条翻译`, "ok");
+    setLoading(true);
+    try {
+      if (isEventStory) {
+        const detail = await getEventStory(Number(field), locale);
+        if (loadGenerationRef.current !== generation) return true;
+        const list = buildEventStoryEntries(detail);
+        setEntries(list);
+        if (list.length) { setSelectedKey(list[0].key); setEditValue(list[0].text); }
+        return true;
       }
-    } else if (event === "eventstory.updated") {
-      if (isEventStory && Number(d.eventId) === Number(field) && d.user !== username) {
-        loadEntries();
-      }
+      const data = await getEntries(category, field, undefined, locale);
+      if (loadGenerationRef.current !== generation) return true;
+      data.sort((a, b) => {
+        const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
+        return d !== 0 ? d : a.key.localeCompare(b.key, undefined, { numeric: true });
+      });
+      setEntries(data);
+      if (data.length) { setSelectedKey(data[0].key); setEditValue(data[0].text); }
+      return true;
+    } catch (e) {
+      if (loadGenerationRef.current === generation) show(e instanceof Error ? e.message : "加载失败", "err");
+      return false;
+    } finally {
+      if (loadGenerationRef.current === generation) setLoading(false);
     }
-  }, true);
+  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, show]);
+
+  useEffect(() => { void loadEntries(); }, [loadEntries]);
 
   // ---- Derived ----
   const filtered = useMemo(() => {
@@ -166,7 +197,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const q = query.toLowerCase();
     return entries.filter((e) =>
       isEventStory
-        ? `${eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
+        ? `${e.japanese || eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
         : e.key.toLowerCase().includes(q) || e.text.toLowerCase().includes(q),
     );
   }, [entries, query, isEventStory]);
@@ -175,7 +206,221 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     () => (selectedKey ? filtered.findIndex((e) => e.key === selectedKey) : -1),
     [selectedKey, filtered],
   );
-  const selectedEntry = filtered[selectedIndex] ?? null;
+  const selectedEntry = selectedKey ? entries.find((entry) => entry.key === selectedKey) ?? null : null;
+  const entryDirty = selectedEntry != null && editValue !== selectedEntry.text;
+  const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const setWriteFence = (locked: boolean) => {
+    writeFenceRef.current = locked;
+    setWritesLocked(locked);
+  };
+
+  const captureUnsavedDraft = (): string | null => {
+    if (!hasUnsavedChanges) return null;
+    const payload = isLyrics
+      ? { kind: "lyrics", document: lyricsEditorRef.current?.exportDraft() ?? null }
+      : {
+          kind: "translation", category, field, locale, key: selectedKey,
+          staleText: editValue, previouslyLoadedText: selectedEntry?.text ?? "",
+        };
+    return JSON.stringify({ exportedAt: new Date().toISOString(), ...payload }, null, 2);
+  };
+
+  const reconcileContent = async (reason: "restore" | "gap", preservedDraft?: string | null) => {
+    const reconciliation = ++reconciliationGenerationRef.current;
+    const contentEventGeneration = contentEventGenerationRef.current;
+    setWriteFence(true);
+    clearLoadedProducerState();
+    pendingActionRef.current = null;
+    setPendingActionLabel("");
+    const draft = preservedDraft === undefined
+      ? (contentConflict?.draft ?? preservedConflictDraftRef.current ?? captureUnsavedDraft())
+      : preservedDraft;
+    if (draft) preservedConflictDraftRef.current = draft;
+    contextGenerationRef.current++;
+    if (!sseConnectedRef.current) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("实时连接尚未恢复，写入仍已锁定", "err");
+      return;
+    }
+    let producerBefore: EditorGateStatus;
+    try {
+      producerBefore = await getEditorGateStatus();
+    } catch {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("无法读取内容代次，写入仍已锁定", "err");
+      return;
+    }
+    if (producerBefore.running) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("服务器内容任务仍在运行，写入仍已锁定", "err");
+      return;
+    }
+    const lyricsReload = isLyrics
+      ? lyricsEditorRef.current?.reloadAuthoritative() ?? Promise.resolve(false)
+      : Promise.resolve(true);
+    const reviewReload = isLyricsSourceReview
+      ? lyricsSourceReviewRef.current?.reloadAuthoritative() ?? Promise.resolve(false)
+      : Promise.resolve(true);
+    const [sidebarLoaded, entriesLoaded, lyricsLoaded, reviewLoaded] = await Promise.all([
+      reloadSidebar(), loadEntries(), lyricsReload, reviewReload,
+    ]);
+    if (reconciliationGenerationRef.current !== reconciliation) return;
+    if (contentEventGenerationRef.current !== contentEventGeneration) {
+      void reconcileContent(reason, draft);
+      return;
+    }
+    if (!sidebarLoaded || !entriesLoaded || !lyricsLoaded || !reviewLoaded) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("无法完成权威数据校对，写入仍已锁定", "err");
+      return;
+    }
+    let producerAfter: EditorGateStatus;
+    try {
+      producerAfter = await getEditorGateStatus();
+    } catch {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("无法确认内容代次，写入仍已锁定", "err");
+      return;
+    }
+    if (reconciliationGenerationRef.current !== reconciliation) return;
+    if (contentEventGenerationRef.current !== contentEventGeneration) {
+      void reconcileContent(reason, draft);
+      return;
+    }
+    if (producerAfter.running) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("校对期间服务器内容任务已启动，写入仍已锁定", "err");
+      return;
+    }
+    if (producerBefore.instanceId !== producerAfter.instanceId ||
+        producerBefore.revision !== producerAfter.revision ||
+        producerBefore.completedGeneration !== producerAfter.completedGeneration) {
+      void reconcileContent(reason, draft);
+      return;
+    }
+    if (!sseConnectedRef.current) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("校对期间实时连接已断开，写入仍已锁定", "err");
+      return;
+    }
+    if (!acceptLoadedProducerState(producerAfter)) {
+      setContentConflict({ reason, draft, reloadFailed: true });
+      show("内容代次无效，写入仍已锁定", "err");
+      return;
+    }
+    if (draft) {
+      setContentConflict({ reason, draft, reloadFailed: false });
+      return;
+    }
+    preservedConflictDraftRef.current = null;
+    setContentConflict(null);
+    setWriteFence(false);
+  };
+  reconcileContentRef.current = reconcileContent;
+
+  useEffect(() => subscribeProducerProofInvalidated(() => {
+    reconciliationGenerationRef.current++;
+    setWriteFence(true);
+    void reconcileContentRef.current("gap");
+  }), []);
+
+  const resolveContentConflict = (conflict: ContentConflict) => {
+    preservedConflictDraftRef.current = null;
+    setContentConflict({ ...conflict, draft: null, reloadFailed: true });
+    void reconcileContent(conflict.reason, null);
+  };
+
+  const exportConflictDraft = (conflict: ContentConflict) => {
+    if (!conflict.draft) return;
+    const blob = new Blob([conflict.draft], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `moesekai-stale-draft-${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const runOrGuard = (label: string, action: () => void) => {
+    if (!hasUnsavedChanges) {
+      action();
+      return;
+    }
+    pendingActionRef.current = action;
+    setPendingActionLabel(label);
+  };
+
+  const guardProducerMutation = (label: string, action: () => Promise<void>) => {
+    if (writeFenceRef.current) {
+      show("实时连接校对完成前禁止写入", "err");
+      return;
+    }
+    runOrGuard(label, () => {
+      setWriteFence(true);
+      clearLoadedProducerState();
+      void Promise.resolve().then(action).finally(() => reconcileContentRef.current("gap"));
+    });
+  };
+
+  // ---- SSE realtime ----
+  useSSE((event, data) => {
+    const d = data as Record<string, unknown>;
+    if (event === "entry.updated" || event === "entry.locale.updated" ||
+        event === "eventstory.updated" || event === "eventstory.locale.updated" ||
+        event === "lyrics.updated" || event === "content.restored") {
+      contentEventGenerationRef.current++;
+    }
+    if (event === "sse.disconnected") {
+      reconciliationGenerationRef.current++;
+      sseConnectedRef.current = false;
+      clearLoadedProducerState();
+      setWriteFence(true);
+    } else if (event === "sse.reconnected") {
+      sseConnectedRef.current = true;
+      show("实时连接已恢复，正在校对服务器数据", "ok");
+    } else if (event === "sse.missed-events") {
+      sseConnectedRef.current = true;
+      void reconcileContent("gap");
+    } else if (event === "sync.progress" || event === "translate.progress") {
+      setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
+      if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);
+    } else if (event === "entry.updated" || event === "entry.locale.updated") {
+      const updateLocale = String(d.locale || "zh-CN");
+      if (updateLocale === locale && d.category === category && d.field === field && d.clientId !== clientID) {
+        const nextText = String(d.text);
+        if (d.key === selectedKey && selectedEntry && !entryDirty) setEditValue(nextText);
+        setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: nextText, source: String(d.source) } : e)));
+        show(`${d.user} 修改了一条翻译`, "ok");
+      }
+    } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
+      const updateLocale = String(d.locale || "zh-CN");
+      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.clientId !== clientID) {
+        runOrGuard("同步协作者更新", loadEntries);
+      }
+    } else if (event === "lyrics.updated") {
+      const musicID = Number(d.musicId);
+      if (isLyrics && d.clientId !== clientID) {
+        if (lyricsEditorRef.current?.isEditing(musicID)) {
+          runOrGuard("同步协作者更新", () => setRestoreGeneration((value) => value + 1));
+        } else {
+          lyricsEditorRef.current?.reloadCatalog();
+        }
+      }
+    } else if (event === "content.restored") {
+      void reconcileContent("restore");
+    }
+  }, true);
 
   useEffect(() => {
     if (selectedKey && editRef.current) {
@@ -191,14 +436,35 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }, [selectedEntry, category, field]);
 
   // ---- Actions ----
-  const selectField = (cat: string, f: string) => {
+  const performSelectField = (cat: string, f: string) => {
+    contextGenerationRef.current++;
+    loadGenerationRef.current++;
     setCategory(cat); setField(f); setQuery(""); setSelectedKey(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       setSidebarOpen(false);
     }
   };
 
-  const navigate = useCallback((dir: 1 | -1) => {
+  const selectField = (cat: string, f: string) => {
+    if (cat === category && f === field) return;
+    runOrGuard("切换内容", () => performSelectField(cat, f));
+  };
+
+  const applyLocale = (next: Locale) => {
+    contextGenerationRef.current++;
+    loadGenerationRef.current++;
+    setLocale(next);
+    setEntries([]);
+    setSelectedKey(null);
+    setEditValue("");
+  };
+
+  const requestLocaleChange = (next: Locale) => {
+    if (next === locale) return;
+    runOrGuard("切换编辑语言", () => applyLocale(next));
+  };
+
+  const performNavigate = useCallback((dir: 1 | -1) => {
     if (selectedIndex < 0) return;
     const idx = selectedIndex + dir;
     if (idx < 0 || idx >= filtered.length) return;
@@ -208,38 +474,87 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [selectedIndex, filtered]);
 
-  const save = useCallback(async (overrideSource?: string) => {
-    if (savingRef.current || !selectedKey || !category || !field) return;
+  const navigate = (dir: 1 | -1) => runOrGuard("切换条目", () => performNavigate(dir));
+
+  const selectEntry = (entry: TranslationEntry) => {
+    if (entry.key === selectedKey) return;
+    runOrGuard("切换条目", () => {
+      setSelectedKey(entry.key);
+      setEditValue(entry.text);
+    });
+  };
+
+  const save = useCallback(async (overrideSource?: string, advance = true) => {
+    if (writeFenceRef.current || savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
     savingRef.current = true;
     const src = overrideSource || "human";
+    const generation = contextGenerationRef.current;
+    const saveCategory = category;
+    const saveField = field;
+    const saveLocale = locale;
+    const saveKey = selectedKey;
+    const saveValue = editValue;
+    const saveEntry = selectedEntry;
     try {
       if (isEventStory) {
-        const p = parseEventStoryEntryKey(selectedKey);
-        await updateEventStoryLine(Number(field), p.episodeNo, p.entryType === "title" ? "" : p.originalText, editValue, src, p.entryType);
+        const p = parseEventStoryEntryKey(saveKey);
+        const episodeNo = saveEntry?.episodeNo || p.episodeNo;
+        const entryType = saveEntry?.entryType || p.entryType;
+        const japanese = saveEntry?.japanese || p.originalText;
+        const result = await updateEventStoryLine(Number(saveField), episodeNo, entryType === "title" ? "" : japanese,
+          saveValue, src, entryType, saveLocale, saveEntry?.segmentId || "", saveEntry?.sourceHash || "", saveEntry?.revision ?? 0);
+        if (contextGenerationRef.current !== generation) return true;
         setEntries((prev) => prev.map((e) =>
-          e.key === selectedKey
-            ? { ...e, key: p.entryType === "title" ? `${p.episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}` : e.key, text: editValue, source: src }
+          e.key === saveKey
+            ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}` : e.key,
+                text: saveValue, source: src, revision: result.revision }
             : e));
-        if (p.entryType === "title") setSelectedKey(`${p.episodeNo}|${EVENT_STORY_TITLE_MARKER}|${editValue}`);
+        if (entryType === "title" && !saveEntry?.segmentId) setSelectedKey(`${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}`);
       } else {
-        await updateEntry(category, field, selectedKey, editValue, src);
-        setEntries((prev) => prev.map((e) => (e.key === selectedKey ? { ...e, text: editValue, source: src } : e)));
+        await updateEntry(saveCategory, saveField, saveKey, saveValue, src, saveLocale);
+        if (contextGenerationRef.current !== generation) return true;
+        setEntries((prev) => prev.map((e) => (e.key === saveKey ? { ...e, text: saveValue, source: src } : e)));
       }
       // Advance to next.
-      const idx = filtered.findIndex((e) => e.key === selectedKey);
-      if (idx >= 0 && idx < filtered.length - 1) {
-        const next = filtered[idx + 1];
-        setSelectedKey(next.key); setEditValue(next.text);
-        setTimeout(() => document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
-      } else {
-        show("已到最后一条", "ok");
+      if (advance) {
+        const idx = filtered.findIndex((e) => e.key === saveKey);
+        if (idx >= 0 && idx < filtered.length - 1) {
+          const next = filtered[idx + 1];
+          setSelectedKey(next.key); setEditValue(next.text);
+          setTimeout(() => document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
+        } else {
+          show("已到最后一条", "ok");
+        }
       }
+      return true;
     } catch (e) {
       show(e instanceof Error ? e.message : "保存失败", "err");
+      return false;
     } finally {
       savingRef.current = false;
     }
-  }, [selectedKey, category, field, editValue, filtered, isEventStory, show]);
+  }, [selectedKey, selectedEntry, category, field, editValue, filtered, isEventStory, isReadOnly, locale, show]);
+
+  const closePendingAction = () => {
+    pendingActionRef.current = null;
+    setPendingActionLabel("");
+  };
+
+  const continuePendingAction = async (saveFirst: boolean) => {
+    if (saveFirst && writeFenceRef.current) return;
+    const action = pendingActionRef.current;
+    if (!action) return;
+    if (saveFirst) {
+      const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);
+      if (!saved) return;
+    } else if (isLyrics) {
+      lyricsEditorRef.current?.discard();
+    } else if (selectedEntry) {
+      setEditValue(selectedEntry.text);
+    }
+    closePendingAction();
+    action();
+  };
 
   const onTextareaKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (enterSaves) {
@@ -249,48 +564,102 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       // Shift+Enter = save (Enter = newline, default)
       if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); save(); }
     }
-    if (e.key === "Escape") { setSelectedKey(null); }
+    if (e.key === "Escape") { runOrGuard("关闭当前条目", () => setSelectedKey(null)); }
     else if ((e.ctrlKey || e.metaKey) && e.key === "ArrowUp") { e.preventDefault(); navigate(-1); }
     else if ((e.ctrlKey || e.metaKey) && e.key === "ArrowDown") { e.preventDefault(); navigate(1); }
   };
 
-  const withBusy = async (fn: () => Promise<void>) => {
+  const withBusy = async (fn: () => Promise<void>, producerOwnsFence = false) => {
+    if (writeFenceRef.current && !producerOwnsFence) { show("实时连接校对完成前禁止写入", "err"); return; }
     if (busy) { show("已有任务在运行", "err"); return; }
     setBusy(true);
     try { await fn(); } finally { setBusy(false); }
   };
 
+  const captureContext = () => ({
+    generation: contextGenerationRef.current, category, field, locale,
+  });
+  const contextIsCurrent = (captured: ReturnType<typeof captureContext>) =>
+    contextGenerationRef.current === captured.generation && category === captured.category &&
+    field === captured.field && locale === captured.locale;
+
   // ---- Change source for a single entry ----
   const handleSourceChange = useCallback(async (key: string, newSource: string) => {
-    if (!category || !field) return;
+    if (writeFenceRef.current || !category || !field) return;
     const entry = entries.find((e) => e.key === key);
     if (!entry) return;
+    const generation = contextGenerationRef.current;
+    let nextRevision = entry.revision;
     try {
       if (isEventStory) {
         const parsed = parseEventStoryEntryKey(key);
-        await updateEventStoryLine(
-          Number(field), parsed.episodeNo,
-          parsed.entryType === "title" ? "" : parsed.originalText,
-          entry.text, newSource, parsed.entryType,
+        const episodeNo = entry.episodeNo || parsed.episodeNo;
+        const entryType = entry.entryType || parsed.entryType;
+        const result = await updateEventStoryLine(
+          Number(field), episodeNo,
+          entryType === "title" ? "" : (entry.japanese || parsed.originalText),
+          entry.text, newSource, entryType, locale, entry.segmentId || "", entry.sourceHash || "", entry.revision ?? 0,
         );
+        nextRevision = result.revision;
       } else {
-        await updateEntry(category, field, key, entry.text, newSource);
+        await updateEntry(category, field, key, entry.text, newSource, locale);
       }
-      setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, source: newSource } : e)));
+      if (contextGenerationRef.current !== generation) return;
+      setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, source: newSource, ...(nextRevision !== undefined ? { revision: nextRevision } : {}) } : e)));
       show(`来源已改为「${SOURCE_LABELS[newSource] || newSource}」`, "ok");
     } catch (err) {
       show(err instanceof Error ? err.message : "修改失败", "err");
     }
-  }, [category, field, entries, isEventStory, show]);
+  }, [category, field, entries, isEventStory, locale, show]);
 
   // Per-story AI gap-fill: translate only the currently open event story.
   const doAIStory = () => withBusy(async () => {
+    const captured = captureContext();
+    const eventID = Number(captured.field);
     try {
-      const r = await triggerAIStory(Number(field), "openai") as { totalTranslated?: number; totalCandidates?: number };
+      const r = await triggerAIStory(eventID, "openai") as { totalTranslated?: number; totalCandidates?: number };
+      if (!contextIsCurrent(captured)) return;
       show(`AI 补充翻译完成: ${r.totalTranslated ?? 0}/${r.totalCandidates ?? 0}`, "ok");
       reloadSidebar(); loadEntries();
-    } catch (e) { show(e instanceof Error ? e.message : "AI 翻译失败", "err"); }
+    } catch (e) {
+      if (contextIsCurrent(captured)) show(e instanceof Error ? e.message : "AI 翻译失败", "err");
+    }
+  }, true);
+
+  const promoteStory = () => withBusy(async () => {
+    const captured = captureContext();
+    try {
+      await promoteEventStoryHuman(Number(captured.field));
+      if (!contextIsCurrent(captured)) return;
+      setEntries((current) => current.map((entry) => ({ ...entry, source: "human" })));
+      reloadSidebar();
+      show("已整篇标记人工", "ok");
+    } catch (reason) {
+      if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "标记失败", "err");
+    }
   });
+
+  const retryStory = () => withBusy(async () => {
+    const captured = captureContext();
+    try {
+      await retryEventStory(Number(captured.field));
+      if (!contextIsCurrent(captured)) return;
+      loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok");
+    } catch (reason) {
+      if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "重新获取失败", "err");
+    }
+  }, true);
+
+  const reorderStory = () => withBusy(async () => {
+    const captured = captureContext();
+    try {
+      await reorderEventStory(Number(captured.field));
+      if (!contextIsCurrent(captured)) return;
+      loadEntries(); show("已重排序对话", "ok");
+    } catch (reason) {
+      if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "重排序失败", "err");
+    }
+  }, true);
 
   const currentField = categories.find((c) => c.name === category)?.fields?.find((f) => f.name === field);
   const currentStory = isEventStory ? eventStories.find((s) => String(s.eventId) === field) : undefined;
@@ -308,7 +677,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       {/* Mobile drawer backdrop. */}
       <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
 
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="翻译类别导航">
         <div className="sidebar-header">
           <div className="sidebar-title-row">
             <div>
@@ -316,12 +685,24 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               <span className="sub">{username}{role === "admin" ? " · 管理员" : ""}</span>
             </div>
             <div className="sidebar-icon-row">
-              <button className="icon-btn" onClick={() => setShowSettings(true)} title="用户设置"><IconSettings /></button>
-              {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} title="管理设置"><IconShield /></button>}
-              <button className="icon-btn" onClick={() => { clearSession(); onLogout(); }} title="退出登录"><IconLogout /></button>
+              <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="用户设置" title="用户设置"><IconSettings /></button>
+              {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} aria-label="管理设置" title="管理设置"><IconShield /></button>}
+              <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => {
+                void clearSession().then((cleared) => { if (cleared) onLogout(); }).catch((error) => show(error.message, "err"));
+              })} aria-label="退出登录" title="退出登录"><IconLogout /></button>
               <button className="icon-btn" onClick={() => setSidebarOpen(false)} aria-label="收起侧边栏" title="收起侧边栏"><IconChevronLeft /></button>
             </div>
           </div>
+          <label className="locale-selector">
+            <span>{isLyrics || isLyricsSourceReview ? "其他内容编辑语言" : "编辑语言"}</span>
+            <select value={locale} onChange={(event) => requestLocaleChange(event.target.value as Locale)} disabled={isLyrics || isLyricsSourceReview} aria-describedby={isLyrics ? "lyrics-locale-note" : isLyricsSourceReview ? "lyrics-review-locale-note" : undefined}>
+              <option value="zh-CN">简体中文</option>
+              <option value="en-US">英文</option>
+              <option value="ja-JP">日文（只读）</option>
+            </select>
+            {isLyrics && <span id="lyrics-locale-note" className="locale-note">歌词页同时编辑日文、简中和英文</span>}
+            {isLyricsSourceReview && <span id="lyrics-review-locale-note" className="locale-note">原文抓取审核与编辑语言无关，不包含翻译</span>}
+          </label>
         </div>
 
         <div className="sidebar-scroll">
@@ -334,10 +715,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                 const badgeKey = `${cat.name}:${f.name}`;
                 const hideBadge = hiddenBadges.has(badgeKey);
                 return (
-                  <div key={badgeKey} className={`field-item ${active ? "active" : ""}`} onClick={() => selectField(cat.name, f.name)}>
+                  <button type="button" key={badgeKey} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField(cat.name, f.name)}>
                     <span>{FIELD_LABELS[f.name] || f.name}</span>
                     {work > 0 && !hideBadge && <span className="badge work">{work}</span>}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -352,7 +733,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                 const badgeKey = `eventStory:${s.eventId}`;
                 const hideBadge = hiddenBadges.has(badgeKey);
                 return (
-                  <div key={s.eventId} className={`field-item ${active ? "active" : ""}`} onClick={() => selectField("eventStory", String(s.eventId))}>
+                  <button type="button" key={s.eventId} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField("eventStory", String(s.eventId))}>
                     <span>
                       <span className={`story-dot ${done ? "done" : "pending"}`} title={done ? "已翻译" : "有未翻译内容"} />
                       Event #{s.eventId}
@@ -362,17 +743,32 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         ? <span className="badge work" title="未翻译条数">{s.untranslatedCount}</span>
                         : <span className="badge ok" title="已全部翻译">✓</span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
+
+          <div className="field-group">
+            <div className="field-group-title">音乐内容</div>
+            <button type="button" className={`field-item ${isLyrics ? "active" : ""}`} aria-current={isLyrics ? "page" : undefined} onClick={() => selectField("lyrics", "catalog")}>
+              <span>歌词编辑与发布</span>
+            </button>
+            {role === "admin" && <button type="button" className={`field-item ${isLyricsSourceReview ? "active" : ""}`} aria-current={isLyricsSourceReview ? "page" : undefined} onClick={() => selectField("lyricsSourceReview", "queue")}>
+              <span>歌词原文抓取审核</span>
+            </button>}
+          </div>
         </div>
       </aside>
 
       <main className="main">
+        {writesLocked && (
+          <div className="connection-fence" role="status" aria-live="assertive">
+            实时事件可能有缺口，正在载入服务器权威数据。校对完成前所有内容写入均已锁定。
+          </div>
+        )}
         {progress && (
-          <div className="progress-line">
+          <div className="progress-line" role="status" aria-live="polite">
             <span>{progress.label}</span>
             <div className="progress-track">
               <div className="progress-fill" style={{ width: `${progress.total ? (progress.current / progress.total) * 100 : 0}%` }} />
@@ -380,7 +776,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
-        {!category || !field ? (
+        {isLyrics ? (
+          <LyricsEditor ref={lyricsEditorRef} role={role} reloadGeneration={restoreGeneration} writeLocked={writesLocked} onDirtyChange={setLyricsDirty} />
+        ) : isLyricsSourceReview && role === "admin" ? (
+          <LyricsSourceReview ref={lyricsSourceReviewRef} writeLocked={writesLocked} />
+        ) : !category || !field ? (
           <div className="center-state">
             <p>从左侧选择一个翻译类别</p>
           </div>
@@ -395,24 +795,24 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             </div>
 
             {/* Per-story toolbar */}
-            {isEventStory && (
+            {isEventStory && locale === "zh-CN" && (
               <div className="story-toolbar">
                 <span className="story-status">
                   {currentStory && currentStory.untranslatedCount > 0
                     ? <><span className="story-dot pending" /> {currentStory.untranslatedCount} 条未翻译</>
                     : <><span className="story-dot done" /> 已全部翻译</>}
                 </span>
-                <div className="story-toolbar-actions">
-                  <button className="btn btn-primary btn-sm" onClick={doAIStory} disabled={busy}>AI 补充剧情翻译</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await promoteEventStoryHuman(Number(field)); setEntries((p) => p.map((e) => ({ ...e, source: "human" }))); reloadSidebar(); show("已整篇标记人工", "ok"); })} disabled={busy}>整篇标记人工</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await retryEventStory(Number(field)); loadEntries(); reloadSidebar(); show("已重新获取剧情", "ok"); })} disabled={busy}>重新获取剧情</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => withBusy(async () => { await reorderEventStory(Number(field)); loadEntries(); show("已重排序对话", "ok"); })} disabled={busy}>重排序对话</button>
-                </div>
+                {role === "admin" && <div className="story-toolbar-actions">
+                  <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
+                </div>}
               </div>
             )}
 
             <div className="search-bar">
-              <input placeholder="搜索日文或中文…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input aria-label="搜索当前翻译" placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
 
             <div className="content">
@@ -421,8 +821,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                   <div className="proof-jp">
                     <span className="label">日文原文</span>
                     {selectedEntry.speakerName && <div className="speaker">{selectedEntry.speakerName}</div>}
-                    <div className="jp-body">{isEventStory ? eventStoryEntryLabel(selectedEntry.key) : selectedEntry.key}</div>
-                    {isEventStory && <div className="episode">第 {parseEventStoryEntryKey(selectedEntry.key).episodeNo} 章</div>}
+                    <div className="jp-body">{isEventStory ? (selectedEntry.japanese || eventStoryEntryLabel(selectedEntry.key)) : selectedEntry.key}</div>
+                    {isEventStory && <div className="episode">第 {selectedEntry.episodeNo || parseEventStoryEntryKey(selectedEntry.key).episodeNo} 章</div>}
                     {moesekaiUrl && (
                       <a className="moesekai-link" href={moesekaiUrl} target="_blank" rel="noopener noreferrer" title="在 Moesekai 上查看详情">
                         <IconExternalLink /> Moesekai 页面
@@ -445,10 +845,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       onKeyDown={onTextareaKey}
                       placeholder="输入翻译…"
                       rows={3}
+                      readOnly={isReadOnly || writesLocked}
+                      aria-label="翻译校对内容"
                     />
                     <div className="proof-actions">
-                      <button className="btn btn-primary" onClick={() => save()}>保存并下一条</button>
-                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")}>锁定保存</button>}
+                      <button className="btn btn-primary" onClick={() => save()} disabled={isReadOnly || writesLocked}>保存并下一条</button>
+                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")} disabled={isReadOnly || writesLocked}>锁定保存</button>}
                       <button className="btn btn-ghost btn-sm" onClick={() => setEnterSaves(!enterSaves)} title="切换保存快捷键">
                         快捷键: {saveKeyLabel}
                       </button>
@@ -476,13 +878,21 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         key={entry.key}
                         data-key={entry.key}
                         className={`entry-row ${selectedKey === entry.key ? "active" : ""}`}
-                        onClick={() => { setSelectedKey(entry.key); setEditValue(entry.text); }}
+                        onClick={() => selectEntry(entry)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectEntry(entry); }
+                        }}
+                        tabIndex={0}
+                        aria-selected={selectedKey === entry.key}
                       >
                         <td className="col-source" onClick={(e) => e.stopPropagation()}>
                           <select
                             value={entry.source}
                             onChange={(e) => handleSourceChange(entry.key, e.target.value)}
                             className={`source-tag ${entry.source}`}
+                            disabled={isReadOnly || writesLocked}
+                            aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
                           >
                             {Object.entries(SOURCE_LABELS).map(([k, v]) => (
                               <option key={k} value={k}>{v}</option>
@@ -492,7 +902,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         <td>
                           <div className="jp">
                             {entry.speakerName && <div className="speaker">{entry.speakerName}</div>}
-                            {isEventStory ? eventStoryEntryLabel(entry.key) : entry.key}
+                            {isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key}
                           </div>
                         </td>
                         <td><div className="cn">{entry.text}</div></td>
@@ -507,8 +917,36 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       </main>
 
       {/* Settings & Admin modals */}
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
-      {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} />}
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} guardProducerMutation={guardProducerMutation} />
+      {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} guardProducerMutation={guardProducerMutation} />}
+      <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460}>
+        <p className="dirty-guard-copy">当前内容有未保存修改。继续前请选择如何处理。</p>
+        <div className="dirty-guard-actions">
+          <button className="btn btn-primary" onClick={() => void continuePendingAction(true)} disabled={writesLocked}>保存并继续</button>
+          <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)}>放弃修改</button>
+          <button className="btn btn-ghost" onClick={closePendingAction}>取消</button>
+        </div>
+      </Modal>
+      <Modal open={contentConflict != null} onClose={() => {}} title={contentConflict?.reason === "restore" ? "恢复数据与本地草稿冲突" : "实时事件缺口校对"} maxWidth={560} dismissible={false}>
+        {contentConflict && <>
+          <p className="dirty-guard-copy">
+            {contentConflict.reloadFailed
+              ? "服务器权威数据尚未完整载入。写入保持锁定，请重试；本地草稿不会由此流程写回服务器。"
+              : contentConflict.draft
+                ? "服务器权威数据已重新载入。旧缓冲区仅可导出后手动合并，不能直接保存或覆盖恢复后的数据。"
+                : "服务器权威数据已重新载入，可以继续。"}
+          </p>
+          <div className="dirty-guard-actions">
+            {contentConflict.draft && <button className="btn btn-secondary" onClick={() => exportConflictDraft(contentConflict)}>仅导出旧草稿</button>}
+            {contentConflict.reloadFailed ? (
+              <button className="btn btn-primary" onClick={() => void reconcileContent(contentConflict.reason, contentConflict.draft)}>重试权威载入</button>
+            ) : <>
+              {contentConflict.draft && <button className="btn btn-primary" onClick={() => { exportConflictDraft(contentConflict); resolveContentConflict(contentConflict); }}>导出后手动合并</button>}
+              <button className="btn btn-ghost" onClick={() => resolveContentConflict(contentConflict)}>舍弃旧缓冲区并继续</button>
+            </>}
+          </div>
+        </>}
+      </Modal>
     </div>
   );
 }

@@ -1,7 +1,11 @@
 package store
 
 import (
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"time"
 
 	"moesekai/server/internal/db"
@@ -20,26 +24,197 @@ func NewEventStore(database *db.DB) *EventStore {
 // OrderedEpisode is an episode with explicit line ordering, used for lossless
 // import (map iteration order is not stable, but dialogue flow must survive).
 type OrderedEpisode struct {
-	EpisodeNo    string
-	ScenarioID   string
-	Title        string
-	TitleSource  string
-	TalkKeys     []string // jp keys in story order
-	TalkData     map[string]string
-	TalkSources  map[string]string
-	SpeakerNames map[string]string
+	EpisodeNo             string
+	ScenarioID            string
+	ScenarioCanonicalJSON string
+	ScenarioSHA256        string
+	Title                 string
+	TitleSource           string
+	SourceTitle           string
+	TalkKeys              []string // jp keys in story order
+	TalkData              map[string]string
+	TalkSources           map[string]string
+	SpeakerNames          map[string]string
+	Lines                 []OrderedLine
+}
+
+type OrderedLine struct {
+	JPKey            string
+	Text             string
+	Source           string
+	SpeakerName      string
+	ScenarioPosition int
+	Field            string
 }
 
 // ImportOrdered replaces one event story, preserving episode and line order.
 func (s *EventStore) ImportOrdered(eventID int, meta model.EventStoryMeta, episodes []OrderedEpisode) error {
-	tx, err := s.db.Begin()
+	return s.ImportOrderedContext(context.Background(), eventID, meta, episodes)
+}
+
+func (s *EventStore) ImportOrderedContext(ctx context.Context, eventID int, meta model.EventStoryMeta, episodes []OrderedEpisode) error {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
-	if _, err := tx.Exec(`DELETE FROM event_stories WHERE event_id = ?`, eventID); err != nil {
+	if err := importOrderedTx(ctx, tx, eventID, meta, episodes, true); err != nil {
 		return err
+	}
+	return tx.Commit()
+}
+
+// ImportOrderedForSync performs the same replacement as ImportOrdered, but
+// rechecks protected local edits after acquiring the write transaction.
+func (s *EventStore) ImportOrderedForSync(eventID int, meta model.EventStoryMeta, episodes []OrderedEpisode) (bool, error) {
+	return s.ImportOrderedForSyncContext(context.Background(), eventID, meta, episodes)
+}
+
+func (s *EventStore) ImportOrderedForSyncContext(ctx context.Context, eventID int, meta model.EventStoryMeta, episodes []OrderedEpisode) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	protected, err := eventHasProtectedTranslationsTx(ctx, tx, eventID)
+	if err != nil {
+		return false, err
+	}
+	if protected {
+		return false, nil
+	}
+	if err := importOrderedTx(ctx, tx, eventID, meta, episodes, true); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func eventHasProtectedTranslationsTx(ctx context.Context, tx *sql.Tx, eventID int) (bool, error) {
+	var protected int
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(
+		SELECT 1 FROM event_stories WHERE event_id=? AND source IN ('human','pinned')
+		UNION ALL
+		SELECT 1 FROM event_story_episodes WHERE event_id=? AND title_source IN ('human','pinned')
+		UNION ALL
+		SELECT 1 FROM event_story_lines WHERE event_id=? AND source IN ('human','pinned')
+	)`, eventID, eventID, eventID).Scan(&protected)
+	return protected != 0, err
+}
+
+func importOrderedTx(ctx context.Context, tx *sql.Tx, eventID int, meta model.EventStoryMeta, episodes []OrderedEpisode, preserveLocales bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	scenarioComplete, err := validateOrderedScenarioSet(eventID, episodes)
+	if err != nil {
+		return err
+	}
+	activeSegments, err := activeEventSegmentsTx(tx, eventID)
+	if err != nil {
+		return err
+	}
+	// Older binaries replace the legacy story rows wholesale. Preserve manual
+	// non-Chinese localizations that are still attached to the same source
+	// identity before the legacy delete cascades.
+	type localization struct {
+		locale, text, source, updatedBy string
+		updatedAt                       int64
+		revision                        int
+	}
+	type preservedLocalization struct {
+		segmentID, episodeNo, kind, sourceHash string
+		localizations                          []localization
+	}
+	type sourceIdentity struct {
+		episodeNo, kind, sourceHash string
+	}
+	var preserved []*preservedLocalization
+	oldSourceCounts := map[sourceIdentity]int{}
+	if preserveLocales {
+		rows, err := tx.QueryContext(ctx, `SELECT loc.segment_id, seg.episode_no, seg.kind, seg.source_hash, loc.locale, loc.text, loc.source,
+			loc.updated_at, loc.updated_by, loc.revision
+			FROM event_story_segment_localizations loc
+			JOIN event_story_segments seg ON seg.segment_id=loc.segment_id
+			JOIN event_story_episodes episode
+			ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no
+			AND episode.scenario_id=seg.scenario_id
+			WHERE seg.event_id=? AND loc.locale<>?
+			ORDER BY loc.segment_id, loc.locale`, eventID, model.LocaleChinese)
+		if err != nil {
+			return err
+		}
+		preservedByID := map[string]*preservedLocalization{}
+		for rows.Next() {
+			if err := ctx.Err(); err != nil {
+				rows.Close()
+				return err
+			}
+			var segmentID, episodeNo, kind, sourceHash string
+			var item localization
+			if err := rows.Scan(&segmentID, &episodeNo, &kind, &sourceHash, &item.locale, &item.text, &item.source,
+				&item.updatedAt, &item.updatedBy, &item.revision); err != nil {
+				rows.Close()
+				return err
+			}
+			if _, active := activeSegments[segmentID]; !active {
+				continue
+			}
+			segment := preservedByID[segmentID]
+			if segment == nil {
+				segment = &preservedLocalization{segmentID: segmentID, episodeNo: episodeNo, kind: kind, sourceHash: sourceHash}
+				preservedByID[segmentID] = segment
+				preserved = append(preserved, segment)
+			}
+			segment.localizations = append(segment.localizations, item)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for _, segment := range activeSegments {
+			oldSourceCounts[sourceIdentity{episodeNo: segment.EpisodeNo, kind: segment.Kind, sourceHash: segment.SourceHash}]++
+		}
+	}
+	for segmentID := range activeSegments {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM event_story_segments WHERE segment_id=?`, segmentID); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM event_stories WHERE event_id = ?`, eventID); err != nil {
+		return err
+	}
+	if scenarioComplete {
+		for _, episode := range episodes {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			record := EventScenarioRecord{
+				EventID: eventID, EpisodeNo: episode.EpisodeNo, ScenarioID: episode.ScenarioID,
+				CanonicalJSON: episode.ScenarioCanonicalJSON, SHA256: episode.ScenarioSHA256,
+			}
+			definitions, err := eventScenarioSegmentDefinitions(record, episode.SourceTitle)
+			if err != nil {
+				return err
+			}
+			for _, definition := range definitions {
+				// A rolling writer may have moved away from this scenario and left
+				// its deterministic ID as recovery data. Move that row aside before
+				// the scenario identity cycles back and creates a fresh active row.
+				if err := archiveEventSegmentTx(tx, definition.SegmentID); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	if meta.Version == "" {
 		meta.Version = "1.0"
@@ -47,55 +222,271 @@ func (s *EventStore) ImportOrdered(eventID int, meta model.EventStoryMeta, episo
 	if meta.LastUpdated == 0 {
 		meta.LastUpdated = time.Now().Unix()
 	}
-	if _, err := tx.Exec(
+	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO event_stories (event_id, source, version, last_updated) VALUES (?, ?, ?, ?)`,
 		eventID, meta.Source, meta.Version, meta.LastUpdated); err != nil {
 		return err
 	}
 
-	epStmt, err := tx.Prepare(`INSERT INTO event_story_episodes
+	epStmt, err := tx.PrepareContext(ctx, `INSERT INTO event_story_episodes
 		(event_id, episode_no, scenario_id, title, title_source, talk_order_json, position)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer epStmt.Close()
-	lineStmt, err := tx.Prepare(`INSERT INTO event_story_lines
+	lineStmt, err := tx.PrepareContext(ctx, `INSERT INTO event_story_lines
 		(event_id, episode_no, jp_key, cn_text, source, speaker_name, position)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer lineStmt.Close()
+	segmentStmt, err := tx.PrepareContext(ctx, `INSERT INTO event_story_segments
+		(segment_id, event_id, episode_no, scenario_id, kind, position, jp_key, source_text, source_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer segmentStmt.Close()
+	localizedStmt, err := tx.PrepareContext(ctx, `INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		VALUES (?, ?, ?, ?, ?, ?, 1)`)
+	if err != nil {
+		return err
+	}
+	defer localizedStmt.Close()
+	newSegmentIDs := map[string]bool{}
 
 	for epPos, ep := range episodes {
-		// talk_order_json is stored only when it adds information beyond the
-		// natural line position order (kept empty here; positions drive order).
-		if _, err := epStmt.Exec(eventID, ep.EpisodeNo, ep.ScenarioID, ep.Title, ep.TitleSource, "", epPos); err != nil {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-		for linePos, jp := range ep.TalkKeys {
-			cn, ok := ep.TalkData[jp]
+		// talk_order_json is stored only when it adds information beyond the
+		// natural line position order (kept empty here; positions drive order).
+		if _, err := epStmt.ExecContext(ctx, eventID, ep.EpisodeNo, ep.ScenarioID, ep.Title, ep.TitleSource, "", epPos); err != nil {
+			return err
+		}
+		titleID := eventSegmentID(eventID, ep.ScenarioID, ep.EpisodeNo, "title", -1)
+		titleSource := ep.SourceTitle
+		if titleSource == "" && (meta.Source == "jp_pending" || ep.TitleSource == "jp_pending") {
+			titleSource = ep.Title
+		}
+		if _, err := segmentStmt.ExecContext(ctx, titleID, eventID, ep.EpisodeNo, ep.ScenarioID, "title", -1, "", titleSource, hashText(titleSource)); err != nil {
+			return err
+		}
+		newSegmentIDs[titleID] = true
+		if titleSource == "" {
+			if _, err := localizedStmt.ExecContext(ctx, titleID, model.LocaleChinese, ep.Title, ep.TitleSource, meta.LastUpdated, "import"); err != nil {
+				return err
+			}
+		}
+		lines := ep.Lines
+		if len(lines) == 0 {
+			for _, jp := range ep.TalkKeys {
+				cn, ok := ep.TalkData[jp]
+				if !ok {
+					continue
+				}
+				line := OrderedLine{JPKey: jp, Text: cn, Source: meta.Source}
+				if ep.TalkSources != nil && ep.TalkSources[jp] != "" {
+					line.Source = ep.TalkSources[jp]
+				}
+				if ep.SpeakerNames != nil {
+					line.SpeakerName = ep.SpeakerNames[jp]
+				}
+				lines = append(lines, line)
+			}
+		}
+		legacyByKey := map[string]OrderedLine{}
+		legacyOrder := append([]string(nil), ep.TalkKeys...)
+		legacySeen := map[string]bool{}
+		for _, line := range lines {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			legacyByKey[line.JPKey] = line // legacy maps kept the final repeated value
+			if len(ep.TalkKeys) == 0 && line.JPKey != "" && !legacySeen[line.JPKey] {
+				legacyOrder = append(legacyOrder, line.JPKey)
+				legacySeen[line.JPKey] = true
+			}
+		}
+		for legacyPosition, jpKey := range legacyOrder {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			line, ok := legacyByKey[jpKey]
 			if !ok {
 				continue
 			}
-			src := ""
-			if ep.TalkSources != nil {
-				src = ep.TalkSources[jp]
+			if ep.TalkData != nil {
+				if text, exists := ep.TalkData[jpKey]; exists {
+					line.Text = text
+				}
 			}
+			if ep.TalkSources != nil && ep.TalkSources[jpKey] != "" {
+				line.Source = ep.TalkSources[jpKey]
+			}
+			if ep.SpeakerNames != nil && ep.SpeakerNames[jpKey] != "" {
+				line.SpeakerName = ep.SpeakerNames[jpKey]
+			}
+			if line.Source == "" {
+				line.Source = meta.Source
+			}
+			if _, err := lineStmt.ExecContext(ctx, eventID, ep.EpisodeNo, jpKey, line.Text, line.Source, line.SpeakerName, legacyPosition); err != nil {
+				return err
+			}
+		}
+		for linePos, line := range lines {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if line.JPKey == "" {
+				continue
+			}
+			src := line.Source
 			if src == "" {
 				src = meta.Source
 			}
-			speaker := ""
-			if ep.SpeakerNames != nil {
-				speaker = ep.SpeakerNames[jp]
+			position := linePos
+			if line.Field != "" {
+				position = line.ScenarioPosition
 			}
-			if _, err := lineStmt.Exec(eventID, ep.EpisodeNo, jp, cn, src, speaker, linePos); err != nil {
+			segmentID := eventSegmentID(eventID, ep.ScenarioID, ep.EpisodeNo, "talk", position, line.Field)
+			if _, err := segmentStmt.ExecContext(ctx, segmentID, eventID, ep.EpisodeNo, ep.ScenarioID, "talk", position, line.JPKey, line.JPKey, hashText(line.JPKey)); err != nil {
+				return err
+			}
+			newSegmentIDs[segmentID] = true
+			if _, err := localizedStmt.ExecContext(ctx, segmentID, model.LocaleChinese, line.Text, src, meta.LastUpdated, "import"); err != nil {
 				return err
 			}
 		}
 	}
-	return tx.Commit()
+	assignments := map[string]string{}
+	claimedDestinations := map[string]bool{}
+	// Reserve stable exact matches before considering any positional migration
+	// fallback, so a fallback can never steal another segment's destination.
+	for _, item := range preserved {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !newSegmentIDs[item.segmentID] {
+			continue
+		}
+		var currentHash string
+		err := tx.QueryRowContext(ctx, `SELECT source_hash FROM event_story_segments WHERE segment_id=?`, item.segmentID).Scan(&currentHash)
+		if err == nil && currentHash == item.sourceHash {
+			assignments[item.segmentID] = item.segmentID
+			claimedDestinations[item.segmentID] = true
+		} else if err != nil && err != sql.ErrNoRows {
+			return err
+		}
+	}
+	for _, item := range preserved {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if assignments[item.segmentID] != "" {
+			continue
+		}
+		identity := sourceIdentity{episodeNo: item.episodeNo, kind: item.kind, sourceHash: item.sourceHash}
+		if oldSourceCounts[identity] != 1 {
+			continue
+		}
+		candidateRows, err := tx.QueryContext(ctx, `SELECT segment_id FROM event_story_segments
+			WHERE event_id=? AND episode_no=? AND kind=? AND source_hash=?`,
+			eventID, item.episodeNo, item.kind, item.sourceHash)
+		if err != nil {
+			return err
+		}
+		var candidates []string
+		for candidateRows.Next() {
+			if err := ctx.Err(); err != nil {
+				candidateRows.Close()
+				return err
+			}
+			var candidate string
+			if err := candidateRows.Scan(&candidate); err != nil {
+				candidateRows.Close()
+				return err
+			}
+			if newSegmentIDs[candidate] && !claimedDestinations[candidate] {
+				candidates = append(candidates, candidate)
+			}
+		}
+		if err := candidateRows.Err(); err != nil {
+			candidateRows.Close()
+			return err
+		}
+		if err := candidateRows.Close(); err != nil {
+			return err
+		}
+		if len(candidates) == 1 {
+			assignments[item.segmentID] = candidates[0]
+			claimedDestinations[candidates[0]] = true
+		}
+	}
+	for _, item := range preserved {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		targetSegmentID := assignments[item.segmentID]
+		if targetSegmentID == "" {
+			continue
+		}
+		for _, localization := range item.localizations {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO event_story_segment_localizations
+				(segment_id, locale, text, source, updated_at, updated_by, revision)
+				VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				targetSegmentID, localization.locale, localization.text, localization.source, localization.updatedAt,
+				localization.updatedBy, localization.revision); err != nil {
+				return err
+			}
+		}
+	}
+	if scenarioComplete {
+		for _, episode := range episodes {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := reconcileEventScenarioSegmentsTx(tx, eventID, episode); err != nil {
+				return err
+			}
+		}
+		if err := replaceEventScenariosTx(tx, eventID, episodes); err != nil {
+			return err
+		}
+	}
+	return ctx.Err()
+}
+
+func activeEventSegmentsTx(tx *sql.Tx, eventID int) (map[string]EventSegmentRecord, error) {
+	rows, err := tx.Query(`SELECT segment.segment_id, segment.event_id, segment.episode_no, segment.scenario_id,
+		segment.kind, segment.position, segment.jp_key, segment.source_text, segment.source_hash
+		FROM event_story_segments segment
+		JOIN event_story_episodes episode
+		ON episode.event_id=segment.event_id AND episode.episode_no=segment.episode_no
+		AND episode.scenario_id=segment.scenario_id
+		WHERE segment.event_id=?`, eventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[string]EventSegmentRecord{}
+	for rows.Next() {
+		var segment EventSegmentRecord
+		if err := rows.Scan(&segment.SegmentID, &segment.EventID, &segment.EpisodeNo, &segment.ScenarioID,
+			&segment.Kind, &segment.Position, &segment.JPKey, &segment.SourceText, &segment.SourceHash); err != nil {
+			return nil, err
+		}
+		if isDeterministicEventSegment(segment) {
+			result[segment.SegmentID] = segment
+		}
+	}
+	return result, rows.Err()
 }
 
 // OrderedDetail is an order-preserving read-back of one event story. Episode
@@ -233,15 +624,22 @@ func (s *EventStore) List() ([]model.EventStorySummary, error) {
 // or an episode title (entryType "title"). For titles, jpKey is ignored. The
 // story's last_updated is bumped. Returns ErrNoRows if the target is missing.
 func (s *EventStore) UpdateLine(eventID int, episodeNo, jpKey, cnText, source, entryType string) error {
+	if !model.IsValidSource(source) {
+		return fmt.Errorf("invalid translation source: %q", source)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	var res sql.Result
-	var err error
 	if entryType == "title" {
-		res, err = s.db.Exec(
+		res, err = tx.Exec(
 			`UPDATE event_story_episodes SET title = ?, title_source = ?
 			 WHERE event_id = ? AND episode_no = ?`,
 			cnText, source, eventID, episodeNo)
 	} else {
-		res, err = s.db.Exec(
+		res, err = tx.Exec(
 			`UPDATE event_story_lines SET cn_text = ?, source = ?
 			 WHERE event_id = ? AND episode_no = ? AND jp_key = ?`,
 			cnText, source, eventID, episodeNo, jpKey)
@@ -249,12 +647,35 @@ func (s *EventStore) UpdateLine(eventID int, episodeNo, jpKey, cnText, source, e
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
 		return sql.ErrNoRows
 	}
-	_, _ = s.db.Exec(`UPDATE event_stories SET last_updated = ? WHERE event_id = ?`,
-		time.Now().Unix(), eventID)
-	return nil
+	now := time.Now().Unix()
+	if _, err := tx.Exec(`UPDATE event_stories SET last_updated = ? WHERE event_id = ?`, now, eventID); err != nil {
+		return err
+	}
+	// Keep the additive zh-CN projection synchronized with the legacy row.
+	kind := "talk"
+	if entryType == "title" {
+		kind = "title"
+		jpKey = ""
+	}
+	if _, err := tx.Exec(`INSERT INTO event_story_segment_localizations
+		(segment_id, locale, text, source, updated_at, updated_by, revision)
+		SELECT segment.segment_id, ?, ?, ?, ?, 'legacy-api', 1 FROM event_story_segments segment
+		JOIN event_story_episodes episode
+		ON episode.event_id=segment.event_id AND episode.episode_no=segment.episode_no
+		AND episode.scenario_id=segment.scenario_id
+		WHERE segment.event_id=? AND segment.episode_no=? AND segment.kind=? AND (?='' OR segment.jp_key=?)
+		ON CONFLICT(segment_id, locale) DO UPDATE SET text=excluded.text, source=excluded.source,
+		updated_at=excluded.updated_at, updated_by=excluded.updated_by,
+		revision=event_story_segment_localizations.revision+1`,
+		model.LocaleChinese, cnText, source, now, eventID, episodeNo, kind, jpKey, jpKey); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // PromoteHuman marks every title and talk line of an event story as human.
@@ -264,6 +685,7 @@ func (s *EventStore) PromoteHuman(eventID int) error {
 		return err
 	}
 	defer tx.Rollback()
+	now := time.Now().Unix()
 	if _, err := tx.Exec(
 		`UPDATE event_story_episodes SET title_source = 'human' WHERE event_id = ?`, eventID); err != nil {
 		return err
@@ -272,9 +694,20 @@ func (s *EventStore) PromoteHuman(eventID int) error {
 		`UPDATE event_story_lines SET source = 'human' WHERE event_id = ?`, eventID); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(`UPDATE event_story_segment_localizations
+		SET source='human', updated_at=?, updated_by='promote-human', revision=revision+1
+		WHERE locale=? AND segment_id IN (
+			SELECT segment.segment_id FROM event_story_segments segment
+			JOIN event_story_episodes episode
+			ON episode.event_id=segment.event_id AND episode.episode_no=segment.episode_no
+			AND episode.scenario_id=segment.scenario_id
+			WHERE segment.event_id=?)`,
+		now, model.LocaleChinese, eventID); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(
 		`UPDATE event_stories SET source = 'human', last_updated = ? WHERE event_id = ?`,
-		time.Now().Unix(), eventID); err != nil {
+		now, eventID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -285,4 +718,20 @@ func (s *EventStore) Exists(eventID int) (bool, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM event_stories WHERE event_id = ?`, eventID).Scan(&n)
 	return n > 0, err
+}
+
+func eventSegmentID(eventID int, scenarioID, episodeNo, kind string, position int, field ...string) string {
+	id := fmt.Sprintf("event:%d:%s:%s:%s:%d", eventID, scenarioID, episodeNo, kind, position)
+	if len(field) > 0 && field[0] != "" {
+		id += ":" + field[0]
+	}
+	return id
+}
+
+func hashText(text string) string {
+	if text == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(sum[:])
 }

@@ -1,0 +1,16 @@
+[
+  {
+    "name": "cards",
+    "fields": [
+      {
+        "name": "prefix",
+        "total": 6,
+        "cnCount": 1,
+        "humanCount": 1,
+        "pinnedCount": 1,
+        "llmCount": 1,
+        "unknownCount": 2
+      }
+    ]
+  }
+]

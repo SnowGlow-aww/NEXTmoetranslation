@@ -1,0 +1,19 @@
+== 合成游戏版 ==
+{{ProjectsekaiSongGai
+|曲名={{lj|合成試験曲}}
+|作词=[[制作者]]
+|作曲=[[制作者]]
+|编曲=[[制作者]]
+}}
+=== 歌词 ===
+{{LyricsKai/ext
+|type=multiver,colors
+|colors=#33CCBB
+|charas=初音未来(世界计划)
+|original=
+<--Tag-Start:Game Ver.-->
+@1ゲームだけ
+<--Tag-End-->
+|translated=游戏版翻译
+|Romanization=geemu dake
+}}

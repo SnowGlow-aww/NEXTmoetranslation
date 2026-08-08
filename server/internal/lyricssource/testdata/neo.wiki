@@ -1,0 +1,21 @@
+== Lyrics ==
+{|
+! Japanese
+! Romaji
+|-
+| 合成音色一
+| synthetic neiro one
+|-
+| 合成音色二<br />合成音色三
+| synthetic neiro two<br />synthetic neiro three
+|-
+| <br />
+|
+|-
+| [[合成音色四|合成表示四]]<ref>synthetic citation</ref>
+| synthetic display four
+|-
+| 合成音色五 || synthetic neiro five
+|}
+== Other ==
+This section must not be extracted.

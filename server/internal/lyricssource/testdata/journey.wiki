@@ -1,0 +1,23 @@
+== Lyrics ==
+<tabber>
+Japanese=
+{|
+! Japanese
+! Translation
+|-
+| {{shared}} | Synthetic Journey
+| Synthetic Journey
+|-
+| <br />
+|
+|-
+| 合成旅路一
+| Synthetic journey one
+|-
+| 合成旅路二<br />合成旅路三
+| Synthetic journey two<br />Synthetic journey three
+|-
+| {{Shared}}|Synthetic refrain
+| Synthetic refrain
+|}
+</tabber>

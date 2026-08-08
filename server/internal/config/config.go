@@ -15,10 +15,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 
 	"moesekai/server/internal/db"
+	"moesekai/server/internal/httpx"
 )
 
 // Setting keys. Secret keys must be listed in secretKeys below.
@@ -48,6 +52,10 @@ const (
 	KeyUpstreamCNAssetsFallbackURL     = "upstream.cn_assets_fallback_url"
 	KeyUpstreamFetchConcurrency        = "upstream.fetch_concurrency"
 	KeySchedulerOn                     = "scheduler.enabled"
+	KeyLyricsDiscoveryOn               = "lyrics_discovery.enabled"
+	KeyLyricsFetchRevisionOn           = "lyrics_discovery.fetch_revision.enabled"
+	KeyUpstreamLastDataVersion         = "upstream.state.last_data_version"
+	KeyUpstreamPendingDataVersion      = "upstream.state.pending_data_version"
 
 	KeyBackupS3Enabled   = "backup.s3.enabled"
 	KeyBackupS3Endpoint  = "backup.s3.endpoint"
@@ -73,6 +81,23 @@ var secretKeys = map[string]bool{
 	KeyBackupGitRepoURL:  true,
 }
 
+var settingKeys = map[string]bool{
+	KeyLLMType: true, KeyGeminiAPIKey: true, KeyGeminiModel: true,
+	KeyOpenAIAPIKey: true, KeyOpenAIBaseURL: true, KeyOpenAIModel: true,
+	KeyLLMRequestTimeoutMS: true, KeyLLMMaxRetries: true, KeyBatchSize: true, KeyRateDelayMS: true,
+	KeyUpstreamRepo: true, KeyUpstreamBranch: true, KeyUpstreamVersionURL: true,
+	KeyUpstreamVersionFallbackURL: true, KeyUpstreamJPMasterdataURL: true,
+	KeyUpstreamJPMasterdataFallbackURL: true, KeyUpstreamCNMasterdataURL: true,
+	KeyUpstreamCNMasterdataFallbackURL: true, KeyUpstreamJPAssetsURL: true,
+	KeyUpstreamJPAssetsFallbackURL: true, KeyUpstreamCNAssetsURL: true,
+	KeyUpstreamCNAssetsFallbackURL: true, KeyUpstreamFetchConcurrency: true,
+	KeySchedulerOn: true, KeyLyricsDiscoveryOn: true, KeyLyricsFetchRevisionOn: true, KeyUpstreamLastDataVersion: true, KeyUpstreamPendingDataVersion: true,
+	KeyBackupS3Enabled: true, KeyBackupS3Endpoint: true, KeyBackupS3Region: true,
+	KeyBackupS3Bucket: true, KeyBackupS3Prefix: true, KeyBackupS3AccessKey: true,
+	KeyBackupS3SecretKey: true, KeyBackupGitEnabled: true, KeyBackupGitRepoURL: true,
+	KeyBackupGitBranch: true, KeyBackupDailyHour: true,
+}
+
 // IsSecret reports whether a setting key holds a secret value.
 func IsSecret(key string) bool { return secretKeys[key] }
 
@@ -81,8 +106,9 @@ type Config struct {
 	db     *db.DB
 	aesKey []byte
 
-	mu    sync.RWMutex
-	cache map[string]string // decrypted values
+	mu      sync.RWMutex
+	cache   map[string]string // decrypted values
+	writeMu sync.Mutex
 }
 
 // New opens the config over the given DB. masterKey may be empty, in which case
@@ -125,6 +151,9 @@ func (c *Config) reload() error {
 				return fmt.Errorf("decrypt %s: %w", key, err)
 			}
 			value = dec
+		}
+		if err := validateSettingValue(key, value); err != nil {
+			return fmt.Errorf("invalid persisted setting: %w", err)
 		}
 		cache[key] = value
 	}
@@ -179,50 +208,235 @@ func (c *Config) GetInt(key string, fallback int) int {
 
 // Set writes a setting, encrypting it if the key is a secret.
 func (c *Config) Set(key, value string) error {
+	_, err := c.SetMany(map[string]string{key: value})
+	return err
+}
+
+// SetMany validates, encrypts, and commits a settings patch atomically. The
+// in-memory cache is published only after the database transaction commits.
+func (c *Config) SetMany(values map[string]string) (int, error) {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	type encodedSetting struct {
+		key, value, stored string
+		encrypted          int
+	}
+	encoded := make([]encodedSetting, 0, len(values))
+	for key, value := range values {
+		stored, encrypted, err := c.encodeSetting(key, value)
+		if err != nil {
+			return 0, err
+		}
+		encoded = append(encoded, encodedSetting{key: key, value: value, stored: stored, encrypted: encrypted})
+	}
+	tx, err := c.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	for _, setting := range encoded {
+		if _, err := tx.Exec(`INSERT INTO settings (key, value, encrypted) VALUES (?, ?, ?)
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value, encrypted = excluded.encrypted`,
+			setting.key, setting.stored, setting.encrypted); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	c.mu.Lock()
+	for _, setting := range encoded {
+		c.cache[setting.key] = setting.value
+	}
+	c.mu.Unlock()
+	return len(encoded), nil
+}
+
+func (c *Config) encodeSetting(key, value string) (string, int, error) {
+	if !settingKeys[key] {
+		return "", 0, fmt.Errorf("unknown setting %q", key)
+	}
+	if err := validateSettingValue(key, value); err != nil {
+		return "", 0, err
+	}
 	enc := 0
 	stored := value
 	if IsSecret(key) {
 		if !c.HasMasterKey() {
-			return errors.New("cannot store secret: MOESEKAI_MASTER_KEY not configured")
+			return "", 0, errors.New("cannot store secret: MOESEKAI_MASTER_KEY not configured")
 		}
 		e, err := c.encrypt(value)
 		if err != nil {
-			return err
+			return "", 0, err
 		}
 		stored = e
 		enc = 1
 	}
-	_, err := c.db.Exec(
-		`INSERT INTO settings (key, value, encrypted) VALUES (?, ?, ?)
-		 ON CONFLICT(key) DO UPDATE SET value = excluded.value, encrypted = excluded.encrypted`,
-		key, stored, enc)
-	if err != nil {
-		return err
+	return stored, enc, nil
+}
+
+func validateSettingValue(key, value string) error {
+	canonicalBool := func() error {
+		if value != "true" && value != "false" {
+			return fmt.Errorf("%s must be true or false", key)
+		}
+		return nil
 	}
-	c.mu.Lock()
-	c.cache[key] = value
-	c.mu.Unlock()
+	canonicalInt := func(minimum, maximum int) error {
+		number, err := strconv.Atoi(value)
+		if err != nil || number < minimum || number > maximum || strconv.Itoa(number) != value {
+			return fmt.Errorf("%s must be an integer from %d through %d", key, minimum, maximum)
+		}
+		return nil
+	}
+	switch key {
+	case KeySchedulerOn, KeyLyricsDiscoveryOn, KeyLyricsFetchRevisionOn, KeyBackupS3Enabled, KeyBackupGitEnabled:
+		return canonicalBool()
+	case KeyLLMType:
+		if value != "gemini" && value != "openai" {
+			return fmt.Errorf("%s must be gemini or openai", key)
+		}
+	case KeyOpenAIBaseURL, KeyBackupS3Endpoint:
+		return validateSecretServiceURL(key, value)
+	case KeyUpstreamVersionURL, KeyUpstreamVersionFallbackURL,
+		KeyUpstreamJPMasterdataURL, KeyUpstreamJPMasterdataFallbackURL,
+		KeyUpstreamCNMasterdataURL, KeyUpstreamCNMasterdataFallbackURL,
+		KeyUpstreamJPAssetsURL, KeyUpstreamJPAssetsFallbackURL,
+		KeyUpstreamCNAssetsURL, KeyUpstreamCNAssetsFallbackURL:
+		return validateUpstreamURLSetting(key, value)
+	case KeyLLMRequestTimeoutMS:
+		return canonicalInt(1, 300000)
+	case KeyLLMMaxRetries:
+		return canonicalInt(0, 5)
+	case KeyBatchSize:
+		return canonicalInt(1, 200)
+	case KeyRateDelayMS:
+		return canonicalInt(0, 60000)
+	case KeyUpstreamFetchConcurrency:
+		return canonicalInt(1, 12)
+	case KeyBackupDailyHour:
+		return canonicalInt(0, 23)
+	}
 	return nil
+}
+
+func validateSecretServiceURL(key, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if len(value) > 2048 {
+		return fmt.Errorf("%s exceeds the 2048-byte URL limit", key)
+	}
+	parsed, err := url.Parse(value)
+	loopbackHTTP := parsed != nil && parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname())
+	if err != nil || (parsed.Scheme != "https" && !loopbackHTTP) || parsed.Host == "" || parsed.Hostname() == "" ||
+		parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" || parsed.ForceQuery {
+		return fmt.Errorf("%s must be an absolute HTTPS URL (or loopback HTTP for local testing) without credentials, query, or fragment", key)
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return fmt.Errorf("%s must not contain control characters", key)
+		}
+	}
+	return nil
+}
+
+func validateUpstreamURLSetting(key, value string) error {
+	if value == "" {
+		return nil
+	}
+	if len(value) > 8192 {
+		return fmt.Errorf("%s exceeds the 8192-byte URL setting limit", key)
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return fmt.Errorf("%s must not contain control characters", key)
+		}
+	}
+	templates := []string{value}
+	if key == KeyUpstreamVersionFallbackURL {
+		templates = strings.FieldsFunc(value, func(char rune) bool { return char == ',' || char == ';' })
+		if len(templates) == 0 {
+			return fmt.Errorf("%s must contain at least one URL", key)
+		}
+	}
+	policy := httpx.UpstreamPolicyFromEnvironment()
+	for _, template := range templates {
+		template = strings.TrimSpace(template)
+		expanded := strings.ReplaceAll(template, "{repo}", "owner/repo")
+		expanded = strings.ReplaceAll(expanded, "{branch}", "main")
+		if err := httpx.ValidateUpstreamURL(expanded, policy); err != nil {
+			return fmt.Errorf("%s contains an unsafe upstream URL: %w", key, err)
+		}
+	}
+	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(strings.TrimSpace(host), "localhost") {
+		return true
+	}
+	address := net.ParseIP(strings.TrimSpace(host))
+	return address != nil && address.IsLoopback()
 }
 
 // SetIfAbsent writes a setting only if it is not already present. Used for
 // env-based seeding so the admin UI remains authoritative after first run.
 func (c *Config) SetIfAbsent(key, value string) (bool, error) {
-	if value == "" {
-		return false, nil
+	changed, err := c.SetManyIfAbsent(map[string]string{key: value})
+	return changed == 1, err
+}
+
+// SetManyIfAbsent validates and seeds a group atomically. Existing settings are
+// left untouched, and no value is inserted if any supplied value is invalid.
+func (c *Config) SetManyIfAbsent(values map[string]string) (int, error) {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	type encodedSetting struct {
+		key, value, stored string
+		encrypted          int
 	}
-	var exists int
-	err := c.db.QueryRow(`SELECT COUNT(*) FROM settings WHERE key = ?`, key).Scan(&exists)
+	encoded := make([]encodedSetting, 0, len(values))
+	for key, value := range values {
+		if value == "" {
+			continue
+		}
+		stored, encrypted, err := c.encodeSetting(key, value)
+		if err != nil {
+			return 0, err
+		}
+		encoded = append(encoded, encodedSetting{key: key, value: value, stored: stored, encrypted: encrypted})
+	}
+	tx, err := c.db.Begin()
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	if exists > 0 {
-		return false, nil
+	defer tx.Rollback()
+	inserted := make([]encodedSetting, 0, len(encoded))
+	for _, setting := range encoded {
+		result, err := tx.Exec(`INSERT OR IGNORE INTO settings (key, value, encrypted) VALUES (?, ?, ?)`,
+			setting.key, setting.stored, setting.encrypted)
+		if err != nil {
+			return 0, err
+		}
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		if changed == 1 {
+			inserted = append(inserted, setting)
+		}
 	}
-	if err := c.Set(key, value); err != nil {
-		return false, err
+	if err := tx.Commit(); err != nil {
+		return 0, err
 	}
-	return true, nil
+	c.mu.Lock()
+	for _, setting := range inserted {
+		c.cache[setting.key] = setting.value
+	}
+	c.mu.Unlock()
+	return len(inserted), nil
 }
 
 // All returns a snapshot of all settings, with secrets masked unless reveal is

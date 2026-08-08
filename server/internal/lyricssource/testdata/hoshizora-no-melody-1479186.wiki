@@ -1,0 +1,373 @@
+{{Song box 2
+  |color     = #8AC9F5; color:#0330A8
+  |image     = PolyphonicBranch StarrySkyMelody.jpg
+  |title     = "'''星空のメロディー'''"
+* Romaji: Hoshizora no Merodii
+* English: Hoshizora no Melody
+* Official English: Starry Sky Melody
+  |date      = June 28, 2022
+  |views     = {{v|nn|126,637}} and {{v|yt|703,134}}
+  |singers   = [[Hatsune Miku]], [[MEIKO]], [[Kagamine Len]], [[KAITO]], and [[Kagamine Rin]]
+  |producers = [[PolyphonicBranch]] (music, lyrics)
+* mele (illustration)
+* hie (video)
+  |links     = {{l|nn|sm40691459}} {{l|yt|VznMASce0CM}}
+}}
+
+==Background==
+"'''Hoshizora no Melody'''" is an original song by PolyphonicBranch. It was commissioned for the unit {{IW|projectsekai|Wonderlands x Showtime}} from the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!}}''. The song has entered the [[Hall of Fame]].
+
+==Succeeding versions==
+{{Derivative
+  |color       = #FF9900; color:white
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - 星空のメロディー.png
+  |singers     = {{IW|projectsekai|Wonderlands x Showtime}}: {{IW|projectsekai|MEIKO}}, {{IW|projectsekai|Kusanagi Nene}} (CV: {{IW|projectsekai|Machico}}), {{IW|projectsekai|Tenma Tsukasa}} (CV: {{IW|projectsekai|Hirose Daisuke}}), {{IW|projectsekai|Kamishiro Rui}} (CV: {{IW|projectsekai|Toki Shunichi}}), {{IW|projectsekai|Otori Emu}} (CV: {{IW|projectsekai|Kino Hina}})
+  |producers   = Atarashi Maimi (choreography), Jakko, Atarashi Maimi, Okuyama Keito, Murakami Masaki, akari (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Piapro Studio Vocal; Human Vocal; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so40969549; yt 22x2JzhqKnI; yt KILStq_kXN4; bb BV17zcdemEUh
+}}
+{{Derivative
+  |color       = #FF9900; color:white
+  |thumb       = Games - Project SEKAI - 星空のメロディー.png
+  |title       = Project SEKAI Version [Another Vocal (1)]
+  |singers     = Otori Emu (CV: Kino Hina)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #FF9900; color:white
+  |thumb       = Games - Project SEKAI - 星空のメロディー.png
+  |title       = Project SEKAI Version [Another Vocal (2)]
+  |singers     = Kusanagi Nene (CV: Machico)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Vocal; In-game Content
+  |description = Featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+}}
+{{Derivative
+  |color       = #FF9900; color:white
+  |title       = Project SEKAI Version [SEKAI] (Full - 2DMV)
+  |thumb       = Games - Project SEKAI - 星空のメロディー.png
+  |singers     = Wonderlands x Showtime: MEIKO, Kusanagi Nene (CV: Machico), Tenma Tsukasa (CV: Hirose Daisuke), Kamishiro Rui (CV: Toki Shunichi), Otori Emu (CV: Kino Hina)
+  |producers   = Hinatsu (illust), SLAN (video)<br>SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Vocal; Human Vocal; Original MV; In-game Content
+  |description = Full version, featured in Wonderlands x Showtime's 5th single ''88☆彡 / Hoshizora no Melody'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''. The full-length 2DMV was uploaded on January 15, 2026.
+  |links       = nn so45835530; yt 4GJhcEVGfd8; yt UHa1gm6XSoA
+}}
+{{clr}}
+{{Derivative
+  |color       = kaito
+  |title       = KAITO Vocal Ver
+  |singers     = KAITO (feat. Hatsune Miku, MEIKO, Kagamine Len, and Kagamine Rin)
+  |producers   = Polypho (PolyphonicBranch) (music, lyrics, tuning)
+  |categories  = VOCALOID Cover
+  |description = Released in celebration of KAITO 17th Anniversary.
+  |links       = 00 https://x.com/Tomoya_PB/status/1626565921346310144
+}}
+{{clr}}
+
+==Lyrics==
+{{lrc legend|#8AC9F5; color:#0330A8
+|Miku
+|Len
+|Rin
+|MEIKO
+|KAITO
+|All}}
+<tabber>
+|-|Japanese lyrics =
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{Shared}}|NeverEnd NeverEnd Wow Wow
+|-
+|{{lrc color|miku|いつかの約束}}
+|{{lrc color|miku|itsuka no yakusoku}}
+|-
+|{{Shared}}|NeverEnd NeverEnd Wow Wow
+|-
+|{{lrc color|miku|叶えられるから}}
+|{{lrc color|miku|kanaerareru kara}}
+|-
+|<br>
+|-
+|{{lrc color|rin|大切なものが}}あるんだ
+|{{lrc color|rin|taisetsu na mono ga}} aru nda
+|-
+|{{lrc color|rin|自分の居場所は}}ココなんだって
+|{{lrc color|rin|jibun no ibasho wa}} koko nan datte
+|-
+|{{lrc color|rin|独りじゃ護れなかった}}景色も
+|{{lrc color|rin|hitori ja mamorenakatta}} keshiki mo
+|-
+|{{lrc color|rin|重なる絆}} 希望に変えた
+|{{lrc color|rin|kasanaru kizu na}} kibou ni kaeta
+|-
+|<br>
+|-
+|{{lrc color|kaito|誰にも理解}}されなかった
+|{{lrc color|kaito|dare ni mo rikai}} sarenakatta
+|-
+|{{lrc color|kaito|それでもいいと}}思っていた
+|{{lrc color|kaito|soredemo ii to}} omotte ita
+|-
+|{{lrc color|kaito|情熱に触れて溶けてゆく}}孤独
+|{{lrc color|kaito|jounetsu ni furete tokete yuku}} kodoku
+|-
+|{{lrc color|kaito|どこまでも続く煌めきを}}胸に
+|{{lrc color|kaito|doko made mo tsuzuku kirameki o}} mune ni
+|-
+|<br>
+|-
+|{{lrc color|len|ねぇ 想うほどにセカイは色を讃えて}}
+|{{lrc color|len|nee omou hodo ni sekai wa iro o tataete}}
+|-
+|{{lrc color|len|誰かを笑顔にできるんだってことを}}
+|{{lrc color|len|dareka o egao ni dekiru nda tte koto o}}
+|-
+|気づかせてくれたんだ {{lrc color|len|■}}{{lrc color|rin|■}}
+|kizukasete kureta nda {{lrc color|len|■}}{{lrc color|rin|■}}
+|-
+|<br>
+|-
+|{{lrc color|miku|星に願いをかけて}}
+|{{lrc color|miku|hoshi ni negai o kakete}}
+|-
+|魔法のような明日を {{lrc color|miku|■}}{{lrc color|len|■}}
+|mahou no you na asu o {{lrc color|miku|■}}{{lrc color|len|■}}
+|-
+|{{lrc color|meiko|憧れも涙にも}}光がほら宿ってる {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|{{lrc color|meiko|akogare mo namida ni mo}} hikari ga hora yadotteru {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|miku|星を見つけるほどに}}
+|{{lrc color|miku|hoshi o mitsukeru hodo ni}}
+|-
+|{{lrc color|miku|暗闇を照らした
+|{{lrc color|miku|kurayami o terashita}}
+|-
+|{{lrc color|meiko|解けない繋がりをメロディーにして}}
+|{{lrc color|meiko|hodokenai tsunagari o merodii ni shite}}
+|-
+|夢を満たしてゆこう
+|yume o mitashite yukou
+|-
+|<br>
+|-
+|{{lrc color|len|大切なものが}}あるんだ
+|{{lrc color|len|taisetsu na mono ga}} aru nda
+|-
+|{{lrc color|len|こんなにも希望に}}満ちてるって
+|{{lrc color|len|konna ni mo kibou ni}} michiteru tte
+|-
+|{{lrc color|len|輝くように紡いだ}}軌跡は
+|{{lrc color|len|kagayaku you ni tsumuida}} kiseki wa
+|-
+|{{lrc color|len|いつしか夢に}}変わってゆく
+|{{lrc color|len|itsushika yume ni}} kawatte yuku
+|-
+|<br>
+|-
+|{{lrc color|miku|誰にも伝えら}}れなかった
+|{{lrc color|miku|dare ni mo tsutae}}rarenakatta
+|-
+|{{lrc color|miku|できなかったことを}}数えた
+|{{lrc color|miku|dekinakatta koto o}} kazoeta
+|-
+|{{lrc color|miku|情熱が照らす未来の}}足跡
+|{{lrc color|miku|jounetsu ga terasu mirai no}} ashiato
+|-
+|{{lrc color|miku|もう一度歌声を}}届けたい
+|{{lrc color|miku|mou ichido utagoe o}} todoketai
+|-
+|<br>
+|-
+|{{lrc color|kaito|ねぇ 想うほどにセカイは色を讃えて}}
+|{{lrc color|kaito|nee omou hodo ni sekai wa iro o tataete}}
+|-
+|{{lrc color|kaito|胸の奥 諦めてしまったものに}}
+|{{lrc color|kaito|mune no oku akiramete shimatta mono ni}}
+|-
+|もう一度 息吹を与えてくれたんだ {{lrc color|rin|■}}{{lrc color|kaito|■}}
+|mou ichido ibuki o ataete kureta nda {{lrc color|rin|■}}{{lrc color|kaito|■}}
+|-
+|<br>
+|-
+|{{lrc color|miku|星が瞬くほどに}}
+|{{lrc color|miku|hoshi ga matataku hodo ni}}
+|-
+|手を伸ばしてしまう {{lrc color|miku|■}}{{lrc color|len|■}}
+|te o nobashite shimau {{lrc color|miku|■}}{{lrc color|len|■}}
+|-
+|{{lrc color|meiko|追いかけて 遠のいて}} それでもまた魅せられる {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|{{lrc color|meiko|oikakete toonoite}} soredemo mata miserareru {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|miku|星が見えない夜は}}
+|{{lrc color|miku|hoshi ga mienai yoru wa}}
+|-
+|{{lrc color|miku|暗闇に寄り添う}}
+|{{lrc color|miku|kurayami ni yorisou}}
+|-
+|{{lrc color|meiko|もう一人の寂しがりやな自分も}}
+|{{lrc color|meiko|mou hitori no sabishigariya na jibun mo}}
+|-
+|抱きしめてあげよう
+|dakishimete ageyou
+|-
+|<br>
+|-
+|{{lrc color|rin|小さなかがり火でも}}
+|{{lrc color|rin|chiisana kagaribi demo}}
+|-
+|{{lrc color|rin|見つめる瞳に映るものは…}}
+|{{lrc color|rin|mitsumeru hitomi ni utsuru mono wa…}}
+|-
+|<br>
+|-
+|{{lrc color|miku|星に願いをかけて}}
+|{{lrc color|miku|hoshi ni negai o kakete}}
+|-
+|魔法のような明日を {{lrc color|miku|■}}{{lrc color|len|■}}
+|mahou no you na asu o {{lrc color|miku|■}}{{lrc color|len|■}}
+|-
+|{{lrc color|meiko|憧れも涙にも}}光がほら宿ってる {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|{{lrc color|meiko|akogare mo namida ni mo}} hikari ga hora yadotteru {{lrc color|kaito|■}}{{lrc color|meiko|■}}
+|-
+|{{lrc color|miku|星を見つけるほどに}}
+|{{lrc color|miku|hoshi o mitsukeru hodo ni}}
+|-
+|{{lrc color|miku|暗闇を照らした}}
+|{{lrc color|miku|kurayami o terashita}}
+|-
+|{{lrc color|meiko|解けない繋がりをメロディーにして}}
+|{{lrc color|meiko|hodokenai tsunagari o merodii ni shite}}
+|-
+|夢を満たしてゆこう
+|yume o mitashite yukou
+|-
+|<br>
+|-
+|{{Shared}}|NeverEnd NeverEnd Wow Wow
+|-
+|{{lrc color|miku|いつかの約束}}
+|{{lrc color|miku|itsuka no yakusoku}}
+|-
+|{{Shared}}|NeverEnd NeverEnd Wow Wow
+|-
+|{{lrc color|miku|叶えられるから}}
+|{{lrc color|miku|kanaerareru kara}}
+|}
+|-|Official English lyrics =
+{{Translation|jpn|official English|Producer}}
+<poem style="margin-left:1em;">
+Never End Never End Wow Wow
+That promise we once made
+Never End Never End Wow Wow
+We can make it real
+
+Things I just can't let go
+To know that I belong
+What I couldn't protect alone
+The bond between us turned it into hope
+
+No one understood me
+Thought it was okay
+Loneliness melts away with the touch of passion
+Embracing the never-ending sparkle in our hearts
+
+See how our wishes celebrate the colors of the world 
+And make people smile like we always wanted
+
+Wish upon a star
+For a magical tomorrow
+Catch the gleam in our dreams and tears
+The stars so bright
+lighting up the darkness
+A melody of the unbreakable bond
+Let us fulfill our dreams
+
+Things I just can't let go
+Filled with so much hope
+The dazzling path I 've come
+will one day turn into a dream
+
+I couldn't open up to anyone
+Counted all the things I couldn't do
+Our passion lights up the footprints of tomorrow
+Let me sing to you one more time
+
+See how our wishes celebrate the colors of the world 
+And gave life back to what we once gave up in our hearts
+
+Stars twinkle so brightly
+As we reach out our hands
+Chasing them, losing them, just to be enchanted again
+On a starless night
+Cuddling in the dark
+Embracing even the vulnerable side of us
+
+Even the small glow ahead 
+Shining in our eyes
+
+Wish upon a star
+For a magical tomorrow
+Catch the gleam in our dreams and tears
+The stars so bright
+lighting up the darkness
+A melody of the unbreakable bond
+Let us fulfill our dreams
+
+Never End Never End Wow Wow
+That promise we once made
+Never End Never End Wow Wow
+We can make it real
+</poem>
+</tabber>
+
+==Other media appearances==
+===Discography===
+This song was featured on the single ''星空のメロディー (Horizonal Melody)''.
+
+===Video games===
+This song was featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku, MEIKO, Kagamine Len, KAITO, and Kagamine Rin; SEKAI version by Wonderlands x Showtime and MEIKO).
+
+==Gallery==
+<tabber>
+Games =
+<gallery hideaddbutton="true" position="center" bordercolor="#8AC9F5">
+Games - Project SEKAI - 星空のメロディー.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandise =
+<gallery hideaddbutton="true" position="center" bordercolor="#8AC9F5">
+PolyphonicBranch - 星空のメロディー (single).jpg|Cover art of the digital single<br>''星空のメロディー (Hoshizora no Melody)''
+</gallery>
+</tabber>
+==External links==
+===Official===
+{{Official
+  |dwlds   = [https://piapro.jp/t/8Oef Off-vocal] – piapro
+  |media   = [https://x.com/mele_ck/status/1541775105646534656 Illustration] – Twitter
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 48352
+  |nico   = sm40691459
+  |vocadb = 416901
+  |mgp    = 星空的旋律
+  |vlw    = 星空のメロディー (Hoshizora no Melody)
+  |url    = {{IW|projectsekai|Hoshizora no Melody|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring KAITO]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Mobile game songs]]
