@@ -27,6 +27,9 @@ const (
 	MaxFileBytes     = 128 << 20
 	MaxTotalBytes    = 512 << 20
 
+	ModeDisabled = "disabled"
+	ModeExternal = "external"
+
 	producerRepository = "https://github.com/SnowGlow-aww/SekaiText-Moe"
 	artifactName       = "sekaitext-moe-web-workspace"
 	artifactBasePath   = "/workspace/"
@@ -40,9 +43,11 @@ var (
 )
 
 type Config struct {
+	Mode                     string
 	Root                     string
 	ManifestSHA256           string
 	Production               bool
+	ModeConfigured           bool
 	RootConfigured           bool
 	ManifestSHA256Configured bool
 }
@@ -186,13 +191,62 @@ func RequiredRoutes() []Route {
 }
 
 // Verify checks configuration, the externally locked manifest bytes, the exact
-// producer/server contract, and every file in the closed-world inventory. A nil
-// manifest means the optional non-production workspace was not configured.
+// producer/server contract, and every file in the closed-world inventory. It
+// retains the mode-less external configuration used by paired artifact tooling.
 func Verify(config Config) (*Manifest, error) {
+	return verify(config, false)
+}
+
+// VerifyRuntime applies the server-runtime workspace policy. Production
+// requires an explicitly disabled workspace; nonproduction runtime may omit the
+// workspace entirely or explicitly disable it. External schema-v3 artifacts
+// remain available only to verifier tooling through Verify, never to a running
+// server process.
+func VerifyRuntime(config Config) (*Manifest, error) {
+	mode := config.Mode
+	if config.ModeConfigured && mode != ModeDisabled && mode != ModeExternal {
+		return nil, errors.New(`WORKSPACE_MODE must be exactly "disabled" or "external"`)
+	}
+	if config.Production {
+		return verify(config, true)
+	}
+	if mode == ModeDisabled {
+		return verify(config, false)
+	}
+	if mode == ModeExternal || config.ModeConfigured || config.RootConfigured || config.ManifestSHA256Configured || strings.TrimSpace(config.Root) != "" || strings.TrimSpace(config.ManifestSHA256) != "" {
+		return nil, errors.New("external workspace is available only to verifier tooling")
+	}
+	return nil, nil
+}
+
+func verify(config Config, requireStandaloneProduction bool) (*Manifest, error) {
+	mode := config.Mode
 	root := strings.TrimSpace(config.Root)
 	manifestDigest := strings.TrimSpace(config.ManifestSHA256)
+	modeConfigured := config.ModeConfigured || mode != ""
 	rootConfigured := config.RootConfigured || root != ""
 	digestConfigured := config.ManifestSHA256Configured || manifestDigest != ""
+
+	if requireStandaloneProduction {
+		if !modeConfigured {
+			return nil, errors.New(`WORKSPACE_MODE is required in production and must be exactly "disabled"`)
+		}
+		if mode != ModeDisabled {
+			return nil, errors.New(`WORKSPACE_MODE must be exactly "disabled" in production`)
+		}
+	}
+	if modeConfigured && mode != ModeDisabled && mode != ModeExternal {
+		return nil, errors.New(`WORKSPACE_MODE must be exactly "disabled" or "external"`)
+	}
+	if mode == ModeDisabled {
+		if rootConfigured || digestConfigured {
+			return nil, errors.New("WORKSPACE_WEB_DIR and WORKSPACE_MANIFEST_SHA256 must both be unset when WORKSPACE_MODE=disabled")
+		}
+		return nil, nil
+	}
+	if mode == ModeExternal && (!rootConfigured || !digestConfigured) {
+		return nil, errors.New("WORKSPACE_WEB_DIR and WORKSPACE_MANIFEST_SHA256 are required when WORKSPACE_MODE=external")
+	}
 	if !rootConfigured && !digestConfigured {
 		if config.Production {
 			return nil, errors.New("WORKSPACE_WEB_DIR and WORKSPACE_MANIFEST_SHA256 are required in production")

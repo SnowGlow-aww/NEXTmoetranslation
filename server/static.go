@@ -75,98 +75,91 @@ func staticHandler(root string) http.HandlerFunc {
 	}
 }
 
-// registerWorkspaceRoutes always claims /workspace when the optional artifact
-// is absent, so it cannot fall through to the existing admin console SPA.
-func registerWorkspaceRoutes(mux *http.ServeMux, root string) bool {
-	root = strings.TrimSpace(root)
-	enabled := workspaceRootAvailable(root)
-	notFound := func(w http.ResponseWriter, r *http.Request) { workspaceNotFound(w, r) }
-	if !enabled {
-		mux.HandleFunc("/workspace", notFound)
-		mux.HandleFunc("/workspace/", notFound)
-		return false
-	}
-	handler := workspaceStaticHandler(root)
-	mux.HandleFunc("/workspace", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			handler(w, r)
+// workspaceTombstoneMiddleware claims the decoded retired workspace prefix
+// before ServeMux canonicalization and generic OPTIONS handling. This prevents
+// escaped separators and noncanonical paths from bypassing the explicit 404 and
+// falling through to the admin SPA.
+func workspaceTombstoneMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if retiredWorkspacePath(r.URL.Path) || (r.URL.RawPath != "" && retiredWorkspacePath(r.URL.RawPath)) {
+			workspaceNotFound(w, r)
 			return
 		}
-		setStaticSecurityHeaders(w.Header())
-		w.Header().Set("Cache-Control", "no-store")
-		http.Redirect(w, r, "/workspace/", http.StatusPermanentRedirect)
+		next.ServeHTTP(w, r)
 	})
-	mux.HandleFunc("/workspace/", handler)
-	return true
 }
 
-func workspaceRootAvailable(root string) bool {
-	if root == "" {
-		return false
+func retiredWorkspacePath(candidate string) bool {
+	const maxDecodePasses = 16
+	for range maxDecodePasses {
+		decoded, changed := decodePathPercentPass(candidate)
+		if !changed {
+			break
+		}
+		candidate = decoded
 	}
-	rootDir, err := os.OpenRoot(root)
-	if err != nil {
-		return false
+	if _, changed := decodePathPercentPass(candidate); changed {
+		// Excessive nested encoding is noncanonical and deliberately fails closed
+		// instead of consuming unbounded CPU or reaching the admin SPA.
+		return true
 	}
-	defer rootDir.Close()
-	index, err := rootDir.Open("index.html")
-	if err != nil {
-		return false
+	candidate = strings.ReplaceAll(candidate, `\`, "/")
+	if hasRetiredWorkspacePrefix(candidate) {
+		return true
 	}
-	defer index.Close()
-	indexInfo, err := index.Stat()
-	return err == nil && indexInfo.Mode().IsRegular()
+	return hasRetiredWorkspacePrefix(path.Clean(candidate))
 }
 
-func workspaceStaticHandler(root string) http.HandlerFunc {
-	root = filepath.Clean(root)
-	return func(w http.ResponseWriter, r *http.Request) {
-		setStaticSecurityHeaders(w.Header())
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Cache-Control", "no-store")
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		requestPath := strings.TrimPrefix(r.URL.Path, "/workspace/")
-		clean := strings.TrimPrefix(path.Clean("/"+requestPath), "/")
-		rootDir, err := os.OpenRoot(root)
-		if err != nil {
-			workspaceNotFound(w, r)
-			return
-		}
-		defer rootDir.Close()
-		serve := func(rel string, immutable bool) bool {
-			name := strings.TrimPrefix(path.Clean("/"+rel), "/")
-			file, err := rootDir.Open(name)
-			if err != nil {
-				return false
+func hasRetiredWorkspacePrefix(candidate string) bool {
+	return candidate == "/workspace" ||
+		strings.HasPrefix(candidate, "/workspace/") ||
+		strings.HasPrefix(candidate, "/workspace%")
+}
+
+// decodePathPercentPass decodes every well-formed %HH byte while preserving
+// malformed percent bytes. Unlike url.PathUnescape, one malformed inner escape
+// cannot prevent valid neighboring escapes from revealing a retired workspace
+// path on a later bounded pass.
+func decodePathPercentPass(candidate string) (string, bool) {
+	var decoded strings.Builder
+	decoded.Grow(len(candidate))
+	changed := false
+	for index := 0; index < len(candidate); {
+		if candidate[index] == '%' && index+2 < len(candidate) {
+			high, highOK := hexNibble(candidate[index+1])
+			low, lowOK := hexNibble(candidate[index+2])
+			if highOK && lowOK {
+				decoded.WriteByte(high<<4 | low)
+				index += 3
+				changed = true
+				continue
 			}
-			defer file.Close()
-			info, err := file.Stat()
-			if err != nil || !info.Mode().IsRegular() {
-				return false
-			}
-			if immutable {
-				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			} else if strings.HasSuffix(name, ".html") {
-				w.Header().Set("Cache-Control", "no-cache")
-			}
-			http.ServeContent(w, r, path.Base(name), info.ModTime(), file)
-			return true
 		}
-		if clean != "" && serve(clean, strings.HasPrefix(clean, "assets/")) {
-			return
-		}
-		// Asset misses must remain 404 instead of returning HTML to a script load.
-		if strings.HasPrefix(clean, "assets/") || path.Ext(clean) != "" {
-			workspaceNotFound(w, r)
-			return
-		}
-		w.Header().Set("Cache-Control", "no-cache")
-		if !serve("index.html", false) {
-			workspaceNotFound(w, r)
-		}
+		decoded.WriteByte(candidate[index])
+		index++
 	}
+	return decoded.String(), changed
+}
+
+func hexNibble(value byte) (byte, bool) {
+	switch {
+	case value >= '0' && value <= '9':
+		return value - '0', true
+	case value >= 'a' && value <= 'f':
+		return value - 'a' + 10, true
+	case value >= 'A' && value <= 'F':
+		return value - 'A' + 10, true
+	default:
+		return 0, false
+	}
+}
+
+// registerWorkspaceRoutes claims /workspace and /workspace/ so the retired
+// prefix cannot fall through to the admin SPA. External workspace artifacts are
+// verifier-only and are never mounted by a running server.
+func registerWorkspaceRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/workspace", workspaceNotFound)
+	mux.HandleFunc("/workspace/", workspaceNotFound)
 }
 
 func workspaceNotFound(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,11 @@ echo "DB_PATH:  $DB_PATH"
 echo "DATA_DIR: $DATA_DIR"
 echo "PORT:     $PORT (Go: serves console SPA + /api + /sse + /files)"
 
+# Validate the server-runtime workspace policy before touching the persistent
+# data directory or attempting any seed migration. The Go process repeats this
+# check immediately before normal startup.
+./moesekai-server --verify-runtime
+
 umask 077
 mkdir -p "$DATA_DIR"
 chmod 0700 "$DATA_DIR"

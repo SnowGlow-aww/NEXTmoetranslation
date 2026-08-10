@@ -21,11 +21,17 @@ import (
 	"moesekai/server/internal/filesvc"
 	"moesekai/server/internal/lifecycle"
 	"moesekai/server/internal/searchindex"
+	"moesekai/server/internal/workspaceverify"
 )
 
 const (
-	verifyWorkspaceHelperEnv = "MOESEKAI_VERIFY_WORKSPACE_HELPER"
-	blockedProbeHelperEnv    = "MOESEKAI_BLOCKED_PROBE_HELPER"
+	verifyWorkspaceHelperEnv        = "MOESEKAI_VERIFY_WORKSPACE_HELPER"
+	verifyWorkspaceFailureHelperEnv = "MOESEKAI_VERIFY_WORKSPACE_FAILURE_HELPER"
+	verifyRuntimeFailureHelperEnv   = "MOESEKAI_VERIFY_RUNTIME_FAILURE_HELPER"
+	verifyWebDirFailureHelperEnv    = "MOESEKAI_VERIFY_WEB_DIR_FAILURE_HELPER"
+	verifyDBPathFailureHelperEnv    = "MOESEKAI_VERIFY_DB_PATH_FAILURE_HELPER"
+	verifyTimezoneFailureHelperEnv  = "MOESEKAI_VERIFY_TIMEZONE_FAILURE_HELPER"
+	blockedProbeHelperEnv           = "MOESEKAI_BLOCKED_PROBE_HELPER"
 )
 
 type operationalProjection struct{ status filesvc.ProjectionStatus }
@@ -395,6 +401,89 @@ func TestSeedAdminUsesFirstSuccessfullyCreatedAccount(t *testing.T) {
 	}
 }
 
+func TestPublishedAdminPasswordTemplateIsRejected(t *testing.T) {
+	if err := validateBootstrapAdminPassword(publishedAdminPasswordTemplate); err == nil || !strings.Contains(err.Error(), "template") {
+		t.Fatalf("published administrator password template error=%v", err)
+	}
+	if err := validateBootstrapAdminPassword("unique-bootstrap-password"); err != nil {
+		t.Fatalf("unique administrator password rejected: %v", err)
+	}
+}
+
+func TestStandaloneProductionProfileCannotBeDisabledByEnvironment(t *testing.T) {
+	previous := runtimeProfile
+	t.Cleanup(func() { runtimeProfile = previous })
+	runtimeProfile = runtimeProfileNextProduction
+	for _, value := range []string{"", "false", "TRUE", " true", "true "} {
+		if _, err := resolveProductionMode(value); err == nil || !strings.Contains(err.Error(), "remain exactly") {
+			t.Fatalf("standalone production profile accepted MOESEKAI_PRODUCTION=%q: %v", value, err)
+		}
+	}
+	if production, err := resolveProductionMode("true"); err != nil || !production {
+		t.Fatalf("standalone production profile true=%v err=%v", production, err)
+	}
+	for _, test := range []struct {
+		value      string
+		configured bool
+	}{
+		{value: "", configured: false},
+		{value: "", configured: true},
+		{value: "utc", configured: true},
+		{value: "UTC ", configured: true},
+		{value: "Pacific/Honolulu", configured: true},
+	} {
+		if err := validateRuntimeTimezone(true, test.value, test.configured); err == nil || !strings.Contains(err.Error(), "remain exactly") {
+			t.Fatalf("standalone production profile accepted TZ=%q configured=%v: %v", test.value, test.configured, err)
+		}
+	}
+	if err := validateRuntimeTimezone(true, "UTC", true); err != nil {
+		t.Fatalf("standalone production rejected TZ=UTC: %v", err)
+	}
+	if err := validateRuntimeTimezone(false, "Pacific/Honolulu", true); err != nil {
+		t.Fatalf("development rejected arbitrary TZ: %v", err)
+	}
+	for _, test := range []struct {
+		value      string
+		configured bool
+	}{
+		{value: "", configured: false},
+		{value: "", configured: true},
+		{value: "/data", configured: true},
+		{value: "/app/web/", configured: true},
+		{value: " /app/web", configured: true},
+	} {
+		if _, err := resolveWebDir(true, test.value, test.configured); err == nil || !strings.Contains(err.Error(), "remain exactly") {
+			t.Fatalf("standalone production profile accepted WEB_DIR=%q configured=%v: %v", test.value, test.configured, err)
+		}
+	}
+	if webDir, err := resolveWebDir(true, "/app/web", true); err != nil || webDir != "/app/web" {
+		t.Fatalf("standalone production WEB_DIR=%q err=%v", webDir, err)
+	}
+	if webDir, err := resolveWebDir(false, "", true); err != nil || webDir != "./web" {
+		t.Fatalf("development WEB_DIR fallback=%q err=%v", webDir, err)
+	}
+	for _, test := range []struct {
+		value      string
+		configured bool
+	}{
+		{value: "", configured: false},
+		{value: "", configured: true},
+		{value: "/data/other.db", configured: true},
+		{value: "/data/moesekai.db?mode=rwc", configured: true},
+		{value: "/data/%6doesekai.db", configured: true},
+	} {
+		if _, err := resolveDBPath(true, test.value, test.configured); err == nil || !strings.Contains(err.Error(), "remain exactly") {
+			t.Fatalf("standalone production profile accepted DB_PATH=%q configured=%v: %v", test.value, test.configured, err)
+		}
+	}
+	if dbPath, err := resolveDBPath(true, "/data/moesekai.db", true); err != nil || dbPath != "/data/moesekai.db" {
+		t.Fatalf("standalone production DB_PATH=%q err=%v", dbPath, err)
+	}
+	if dbPath, err := resolveDBPath(false, "", true); err != nil || dbPath != "./data/moesekai.db" {
+		t.Fatalf("development DB_PATH fallback=%q err=%v", dbPath, err)
+	}
+}
+
 func TestProductionStartupRequiresMasterKeyAndInitializedAdmin(t *testing.T) {
 	if production, err := parseProductionMode("true"); err != nil || !production {
 		t.Fatalf("production parse=%v err=%v", production, err)
@@ -535,7 +624,7 @@ func TestSeedConfigFromEnvDefaultsSchedulerOffAndPreservesExplicitTrue(t *testin
 }
 
 func TestVerifyWorkspaceCLIExitsBeforeDatabaseAndBackgroundStartup(t *testing.T) {
-	if os.Getenv(verifyWorkspaceHelperEnv) == "1" {
+	if os.Getenv(verifyWorkspaceHelperEnv) == workspaceverify.ModeExternal {
 		os.Args = []string{"moesekai-server", "--verify-workspace"}
 		main()
 		return
@@ -551,8 +640,9 @@ func TestVerifyWorkspaceCLIExitsBeforeDatabaseAndBackgroundStartup(t *testing.T)
 	digest := sha256.Sum256(manifestBytes)
 	command := exec.Command(os.Args[0], "-test.run=^TestVerifyWorkspaceCLIExitsBeforeDatabaseAndBackgroundStartup$")
 	command.Env = []string{
-		verifyWorkspaceHelperEnv + "=1",
-		"MOESEKAI_PRODUCTION=true",
+		verifyWorkspaceHelperEnv + "=" + workspaceverify.ModeExternal,
+		"MOESEKAI_PRODUCTION=false",
+		"WORKSPACE_MODE=" + workspaceverify.ModeExternal,
 		"WORKSPACE_WEB_DIR=" + workspace,
 		fmt.Sprintf("WORKSPACE_MANIFEST_SHA256=%x", digest),
 		"DB_PATH=" + filepath.Join(t.TempDir(), "must-not-exist", "database.db"),
@@ -563,6 +653,173 @@ func TestVerifyWorkspaceCLIExitsBeforeDatabaseAndBackgroundStartup(t *testing.T)
 	}
 	if !strings.Contains(string(output), "workspace verified") {
 		t.Fatalf("verify-only output = %q", output)
+	}
+}
+
+func TestVerifyWorkspaceCLIDisabledExitsBeforeDatabaseAndBackgroundStartup(t *testing.T) {
+	if os.Getenv(verifyWorkspaceHelperEnv) == workspaceverify.ModeDisabled {
+		os.Args = []string{"moesekai-server", "--verify-workspace"}
+		main()
+		return
+	}
+	dataDir := filepath.Join(t.TempDir(), "must-not-exist")
+	command := exec.Command(os.Args[0], "-test.run=^TestVerifyWorkspaceCLIDisabledExitsBeforeDatabaseAndBackgroundStartup$")
+	command.Env = []string{
+		verifyWorkspaceHelperEnv + "=" + workspaceverify.ModeDisabled,
+		"MOESEKAI_PRODUCTION=true",
+		"TZ=UTC",
+		"WORKSPACE_MODE=" + workspaceverify.ModeDisabled,
+		"WEB_DIR=/app/web",
+		"DB_PATH=/data/moesekai.db",
+		"DATA_DIR=" + dataDir,
+		"SHUTDOWN_BUDGET_MS=not-a-number",
+	}
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("disabled verify-only process failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "workspace verified: disabled") {
+		t.Fatalf("disabled verify-only output = %q", output)
+	}
+	if _, err := os.Stat(dataDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("disabled verify-only touched data directory: %v", err)
+	}
+}
+
+func TestRuntimeRejectsExternalBeforeDatabaseAndBackgroundStartup(t *testing.T) {
+	if helper := os.Getenv(verifyRuntimeFailureHelperEnv); helper != "" {
+		os.Args = []string{"moesekai-server"}
+		if helper == "cli" {
+			os.Args = append(os.Args, "--verify-runtime")
+		}
+		main()
+		return
+	}
+	for _, helper := range []string{"cli", "server"} {
+		t.Run(helper, func(t *testing.T) {
+			databasePath := filepath.Join(t.TempDir(), "must-not-exist", "database.db")
+			command := exec.Command(os.Args[0], "-test.run=^TestRuntimeRejectsExternalBeforeDatabaseAndBackgroundStartup$")
+			command.Env = []string{
+				verifyRuntimeFailureHelperEnv + "=" + helper,
+				"MOESEKAI_PRODUCTION=false",
+				"WORKSPACE_MODE=external",
+				"DB_PATH=" + databasePath,
+			}
+			output, err := command.CombinedOutput()
+			if err == nil || !strings.Contains(string(output), "external workspace is available only to verifier tooling") {
+				t.Fatalf("runtime external verification err=%v output=%q", err, output)
+			}
+			if _, err := os.Stat(filepath.Dir(databasePath)); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("runtime external verification touched database parent: %v", err)
+			}
+		})
+	}
+}
+
+func TestProductionWebDirOverrideFailsBeforeDatabaseAndBackgroundStartup(t *testing.T) {
+	if os.Getenv(verifyWebDirFailureHelperEnv) == "1" {
+		os.Args = []string{"moesekai-server", "--verify-runtime"}
+		main()
+		return
+	}
+	databasePath := filepath.Join(t.TempDir(), "must-not-exist", "database.db")
+	command := exec.Command(os.Args[0], "-test.run=^TestProductionWebDirOverrideFailsBeforeDatabaseAndBackgroundStartup$")
+	command.Env = []string{
+		verifyWebDirFailureHelperEnv + "=1",
+		"MOESEKAI_PRODUCTION=true",
+		"TZ=UTC",
+		"WORKSPACE_MODE=disabled",
+		"WEB_DIR=/data",
+		"DB_PATH=" + databasePath,
+	}
+	output, err := command.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), `standalone production binary requires WEB_DIR to remain exactly "/app/web"`) {
+		t.Fatalf("production WEB_DIR override err=%v output=%q", err, output)
+	}
+	if _, err := os.Stat(filepath.Dir(databasePath)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("production WEB_DIR override touched database parent: %v", err)
+	}
+}
+
+func TestProductionDBPathOverrideFailsBeforePersistentDataAndBackgroundStartup(t *testing.T) {
+	if os.Getenv(verifyDBPathFailureHelperEnv) == "1" {
+		os.Args = []string{"moesekai-server", "--verify-runtime"}
+		main()
+		return
+	}
+	dataDir := filepath.Join(t.TempDir(), "must-not-exist")
+	command := exec.Command(os.Args[0], "-test.run=^TestProductionDBPathOverrideFailsBeforePersistentDataAndBackgroundStartup$")
+	command.Env = []string{
+		verifyDBPathFailureHelperEnv + "=1",
+		"MOESEKAI_PRODUCTION=true",
+		"TZ=UTC",
+		"WORKSPACE_MODE=disabled",
+		"WEB_DIR=/app/web",
+		"DB_PATH=/data/moesekai.db?mode=rwc",
+		"DATA_DIR=" + dataDir,
+	}
+	output, err := command.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), `standalone production binary requires DB_PATH to remain exactly "/data/moesekai.db"`) {
+		t.Fatalf("production DB_PATH override err=%v output=%q", err, output)
+	}
+	if _, err := os.Stat(dataDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("production DB_PATH override touched data directory: %v", err)
+	}
+}
+
+func TestProductionTimezoneOverrideFailsBeforePersistentDataAndBackgroundStartup(t *testing.T) {
+	if os.Getenv(verifyTimezoneFailureHelperEnv) == "1" {
+		os.Args = []string{"moesekai-server", "--verify-runtime"}
+		main()
+		return
+	}
+	dataDir := filepath.Join(t.TempDir(), "must-not-exist")
+	command := exec.Command(os.Args[0], "-test.run=^TestProductionTimezoneOverrideFailsBeforePersistentDataAndBackgroundStartup$")
+	command.Env = []string{
+		verifyTimezoneFailureHelperEnv + "=1",
+		"MOESEKAI_PRODUCTION=true",
+		"TZ=Pacific/Honolulu",
+		"WORKSPACE_MODE=disabled",
+		"WEB_DIR=/app/web",
+		"DB_PATH=/data/moesekai.db",
+		"DATA_DIR=" + dataDir,
+	}
+	output, err := command.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), `standalone production binary requires TZ to remain exactly "UTC"`) {
+		t.Fatalf("production TZ override err=%v output=%q", err, output)
+	}
+	if _, err := os.Stat(dataDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("production TZ override touched data directory: %v", err)
+	}
+}
+
+func TestVerifyWorkspaceCLIProductionModeFailures(t *testing.T) {
+	if os.Getenv(verifyWorkspaceFailureHelperEnv) == "1" {
+		os.Args = []string{"moesekai-server", "--verify-workspace"}
+		main()
+		return
+	}
+	for _, test := range []struct {
+		name    string
+		env     []string
+		message string
+	}{
+		{name: "missing", message: "WORKSPACE_MODE is required"},
+		{name: "disabled residue", env: []string{"WORKSPACE_MODE=disabled", "WORKSPACE_WEB_DIR="}, message: "must both be unset"},
+		{name: "external production", env: []string{"WORKSPACE_MODE=external"}, message: `must be exactly "disabled" in production`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			command := exec.Command(os.Args[0], "-test.run=^TestVerifyWorkspaceCLIProductionModeFailures$")
+			command.Env = append([]string{
+				verifyWorkspaceFailureHelperEnv + "=1",
+				"MOESEKAI_PRODUCTION=true",
+				"TZ=UTC",
+			}, test.env...)
+			output, err := command.CombinedOutput()
+			if err == nil || !strings.Contains(string(output), test.message) {
+				t.Fatalf("production %s err=%v output=%q", test.name, err, output)
+			}
+		})
 	}
 }
 

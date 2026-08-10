@@ -1,6 +1,6 @@
-# Moesekai Translation v2
+# NextTrans
 
-Project SEKAI 翻译校对系统的重构版本。前后端分离，SQLite 单一数据源，CDN 友好的文件分发，实时校对。
+Project SEKAI 翻译校对系统。生产发布合同是 NEXT 自有的 standalone 单镜像：SQLite 单一数据源、CDN 友好的文件分发与实时校对均由一个 Go 服务提供。
 
 ## 架构
 
@@ -96,7 +96,7 @@ go run ./cmd/lyrics-import-stage \
 
 增量备份继续使用 `translation-content` schemaVersion 1；`event-stories.json` 追加规范化 Scenario 与独立 `scenarioCount`，旧 `count` 语义不变。旧备份不含 Scenario 时会显式清空该 side table，恢复前会校验 SHA 与 event/episode/scenario 父身份并保持整笔事务原子。
 
-生产配对镜像的手动发布、私有 Moe release reader GitHub App、Sigstore/attestation 与环境配置见 [`PAIRED_RELEASE.md`](PAIRED_RELEASE.md)。生产部署回滚（镜像 / 制品、数据库迁移兼容、密钥与验证）见 [`ROLLBACK_RUNBOOK.md`](ROLLBACK_RUNBOOK.md)。
+NEXT standalone 生产镜像的手动发布、精确 push CI 门禁、Cosign OIDC 签名、自定义 predicate 与环境配置见 [`STANDALONE_RELEASE.md`](STANDALONE_RELEASE.md)。生产回滚（镜像 / 制品、数据库迁移兼容、密钥与验证）见 [`ROLLBACK_RUNBOOK.md`](ROLLBACK_RUNBOOK.md)。
 
 ## 多用户与权限
 
@@ -127,12 +127,7 @@ npm run dev          # http://localhost:3000，自动代理 /api 到 :8080（可
 # 发布构建必须使用经审核且带 sha256 digest 的三个基础镜像。runtime 镜像需预装
 # 固定版本的 git、CA 证书与 tzdata；Dockerfile 不会在构建时安装可变软件包。
 docker build \
-  --build-context workspace='/path/to/verified/sekaitext-moe-workspace' \
-  --build-arg WORKSPACE_MANIFEST_SHA256='<sha256-of-web-workspace-manifest.json>' \
-  --build-arg WORKSPACE_ARCHIVE_SHA256='<sha256-of-producer-workspace-archive>' \
-  --build-arg NEXT_REVISION="$(git rev-parse HEAD)" \
-  --build-arg MOE_REVISION='<verified-40-character-moe-commit>' \
-  --build-arg MOE_TAG='<verified-v-semver-moe-tag>' \
+  --target next-production \
   --build-arg NODE_IMAGE='node:20.19.4-alpine3.22' \
   --build-arg NODE_IMAGE_DIGEST='<approved-64-hex-digest>' \
   --build-arg GO_IMAGE='golang:1.25.1-alpine3.22' \
@@ -140,30 +135,32 @@ docker build \
   --build-arg RUNTIME_IMAGE='<approved-runtime-with-git>' \
   --build-arg RUNTIME_IMAGE_DIGEST='<approved-64-hex-digest>' \
   --build-arg VERSION='<release>' --build-arg VCS_REF="$(git rev-parse HEAD)" \
-  -t moesekai-v2 .
-docker run -p 8080:8080 -v moesekai-data:/data \
+  -t nexttrans .
+docker run -p 8080:8080 -v nexttrans-data:/data \
+  --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
   -e JWT_SECRET=... -e MOESEKAI_MASTER_KEY=... \
   -e CONSOLE_ORIGIN='https://console.example.com' \
   -e ADMIN_USER=admin -e ADMIN_PASSWORD=... \
-  moesekai-v2
+  nexttrans
 ```
 
-`ADMIN_PASSWORD` 只应在受控首次启动或管理员恢复时临时注入；确认管理员和持久卷身份后应从长期容器环境移除。生产容器应使用镜像默认的 `DB_PATH=/data/moesekai.db`、`DATA_DIR=/data`（`.env.example` 也按容器路径编写）；本地 `go run` 才覆盖为 `./data/...`。
+`ADMIN_PASSWORD` 只应在受控首次启动或管理员恢复时临时注入；确认管理员和持久卷身份后应从长期容器环境移除。生产容器应使用镜像默认的 `DB_PATH=/data/moesekai.db`、`DATA_DIR=/data` 与精确 `TZ=UTC`（`.env.example` 也按容器路径编写）；本地 `go run` 才覆盖为 `./data/...`。生产启动还会把 Go 的进程本地时区固定为 UTC，不依赖基础镜像的 `/etc/localtime`。
 
-镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse` 与 `/files`。生产部署必须保持单实例，并使用 `Recreate`（先停止旧实例，再启动新实例），不能让两个 SQLite writer 或两个进程内 editor gate 同时对外服务。仓库默认不附带 `seed-translations/`；如需首次迁移，应在部署前显式提供并验证种子，迁移或无损 round-trip 校验失败会终止容器启动。
-运行阶段固定使用非 root 的 `65532:65532`；`/app`、二进制、控制台和配对 workspace 全部由 root 持有且不可写，只有 `/data` 与显式临时目录可写。挂载自定义宿主数据目录时必须预先授予该 UID/GID 写入权限。CI 所需的三个 digest 与 runtime 镜像名由同名 repository variables 提供，缺失或非 64 位小写十六进制值会使构建失败。
+镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse`、`/files` 与 `/translation`。生产必须保持单实例，并使用 `Recreate`（先停止旧实例，再启动新实例），不能让两个 SQLite writer 或两个进程内 editor gate 同时对外服务。仓库默认不附带 `seed-translations/`；如需首次迁移，应在上线前显式提供并验证种子，迁移或无损 round-trip 校验失败会终止容器启动。
 
-Dockerfile 的默认最终目标是 `paired`。它通过 BuildKit `workspace` named context 接收已验证的 SekaiText-Moe 制品，以 root 所有、不可写方式复制到 `/app/workspace`，并要求 `WORKSPACE_MANIFEST_SHA256` build arg；镜像永久设置 `MOESEKAI_PRODUCTION=true`，构建期间会执行 `moesekai-server --verify-workspace`，运行时不能因漏传该变量而降级。仅后端测试必须显式使用 `--target runtime`。
+运行阶段固定使用非 root 的 `65532:65532`；`/app`、二进制和控制台全部由 root 持有且不可写，只有持久化 `/data` 与显式 `/tmp` 可写。挂载自定义宿主数据目录时必须预先授予该 UID/GID 写入权限。CI 所需的三个 digest 与 runtime 镜像名由同名 repository variables 提供，缺失或非 64 位小写十六进制值会使构建失败。
 
-生产发布只可从受保护默认分支手动 dispatch `Release paired image`，并受 `production` environment 审批保护。输入为 `v<strict SemVer>` Moe tag 与 40 位小写 Moe commit。工作流用仅安装于私有 `SnowGlow-aww/SekaiText-Moe`、只有 `Contents: read` 的 GitHub App 先递归解析官方 Git tag（含 annotated tag）并确认 commit，再要求官方 release 为 `immutable: true`，在下载前限制五个 commit-addressed workspace 资产的 metadata 大小，并在下载后逐一核对实际字节数；不会下载或公开桌面 installer。NEXT 自有 Go preflight 校验 sidecar、精确 OIDC workflow/tag/SHA identity、恶意 archive 路径/类型/大小，再在新目录解包并调用上述 production workspace verifier。GHCR build 只先推 run-scoped staging tag；随后对 digest 强制 Cosign 签名、自定义 attestation、精确 NEXT workflow SHA 校验及完整 predicate 内容校验，全部成功后才把同一 digest 提升为含 NEXT full SHA 与 Moe tag/full SHA 的两个最终 tag，不推 `latest`。同 digest 重试可幂等通过，不同 digest 必须失败。仓库级并发、registry tag 不可变和 package writer 仅限该受保护工作流均为强制配置。私有仓库不支持 GitHub artifact attestation 时，producer Cosign bundle 仍为权威；支持时可显式启用额外 GitHub provenance。该工作流不执行部署。
+Dockerfile 的默认最终目标是 `next-production`，继承自 `standalone`。最终阶段使用链接时写入 `next-production` profile 的专用服务端二进制；即使部署层尝试覆盖环境，它也拒绝把 `MOESEKAI_PRODUCTION=true` 改为空值或 `false`。镜像同时永久设置服务端约定的 `WORKSPACE_MODE=disabled`、`WEB_DIR=/app/web`、`DB_PATH=/data/moesekai.db` 与 `TZ=UTC`；`WORKSPACE_WEB_DIR`、`WORKSPACE_MANIFEST_SHA256` 必须保持未设置，生产层若覆盖静态根、数据库路径或时区，会在持久化目录被触碰前失败。构建上下文和 `/app` 中都没有外部 workspace。容器 entrypoint 会先执行 `moesekai-server --verify-runtime`，在任何持久化目录创建、权限修改或 seed migration 前拒绝残留/错误配置；正常 Go 启动仍会再次验证。`/workspace`、编码分隔符/反斜杠、有效或畸形的多层百分号编码、点段和其他规范化后进入 `/workspace` 的路径与方法均固定返回带安全头的 `404 no-store`，不会被 OPTIONS 预检或 ServeMux 规范化绕过，也不会回退到管理控制台。仅后端非生产 characterization 才显式使用 `--target runtime`。
 
-`WORKSPACE_MANIFEST_SHA256` 锁定 schema v3 `web-workspace-manifest.json` 的原始字节；其中 source/editor-gate proof contract 必须都是 v2，并使用 revision-bound `<instanceId>:<revision>:<completedGeneration>` mutation proof。只要配置 `WORKSPACE_WEB_DIR`，服务就在取得 SQLite ownership 或打开数据库之前独立验证严格 schema、生产仓库/revision/dirty/production 状态、每条 direct-client 路由的 authentication/producerProof/allowedRoles、editor-gate 契约，以及闭集文件 size/SHA-256；未知/重复 JSON 字段、symlink、额外或缺失文件都会拒绝。`MOESEKAI_PRODUCTION=true` 必须同时配置目录和 hash，并要求 `sourceDirty=false` 且 `sourceProduction=true`。非生产可以同时省略两项；一旦配置仍完整验证。可用相同环境执行 `./moesekai-server --verify-workspace`，该模式不会取得数据库 ownership、打开数据库或启动后台任务。workspace 不会回退到 `WEB_DIR` 管理控制台，也不改变 `/api`、`/files`、`/translation` 与健康检查路径。
+生产发布只可从受保护的 `main` 手动 dispatch `Release NEXT standalone image`。只读 `prepare` job 会先选定同一 full SHA 的最新匹配 `push` CI attempt，并要求该 attempt 已成功完成；随后按 artifact ID 下载并校验候选/回滚 ZIP 的 GitHub digest、闭集内容、候选文件 SHA、rollback tar SHA/内部校验与 base digests。只有依赖这些固定输出的 `publish` job 受 `production` environment 审批保护，因此同 SHA 的后续 rerun 不能替换已审批输入。审批后与最终发 tag 前会再次确认线上 main tip；由于分支查询和 GHCR 写入无法原子化，操作员必须从审批到最终 tag 验证期间冻结 protected main 更新。
 
-初始 public projection 在受跟踪的后台 worker 中异步生成；生成完成前 `/healthz` 可用而 `/readyz` 返回未就绪。任何仍未发布的失败 generation（包括启动后失败）都会按有界退避重试到成功或停止；最新 generation 处于 `Pending` 且有 `LastError` 时 `/readyz` 返回 `503`，成功重试发布后恢复 `200`。收到 drain 后，除精确的 `GET`/`HEAD /healthz` 和 `/readyz` 外，新的 API、搜索、静态文件、SSE 与 OPTIONS 请求全部返回 `503`；后台任务和 HTTP 请求结束后才关闭 SQLite。已进入的本地文件系统/SQLite projection 临界区无法安全强制取消，进程会等待其返回，这是保留的无界优雅停机风险。
+生产镜像只在该 push CI 构建一次并完成真实容器门禁；CI 将 exact `docker save` 候选、closed metadata/SHA256SUMS 与 rollback bundle 以 `<sha>-<attempt>` 命名上传 90 天。发布工作流在审批前后都按固定 artifact ID 下载两份制品，并将下载 ZIP 的 SHA-256 与 GitHub API digest 精确比较；审批后的 candidate 文件 SHA/base digests 与 rollback tar SHA/内部闭集校验都必须等于 prepare 阶段记录，才加载同一 image ID，再只做 retag/push 到 `staging-<run-id>-<attempt>`，绝不重新 build 或读取 release-time base variables。随后对 digest 强制执行 Cosign GitHub OIDC 签名、自定义 NEXT-only attestation、精确 `release-next.yml@refs/heads/main` identity 与 NEXT workflow SHA 校验；predicate 绑定 CI run、候选/回滚 artifact ID 与 archive digest、候选文件 SHA、rollback tar SHA、base digests 和最终 image digest。验证允许历史有效 statement 共存，但必须至少存在一份与当前完整 predicate 精确相等的 statement。全部成功后才发布唯一最终 tag `next-<next-full-sha>`；同 digest 重试可幂等通过，不同 digest 必须失败，不创建 `latest`、branch 或 SemVer tag。支持 GitHub artifact attestations 时可显式启用同一自定义 predicate 的额外 GitHub attestation；promotion job 不冒充 image builder，且发布工作流本身不修改运行中的服务。完整合同见 [`STANDALONE_RELEASE.md`](STANDALONE_RELEASE.md)。
+
+初始 public projection 在受跟踪的后台 worker 中异步生成；生成完成前 `/healthz` 可用而 `/readyz` 返回未就绪。任何仍未发布的失败 generation（包括启动后失败）都会按有界退避重试到成功或停止；最新 generation 处于 `Pending` 且有 `LastError` 时 `/readyz` 返回 `503`，成功重试发布后恢复 `200`。收到 drain 后，除精确的 `GET`/`HEAD /healthz` 和 `/readyz` 外，新的 API、搜索、静态文件、SSE 与 OPTIONS 请求全部返回 `503`；已废弃的 `/workspace` tombstone 在生命周期 admission 之前仍固定返回 `404 no-store`。后台任务和 HTTP 请求结束后才关闭 SQLite。已进入的本地文件系统/SQLite projection 临界区无法安全强制取消，进程会等待其返回，这是保留的无界优雅停机风险。
 
 ## 配置
 
-见 `.env.example`。`JWT_SECRET` 至少 32 字节，新增/重置密码为 12-72 字节。生产 `MOESEKAI_MASTER_KEY` 必须包含至少 32 字节随机 secret material；用 `openssl rand -base64 32` 生成一次，存入 secret manager，并在重启、恢复和回滚时保持稳定。`MOESEKAI_PRODUCTION=true` 会要求 immutable workspace 目录/hash 配对、合格 master key 和数据库中至少一个 admin；全新数据库必须用 `ADMIN_PASSWORD` 或 `TRANSLATOR_ACCOUNTS` 完成 bootstrap。只有 `editor`/`admin` 是有效角色，数据库存在其他角色会阻止启动。密钥项（LLM key、备份凭证）在 DB 中以 AES-GCM 加密存储，由 `MOESEKAI_MASTER_KEY` 派生密钥。env 变量仅在**首次启动**作为种子写入；之后管理设置页是唯一真源；设置更新拒绝未知键，`backup.daily_hour` 只接受规范十进制整数 `0` 到 `23`，整个 patch 原子提交。
+见 `.env.example`。`JWT_SECRET` 至少 32 字节，新增/重置密码为 12-72 字节。生产 `MOESEKAI_MASTER_KEY` 必须包含至少 32 字节随机 secret material；用 `openssl rand -base64 32` 生成一次，存入 secret manager，并在重启、恢复和回滚时保持稳定。standalone 镜像永久设置 `MOESEKAI_PRODUCTION=true` 与 `WORKSPACE_MODE=disabled`，并要求外部 workspace 目录/hash 变量保持未设置、master key 合格且数据库中至少一个 admin；全新数据库必须用 `ADMIN_PASSWORD` 或 `TRANSLATOR_ACCOUNTS` 完成 bootstrap。只有 `editor`/`admin` 是有效角色，数据库存在其他角色会阻止启动。密钥项（LLM key、备份凭证）在 DB 中以 AES-GCM 加密存储，由 `MOESEKAI_MASTER_KEY` 派生密钥。env 变量仅在**首次启动**作为种子写入；之后管理设置页是唯一真源；设置更新拒绝未知键，`backup.daily_hour` 只接受规范十进制整数 `0` 到 `23`，整个 patch 原子提交。
 
 ## 测试
 

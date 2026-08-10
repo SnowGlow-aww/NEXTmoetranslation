@@ -38,23 +38,79 @@ import (
 	"moesekai/server/internal/workspaceverify"
 )
 
+// runtimeProfile is overridden only in the standalone production binary via
+// ldflags. Keeping the selector in the executable prevents container-level
+// environment overrides from turning that binary back into development mode.
+var runtimeProfile = "development"
+
+const (
+	runtimeProfileNextProduction   = "next-production"
+	publishedAdminPasswordTemplate = "replace-with-12-or-more-characters"
+)
+
 func main() {
 	// Timestamped logs (UTC) on stdout so `docker logs` shows operational activity.
 	log.SetFlags(log.LstdFlags | log.LUTC)
 	log.SetPrefix("")
 	verifyWorkspaceOnly := len(os.Args) == 2 && os.Args[1] == "--verify-workspace"
-	if len(os.Args) > 1 && !verifyWorkspaceOnly {
-		fatal("arguments", errors.New("usage: moesekai-server [--verify-workspace]"))
+	verifyRuntimeOnly := len(os.Args) == 2 && os.Args[1] == "--verify-runtime"
+	if len(os.Args) > 1 && !verifyWorkspaceOnly && !verifyRuntimeOnly {
+		fatal("arguments", errors.New("usage: moesekai-server [--verify-workspace|--verify-runtime]"))
 	}
 
-	port := envOr("PORT", "8080")
-	dbPath := envOr("DB_PATH", "./data/moesekai.db")
-	dataDir := envOr("DATA_DIR", "./data")
-	webDir := envOr("WEB_DIR", "./web")
+	production, err := resolveProductionMode(os.Getenv("MOESEKAI_PRODUCTION"))
+	if err != nil {
+		fatal("MOESEKAI_PRODUCTION", err)
+	}
+	timezoneRaw, timezoneConfigured := os.LookupEnv("TZ")
+	if err := validateRuntimeTimezone(production, timezoneRaw, timezoneConfigured); err != nil {
+		fatal("TZ", err)
+	}
+	if production {
+		// Enforce UTC even if the approved base image's /etc/localtime differs.
+		time.Local = time.UTC
+	}
+	workspaceModeRaw, workspaceModeConfigured := os.LookupEnv("WORKSPACE_MODE")
 	workspaceWebDirRaw, workspaceConfigured := os.LookupEnv("WORKSPACE_WEB_DIR")
 	workspaceWebDir := strings.TrimSpace(workspaceWebDirRaw)
 	workspaceManifestSHARaw, workspaceManifestSHAConfigured := os.LookupEnv("WORKSPACE_MANIFEST_SHA256")
 	workspaceManifestSHA := strings.TrimSpace(workspaceManifestSHARaw)
+	workspaceConfig := workspaceverify.Config{
+		Mode: workspaceModeRaw, Root: workspaceWebDir, ManifestSHA256: workspaceManifestSHA, Production: production,
+		ModeConfigured: workspaceModeConfigured, RootConfigured: workspaceConfigured, ManifestSHA256Configured: workspaceManifestSHAConfigured,
+	}
+	var verifiedWorkspace *workspaceverify.Manifest
+	if verifyWorkspaceOnly && !production {
+		verifiedWorkspace, err = workspaceverify.Verify(workspaceConfig)
+	} else {
+		verifiedWorkspace, err = workspaceverify.VerifyRuntime(workspaceConfig)
+	}
+	if err != nil {
+		fatal("workspace verification", err)
+	}
+	webDirRaw, webDirConfigured := os.LookupEnv("WEB_DIR")
+	webDir, err := resolveWebDir(production, webDirRaw, webDirConfigured)
+	if err != nil {
+		fatal("WEB_DIR", err)
+	}
+	dbPathRaw, dbPathConfigured := os.LookupEnv("DB_PATH")
+	dbPath, err := resolveDBPath(production, dbPathRaw, dbPathConfigured)
+	if err != nil {
+		fatal("DB_PATH", err)
+	}
+	if verifyWorkspaceOnly || verifyRuntimeOnly {
+		if workspaceModeRaw == workspaceverify.ModeDisabled {
+			log.Println("workspace verified: disabled")
+		} else if verifiedWorkspace == nil {
+			log.Println("workspace verification skipped: optional workspace is not configured")
+		} else {
+			log.Printf("workspace verified: %s at %s (%s)", verifiedWorkspace.Artifact.AppVersion, workspaceWebDir, verifiedWorkspace.Producer.SourceRevision)
+		}
+		return
+	}
+
+	port := envOr("PORT", "8080")
+	dataDir := envOr("DATA_DIR", "./data")
 	masterKey := os.Getenv("MOESEKAI_MASTER_KEY")
 	jwtSecret := envOr("JWT_SECRET", "")
 	allowOrigin := envOr("CONSOLE_ORIGIN", "*")
@@ -62,27 +118,8 @@ func main() {
 	if err != nil {
 		fatal("shutdown configuration", err)
 	}
-	production, err := parseProductionMode(os.Getenv("MOESEKAI_PRODUCTION"))
-	if err != nil {
-		fatal("MOESEKAI_PRODUCTION", err)
-	}
 	if err := httpx.ValidateUpstreamEnvironment(production); err != nil {
 		fatal("upstream network configuration", err)
-	}
-	verifiedWorkspace, err := workspaceverify.Verify(workspaceverify.Config{
-		Root: workspaceWebDir, ManifestSHA256: workspaceManifestSHA, Production: production,
-		RootConfigured: workspaceConfigured, ManifestSHA256Configured: workspaceManifestSHAConfigured,
-	})
-	if err != nil {
-		fatal("workspace verification", err)
-	}
-	if verifyWorkspaceOnly {
-		if verifiedWorkspace == nil {
-			log.Println("workspace verification skipped: optional workspace is not configured")
-		} else {
-			log.Printf("workspace verified: %s at %s (%s)", verifiedWorkspace.Artifact.AppVersion, workspaceWebDir, verifiedWorkspace.Producer.SourceRevision)
-		}
-		return
 	}
 	if err := validateConsoleOrigin(production, allowOrigin); err != nil {
 		fatal("CONSOLE_ORIGIN", err)
@@ -263,7 +300,7 @@ func main() {
 	registerPublicFileRoutes(mux, fileService)
 
 	registerOperationalRoutesWithSearch(mux, database, authSvc, appLifecycle, fileService, idx)
-	workspaceEnabled := registerWorkspaceRoutes(mux, workspaceWebDir)
+	registerWorkspaceRoutes(mux)
 
 	// Catch-all: serve the statically-exported console SPA. More specific routes
 	// above (/api/, /files/, /healthz, /sse) take precedence in ServeMux, so "/"
@@ -277,6 +314,7 @@ func main() {
 
 	handler := preflightMiddleware(mux)
 	handler = lifecycleMiddleware(appLifecycle, handler)
+	handler = workspaceTombstoneMiddleware(handler)
 	handler = corsMiddleware(handler, allowOrigin)
 	handler = loggingMiddleware(handler)
 	httpServer := newHTTPServer(":"+port, handler)
@@ -317,11 +355,7 @@ func main() {
 	} else {
 		log.Printf("  console:   not served (%s not found) — API-only mode", webDir)
 	}
-	if workspaceEnabled {
-		log.Printf("  workspace: /workspace/ (static SPA from %s)", workspaceWebDir)
-	} else {
-		log.Printf("  workspace: disabled (WORKSPACE_WEB_DIR absent)")
-	}
+	log.Printf("  workspace: disabled (retired external workspace is verifier-only)")
 	if !cfg.HasMasterKey() {
 		log.Println("  WARNING: MOESEKAI_MASTER_KEY not set — secrets cannot be stored")
 	}
@@ -643,6 +677,9 @@ func seedAdminFromEnv(a *auth.Auth) error {
 			if len(parts) != 2 {
 				continue
 			}
+			if err := validateBootstrapAdminPassword(parts[1]); err != nil {
+				return err
+			}
 			role := auth.RoleEditor
 			if !adminCreated {
 				role = auth.RoleAdmin
@@ -657,6 +694,9 @@ func seedAdminFromEnv(a *auth.Auth) error {
 		user := envOr("ADMIN_USER", "admin")
 		pass := envOr("ADMIN_PASSWORD", "")
 		if pass != "" {
+			if err := validateBootstrapAdminPassword(pass); err != nil {
+				return err
+			}
 			if _, err := a.CreateUser(user, pass, auth.RoleAdmin); err == nil {
 				created++
 				adminCreated = true
@@ -671,6 +711,53 @@ func seedAdminFromEnv(a *auth.Auth) error {
 		return fmt.Errorf("database contains users but no administrator; provide a unique strong ADMIN_USER/ADMIN_PASSWORD")
 	}
 	return nil
+}
+
+func validateBootstrapAdminPassword(value string) error {
+	if strings.TrimSpace(value) == publishedAdminPasswordTemplate {
+		return errors.New("published ADMIN_PASSWORD template must be replaced with unique secret material")
+	}
+	return nil
+}
+
+func resolveProductionMode(value string) (bool, error) {
+	if runtimeProfile == runtimeProfileNextProduction && value != "true" {
+		return false, fmt.Errorf(`standalone production binary requires MOESEKAI_PRODUCTION to remain exactly "true"`)
+	}
+	return parseProductionMode(value)
+}
+
+func validateRuntimeTimezone(production bool, value string, configured bool) error {
+	if production && (!configured || value != "UTC") {
+		return errors.New(`standalone production binary requires TZ to remain exactly "UTC"`)
+	}
+	return nil
+}
+
+func resolveWebDir(production bool, value string, configured bool) (string, error) {
+	if production {
+		if !configured || value != "/app/web" {
+			return "", errors.New(`standalone production binary requires WEB_DIR to remain exactly "/app/web"`)
+		}
+		return value, nil
+	}
+	if value == "" {
+		return "./web", nil
+	}
+	return value, nil
+}
+
+func resolveDBPath(production bool, value string, configured bool) (string, error) {
+	if production {
+		if !configured || value != "/data/moesekai.db" {
+			return "", errors.New(`standalone production binary requires DB_PATH to remain exactly "/data/moesekai.db"`)
+		}
+		return value, nil
+	}
+	if value == "" {
+		return "./data/moesekai.db", nil
+	}
+	return value, nil
 }
 
 func parseProductionMode(value string) (bool, error) {

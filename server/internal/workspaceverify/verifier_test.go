@@ -45,18 +45,76 @@ func TestCheckedInProducerContractFixtureVerifies(t *testing.T) {
 	}
 }
 
+func TestProductionWorkspaceModes(t *testing.T) {
+	root := copyFixture(t)
+	digest := digestPath(filepath.Join(root, ManifestFilename))
+
+	if _, err := VerifyRuntime(Config{Production: true}); err == nil || !strings.Contains(err.Error(), "WORKSPACE_MODE is required") {
+		t.Fatalf("production missing mode error = %v", err)
+	}
+	if manifest, err := VerifyRuntime(Config{Mode: ModeDisabled, ModeConfigured: true, Production: true}); err != nil || manifest != nil {
+		t.Fatalf("production disabled manifest=%v err=%v", manifest, err)
+	}
+	for _, residue := range []Config{
+		{RootConfigured: true},
+		{ManifestSHA256Configured: true},
+		{Root: root},
+		{ManifestSHA256: digest},
+	} {
+		residue.Mode = ModeDisabled
+		residue.ModeConfigured = true
+		residue.Production = true
+		if _, err := VerifyRuntime(residue); err == nil || !strings.Contains(err.Error(), "must both be unset") {
+			t.Fatalf("production disabled residue %+v error = %v", residue, err)
+		}
+	}
+	external := Config{
+		Mode: ModeExternal, Root: root, ManifestSHA256: digest, Production: true,
+		ModeConfigured: true, RootConfigured: true, ManifestSHA256Configured: true,
+	}
+	if _, err := VerifyRuntime(external); err == nil || !strings.Contains(err.Error(), `must be exactly "disabled" in production`) {
+		t.Fatalf("production external workspace error = %v", err)
+	}
+	for _, invalid := range []string{"", "disabled ", " paired", "paired", "EXTERNAL"} {
+		if _, err := VerifyRuntime(Config{Mode: invalid, ModeConfigured: true, Production: true}); err == nil || !strings.Contains(err.Error(), "must be exactly") {
+			t.Fatalf("production accepted non-exact mode %q: %v", invalid, err)
+		}
+	}
+}
+
+func TestModeLessPairedArtifactVerificationRemainsCompatible(t *testing.T) {
+	root := copyFixture(t)
+	manifest, err := Verify(Config{Root: root, ManifestSHA256: digestPath(filepath.Join(root, ManifestFilename)), Production: true})
+	if err != nil || manifest == nil || manifest.SchemaVersion != SchemaVersion {
+		t.Fatalf("paired compatibility manifest=%v err=%v", manifest, err)
+	}
+}
+
 func TestWorkspaceConfigurationAndProductionDirtiness(t *testing.T) {
-	if manifest, err := Verify(Config{}); err != nil || manifest != nil {
+	if manifest, err := VerifyRuntime(Config{}); err != nil || manifest != nil {
 		t.Fatalf("optional development workspace manifest=%v err=%v", manifest, err)
 	}
-	if _, err := Verify(Config{Production: true}); err == nil || !strings.Contains(err.Error(), "required in production") {
-		t.Fatalf("production without workspace error = %v", err)
+	compatibleRoot := copyFixture(t)
+	compatibleConfig := Config{Root: compatibleRoot, ManifestSHA256: digestPath(filepath.Join(compatibleRoot, ManifestFilename))}
+	compatible, err := Verify(compatibleConfig)
+	if err != nil || compatible == nil || compatible.SchemaVersion != SchemaVersion {
+		t.Fatalf("verifier-only external workspace manifest=%v err=%v", compatible, err)
+	}
+	for _, runtimeConfig := range []Config{
+		compatibleConfig,
+		{Mode: ModeExternal, ModeConfigured: true, Root: compatibleRoot, RootConfigured: true, ManifestSHA256: compatibleConfig.ManifestSHA256, ManifestSHA256Configured: true},
+		{Root: t.TempDir()},
+		{Root: t.TempDir(), ManifestSHA256: "ABC"},
+	} {
+		if _, err := VerifyRuntime(runtimeConfig); err == nil || !strings.Contains(err.Error(), "only to verifier tooling") {
+			t.Fatalf("runtime accepted external workspace config %+v: %v", runtimeConfig, err)
+		}
 	}
 	if _, err := Verify(Config{Root: t.TempDir()}); err == nil || !strings.Contains(err.Error(), "configured together") {
-		t.Fatalf("partial workspace config error = %v", err)
+		t.Fatalf("partial verifier workspace config error = %v", err)
 	}
 	if _, err := Verify(Config{Root: t.TempDir(), ManifestSHA256: "ABC"}); err == nil || !strings.Contains(err.Error(), "lowercase hexadecimal") {
-		t.Fatalf("noncanonical lock error = %v", err)
+		t.Fatalf("noncanonical verifier lock error = %v", err)
 	}
 
 	root := copyFixture(t)
@@ -341,7 +399,9 @@ func mutateRawManifest(t *testing.T, root string, mutate func(string) string) {
 }
 
 func verifyFixture(root string, production bool) (*Manifest, error) {
-	return Verify(Config{Root: root, ManifestSHA256: digestPath(filepath.Join(root, ManifestFilename)), Production: production})
+	return Verify(Config{
+		Root: root, ManifestSHA256: digestPath(filepath.Join(root, ManifestFilename)), Production: production,
+	})
 }
 
 func digestFile(t *testing.T, path string) string {

@@ -3,10 +3,13 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"moesekai/server/internal/lifecycle"
 )
 
 func TestStaticConsoleSecurityHeaders(t *testing.T) {
@@ -26,101 +29,99 @@ func TestStaticConsoleSecurityHeaders(t *testing.T) {
 	}
 }
 
-func TestWorkspaceRoutesServeIsolatedSPAAndImmutableAssets(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("workspace-index"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(root, "assets"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "assets", "app-a1b2c3.js"), []byte("workspace-asset"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+func TestWorkspaceRoutesAlwaysFailClosed(t *testing.T) {
 	mux := http.NewServeMux()
-	if !registerWorkspaceRoutes(mux, root) {
-		t.Fatal("valid workspace root was disabled")
-	}
-	for _, preservedPath := range []string{"/api/preserved", "/files/preserved", "/translation/preserved", "/healthz"} {
-		preservedPath := preservedPath
-		mux.HandleFunc(preservedPath, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(preservedPath)) })
-	}
+	registerWorkspaceRoutes(mux)
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("admin")) })
-
-	exact := httptest.NewRecorder()
-	mux.ServeHTTP(exact, httptest.NewRequest(http.MethodGet, "/workspace", nil))
-	if exact.Code != http.StatusPermanentRedirect || exact.Header().Get("Location") != "/workspace/" {
-		t.Fatalf("workspace redirect status=%d location=%q", exact.Code, exact.Header().Get("Location"))
-	}
-	assertWorkspaceSecurityHeaders(t, exact)
-	if exact.Header().Get("Cache-Control") != "no-store" {
-		t.Fatalf("workspace redirect cache=%q", exact.Header().Get("Cache-Control"))
-	}
-	for _, requestPath := range []string{"/workspace/", "/workspace/editor/cards"} {
+	for _, requestPath := range []string{"/workspace", "/workspace/", "/workspace/editor/cards", "/workspace/assets/app.js"} {
 		recorder := httptest.NewRecorder()
 		mux.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, requestPath, nil))
-		if recorder.Code != http.StatusOK || recorder.Body.String() != "workspace-index" || recorder.Header().Get("Cache-Control") != "no-cache" {
-			t.Fatalf("workspace SPA %s status=%d cache=%q body=%q", requestPath, recorder.Code, recorder.Header().Get("Cache-Control"), recorder.Body.String())
+		if recorder.Code != http.StatusNotFound || strings.Contains(recorder.Body.String(), "admin") {
+			t.Fatalf("disabled workspace %s status=%d body=%q", requestPath, recorder.Code, recorder.Body.String())
 		}
+		assertWorkspaceErrorHeaders(t, recorder)
 	}
-	asset := httptest.NewRecorder()
-	mux.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, "/workspace/assets/app-a1b2c3.js", nil))
-	if asset.Code != http.StatusOK || asset.Body.String() != "workspace-asset" || asset.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" {
-		t.Fatalf("workspace asset status=%d cache=%q body=%q", asset.Code, asset.Header().Get("Cache-Control"), asset.Body.String())
-	}
-	missingAsset := httptest.NewRecorder()
-	mux.ServeHTTP(missingAsset, httptest.NewRequest(http.MethodGet, "/workspace/assets/missing.js", nil))
-	if missingAsset.Code != http.StatusNotFound || strings.Contains(missingAsset.Body.String(), "workspace-index") {
-		t.Fatalf("missing asset status=%d body=%q", missingAsset.Code, missingAsset.Body.String())
-	}
-	assertWorkspaceErrorHeaders(t, missingAsset)
-	post := httptest.NewRecorder()
-	mux.ServeHTTP(post, httptest.NewRequest(http.MethodPost, "/workspace/", nil))
-	if post.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("workspace POST status=%d", post.Code)
-	}
-	assertWorkspaceErrorHeaders(t, post)
-	for _, preservedPath := range []string{"/api/preserved", "/files/preserved", "/translation/preserved", "/healthz"} {
-		recorder := httptest.NewRecorder()
-		mux.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, preservedPath, nil))
-		if recorder.Body.String() != preservedPath {
-			t.Fatalf("workspace mount changed %s route: %q", preservedPath, recorder.Body.String())
-		}
-	}
-	adminRecorder := httptest.NewRecorder()
-	mux.ServeHTTP(adminRecorder, httptest.NewRequest(http.MethodGet, "/", nil))
-	if adminRecorder.Body.String() != "admin" {
-		t.Fatalf("workspace mount changed admin route: %q", adminRecorder.Body.String())
+	admin := httptest.NewRecorder()
+	mux.ServeHTTP(admin, httptest.NewRequest(http.MethodGet, "/", nil))
+	if admin.Code != http.StatusOK || admin.Body.String() != "admin" {
+		t.Fatalf("disabled workspace changed admin status=%d body=%q", admin.Code, admin.Body.String())
 	}
 }
 
-func TestWorkspaceRoutesFailClosedWhenArtifactIsAbsentOrInvalid(t *testing.T) {
-	for _, root := range []string{"", t.TempDir()} {
-		mux := http.NewServeMux()
-		if registerWorkspaceRoutes(mux, root) {
-			t.Fatalf("invalid workspace root %q was enabled", root)
+func TestWorkspaceTombstoneClaimsEscapedNonCanonicalAndPreflightPaths(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("admin")) })
+	handler := workspaceTombstoneMiddleware(preflightMiddleware(mux))
+	requests := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/workspace"},
+		{http.MethodHead, "/workspace/"},
+		{http.MethodPost, "/workspace/editor/cards"},
+		{http.MethodOptions, "/workspace"},
+		{http.MethodOptions, "/workspace/editor"},
+		{http.MethodGet, "/workspace%2Feditor/cards"},
+		{http.MethodGet, "/workspace%2F"},
+		{http.MethodGet, "/workspace%5Ceditor"},
+		{http.MethodGet, "/workspace%25252Feditor"},
+		{http.MethodGet, "/workspace%252Feditor%25"},
+		{http.MethodGet, "/%2577orkspace%252Feditor%25"},
+		{http.MethodGet, "/x/%25252e%25252e/workspace"},
+		{http.MethodGet, "/x/%25252e%25252e/workspace%25"},
+		{http.MethodGet, "/workspace//editor"},
+		{http.MethodGet, "/workspace/./editor"},
+		{http.MethodGet, "/workspace/../"},
+		{http.MethodGet, "/x/../workspace"},
+		{http.MethodPost, "/x/../workspace/editor"},
+		{http.MethodOptions, "/x/../workspace"},
+		{http.MethodGet, "/./workspace"},
+		{http.MethodGet, "/x/%2e%2e/workspace"},
+	}
+	for _, request := range requests {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, httptest.NewRequest(request.method, request.path, nil))
+		if recorder.Code != http.StatusNotFound || strings.Contains(recorder.Body.String(), "admin") {
+			t.Fatalf("workspace tombstone %s %s status=%d body=%q", request.method, request.path, recorder.Code, recorder.Body.String())
 		}
-		mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("admin")) })
-		for _, requestPath := range []string{"/workspace", "/workspace/", "/workspace/editor/cards", "/workspace/assets/app.js"} {
-			recorder := httptest.NewRecorder()
-			mux.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, requestPath, nil))
-			if recorder.Code != http.StatusNotFound || strings.Contains(recorder.Body.String(), "admin") {
-				t.Fatalf("disabled workspace %s status=%d body=%q", requestPath, recorder.Code, recorder.Body.String())
-			}
-			assertWorkspaceErrorHeaders(t, recorder)
-		}
-		admin := httptest.NewRecorder()
-		mux.ServeHTTP(admin, httptest.NewRequest(http.MethodGet, "/", nil))
-		if admin.Code != http.StatusOK || admin.Body.String() != "admin" {
-			t.Fatalf("disabled workspace changed admin status=%d body=%q", admin.Code, admin.Body.String())
-		}
+		assertWorkspaceErrorHeaders(t, recorder)
+	}
+	deeplyEncoded := "/workspace/editor"
+	for range 20 {
+		deeplyEncoded = url.PathEscape(deeplyEncoded)
+	}
+	if !retiredWorkspacePath(deeplyEncoded) {
+		t.Fatalf("deeply encoded workspace path bypassed tombstone: %q", deeplyEncoded)
+	}
+}
+
+func TestWorkspaceTombstonePrecedesLifecycleDrain(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("admin")) })
+	state := &lifecycle.State{}
+	state.Drain()
+	handler := workspaceTombstoneMiddleware(lifecycleMiddleware(state, preflightMiddleware(mux)))
+
+	workspace := httptest.NewRecorder()
+	handler.ServeHTTP(workspace, httptest.NewRequest(http.MethodOptions, "/workspace%25252Feditor", nil))
+	if workspace.Code != http.StatusNotFound || strings.Contains(workspace.Body.String(), "admin") {
+		t.Fatalf("draining workspace status=%d body=%q", workspace.Code, workspace.Body.String())
+	}
+	assertWorkspaceErrorHeaders(t, workspace)
+
+	ordinary := httptest.NewRecorder()
+	handler.ServeHTTP(ordinary, httptest.NewRequest(http.MethodGet, "/", nil))
+	if ordinary.Code != http.StatusServiceUnavailable || ordinary.Body.String() != `{"status":"draining"}` {
+		t.Fatalf("draining ordinary status=%d body=%q", ordinary.Code, ordinary.Body.String())
 	}
 }
 
 func assertWorkspaceSecurityHeaders(t *testing.T, recorder *httptest.ResponseRecorder) {
 	t.Helper()
 	if !strings.Contains(recorder.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") ||
-		recorder.Header().Get("X-Frame-Options") != "DENY" || recorder.Header().Get("X-Content-Type-Options") != "nosniff" {
+		recorder.Header().Get("X-Frame-Options") != "DENY" || recorder.Header().Get("X-Content-Type-Options") != "nosniff" ||
+		recorder.Header().Get("Referrer-Policy") != "no-referrer" ||
+		recorder.Header().Get("Permissions-Policy") != "camera=(), microphone=(), geolocation=()" {
 		t.Fatalf("workspace security headers=%#v", recorder.Header())
 	}
 }
@@ -153,28 +154,9 @@ func TestStaticHandlersDoNotFollowSymlinksOutsideRoot(t *testing.T) {
 		t.Fatalf("admin static handler exposed symlink target: %q", admin.Body.String())
 	}
 
-	workspaceRoot := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspaceRoot, "index.html"), []byte("workspace-index"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(workspaceRoot, "assets"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(secret, filepath.Join(workspaceRoot, "assets", "leak.js")); err != nil {
-		t.Fatal(err)
-	}
-	workspace := httptest.NewRecorder()
-	workspaceStaticHandler(workspaceRoot).ServeHTTP(workspace, httptest.NewRequest(http.MethodGet, "/workspace/assets/leak.js", nil))
-	if workspace.Code != http.StatusNotFound || strings.Contains(workspace.Body.String(), "outside-secret") {
-		t.Fatalf("workspace symlink status=%d body=%q", workspace.Code, workspace.Body.String())
-	}
-
 	symlinkIndexRoot := t.TempDir()
 	if err := os.Symlink(secret, filepath.Join(symlinkIndexRoot, "index.html")); err != nil {
 		t.Fatal(err)
-	}
-	if workspaceRootAvailable(symlinkIndexRoot) {
-		t.Fatal("workspace accepted an index symlink escaping its root")
 	}
 	index := httptest.NewRecorder()
 	staticHandler(symlinkIndexRoot).ServeHTTP(index, httptest.NewRequest(http.MethodGet, "/", nil))
