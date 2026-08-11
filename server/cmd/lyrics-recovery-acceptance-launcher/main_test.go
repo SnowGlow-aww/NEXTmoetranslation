@@ -191,6 +191,9 @@ func TestLauncherHelperProcess(t *testing.T) {
 
 func newTestRunbook(t *testing.T, body string) (string, launcherPolicy) {
 	t.Helper()
+	if runtime.GOOS != "darwin" {
+		t.Skip("filesystem identity and no-follow execution contracts are Darwin-only")
+	}
 	directory, err := os.MkdirTemp("/private/tmp", "lyrics-acceptance-launcher-test-")
 	if err != nil {
 		t.Fatalf("create canonical test directory: %v", err)
