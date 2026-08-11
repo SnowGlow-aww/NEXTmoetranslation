@@ -382,12 +382,16 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       contentEventGenerationRef.current++;
     }
     if (event === "gate.status" && d && typeof d === "object") {
+      sseConnectedRef.current = true;
       const status = d as unknown as EditorGateStatus;
       if (status.instanceId && !status.running) {
-        acceptLoadedProducerState(status);
-        if (!contentConflict && !preservedConflictDraftRef.current && writeFenceRef.current) {
-          setWriteFence(false);
+        if (acceptLoadedProducerState(status)) {
+          if (!contentConflict && !preservedConflictDraftRef.current) {
+            setWriteFence(false);
+          }
         }
+      } else if (status.running) {
+        setWriteFence(true);
       }
     }
     if (event === "sse.disconnected") {
@@ -397,7 +401,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       setWriteFence(true);
     } else if (event === "sse.reconnected") {
       sseConnectedRef.current = true;
-      show("实时连接已恢复，正在校验服务器数据", "ok");
+      show("实时连接已建立", "ok");
     } else if (event === "sse.missed-events") {
       sseConnectedRef.current = true;
       void reconcileContent("gap");

@@ -57,6 +57,7 @@ export function useWebSocket(handler: SSEHandler, enabled: boolean) {
     let isSubscribed = true;
     let reconnectTimer: NodeJS.Timeout | null = null;
     let attempt = 0;
+    let hasOpened = false;
 
     const connect = async () => {
       if (!isSubscribed) return;
@@ -75,8 +76,11 @@ export function useWebSocket(handler: SSEHandler, enabled: boolean) {
 
       ws.onopen = () => {
         attempt = 0;
-        handlerRef.current("sse.reconnected", { at: Date.now() });
-        handlerRef.current("sse.missed-events", { at: Date.now() });
+        if (hasOpened) {
+          handlerRef.current("sse.reconnected", { at: Date.now() });
+          handlerRef.current("sse.missed-events", { at: Date.now() });
+        }
+        hasOpened = true;
       };
 
       ws.onmessage = (event) => {
