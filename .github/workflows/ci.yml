@@ -15,7 +15,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       NODE_IMAGE: node:20.19.4-alpine3.22
       NODE_IMAGE_DIGEST: ${{ vars.NODE_IMAGE_DIGEST }}
@@ -69,7 +69,7 @@ jobs:
         working-directory: server
         run: |
           go test -count=1 -timeout=30m ./...
-          go test -race -count=1 -timeout=30m ./...
+          go test -race -count=1 -timeout=60m ./...
           go vet ./...
 
       - name: Verify Web

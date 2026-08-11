@@ -69,9 +69,9 @@ test('entrypoint verifies runtime policy before persistent-data mutation', () =>
 })
 
 test('CI builds and characterizes only the standalone production image', () => {
-  assert.match(ciWorkflow, /timeout-minutes: 60/)
+  assert.match(ciWorkflow, /timeout-minutes: 120/)
   assert.match(ciWorkflow, /go test -count=1 -timeout=30m \.\/\.\.\./)
-  assert.match(ciWorkflow, /go test -race -count=1 -timeout=30m \.\/\.\.\./)
+  assert.match(ciWorkflow, /go test -race -count=1 -timeout=60m \.\/\.\.\./)
   assert.match(ciWorkflow, /name: Build standalone production image/)
   assert.match(ciWorkflow, /--target next-production/)
   assert.match(ciWorkflow, /CI_IMAGE: nexttrans-standalone-ci:/)

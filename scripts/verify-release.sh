@@ -66,9 +66,9 @@ test ! -e .github/workflows/release-paired.yml
 test ! -e PAIRED_RELEASE.md
 test -f STANDALONE_RELEASE.md
 
-grep -q '^    timeout-minutes: 60$' "$ci"
+grep -q '^    timeout-minutes: 120$' "$ci"
 grep -q 'go test -count=1 -timeout=30m ./...' "$ci"
-grep -q 'go test -race -count=1 -timeout=30m ./...' "$ci"
+grep -q 'go test -race -count=1 -timeout=60m ./...' "$ci"
 grep -q 'Build standalone production image' "$ci"
 grep -q -- '--target next-production' "$ci"
 grep -q 'WORKSPACE_MODE=disabled' "$ci"
