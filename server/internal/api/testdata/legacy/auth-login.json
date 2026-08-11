@@ -1,0 +1,6 @@
+{
+  "token": "<jwt>",
+  "username": "root",
+  "role": "admin",
+  "expiresAt": 0
+}

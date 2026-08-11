@@ -1,0 +1,312 @@
+{{Song box 2
+  |color     = #FFDA87; color:royalblue
+  |image     = あったかいと.png
+  |title     = "'''あったかいと'''"
+* Romaji: Attakaito
+* English: Warm Kaito
+* Official English: AttaKAITO
+  |date      = February 13, 2016
+  |views     = {{v|nn|484,492}} and {{v|yt|2,279,362}}
+  |singers   = [[KAITO]] V3 Straight & English
+  |producers = [[halyosy]] (music, lyrics, arrangement)
+* Rio.T (guitar)
+* [[Akiyoshi]] (illustration)
+* Goodman (movie)
+  |links     = {{l|nn|sm28212412}} {{l|yt|RsmJ--RNgE8}}
+}}
+
+==Background==
+{{Quote|It has to be me and you, or it'll be no good! halyosy here. I made a song to commemorate KAITO's 10th anniversary! In the song, I tried to include my feelings of gratitude towards fans and staff who have been supporting me, as well as KAITO with his lovely voice, giving me ideas. I'd be happy if we could celebrate together!|Author's comment}}
+"'''AttaKAITO'''" is an original pop rock, soft rock song by halyosy. It was made for KAITO's 10th anniversary. It is featured on KAITO's 10th Anniversary album ''-Glorious Blue-'', and was released as a single on February 14, 2020 in celebration of his 14th Anniversary. 
+
+This song entered the ''[[Hall of Fame]]'', and has surpassed 2 million views on YouTube. 
+
+==Lyrics==
+{| style="width:100%"
+|{{Shared}}|(Oh Oh Oh Oh Yeah)
+|-
+|<br>
+|-
+! align=left |''Japanese'' (日本語歌詞)
+! align=left |''Romaji'' (ローマ字)
+|-
+|継続は力なりって
+|keizoku wa chikara nari tte
+|-
+|簡単に他人は言うけど
+|kantan ni hito wa iu kedo
+|-
+|ここまでやってこれたのは
+|koko made yatte koreta no wa
+|-
+|支え合ってきたからでしょ？
+|sasae atte kita kara desho?
+|-
+|<br>
+|-
+|ボクは窓の外に向けて
+|boku wa mado no soto ni mukete
+|-
+|繰り返し歌い続ける
+|kurikaeshi utai tsuzukeru
+|-
+|キミは同じ窓を見つめ
+|kimi wa onaji mado o mitsume
+|-
+|良いコトないんだとボヤく
+|ii koto nain da to boyaku
+|-
+|<br>
+|-
+|目の前に居ても触れないボクには
+|me no mae ni ite mo sawarenai boku ni wa
+|-
+|これくらいの事しかできないから
+|kore kurai no koto shika dekinai kara
+|-
+|どうか届けキミのもとへ
+|douka todoke kimi no moto e
+|-
+|{{Shared}}|Let my voice reach you
+|-
+|<br>
+|-
+|笑わせたい
+|warawasetai
+|-
+|今日もキミを笑わせたい
+|kyou mo kimi o warawasetai
+|-
+|ほら見てて Oh oh oh oh oh
+|hora mitete Oh oh oh oh oh
+|-
+|バカでドジな役はいつもデフォルト
+|baka de doji na yaku wa itsumo deforuto
+|-
+|笑わせたい
+|warawasetai
+|-
+|今日もキミを笑わせたい
+|kyou mo kimi o warawasetai
+|-
+|大声で Oh oh oh oh oh
+|oogoe de Oh oh oh oh oh
+|-
+|どんな時もかけがえのないパートナー
+|donna toki mo kakegae no nai paatonaa
+|-
+|<br>
+|-
+|ミッドナイト　ねむれないと
+|middonaito nemurenai to
+|-
+|はだにちょっと　わるいかもよ！
+|hada ni chotto warui kamo yo!
+|-
+|あったかいと　むねがホット
+|attakai to mune ga hotto
+|-
+|やっぱキミと　ボクじゃないと！
+|yappa kimi to boku janai to!
+|-
+|<br>
+|-
+|勉強したり働いて
+|benkyou shitari hataraite
+|-
+|毎日変わらないループ
+|mainichi kawaranai ruupu
+|-
+|それでも少しづつだけど
+|soredemo sukoshi zutsu dakedo
+|-
+|一緒に成長したでしょ？
+|issho ni seichou shita desho?
+|-
+|<br>
+|-
+|たまには自分を褒めてもいいんじゃない
+|tamani wa jibun o homete mo ii nja nai
+|-
+|誰よりがんばってきたのは知ってる
+|dare yori ganbatte kita no wa shitteru
+|-
+|つらい時はボクのもとへ
+|tsurai toki wa boku no moto e
+|-
+| {{Shared}}|Let me hear your voice
+|-
+|<br>
+|-
+|泣いていいよ
+|naite ii yo
+|-
+|今夜だけは泣いていいよ
+|kon'ya dake wa naite ii yo
+|-
+|好きなだけ Oh oh oh oh oh
+|suki na dake Oh oh oh oh oh
+|-
+|癒やし励ましは得意なカテゴリー
+|iyashi hagemashi wa tokui na kategorii
+|-
+|泣いていいよ
+|naite ii yo
+|-
+|今夜だけは泣いていいよ
+|kon'ya dake wa naite ii yo
+|-
+|そばにいる Oh oh oh oh oh
+|soba ni iru Oh oh oh oh oh
+|-
+|そうさボクはキミだけのプリンス
+|sou sa boku wa kimi dake no purinsu
+|-
+|<br>
+|-
+|グッドナイト　まったくほんと
+|guddonaito mattaku honto
+|-
+|なんか　ほっとけないコだよ！
+|nanka hottokenai ko dayo!
+|-
+|あったかいと　むねがホット
+|attakai to mune ga hotto
+|-
+|やっぱキミと　ボクじゃないと！
+|yappa kimi to boku ja nai to!
+|-
+|<br>
+|-
+|１人ではきっと見れずにいた
+|hitori de wa kitto mirezu ni ita
+|-
+|苦しくも楽しかった日々が
+|kurushiku mo tanoshikatta hibi ga
+|-
+|星空のように降り注いで
+|hoshizora no you ni furisosoide
+|-
+|明日を照らしている
+|ashita o terashite iru
+|-
+|<br>
+|-
+|10年前も
+|juunen-mae mo
+|-
+|今夜も
+|kon'ya mo
+|-
+|10年先も
+|juunen-saki mo
+|-
+|その笑顔は
+|sono egao wa
+|-
+|最高のたからもの
+|saikou no takaramono
+|-
+|<br>
+|-
+|笑ってたい
+|warattetai
+|-
+|ずっとキミと笑ってたい
+|zutto kimi to warattetai
+|-
+|ほら一緒に Oh oh oh oh oh
+|hora issho ni Oh oh oh oh oh
+|-
+|アイスを頬張ればさらにハッピー
+|aisu o hoobareba sarani happii
+|-
+|笑ってたい
+|warattetai
+|-
+|ずっとキミと笑ってたい
+|zutto kimi to warattetai
+|-
+|それだけでいい Oh oh oh oh oh
+|sore dake de ii Oh oh oh oh oh
+|-
+|世界中に広がるスカイブルー
+|sekaijuu ni hirogaru sukai buruu
+|-
+|<br>
+|-
+|デイ＆ナイト　いつもほんと
+|dei to naito itsumo honto
+|-
+|ありがとう　かんしゃしてるよ！
+|arigatou kansha shiteru yo!
+|-
+|あったかいと　むねがホット
+|attakai to mune ga hotto
+|-
+|やっぱキミと　ボクじゃないと！
+|yappa kimi to boku ja nai to!
+|-
+|あったかいと！
+|attakaito!
+|}
+
+==Other media appearances==
+===Discography===
+This song was featured in the following compilation albums:
+* [[KAITO 10th Anniversary -Glorious Blue-]]
+* [[初音ミク「マジカルミライ 2018」OFFICIAL ALBUM (Hatsune Miku "Magical Mirai 2018" OFFICIAL ALBUM)|Hatsune Miku "Magical Mirai 2018" OFFICIAL ALBUM]]
+* Attakaito (single)
+
+===Concerts===
+This song was featured in the following concerts.
+{{Col-2b|
+*[[Hatsune Miku Magical Mirai 2018|Magical Mirai 2018]]
+*[[MIKU WITH YOU 2018]]
+*[[HATSUNE MIKU EXPO 2020 EUROPE|MIKU EXPO 2020 EUROPE]]
+*[[Hatsune Miku Magical Mirai 2021|Magical Mirai 2021]] (Osaka, Day 3)
+*[[Hatsune Miku Magical Mirai 2023|Magical Mirai 2023]]
+|
+*[[MK15th project MEIKO & KAITO Online Concert]]
+*[[Hatsune Miku Magical Mirai 2026|Magical Mirai 2026]] (Noon shows)}}
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<tabber>Games =
+<gallery hideaddbutton="true" position="center" bordercolor="#484FAB">
+Games - Project SEKAI - あったかいと.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery hideaddbutton="true" position="center" bordercolor="#484FAB">
+halyosy - Attakaito (single).jpg|Cover art of the digital single<br>あったかいと (Attakaito)
+</gallery>
+|-|Misc =
+<gallery hideaddbutton="true" position="center" bordercolor="#484FAB">
+あったかいと2.jpg|Promotional artwork for the song by Akiyoshi
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |media = [http://www.pixiv.net/member_illust.php?mode=medium&illust_id=55262819 Illustration]  — pixiv
+  |dwlds = [http://halyosy.com/attakaito/ Off-vocal] — halyosy
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 33915
+  |nico   = sm28212412
+  |vocadb = 107188
+  |mgp    = 暖暖KAITO
+  |vlw    = あったかいと (Attakaito)
+  |url    = {{IW|projectsekai|Attakaito|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring KAITO]]
+[[Category:Concert songs]]
+[[Category:Mobile game songs]]

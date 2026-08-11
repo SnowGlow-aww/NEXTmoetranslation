@@ -1,0 +1,360 @@
+{
+  "producerAliases": [
+    {
+      "name": "Japanese alias in producer introduction after external links",
+      "pageTitle": "MikitoP",
+      "creator": "みきとP",
+      "categories": ["Composer", "Japanese producer", "Lyricist", "Producer"],
+      "content": "<div class=\"producer-links\">\n==Affiliations==\n==External links==\n|nico2 = a/みきとP\n'''mikitoP''' ('''みきとP''') is a producer who debuted in early 2010.<ref>[http://mikitoP.com/biography/ Biography]</ref>\n==Works==\n",
+      "canonical": "MikitoP",
+      "want": true
+    },
+    {
+      "name": "also-known introduction",
+      "pageTitle": "32ki",
+      "creator": "サツキ",
+      "categories": ["Japanese producer", "Producer"],
+      "content": "==Affiliations==\n==Labels==\n==External links==\n'''32ki''', also known a name under a pun as '''Satsuki''' ('''サツキ'''), is a producer who mainly produces EDM.\n==Works==\n",
+      "canonical": "32ki",
+      "want": true
+    },
+    {
+      "name": "catalog base plus parenthetical alias is corroborated by producer introduction",
+      "pageTitle": "Nyanyannya",
+      "creator": "nyanyannya(大天才P)",
+      "categories": ["Composer", "Japanese producer", "Producer"],
+      "content": "==Affiliation==\n==External links==\n'''nyanyannya''', also known as '''DaitensaiP''' ('''大天才P'''), is a producer.\n==Works==\n",
+      "canonical": "Nyanyannya",
+      "want": true
+    },
+    {
+      "name": "producer disambiguator is not part of canonical credit",
+      "pageTitle": "Balloon (producer)",
+      "creator": "バルーン",
+      "categories": ["Composer", "Japanese producer", "Lyricist", "Producer"],
+      "content": "==Affiliations==\n==External links==\n'''balloon''' ('''バルーン''') is a producer who mainly uses Hatsune Miku.\n==Works==\n",
+      "canonical": "Balloon",
+      "want": true
+    },
+    {
+      "name": "later works mention cannot establish alias",
+      "pageTitle": "Giga",
+      "creator": "ギガ",
+      "categories": ["Japanese producer", "Producer"],
+      "content": "==Affiliations==\n==External links==\n'''Giga''' is a producer.\n==Works==\nギガ\n",
+      "canonical": "Giga",
+      "want": false
+    },
+    {
+      "name": "collaboration prose is not alias evidence",
+      "pageTitle": "Giga",
+      "creator": "ギガ",
+      "categories": ["Japanese producer", "Producer"],
+      "content": "==External links==\n'''Giga''' collaborated with another artist (ギガ) on one release and is a producer.\n==Works==\n",
+      "canonical": "Giga",
+      "want": false
+    }
+  ],
+  "roleCredits": [
+    {
+      "name": "parentheses inside contributor identity do not consume role annotation",
+      "title": "ドクター=ファンクビート",
+      "lyricist": "nyanyannya(大天才P)",
+      "composer": "nyanyannya(大天才P)",
+      "content": "{{Song box 2\n|producers=[[nyanyannya (大天才P)]] (music, lyrics)\n}}\n",
+      "want": true
+    },
+    {
+      "name": "display argument from link-like template preserves lyricist identity",
+      "title": "M@GICAL☆CURE! LOVE ♥ SHOT!",
+      "lyricist": "Sena Kiryuin & SAWTOWNE",
+      "composer": "SAWTOWNE",
+      "content": "{{Song box 2\n|producers=[[SAWTOWNE]] (music, lyrics, tuning, illustration)\n* {{UIW|Kiryuin Sena|Sena Kiryuin}} (lyrics)\n}}\n",
+      "want": true
+    },
+    {
+      "name": "single positional template preserves composer identity",
+      "title": "Miku",
+      "composer": "Anamanaguchi",
+      "content": "{{Song box 2\n|producers={{wp|Anamanaguchi}} (music, lyrics, video)\n}}\n",
+      "want": true
+    },
+    {
+      "name": "spaced x contributor set remains role-bound",
+      "title": "デビルじゃないもん",
+      "lyricist": "DECO*27 x ピノキオピー",
+      "composer": "DECO*27 x ピノキオピー",
+      "arranger": "ピノキオピー x Rockwell",
+      "aliases": {
+        "ピノキオピー": "Pinocchio-P"
+      },
+      "content": "{{Song box 2\n|producers=[[DECO*27]] (music, lyrics)\n* [[Pinocchio-P]] (music, lyrics, arrangement)\n* Rockwell (arrangement)\n}}\n",
+      "want": true
+    },
+    {
+      "name": "multiplication-sign contributor set remains role-bound",
+      "title": "共同制作曲",
+      "lyricist": "作者甲×作者乙",
+      "composer": "作者甲×作者乙",
+      "aliases": {
+        "作者甲": "Creator A",
+        "作者乙": "Creator B"
+      },
+      "content": "Lyrics: Creator A & Creator B\nMusic: Creator B / Creator A\n",
+      "want": true
+    },
+    {
+      "name": "aliases cannot move a contributor across roles",
+      "title": "共同制作曲",
+      "lyricist": "作者甲 x 作者乙",
+      "composer": "作者甲",
+      "aliases": {
+        "作者甲": "Creator A",
+        "作者乙": "Creator B"
+      },
+      "content": "Lyrics: Creator A\nMusic: Creator A & Creator B\n",
+      "want": false
+    },
+    {
+      "name": "different-title song box arranger cannot reject matching primary box",
+      "title": "アスノヨゾラ哨戒班",
+      "lyricist": "Orangestar",
+      "composer": "Orangestar",
+      "arranger": "Rockwell",
+      "content": "<tabber>\nOriginal Version=\n{{Song box 2\n|title='''アスノヨゾラ哨戒班'''\n|producers=[[Orangestar]] (music, lyrics)\n}}\n|-|\n2015 Version=\n{{Song box 2\n|title='''キミノヨゾラ哨戒班'''\n|producers=Orangestar (music, lyrics, arrangement)\n* Suzuki Akinori (arrangement)\n}}\n</tabber>\n",
+      "want": true
+    },
+    {
+      "name": "credits from different titled song boxes cannot be combined",
+      "title": "Miku",
+      "lyricist": "Sarah Bonito",
+      "composer": "Anamanaguchi",
+      "content": "<tabber>Original Version=\n{{Song box 2\n|title='''Miku'''\n|producers={{wp|Anamanaguchi}} (music, lyrics, video)\n}}\n|-|Japanese Version=\n{{Song box 2\n|title='''ミク'''\n|producers={{wp|Anamanaguchi}} (music, video)\n* Sarah Bonito (lyrics)\n}}\n</tabber>\n",
+      "want": false
+    },
+    {
+      "name": "role contributor sets are order-independent and deduplicated",
+      "title": "共同制作曲",
+      "lyricist": "Creator A & Creator B",
+      "composer": "Creator A & Creator B",
+      "content": "Lyrics: Creator B / Creator A / Creator A\nMusic: Creator A × Creator B × Creator B\n",
+      "want": true
+    },
+    {
+      "name": "wiki role set cannot contain an extra contributor",
+      "title": "共同制作曲",
+      "lyricist": "Creator A",
+      "composer": "Creator A",
+      "content": "Lyrics: Creator A & Creator B\nMusic: Creator A\n",
+      "want": false
+    },
+    {
+      "name": "present arranger must be an exact set",
+      "title": "共同制作曲",
+      "lyricist": "Creator A",
+      "composer": "Creator A",
+      "arranger": "Creator A",
+      "content": "Lyrics: Creator A\nMusic: Creator A\nArrangement: Creator A & Creator B\n",
+      "want": false
+    },
+    {
+      "name": "same-title song boxes with conflicting role sets fail closed",
+      "title": "共同制作曲",
+      "lyricist": "Creator A",
+      "composer": "Creator A",
+      "content": "{{Song box 2\n|title=共同制作曲\n|lyrics=Creator A\n|music=Creator A\n}}\n{{Song box 2\n|title=共同制作曲\n|lyrics=Creator A & Creator B\n|music=Creator A\n}}\n",
+      "want": false
+    },
+    {
+      "name": "alias resolution cannot hide an extra role contributor",
+      "title": "共同制作曲",
+      "lyricist": "作者甲",
+      "composer": "作者甲",
+      "aliases": {
+        "作者甲": "Creator A"
+      },
+      "content": "Lyrics: Creator A & Creator B\nMusic: Creator A\n",
+      "want": false
+    }
+  ],
+  "titleMatches": [
+    {
+      "name": "caret symbols in exact-base romanization",
+      "wanted": "にっこり^^調査隊のテーマ",
+      "pageTitle": "にっこり^^調査隊のテーマ (Niccori^^Chousatai no Theme)",
+      "want": true
+    },
+    {
+      "name": "star symbol in exact-base romanization",
+      "wanted": "キラピピ★キラピカ",
+      "pageTitle": "キラピピ★キラピカ (Kirapipi★Kirapika)",
+      "want": true
+    },
+    {
+      "name": "symbol-bearing remix remains excluded",
+      "wanted": "キラピピ★キラピカ",
+      "pageTitle": "キラピピ★キラピカ (Kirapipi★Kirapika Remix)",
+      "want": false
+    },
+    {
+      "name": "full slash-bearing base is matched before creator splitting",
+      "wanted": "D/N/A",
+      "pageTitle": "D/N/A",
+      "want": true
+    },
+    {
+      "name": "slash-bearing base permits one legal creator suffix",
+      "wanted": "D/N/A",
+      "pageTitle": "D/N/A/Producer P",
+      "want": true
+    },
+    {
+      "name": "slash symbols are identity-bearing",
+      "wanted": "DNA",
+      "pageTitle": "D/N/A",
+      "want": false
+    },
+    {
+      "name": "at-sign symbols are identity-bearing",
+      "wanted": "MAGICAL",
+      "pageTitle": "M@GICAL/Producer P",
+      "want": false
+    },
+    {
+      "name": "symbol-bearing exact title remains valid",
+      "wanted": "M@GICAL",
+      "pageTitle": "M@GICAL/Producer P",
+      "want": true
+    },
+    {
+      "name": "terminal punctuation remains identity-bearing",
+      "wanted": "Tell Your World!",
+      "pageTitle": "Tell Your World!/livetune",
+      "want": true
+    },
+    {
+      "name": "invalid creator suffix is rejected",
+      "wanted": "光",
+      "pageTitle": "光/Album",
+      "want": false
+    }
+  ],
+  "songSignals": [
+    {
+      "name": "matching titled song box",
+      "wanted": "新曲",
+      "content": "{{Song box 2\n|title=新曲\n|lyrics=作者\n}}",
+      "categories": [],
+      "want": true
+    },
+    {
+      "name": "recognized untitled song box",
+      "wanted": "新曲",
+      "content": "{{Song box 2\n|lyrics=作者\n}}",
+      "categories": [],
+      "want": true
+    },
+    {
+      "name": "active top-level lyrics section",
+      "wanted": "新曲",
+      "content": "== Lyrics ==\n歌う",
+      "categories": [],
+      "want": true
+    },
+    {
+      "name": "explicit song category",
+      "wanted": "新曲",
+      "content": "ordinary lead",
+      "categories": ["Japanese songs"],
+      "want": true
+    },
+    {
+      "name": "songs from albums is still a song category",
+      "wanted": "新曲",
+      "content": "ordinary lead",
+      "categories": ["Songs from albums"],
+      "want": true
+    },
+    {
+      "name": "prose song and lyrics words are not structured evidence",
+      "wanted": "新曲",
+      "content": "This is an original song with published lyrics.",
+      "categories": [],
+      "want": false
+    },
+    {
+      "name": "standalone lyrics role is not a song signal",
+      "wanted": "新曲",
+      "content": "Lyrics: 作者",
+      "categories": [],
+      "want": false
+    },
+    {
+      "name": "producer category substring is not a song signal",
+      "wanted": "新曲",
+      "content": "ordinary producer page",
+      "categories": ["Vocaloid producers"],
+      "want": false
+    },
+    {
+      "name": "singular song-prefixed people category is not a song signal",
+      "wanted": "新曲",
+      "content": "ordinary producer page",
+      "categories": ["Song producers"],
+      "want": false
+    },
+    {
+      "name": "wrong titled song box is not a matching signal",
+      "wanted": "新曲",
+      "content": "{{Song box 2\n|title=別の曲\n|lyrics=作者\n}}",
+      "categories": [],
+      "want": false
+    },
+    {
+      "name": "nested lyrics heading is not top-level",
+      "wanted": "新曲",
+      "content": "=== Lyrics ===\n歌う",
+      "categories": [],
+      "want": false
+    },
+    {
+      "name": "inactive lyrics heading is ignored",
+      "wanted": "新曲",
+      "content": "<!-- == Lyrics == -->\nordinary lead",
+      "categories": [],
+      "want": false
+    }
+  ],
+  "restrictions": [
+    {
+      "name": "ordinary no-reprint and video restriction",
+      "content": "{{NoReprint}}\nThis producer does NOT permit unauthorized reprints of his videos.\n== Lyrics ==\n歌う",
+      "categories": ["No unauthorized reprints"],
+      "wantRestricted": false
+    },
+    {
+      "name": "explicit lyric-text restriction",
+      "content": "Do not repost these lyrics.\n== Lyrics ==\n歌う",
+      "categories": [],
+      "wantRestricted": true
+    },
+    {
+      "name": "English lyric-text restriction across active break",
+      "content": "Do not repost<br>these lyrics.\n== Lyrics ==\n歌う",
+      "categories": [],
+      "wantRestricted": true
+    },
+    {
+      "name": "English lyric-text restriction across adjacent lines",
+      "content": "The lyrics may not\nbe copied.\n== Lyrics ==\n歌う",
+      "categories": [],
+      "wantRestricted": true
+    },
+    {
+      "name": "Japanese lyric-text restriction across adjacent lines",
+      "content": "歌詞の\n無断転載禁止\n== Lyrics ==\n歌う",
+      "categories": [],
+      "wantRestricted": true
+    }
+  ]
+}

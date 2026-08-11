@@ -1,0 +1,557 @@
+{{Song box 2
+  |color     = #96DFD0; color:#393939
+  |image     = Iyowa IssenKounen.jpg
+  |title     = "'''一千光年'''"
+* Romaji: Issen Kounen
+* English: 1000 Light Years
+* Official English: KLY
+  |date      = March 19, 2023
+  |views     = {{v|nn|1,007,740}} and {{v|yt|2,873,585}}
+  |singers   = [[Hatsune Miku]], [[flower]], [[Kaai Yuki]], [[GUMI]], [[VY1]], {{cevio|KAFU}}, {{cevio|SEKAI}}, {{utau|Rei Adachi|Adachi Rei}}, {{cevio|RIME}}, {{synthv|Hanakuma Chifuyu}}, and {{synthv|SOLARIA}}
+  |producers = [[iyowa]] (music, lyrics, video)
+  |links     = {{l|nn|sm41951611}} {{l|yt|uB_jQ8H2Yeg}}
+}}
+
+==Background==
+"'''Issen Kounen'''" is a choir ballad produced by iyowa. It was released as a participating work in The VOCALOID Collection 2023 Spring event.
+
+This song has entered the ''[[Hall of Legend]]'' and exceeded 2 million views on YouTube.
+
+==Succeeding version==
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = Album ver.
+  |singers     = Hatsune Miku, flower, Kaai Yuki, GUMI, VY1, [[Kagamine Rin]], [[Megurine Luka]], [[MEIKO]], [[Kasane Teto]] <small>({{Utau|Teto Kasane|UTAU}}, {{synthv|Kasane Teto|SV}})</small>, KAFU, SEKAI, Adachi Rei, RIME, Hanakuma Chifuyu, SOLARIA, {{synthv|Natsuki Karin}}, {{synthv|Koharu Rikka}}, {{cevio|Chis-A}}
+  |producers   = iyowa
+  |categories  = VOCALOID Cover; UTAU Cover; CeVIO Cover; VoiSona Cover; Synthesizer V Cover; Album-exclusive Content
+  |description = An alternate version of the song featuring additional vocals. Featured exclusively on the album ''映画、陽だまり、卒業式 (Eiga, Hidamari, Sotsugyoushiki)''.
+  |links       = yt 4VQm3Azhk_0
+}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = STUDY WITH MIKU ver.
+  |producers   = Machida Takuya (arrange), Hurray! (animation)
+  |categories  = Arrangement
+  |description = An instrumental medley arrangement of various VOCALOID songs that can be played as background music while the listener studies.
+  |links       = yt 6YAJ6t7pa7U
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+|-|Original=
+{{lrc legend|#96DFD0; color:#393939
+|Miku
+|flower
+|Yuki
+|GUMI
+|VY1
+|KAFU:#261ADA
+|SEKAI:#7D69C1
+|Rei:#F26412
+|RIME:#910718
+|Chifuyu:#9ED2B3
+|SOLARIA:#F6BD64
+|Chorus}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|flower|「どこへ行こう」と話しかける}}
+|{{lrc color|flower|"doko e ikou" to hanashikakeru}}
+|-
+|{{lrc color|yuki|窓の中じきに春}}
+|{{lrc color|yuki|mado no naka jiki ni haru}}
+|-
+|{{lrc color|gumi|「そこへ行こう」と思いふける}}
+|{{lrc color|gumi|"soko e ikou" to omoi fukeru}}
+|-
+|{{lrc color|kafu|白紙の地図さえも持たずに}}
+|{{lrc color|kafu|hakushi no chizu sae mo motazu ni}}
+|-
+|<br>
+|-
+|{{lrc color|sekai|かわいいわがままを言って}}
+|{{lrc color|sekai|kawaii wagamama o itte}}
+|-
+|{{lrc color|rei|その隣で歩きたいな}}
+|{{lrc color|rei|sono tonari de arukitai na}}
+|-
+|{{lrc color|rime|かっこいいことを言って}}
+|{{lrc color|rime|kakkoii koto o itte}}
+|-
+|{{lrc color|chifuyu|振り返って笑えるかな}}
+|{{lrc color|chifuyu|furikaette waraeru kana}}
+|-
+|<br>
+|-
+|退屈の土にまいた種が{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|taikutsu no tsuchi ni maita tane ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|押し流されるような日々が{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|oshinagasareru you na hibi ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|ぬかるむ道を進みながら{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|nukarumu michi o susumi nagara {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|霧を晴らしながら{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|kiri o harashi nagara {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|<br>
+|-
+|一千光年先へ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|issen kounen saki e {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|途切れない音でおしえて{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|togirenai oto de oshiete {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|その髪に光を編んでいたい{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|sono kami ni hikari o ande itai {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|昨日新しくした靴も{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|kinou atarashiku shita kutsu mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|すぐにほつれちゃうから 愛おしいんだ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|sugu ni hotsurechau kara itooshii nda {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|生きていても{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|ikite ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|死んでいても{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|shinde ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|どっちでもいいんだよ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|docchi demo ii nda yo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|愛があるだけ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|ai ga aru dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|恋焦がれても 触れられるのは{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|koikogarete mo furerareru no wa {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|夢の中だけ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|yume no naka dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|だから{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|dakara {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|<br>
+|-
+|「どこへ行こう」と話しかける{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|"doko e ikou" to hanashikakeru {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|青い床に寝そべる{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|aoi yuka ni nesoberu {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|残りの今日と踊り出す{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|nokori no kyou to odoridasu {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|白紙のはずだった布切れに{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|hakushi no hazu datta nunogire ni {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|<br>
+|-
+|おどけたジョークを言って{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|odoketa jooku o itte {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|吹き出させてやりたいよな{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|fukidasasete yaritai yo na {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|新しいことを言って{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|atarashii koto o itte {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|それアリって思えるような{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|sore ari tte omoeru you na {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|<br>
+|-
+|{{lrc color|vy1|未来を}}
+|{{lrc color|vy1|mirai o}}
+|-
+|{{lrc color|vy1|君}}は
+|{{lrc color|vy1|kimi}} wa
+|-
+|<br>
+|-
+|一千光年先へ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|issen kounen saki e {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|千切れない糸でつないで{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|chigirenai ito de tsunaide {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|その袖に恋を隠してみたい{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|sono sode ni koi o kakushite mitai {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|大切に数えていた年も{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|taisetsu ni kazoete ita toshi mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|すぐに追い越してしまう誰かが{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|sugu ni oikoshite shimau dareka ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|そばにいても{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|soba ni ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|離れていても{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|hanarete ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|どっちでもいいんだよ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|docchi demo ii nda yo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|愛があるだけ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|ai ga aru dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|大事なことは忘れないのが{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|daiji na koto wa wasurenai no ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|嬉しかっただけ{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|ureshikatta dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|vy1|■}}
+|-
+|<br>
+|-
+|{{shared}}|{{lrc color|solaria|the light will lead us to the stage.}}
+|-
+|{{shared}}|{{lrc color|solaria|someday we'll reach for the star.}}
+|-
+|<br>
+|-
+|{{lrc color|miku|(嬉しかっただけ)}}
+|{{lrc color|miku|(ureshikatta dake)}}
+|}
+
+|-|Album Version=
+{{lrc legend|#96DFD0; color:#393939
+|Miku
+|flower
+|Yuki
+|Rin
+|Luka
+|MEIKO:#D62B22
+|Teto (UTAU):palevioletred
+|Teto (SV):crimson
+|GUMI
+|VY1
+|KAFU:#261ADA
+|SEKAI:#7D69C1
+|Rei:#F26412
+|RIME:#910718
+|Chifuyu:#9ED2B3
+|SOLARIA:#F6BD64
+|Karin:#8B2173
+|Rikka:#DDAAFF
+|Chis-A:#708D61
+|Chorus}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|flower|「どこへ行こう」と話しかける}}
+|{{lrc color|flower|"doko e ikou" to hanashikakeru}}
+|-
+|{{lrc color|yuki|窓の中じきに春}}
+|{{lrc color|yuki|mado no naka jiki ni haru}}
+|-
+|{{lrc color|gumi|「そこへ行こう」と思いふける}}
+|{{lrc color|gumi|"soko e ikou" to omoi fukeru}}
+|-
+|{{lrc color|kafu|白紙の地図さえも持たずに}}
+|{{lrc color|kafu|hakushi no chizu sae mo motazu ni}}
+|-
+|<br>
+|-
+|{{lrc color|sekai|かわいいわがままを言って}}
+|{{lrc color|sekai|kawaii wagamama o itte}}
+|-
+|{{lrc color|rei|その隣で歩きたいな}}
+|{{lrc color|rei|sono tonari de arukitai na}}
+|-
+|{{lrc color|rime|かっこいいことを言って}}
+|{{lrc color|rime|kakkoii koto o itte}}
+|-
+|{{lrc color|chifuyu|振り返って笑えるかな}}
+|{{lrc color|chifuyu|furikaette waraeru kana}}
+|-
+|<br />
+|-
+|退屈の土にまいた種が
+|taikutsu no tsuchi ni maita tane ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|押し流されるような日々が
+|oshinagasareru you na hibi ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|ぬかるむ道を進みながら
+|nukarumu michi o susumi nagara {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|霧を晴らしながら
+|kiri o harashi nagara{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|<br />
+|-
+|一千光年先へ
+|issen kounen saki e {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|途切れない音でおしえて
+|togirenai oto de oshiete {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|その髪に光を編んでいたい
+|sono kami ni hikari o ande itai {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|昨日新しくした靴も
+|kinou atarashiku shita kutsu mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|すぐにほつれちゃうから 愛おしいんだ
+|sugu ni hotsurechau kara itooshii nda {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|生きていても
+|ikite ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|死んでいても
+|shinde ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|どっちでもいいんだよ
+|docchi demo ii nda yo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|愛があるだけ
+|ai ga aru dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|恋焦がれても 触れられるのは
+|koikogarete mo furerareru no wa {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|夢の中だけ
+|yume no naka dake{{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|だから
+|dakara {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}
+|-
+|<br />
+|-
+|{{lrc color|chis-a|「どこへ行こう」と話しかける}}
+|{{lrc color|chis-a|"doko e ikou" to hanashikakeru}}
+|- 
+|{{lrc color|meiko|青い床に寝そべる}}
+|{{lrc color|meiko|aoi yuka ni nesoberu}}
+|- 
+|{{lrc color|karin|残りの今日と踊り出す}}
+|{{lrc color|karin|nokori no kyou to odoridasu}}
+|- 
+|{{lrc color|rikka|白紙のはずだった布切れに}}
+|{{lrc color|rikka|hakushi no hazu datta nunogire ni}}
+|-
+|<br />
+|- 
+|{{lrc color|teto (utau)|おどけたジョークを言って}}
+|{{lrc color|teto (utau)|odoketa jooku o itte}}
+|- 
+|{{lrc color|teto (sv)|吹き出させてやりたいよな}}
+|{{lrc color|teto (sv)|fukidasasete yaritai yo na}}
+|-
+|{{lrc color|luka|新しいことを言って}}
+|{{lrc color|luka|atarashii koto o itte}}
+|- 
+|{{lrc color|rin|それアリって思えるような}}
+|{{lrc color|rin|sore ari tte omoeru you na}}
+|-
+|<br />
+|- 
+|{{lrc color|vy1|未来を}}
+|{{lrc color|vy1|mirai o}}
+|-
+|{{lrc color|vy1|君}}は
+|{{lrc color|vy1|kimi}} wa {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|<br />
+|-
+|一千光年先へ
+|issen kounen saki e {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|千切れない糸でつないで
+|chigirenai ito de tsunaide {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|その袖に恋を隠してみたい
+|sono sode ni koi o kakushite mitai {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|大切に数えていた年も
+|taisetsu ni kazoete ita toshi mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|すぐに追い越してしまう誰かが
+|sugu ni oikoshite shimau dareka ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|そばにいても
+|soba ni ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|離れていても
+|hanarete ite mo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|どっちでもいいんだよ
+|docchi demo ii nda yo {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|愛があるだけ
+|ai ga aru dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|大事なことは忘れないのが
+|daiji na koto wa wasurenai no ga {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|嬉しかっただけ
+|ureshikatta dake {{lrc color|flower|■}}{{lrc color|yuki|■}}{{lrc color|gumi|■}}{{lrc color|kafu|■}}{{lrc color|sekai|■}}{{lrc color|rei|■}}{{lrc color|rime|■}}{{lrc color|chifuyu|■}}{{lrc color|chis-a|■}}{{lrc color|meiko|■}}{{lrc color|karin|■}}{{lrc color|rikka|■}}{{lrc color|teto (sv)|■}}{{lrc color|teto (utau)|■}}{{lrc color|luka|■}}{{lrc color|rin|■}}{{lrc color|vy1|■}}
+|-
+|<br />
+|-
+|{{shared}}|{{lrc color|solaria|the light will lead us to the stage.}}
+|-
+|{{shared}}|{{lrc color|solaria|someday we'll reach for the star.}}
+|-
+|<br>
+|-
+|{{lrc color|miku|(嬉しかっただけ)}}
+|{{lrc color|miku|(ureshikatta dake)}}
+|}
+</tabber>
+
+==Derivatives==
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = HasakiTooru's HSK-REMIX
+  |singers     = GUMI, [[Otomachi Una]], [[MEIKA Mikoto]], Kaai Yuki, KAFU, {{cevio|kzn|#kzn}}, {{cevio|Kirune}}, {{cevio|Chis-A}}, {{utau|Teto Kasane|Kasane Teto}}
+  |producers   = HasakiTooru (arrange, video)
+  |categories  = Arrangement; VOCALOID Cover; CeVIO Cover; VoiSona Cover; UTAU Cover; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42582847; yt -9O0_e7_LxY
+}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = Tofu Mental inc P Remix
+  |singers     = Hatsune Miku
+  |producers   = Tofu Mental inc P (arrange), Kabi (illust)
+  |categories  = Arrangement; VOCALOID Cover; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42563209
+}}
+{{clr}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = Kabanagu Remix
+  |singers     = Hatsune Miku, flower, Kaai Yuki, GUMI, VY1, KAFU, SEKAI, Adachi Rei, RIME, Hanakuma Chifuyu, SOLARIA
+  |producers   = Kabanagu (arrange), bondbond (video), Takehisa Naoki (endcard)
+  |categories  = Arrangement; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42573360; yt KgsxgqM-JOs
+}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = omlet Remix
+  |singers     = Hatsune Miku, flower, Kaai Yuki, GUMI, VY1, KAFU, SEKAI, Adachi Rei, RIME, Hanakuma Chifuyu, SOLARIA
+  |producers   = omlet (arrange)
+  |categories  = Arrangement; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42577710
+}}
+{{clr}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = Gillbro's Remix
+  |singers     = Hatsune Miku, flower, Kaai Yuki, GUMI, VY1, KAFU, SEKAI, Adachi Rei, RIME, Hanakuma Chifuyu, SOLARIA
+  |producers   = Gillbro (arrange, illust, video)
+  |categories  = Arrangement; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42564211
+}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = qqiqq remix
+  |singers     = Hatsune Miku, flower, Kaai Yuki, GUMI, VY1, KAFU, SEKAI, Adachi Rei, RIME, Hanakuma Chifuyu, SOLARIA
+  |producers   = qqiqq (arrange, video)
+  |categories  = Arrangement; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42580080; yt U9-8ZckriAo; sc qqiqq/kly-qqiqq-remix
+}}
+{{clr}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = 373U's Remix
+  |singers     = Hatsune Miku, flower, Kaai Yuki, GUMI, VY1, KAFU, SEKAI, Adachi Rei, RIME, Hanakuma Chifuyu, SOLARIA
+  |producers   = 373U (arrange), Fujisaki Daiyogen (illust)
+  |categories  = Arrangement; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42573547; yt -D1999ExvEY
+}}
+{{Derivative
+  |color       = #96DFD0; color:#393939
+  |title       = 一千光年 叫んでみた
+  |singers     = Matsuka Risuku; <small>Hatsune Miku (chorus)</small>
+  |producers   = Hoon (arrange)
+  |categories  = Arrangement; Spin-off; Fanmade PV
+  |description = This remix was released as a participating work in The VOCALOID Collection 2023 Summer event.
+  |links       = nn sm42577369; yt venZ-KDivhs
+}}
+{{Derivative
+  |color       = #fcc7cf; color:#474747
+  |title       = yasai31's Cover feat. various UTAU's
+  |singers     = [[Kasane Teto]], {{IW|UTAU|Kazehiki}}, {{IW|UTAU|Gekiyaku}}, {{VDB|Ar/91762|Tsukuyomi-chan}}, {{VDB|Ar/79394|Nurse Robot_Type T}}, {{VDB|Ar/22850|Neumaf}}, {{VDB|Ar/68970|Nikuni Ziku}}, {{IW|UTAU|Tei Sukone|Sukone Tei}}, {{VDB|Ar/79881|Sessou Setsuri}}, {{IW|UTAU|Uta Utane|Utane Uta}}, {{IW|UTAU|Nana Haruka|Hakura Nana}}, {{IW|UTAU|Matsudappoiyo}}, {{IW|UTAU|Momo Momone|Momone Momo}}, {{IW|UTAU|Ruko Yokune|Yokune Ruko}} ♂, {{VDB|Ar/1746|Namine Ritsu}}, {{VDB|Ar/68964|Jinza}}, {{VDB|Ar/56771|Urone If}}, {{IW|UTAU|Renri Yamine|Yamine Renri}}, Adachi Rei, {{IW|UTAU|Eru Amaga|Eru Amaga}}, {{IW|UTAU|Yufu Sekka|Sekka Yufu}} and {{IW|UTAU|Laru Mine|Mine Laru}}
+  |producers   = 
+  |categories  = UTAU Cover; Fanmade PV
+  |description = This cover was released as a participating work in The VOCALOID Collection 2024 Winter event.
+  |links       = nn sm43435225; yt y-d6Svr1cK8
+}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* ''一千光年 (Issen Kounen) (single)''
+* ''映画、陽だまり、卒業式 (Eiga, Hidamari, Sotsugyoushiki)''
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbuttn="true" bordercolor="#96DFD0">
+Games - Project SEKAI - 一千光年.png|Music jacket featured in the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbuttn="true" bordercolor="#96DFD0">
+iyowa - 一千光年 (single).png|Cover art of the digital single<br>一千光年 (Issen Kounen)
+</gallery>
+</tabber>
+
+== Trivia ==
+* Throughout the song, Hatsune Miku holds her background vocals until stops at the end of the song to give her last line.
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.com/music/player/albums/B0C1HGV3YF Amazon Music]
+** [https://music.apple.com/us/album/kly-single/1680621999 Apple Music]
+** [https://s.awa.fm/track/a832730aef508f59a869 AWA]
+** [https://music.line.me/webapp/album/mb0000000002cff5b7 LINE MUSIC]
+** [https://mora.jp/package/43000074/TCJPR0001014103/ mora]
+** [https://recochoku.jp/album/A2003413174 Recochoku]
+** [https://open.spotify.com/album/5cZP3s2SdQ8vXKR5yz52SU Spotify]
+** [https://linkco.re/zrSUD9af TuneCore Japan]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 51806
+  |vocadb = 483406
+  |mgp    = 一千光年
+  |tag    = 一千光年
+  |vlw    = 一千光年 (Issen Kounen)
+  |url    = {{IW|projectsekai|Issen Kounen|Project SEKAI Wiki}}
+* {{IW|igusuriplease|KLY|Iyowa Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Japanese group rendition songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring flower]]
+[[Category:Songs featuring Kaai Yuki]]
+[[Category:Songs featuring GUMI]]
+[[Category:Songs featuring VY1]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Songs featuring MEIKO]]
+[[Category:Songs featuring other voice synthesizers]]
+[[Category:Mobile game songs]]

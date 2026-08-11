@@ -1,0 +1,102 @@
+{{Song box 2
+  |color     = #321943; color: #F5D8D7
+  |image     = Hylen UNDERWATER.jpg
+  |title     = "'''UNDERWATER'''"
+  |date      = April 7, 2023
+  |views     = {{v|nn|17,569}}, {{v|yt|260,501}}, and {{v|bb|110,210}}
+  |singers   = [[Hatsune Miku V4 English]]
+  |producers = Hylen (music, lyrics)
+* YuKiMuMa, Zumochi (video)
+  |links     = {{l|nn|so42030527}} {{l|yt|AKxei8pnRZg}} {{l|bb|av951952182}}
+}}
+
+==Background==
+"'''UNDERWATER'''" is an original song produced by Hylen featuring Hatsune Miku. It was commissioned for the HATSUNE MIKU Digital Stars 2023 event. This song is mostly made out of sound effects.
+
+==Succeeding versions==
+{{Derivative
+  |color       = #321943; color: #F5D8D7
+  |title       = Rexium Remix
+  |thumb       = HATSUNE MIKU Digital Stars 2023 Compilation.jpg
+  |singers     = Hatsune Miku
+  |producers   = Rexium (arrange)
+  |categories  = Arrangement
+  |description = This remix is featured on the compilation album ''HATSUNE MIKU Digital Stars 2023 Compilation''.
+}}
+{{Derivative
+  |color       = #321943; color: #F5D8D7
+  |title       = Ace Aura Remix
+  |thumb       = HATSUNE MIKU Digital Stars 2023 Compilation.jpg
+  |singers     = Hatsune Miku
+  |producers   = Ace Aura (arrange)
+  |categories  = Arrangement
+  |description = This remix is featured on the compilation album ''HATSUNE MIKU Digital Stars 2023 Compilation''.
+}}
+{{clr}}
+
+==Lyrics==
+<poem style="margin-left:1em;">
+I'd never sing goodbye words for you.
+I wanna see innocence,so true.
+
+On the city lights we were dancing
+I'm okay,don't need your care
+I wish to be like you How Happy we'd be
+Someone tell me why is my heart crying?
+</poem>
+
+==Other media appearances==
+===Discography===
+This song was featured on following albums:
+* ''UNDERWATER (single)''
+* ''HATSUNE MIKU Digital Stars 2023 Compilation''
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+The Rexium Remix version of this song was featured in the video game {{IW|crypt-of-the-necrodancer|Crypt of the NecroDancer Wiki|Crypt of the NecroDancer}} as DLC.
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#321943">
+Games - Project SEKAI - UNDERWATER.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#321943">
+Hylen - UNDERWATER (single).jpg|Cover art of the digital single<br>''UNDERWATER''
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.co.jp/dp/B0BZJNFHN2 Amazon Music]
+** [https://music.amazon.co.jp/albums/B0BZJNFHN2 Amazon Music Unlimited]
+** [https://music.apple.com/jp/album/underwater-single/1678918963 Apple Music]
+** [https://s.awa.fm/album/8f7b3012acf6f36ce572?t=1680818442 AWA]
+** [https://karent.jp/album/3497 KARENT]
+** [https://www.kkbox.com/jp/ja/album/OmrGbKjYP4HnCekqXd KKBOX]
+** [https://music.line.me/webapp/album/mb0000000002cbb13a LINE MUSIC]
+** [https://mora.jp/package/43000018/KRHS-95881/ mora]
+** [https://mysound.jp/song/9503939/ mysound]
+** [https://music.oricon.co.jp/php/music/MusicTop.php?music=10192621 Oricon Music Store]
+** [https://ototoy.jp/_/default/p/1597272 OTOTOY]
+** [https://open.spotify.com/album/7eoKceXDNWezLg4RXZ2qYM?si=z6Bt0K7rS-eNiZ9aqTvEAg&nd=1 Spotify]
+** [https://music.youtube.com/playlist?list=OLAK5uy_nWKuGWGrXrdiiZEMJEMYeuC3absoF0jDw YouTube Music]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 52967
+  |vocadb = 485966
+  |vlw    = UNDERWATER
+  |mgp    = UNDERWATER
+  |url    = {{IW|projectsekai|UNDERWATER|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:English songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Mobile game songs]]
+[[Category:Video game songs]]

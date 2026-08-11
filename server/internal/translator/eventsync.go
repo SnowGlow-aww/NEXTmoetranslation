@@ -16,12 +16,16 @@ import (
 // builtEpisode is an episode assembled from remote scenario data, with line
 // order preserved (dialogue flow).
 type builtEpisode struct {
-	episodeNo    string
-	scenarioID   string
-	title        string
-	talkKeys     []string
-	talkData     map[string]string
-	speakerNames map[string]string
+	episodeNo             string
+	scenarioID            string
+	scenarioCanonicalJSON string
+	scenarioSHA256        string
+	title                 string
+	sourceTitle           string
+	talkKeys              []string
+	talkData              map[string]string
+	speakerNames          map[string]string
+	lines                 []store.OrderedLine
 }
 
 type eventStorySyncOutcome struct {
@@ -47,14 +51,11 @@ func toOrderedEpisodes(eps map[string]builtEpisode, lineSource string) []store.O
 			sources[jp] = lineSource
 		}
 		out = append(out, store.OrderedEpisode{
-			EpisodeNo:    ep.episodeNo,
-			ScenarioID:   ep.scenarioID,
-			Title:        ep.title,
-			TitleSource:  lineSource,
-			TalkKeys:     ep.talkKeys,
-			TalkData:     ep.talkData,
-			TalkSources:  sources,
-			SpeakerNames: ep.speakerNames,
+			EpisodeNo: ep.episodeNo, ScenarioID: ep.scenarioID,
+			ScenarioCanonicalJSON: ep.scenarioCanonicalJSON, ScenarioSHA256: ep.scenarioSHA256,
+			Title: ep.title, TitleSource: lineSource, SourceTitle: ep.sourceTitle,
+			TalkKeys: ep.talkKeys, TalkData: ep.talkData, TalkSources: sources,
+			SpeakerNames: ep.speakerNames, Lines: ep.lines,
 		})
 	}
 	return out
@@ -95,6 +96,7 @@ func (t *Translator) syncEventStoriesCNOnly(progressCurrent, progressTotal int) 
 	if err != nil {
 		return outcome, err
 	}
+	t.backfillMissingEventScenarios(jpStories, states, &outcome, progressCurrent, progressTotal)
 	latestOfficialCN, firstLLM := 0, 0
 	for _, st := range states {
 		if st.IsOfficialCN && st.EventID > latestOfficialCN {
@@ -116,6 +118,9 @@ func (t *Translator) syncEventStoriesCNOnly(progressCurrent, progressTotal int) 
 	lastChecked := 0
 
 	for _, jpStory := range jpStories {
+		if err := t.runContext().Err(); err != nil {
+			return outcome, err
+		}
 		eventID := getInt(jpStory, "eventId")
 		if eventID < startCN {
 			continue
@@ -157,8 +162,16 @@ func (t *Translator) syncEventStoriesCNOnly(progressCurrent, progressTotal int) 
 		emptyStreak = 0
 
 		meta := model.EventStoryMeta{Source: "official_cn", Version: "1.0", LastUpdated: time.Now().Unix()}
-		if err := t.eventStore.ImportOrdered(eventID, meta, toOrderedEpisodes(episodes, "cn")); err != nil {
+		runCtx := t.runContext()
+		if err := runCtx.Err(); err != nil {
 			return outcome, err
+		}
+		imported, err := t.eventStore.ImportOrderedForSyncContext(runCtx, eventID, meta, toOrderedEpisodes(episodes, "cn"))
+		if err != nil {
+			return outcome, err
+		}
+		if !imported {
+			continue
 		}
 		states[eventID] = store.EventSyncState{EventID: eventID, Source: "official_cn", IsOfficialCN: true}
 		if eventID > localMax {
@@ -186,8 +199,15 @@ func (t *Translator) syncEventStoriesCNOnly(progressCurrent, progressTotal int) 
 // translation by position. Returns (episodes, hasTalkData, hasTitleOnly, errors).
 func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (map[string]builtEpisode, bool, bool, []error) {
 	asset := getString(jpStory, "assetbundleName")
-	jpEpisodes := toMapSlice(jpStory["eventStoryEpisodes"])
-	cnByEp := byIntID(toMapSlice(cnStory["eventStoryEpisodes"]), "episodeNo")
+	jpEpisodes, err := validatedEventStoryEpisodes(jpStory, true, nil)
+	if err != nil {
+		return nil, false, false, []error{err}
+	}
+	cnEpisodes, err := validatedEventStoryEpisodes(cnStory, false, nil)
+	if err != nil {
+		return nil, false, false, []error{err}
+	}
+	cnByEp := byIntID(cnEpisodes, "episodeNo")
 
 	episodes := map[string]builtEpisode{}
 	hasTalk, hasTitleOnly := false, false
@@ -198,6 +218,8 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 		scenarioID string
 		jpScenario any
 		cnScenario any
+		canonical  string
+		sha256     string
 		err        error
 	}
 	jobs := make(chan map[string]any)
@@ -215,6 +237,7 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 				epNo := getInt(ep, "episodeNo")
 				scenarioID := getString(ep, "scenarioId")
 				if scenarioID == "" {
+					results <- fetchResult{ep: ep, epNo: epNo, err: fmt.Errorf("missing scenarioId")}
 					continue
 				}
 				scenarioPath := fmt.Sprintf("event_story/%s/scenario/%s", asset, scenarioID)
@@ -223,10 +246,18 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 					results <- fetchResult{ep: ep, epNo: epNo, scenarioID: scenarioID, err: err}
 					continue
 				}
+				canonical, digest, err := store.CanonicalizeEventScenario(jpScenario, scenarioID)
+				if err != nil {
+					results <- fetchResult{ep: ep, epNo: epNo, scenarioID: scenarioID, err: err}
+					continue
+				}
 				cnScenario, err := t.fetchCNScenarioJSON(scenarioPath)
+				if err == nil {
+					err = validateScenarioTalkData(cnScenario)
+				}
 				results <- fetchResult{
 					ep: ep, epNo: epNo, scenarioID: scenarioID,
-					jpScenario: jpScenario, cnScenario: cnScenario, err: err,
+					jpScenario: jpScenario, cnScenario: cnScenario, canonical: canonical, sha256: digest, err: err,
 				}
 			}
 		}()
@@ -248,33 +279,69 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 		ep, epNo, scenarioID := fetched.ep, fetched.epNo, fetched.scenarioID
 		jpScenario, cnScenario := fetched.jpScenario, fetched.cnScenario
 
-		jpTalk := toMapSlice(asMap(jpScenario)["TalkData"])
-		cnTalk := toMapSlice(asMap(cnScenario)["TalkData"])
+		jpTalkRaw, _ := asMap(jpScenario)["TalkData"].([]any)
+		cnTalkRaw, _ := asMap(cnScenario)["TalkData"].([]any)
+		if len(jpTalkRaw) != len(cnTalkRaw) {
+			errs = append(errs, fmt.Errorf("episode %d (%s): JP/CN TalkData length mismatch (%d != %d)",
+				epNo, scenarioID, len(jpTalkRaw), len(cnTalkRaw)))
+			continue
+		}
+		jpTalk := toMapSlice(jpTalkRaw)
+		cnTalk := toMapSlice(cnTalkRaw)
+		if len(jpTalk) != len(jpTalkRaw) || len(cnTalk) != len(cnTalkRaw) {
+			errs = append(errs, fmt.Errorf("episode %d (%s): TalkData entries must be objects", epNo, scenarioID))
+			continue
+		}
 		talkData := map[string]string{}
 		speakerNames := map[string]string{}
 		var talkOrder []string
+		var episodeLines []store.OrderedLine
 		seen := map[string]bool{}
-		for i := 0; i < len(jpTalk) && i < len(cnTalk); i++ {
+		for i := 0; i < len(jpTalk); i++ {
+			var cnLine map[string]any
+			if i < len(cnTalk) {
+				cnLine = cnTalk[i]
+			}
 			jpBody := strings.TrimSpace(getString(jpTalk[i], "Body"))
-			cnBody := strings.TrimSpace(getString(cnTalk[i], "Body"))
-			cnSpeaker := strings.TrimSpace(getString(cnTalk[i], "WindowDisplayName"))
-			if jpBody != "" && cnBody != "" && jpBody != cnBody {
-				talkData[jpBody] = cnBody
-				if !seen[jpBody] {
-					talkOrder = append(talkOrder, jpBody)
-					seen[jpBody] = true
+			cnBody := strings.TrimSpace(getString(cnLine, "Body"))
+			cnSpeaker := strings.TrimSpace(getString(cnLine, "WindowDisplayName"))
+			if jpBody != "" {
+				text := ""
+				if cnBody != "" && jpBody != cnBody {
+					text = cnBody
 				}
-				if cnSpeaker != "" {
-					speakerNames[jpBody] = cnSpeaker
+				line := store.OrderedLine{
+					JPKey: jpBody, Text: text, Source: "cn", SpeakerName: cnSpeaker,
+					ScenarioPosition: i * 2, Field: "body",
+				}
+				episodeLines = append(episodeLines, line)
+				if text != "" {
+					talkData[jpBody] = text
+					if !seen[jpBody] {
+						talkOrder = append(talkOrder, jpBody)
+						seen[jpBody] = true
+					}
+					if cnSpeaker != "" {
+						speakerNames[jpBody] = cnSpeaker
+					}
 				}
 			}
 			jpName := strings.TrimSpace(getString(jpTalk[i], "WindowDisplayName"))
-			cnName := strings.TrimSpace(getString(cnTalk[i], "WindowDisplayName"))
-			if jpName != "" && cnName != "" && jpName != cnName {
-				talkData[jpName] = cnName
-				if !seen[jpName] {
-					talkOrder = append(talkOrder, jpName)
-					seen[jpName] = true
+			cnName := strings.TrimSpace(getString(cnLine, "WindowDisplayName"))
+			if jpName != "" {
+				text := ""
+				if cnName != "" && jpName != cnName {
+					text = cnName
+				}
+				episodeLines = append(episodeLines, store.OrderedLine{
+					JPKey: jpName, Text: text, Source: "cn", ScenarioPosition: i*2 + 1, Field: "speaker",
+				})
+				if text != "" {
+					talkData[jpName] = text
+					if !seen[jpName] {
+						talkOrder = append(talkOrder, jpName)
+						seen[jpName] = true
+					}
 				}
 			}
 		}
@@ -288,16 +355,11 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 		} else if cnTitle != "" {
 			hasTitleOnly = true
 		}
-		if len(talkData) == 0 && cnTitle == "" {
-			continue
-		}
 		episodes[strconv.Itoa(epNo)] = builtEpisode{
-			episodeNo:    strconv.Itoa(epNo),
-			scenarioID:   scenarioID,
-			title:        cnTitle,
-			talkKeys:     talkOrder,
-			talkData:     talkData,
-			speakerNames: speakerNames,
+			episodeNo: strconv.Itoa(epNo), scenarioID: scenarioID,
+			scenarioCanonicalJSON: fetched.canonical, scenarioSHA256: fetched.sha256,
+			title: cnTitle, sourceTitle: strings.TrimSpace(getString(ep, "title")),
+			talkKeys: talkOrder, talkData: talkData, speakerNames: speakerNames, lines: episodeLines,
 		}
 	}
 	return episodes, hasTalk, hasTitleOnly, errs
@@ -305,8 +367,15 @@ func (t *Translator) buildOfficialCNEpisodes(jpStory, cnStory map[string]any) (m
 
 // buildJPPendingEpisodes fetches JP-only scenario text (no CN), leaving cn empty.
 func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]builtEpisode, []error) {
+	return t.buildSelectedJPPendingEpisodes(jpStory, nil)
+}
+
+func (t *Translator) buildSelectedJPPendingEpisodes(jpStory map[string]any, selected map[string]bool) (map[string]builtEpisode, []error) {
 	asset := getString(jpStory, "assetbundleName")
-	jpEpisodes := toMapSlice(jpStory["eventStoryEpisodes"])
+	jpEpisodes, err := validatedEventStoryEpisodes(jpStory, true, selected)
+	if err != nil {
+		return nil, []error{err}
+	}
 	episodes := map[string]builtEpisode{}
 	var errs []error
 	type fetchResult struct {
@@ -314,6 +383,8 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 		epNo       int
 		scenarioID string
 		jpScenario any
+		canonical  string
+		sha256     string
 		err        error
 	}
 	jobs := make(chan map[string]any)
@@ -331,14 +402,17 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 				epNo := getInt(ep, "episodeNo")
 				scenarioID := getString(ep, "scenarioId")
 				if scenarioID == "" {
+					results <- fetchResult{ep: ep, epNo: epNo, err: fmt.Errorf("missing scenarioId")}
 					continue
 				}
 				scenarioPath := fmt.Sprintf("event_story/%s/scenario/%s", asset, scenarioID)
 				jpScenario, err := t.fetchJPScenarioJSON(scenarioPath)
-				results <- fetchResult{
-					ep: ep, epNo: epNo, scenarioID: scenarioID,
-					jpScenario: jpScenario, err: err,
+				canonical, digest := "", ""
+				if err == nil {
+					canonical, digest, err = store.CanonicalizeEventScenario(jpScenario, scenarioID)
 				}
+				results <- fetchResult{ep: ep, epNo: epNo, scenarioID: scenarioID,
+					jpScenario: jpScenario, canonical: canonical, sha256: digest, err: err}
 			}
 		}()
 	}
@@ -356,12 +430,6 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 		title := strings.TrimSpace(getString(ep, "title"))
 		if fetched.err != nil {
 			errs = append(errs, fmt.Errorf("episode %d (%s): %w", epNo, scenarioID, fetched.err))
-			if title != "" {
-				episodes[strconv.Itoa(epNo)] = builtEpisode{
-					episodeNo: strconv.Itoa(epNo), scenarioID: scenarioID,
-					title: title, talkData: map[string]string{},
-				}
-			}
 			continue
 		}
 		jpScenario := fetched.jpScenario
@@ -369,11 +437,16 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 		talkData := map[string]string{}
 		speakerNames := map[string]string{}
 		var talkOrder []string
+		var episodeLines []store.OrderedLine
 		seen := map[string]bool{}
-		for _, talk := range jpTalk {
+		for scenarioIndex, talk := range jpTalk {
 			jpBody := strings.TrimSpace(getString(talk, "Body"))
 			jpSpeaker := strings.TrimSpace(getString(talk, "WindowDisplayName"))
 			if jpBody != "" {
+				episodeLines = append(episodeLines, store.OrderedLine{
+					JPKey: jpBody, Text: "", Source: "jp_pending", SpeakerName: jpSpeaker,
+					ScenarioPosition: scenarioIndex * 2, Field: "body",
+				})
 				talkData[jpBody] = ""
 				if !seen[jpBody] {
 					talkOrder = append(talkOrder, jpBody)
@@ -384,6 +457,10 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 				}
 			}
 			if jpSpeaker != "" {
+				episodeLines = append(episodeLines, store.OrderedLine{
+					JPKey: jpSpeaker, Text: "", Source: "jp_pending",
+					ScenarioPosition: scenarioIndex*2 + 1, Field: "speaker",
+				})
 				talkData[jpSpeaker] = ""
 				if !seen[jpSpeaker] {
 					talkOrder = append(talkOrder, jpSpeaker)
@@ -391,15 +468,89 @@ func (t *Translator) buildJPPendingEpisodes(jpStory map[string]any) (map[string]
 				}
 			}
 		}
-		if len(talkData) == 0 && title == "" {
-			continue
-		}
 		episodes[strconv.Itoa(epNo)] = builtEpisode{
 			episodeNo: strconv.Itoa(epNo), scenarioID: scenarioID,
-			title: title, talkKeys: talkOrder, talkData: talkData, speakerNames: speakerNames,
+			scenarioCanonicalJSON: fetched.canonical, scenarioSHA256: fetched.sha256,
+			title: title, sourceTitle: title, talkKeys: talkOrder, talkData: talkData,
+			speakerNames: speakerNames, lines: episodeLines,
 		}
 	}
 	return episodes, errs
+}
+
+func validatedEventStoryEpisodes(story map[string]any, requireScenarioID bool, selected map[string]bool) ([]map[string]any, error) {
+	raw, ok := story["eventStoryEpisodes"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("eventStoryEpisodes must be an array")
+	}
+	parsed := toMapSlice(raw)
+	if selected == nil && len(parsed) != len(raw) {
+		return nil, fmt.Errorf("eventStoryEpisodes entries must all be objects")
+	}
+
+	maxInt := int64(^uint(0) >> 1)
+	episodes := make([]map[string]any, 0, len(parsed))
+	seenEpisodes := map[int]bool{}
+	seenScenarios := map[string]bool{}
+	for index, episode := range parsed {
+		episodeNo, valid := positiveEventEpisodeNo(episode["episodeNo"], maxInt)
+		if selected != nil && (!valid || !selected[strconv.Itoa(episodeNo)]) {
+			continue
+		}
+		if !valid {
+			return nil, fmt.Errorf("eventStoryEpisodes[%d].episodeNo must be a positive integer", index)
+		}
+		if seenEpisodes[episodeNo] {
+			return nil, fmt.Errorf("eventStoryEpisodes has duplicate episodeNo %d", episodeNo)
+		}
+		scenarioID := getString(episode, "scenarioId")
+		if requireScenarioID {
+			if strings.TrimSpace(scenarioID) == "" {
+				return nil, fmt.Errorf("eventStoryEpisodes[%d].scenarioId must be nonempty", index)
+			}
+			if seenScenarios[scenarioID] {
+				return nil, fmt.Errorf("eventStoryEpisodes has duplicate scenarioId %q", scenarioID)
+			}
+			seenScenarios[scenarioID] = true
+		}
+		seenEpisodes[episodeNo] = true
+		episodes = append(episodes, episode)
+	}
+	if selected != nil {
+		for episodeNo, wanted := range selected {
+			if !wanted {
+				continue
+			}
+			parsedNo, err := strconv.Atoi(episodeNo)
+			if err != nil || parsedNo <= 0 || !seenEpisodes[parsedNo] {
+				return nil, fmt.Errorf("selected episode %q is missing from eventStoryEpisodes", episodeNo)
+			}
+		}
+	}
+	return episodes, nil
+}
+
+func positiveEventEpisodeNo(value any, maxInt int64) (int, bool) {
+	switch number := value.(type) {
+	case float64:
+		if number <= 0 || number > float64(maxInt) {
+			return 0, false
+		}
+		parsed := int(number)
+		return parsed, float64(parsed) == number
+	case int:
+		return number, number > 0
+	case int64:
+		if number <= 0 || number > maxInt {
+			return 0, false
+		}
+		return int(number), true
+	case string:
+		parsed, err := strconv.Atoi(number)
+		return parsed, err == nil && parsed > 0
+	default:
+		return 0, false
+	}
 }
 
 // fillEventStoriesJPPending writes JP-pending stories for new events and runs
@@ -412,6 +563,9 @@ func (t *Translator) fillEventStoriesJPPending(jpStories []map[string]any, start
 		outcome.AITranslationNote = reason
 	}
 	for _, jpStory := range jpStories {
+		if err := t.runContext().Err(); err != nil {
+			return outcome, err
+		}
 		eventID := getInt(jpStory, "eventId")
 		if eventID < startEventID {
 			continue
@@ -427,12 +581,23 @@ func (t *Translator) fillEventStoriesJPPending(jpStories []map[string]any, start
 			outcome.PartialErrors = append(outcome.PartialErrors, wrapped)
 			log.Printf("[translate] event story partial failure: %v", wrapped)
 		}
+		if len(episodeErrors) > 0 {
+			continue
+		}
 		if len(episodes) == 0 {
 			continue
 		}
 		meta := model.EventStoryMeta{Source: "jp_pending", Version: "1.0", LastUpdated: time.Now().Unix()}
-		if err := t.eventStore.ImportOrdered(eventID, meta, toOrderedEpisodes(episodes, "unknown")); err != nil {
+		runCtx := t.runContext()
+		if err := runCtx.Err(); err != nil {
 			return outcome, err
+		}
+		imported, err := t.eventStore.ImportOrderedForSyncContext(runCtx, eventID, meta, toOrderedEpisodes(episodes, "unknown"))
+		if err != nil {
+			return outcome, err
+		}
+		if !imported {
+			continue
 		}
 		states[eventID] = store.EventSyncState{EventID: eventID, Source: "jp_pending"}
 		outcome.Processed++
@@ -452,4 +617,87 @@ func (t *Translator) fillEventStoriesJPPending(jpStories []map[string]any, start
 		}
 	}
 	return outcome, nil
+}
+
+func validateScenarioTalkData(value any) error {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("scenario root must be an object")
+	}
+	if _, ok := object["TalkData"].([]any); !ok {
+		return fmt.Errorf("scenario TalkData must be an array")
+	}
+	return nil
+}
+
+func (t *Translator) backfillMissingEventScenarios(jpStories []map[string]any, states map[int]store.EventSyncState,
+	outcome *eventStorySyncOutcome, progressCurrent, progressTotal int) {
+	for _, jpStory := range jpStories {
+		if t.runContext().Err() != nil {
+			return
+		}
+		eventID := getInt(jpStory, "eventId")
+		state, ok := states[eventID]
+		if !ok || !state.MissingScenarios {
+			continue
+		}
+		missing, err := t.eventStore.MissingScenarioEpisodes(eventID)
+		if err != nil {
+			outcome.PartialErrors = append(outcome.PartialErrors, fmt.Errorf("event %d scenario coverage: %w", eventID, err))
+			continue
+		}
+		if len(missing) == 0 {
+			state.MissingScenarios = false
+			states[eventID] = state
+			continue
+		}
+		t.setNote(fmt.Sprintf("backfill event scenario %d", eventID))
+		t.emit("sync.progress", fmt.Sprintf("正在补全活动剧情原始场景 Event #%d", eventID), progressCurrent, progressTotal)
+		missingEpisodes := make(map[string]bool, len(missing))
+		for _, identity := range missing {
+			missingEpisodes[identity.EpisodeNo] = true
+		}
+		episodes, episodeErrors := t.buildSelectedJPPendingEpisodes(jpStory, missingEpisodes)
+		if len(episodeErrors) > 0 {
+			for _, episodeErr := range episodeErrors {
+				wrapped := fmt.Errorf("event %d scenario backfill: %w", eventID, episodeErr)
+				outcome.PartialErrors = append(outcome.PartialErrors, wrapped)
+				log.Printf("[translate] event scenario backfill failure: %v", wrapped)
+			}
+			continue
+		}
+		selected := make(map[string]builtEpisode, len(missing))
+		valid := true
+		for _, identity := range missing {
+			episode, exists := episodes[identity.EpisodeNo]
+			if !exists || episode.scenarioID != identity.ScenarioID {
+				outcome.PartialErrors = append(outcome.PartialErrors,
+					fmt.Errorf("event %d episode %s scenario identity changed", eventID, identity.EpisodeNo))
+				valid = false
+				break
+			}
+			selected[identity.EpisodeNo] = episode
+		}
+		if !valid {
+			continue
+		}
+		if err := t.runContext().Err(); err != nil {
+			outcome.PartialErrors = append(outcome.PartialErrors, err)
+			return
+		}
+		if err := t.eventStore.BackfillScenarios(eventID, toOrderedEpisodes(selected, "unknown")); err != nil {
+			outcome.PartialErrors = append(outcome.PartialErrors, fmt.Errorf("event %d scenario backfill: %w", eventID, err))
+			continue
+		}
+		remaining, err := t.eventStore.MissingScenarioEpisodes(eventID)
+		if err != nil || len(remaining) != 0 {
+			if err == nil {
+				err = fmt.Errorf("%d episodes remain incomplete", len(remaining))
+			}
+			outcome.PartialErrors = append(outcome.PartialErrors, fmt.Errorf("event %d scenario coverage: %w", eventID, err))
+			continue
+		}
+		state.MissingScenarios = false
+		states[eventID] = state
+	}
 }

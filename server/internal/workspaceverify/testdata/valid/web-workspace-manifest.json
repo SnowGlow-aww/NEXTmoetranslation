@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 3,
+  "artifact": {
+    "name": "sekaitext-moe-web-workspace",
+    "basePath": "/workspace/",
+    "entrypoint": "index.html",
+    "appVersion": "5.9.6"
+  },
+  "producer": {
+    "repository": "https://github.com/SnowGlow-aww/SekaiText-Moe",
+    "sourceRevision": "2e223baeb8f55ea42e8f0d4702ef07f4566ef670",
+    "sourceDirty": false,
+    "sourceProduction": true
+  },
+  "sourceContract": {
+    "name": "sekaitext-moe-loaded-producer-state",
+    "version": 2
+  },
+  "editorGateContract": {
+    "name": "sekaitext-moe-editor-gate",
+    "version": 2,
+    "status": {
+      "method": "GET",
+      "path": "/api/editor-gate/status",
+      "responseVersion": 1,
+      "responseKeys": [
+        "completedGeneration",
+        "generation",
+        "instanceId",
+        "lastRun",
+        "revision",
+        "running",
+        "version"
+      ]
+    },
+    "mutationHeader": "X-Moe-Loaded-Producer-State",
+    "mutationHeaderFormat": "<base64url-instanceId>:<revision>:<completedGeneration>",
+    "mutationRejections": {
+      "missing": 428,
+      "malformed": 400,
+      "staleOrRunning": 409
+    }
+  },
+  "requiredRoutes": [
+    {
+      "method": "GET",
+      "path": "/api/admin/lyrics-source-reviews",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/lyrics-source-reviews/detail",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/backup/status",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/characters",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/music",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/categories",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/category/snapshot",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/editor-gate/status",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/entries",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/event-stories",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/event-story",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/event-story/episode-snapshot",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/lyrics",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/lyrics/detail",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/lyrics/source/search",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projection/status",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/sse",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/lyrics-source-reviews/import",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "authentication": "none",
+      "producerProof": false,
+      "allowedRoles": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/editor/v1/backup/push",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/editor/v1/lyrics/publish",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/editor/v1/lyrics/unpublish",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lyrics/source/preview",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/lyrics-source-reviews/candidate-selection",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/lyrics-source-reviews/decision",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/editor/v1/category/batch",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/editor/v1/entry",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/editor/v1/event-story/update",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/editor/v1/lyrics/save",
+      "authentication": "bearer",
+      "producerProof": true,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "assets/app.js",
+      "size": 33,
+      "sha256": "c50ff4aca49aaa790b19b7cef37f9df291734a2bfaa4e3d2c89a134195ea4886"
+    },
+    {
+      "path": "index.html",
+      "size": 49,
+      "sha256": "0fbd1a0bb1be3b746af89b6f551bfb77b4e39ddfbbe5ff3a89e3b9722e3c3668"
+    }
+  ]
+}

@@ -17,6 +17,18 @@ func getString(m map[string]any, key string) string {
 	return ""
 }
 
+func getBool(m map[string]any, key string) (bool, bool) {
+	if m == nil {
+		return false, false
+	}
+	value, ok := m[key]
+	if !ok {
+		return false, false
+	}
+	result, ok := value.(bool)
+	return result, ok
+}
+
 func getInt(m map[string]any, key string) int {
 	if m == nil {
 		return 0

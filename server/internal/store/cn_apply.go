@@ -11,6 +11,7 @@ import (
 // txExecer is the subset of *sql.Tx used by transaction helpers.
 type txExecer interface {
 	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
 	Exec(query string, args ...any) (sql.Result, error)
 }
 
@@ -30,6 +31,13 @@ type CNApplyField struct {
 //
 // Returns the number of rows changed. Mirrors the legacy applyCategoryCNOnly.
 func (s *Store) ApplyCNCategory(category string, fields map[string]CNApplyField) (int, error) {
+	return s.ApplyCNCategoryWithCatalog(category, fields, nil, nil)
+}
+
+// ApplyCNCategoryWithCatalog applies one category and its corresponding catalog
+// snapshot atomically. Catalog records are optional and are used by the music
+// and character extraction steps after all remote reads have completed.
+func (s *Store) ApplyCNCategoryWithCatalog(category string, fields map[string]CNApplyField, music []MusicCatalogRecord, performers []PerformerCatalogRecord) (int, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -37,6 +45,28 @@ func (s *Store) ApplyCNCategory(category string, fields map[string]CNApplyField)
 	defer tx.Rollback()
 
 	now := time.Now().Unix()
+	updated, err := applyCNCategoryTx(tx, category, fields, now)
+	if err != nil {
+		return updated, err
+	}
+	catalogUpdated, err := upsertMusicCatalogTx(tx, music, now)
+	if err != nil {
+		return updated, err
+	}
+	performersUpdated, err := upsertPerformerCatalogTx(tx, performers, now)
+	if err != nil {
+		return updated, err
+	}
+	if err := tx.Commit(); err != nil {
+		return updated, err
+	}
+	if updated+catalogUpdated+performersUpdated > 0 {
+		s.NotifyChange()
+	}
+	return updated, nil
+}
+
+func applyCNCategoryTx(tx txExecer, category string, fields map[string]CNApplyField, now int64) (int, error) {
 	updated := 0
 
 	for field, data := range fields {
@@ -143,12 +173,6 @@ func (s *Store) ApplyCNCategory(category string, fields map[string]CNApplyField)
 		updated += n
 	}
 
-	if err := tx.Commit(); err != nil {
-		return updated, err
-	}
-	if updated > 0 {
-		s.NotifyChange()
-	}
 	return updated, nil
 }
 

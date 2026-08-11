@@ -1,0 +1,174 @@
+{{NoReprint}}
+<tabber>
+Original Version=
+{{Song box 2
+  |color     = #23D7BB; color:#FFD141
+  |image     = Synthion imaginary love story.png
+  |title     = "'''imaginary love story'''"
+  |date      = March 10, 2023
+  |views     = {{v|yt|357,338|no}}
+  |singers   = [[Hatsune Miku]] V4 English
+  |producers = Synthion (music, lyrics)
+* Bukurote (illustration)
+  |links     = {{l|yt|dmHeXH1YthI}}
+}}
+|-|
+MV Version=
+{{Song box 2
+  |color     = #61BDB1; color:#F4DCD6
+  |image     = Synthion imaginary love story MV.png
+  |title     = "'''imaginary love story'''"
+  |date      = May 16, 2023
+  |views     = {{v|nn|32,333}}, {{v|yt|1,123,079}}, and {{v|bb|627,000}}
+  |singers   = [[Hatsune Miku]] V4 English
+  |producers = Synthion (music, lyrics)
+* Nihe (direction, composition, graphic design)
+* sowiti (illustration, video)
+  |links     = {{l|nn|so42224507}} {{l|yt|VudoIo9i_w4}} {{l|bb|BV1pu411t7u9}}
+}}
+</tabber>
+
+==Background==
+"'''imaginary love story'''" is an original song by Synthion. It was commissioned as the theme song for [[HATSUNE MIKU EXPO 2023 VR]].
+
+==Lyrics==
+<poem style="margin-left:1em;">
+A princess trapped inside a castle
+Waiting for the one to come rescue me
+These building blocks connect me and you
+To build a bridge that goes straight to your heart
+
+Open this door to a magical world
+To a place where surprises await
+
+Hey! Hey! Jump to the sky!
+Hey! Hey! Shoot for the stars!
+Will you play along with me?
+Won't you join me in my fantasy?
+
+Hey! Hey! Let's play pretend!
+Hey! Hey! Until the end!
+In my future diary
+Together we can write our imaginary love story
+
+Stuck in a maze that I can't escape
+Won't you become my light in the dark?
+
+I'm a puzzle with one missing piece
+The only one that can solve it is you
+
+Somehow we've become two main characters
+Of a brand new, untold fairy tale
+
+Hey! Hey! Let's run away!
+Hey! Hey! Just for today!
+You're the reason I can sing
+Only you can be my everything
+
+With! You! I'm not alone!
+Will! You! Be my hero!
+Will you save the world with me?
+So that we can write our imaginary love story
+
+Hey! Hey! Let's make it true
+A future with me and you
+Can we turn the page again?
+Please don't let our story end
+
+Hey! Hey! by any means
+I'll keep chasing this dream
+Until then I'll hope and pray
+That it will be true someday
+
+Let it be
+Reality
+
+Hey! Hey! Jump to the sky!
+Hey! Hey! Shoot for the stars!
+Will you play along with me?
+Won't you join me in my fantasy?
+
+Hey! Hey! Let's play pretend!
+Hey! Hey! 'Til the very end!
+In my future diary
+Reality will be my imaginary love story
+</poem>
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* ''imaginary love story (single)''
+* ''HATSUNE MIKU EXPO 10th Anniversary E.P.''
+
+===Concerts===
+This song was featured in the following concerts:
+* [[HATSUNE MIKU EXPO 2023 VR]]
+* [[HATSUNE MIKU EXPO 2024 North America|MIKU EXPO 2024 North America]]
+* [[HATSUNE MIKU EXPO 2024 EUROPE|MIKU EXPO 2024 EUROPE]]
+* [[HATSUNE MIKU EXPO 2024 New Zealand & Australia|MIKU EXPO 2024 New Zealand & Australia]]
+
+===Video games===
+This song was featured in the following video games:
+* ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''
+* ''{{IW|cytus|Cytus II}}'' (Hatsune Miku Collaboration)
+
+==Gallery==
+<tabber>Games =
+<gallery position="center" hideaddbutton="true" bordercolor="#23D7BB">
+Games - Project SEKAI - imaginary love story.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+Games - Cytus II - Imaginary love story.png|Music jacket featured in ''Cytus II''
+</gallery>
+|-|Merchandising =
+<gallery position="center" hideaddbutton="true" bordercolor="#23D7BB">
+Synthion - imaginary love story (single).jpg|Cover art of the digital single<br>''imaginary love story''
+</gallery>
+|-|Other (PV Screenshots)=
+<gallery position="center" hideaddbutton="true" bordercolor="#23D7BB"">
+Miku getting hit in the head by a plushie.jpeg
+Miku holding a plushie.jpeg
+Miku stuck in a maze.jpeg
+Miku and her Snow Miku plush wink at each other.jpeg
+Miku feeling depressed.jpeg
+Miku and the plushies hold hands together.jpeg
+Miku and the plushies sing together.jpeg
+Miku and the plushies laughed.jpeg
+Miku attached to wires.jpeg
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.co.jp/dp/B0CLNLRGG1 Amazon Music]
+** [https://music.amazon.co.jp/albums/B0CLNLRGG1 Amazon Music Unlimited]
+** [https://music.apple.com/jp/album/imaginary-love-story-single/171326161 Apple Music]
+** [https://s.awa.fm/album/a4bc9dbe1abe00916a01?t=1698876021 AWA]
+** [https://karent.jp/album/3496 KARENT]
+** [https://www.kkbox.com/jp/ja/album/CtcwDw9XoP3rPTp23n KKBOX]
+** [https://music.line.me/webapp/album/mb0000000003254f7d LINE MUSIC]
+** [https://mora.jp/package/43000018/KRHS-95880/ mora]
+** [https://mysound.jp/song/10335823/ mysound]
+** [https://music.oricon.co.jp/php/music/MusicTop.php?music=10660406 Oricon Music Store]
+** [https://ototoy.jp/_/default/p/1866491 OTOTOY]
+** [https://open.spotify.com/album/1iDgje2bUsBxrKiE8bG8wI Spotify]
+** [https://music.youtube.com/playlist?list=OLAK5uy_kQkN-U4bvxh4QtvYIltWghMEryUZ1KvE0 YouTube Music]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at      = 53429
+  |nico    = so42224507
+  |vocadb  = 481543 Original Version -
+  |vocadb2 = 499837 MV Version -
+  |mgp     = 想象中的爱情故事
+  |vlw     = imaginary love story
+  |url     = {{IW|projectsekai|imaginary love story|Project SEKAI Wiki}}
+* {{IW|cytus|imaginary love story|Cytus Wiki}}
+}}
+{{DISPLAYTITLE:imaginary love story}}
+[[Category:Original songs]]
+[[Category:English songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Concert songs]]
+[[Category:Mobile game songs]]

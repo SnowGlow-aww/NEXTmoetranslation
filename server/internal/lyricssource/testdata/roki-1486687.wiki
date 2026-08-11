@@ -1,0 +1,1035 @@
+{{Questionable|Profanity}}
+{{NoReprint}}
+{{Song box 2
+  |color     = #484A94; color:#FFECFF
+  |title     = "'''ロキ'''"
+* Romaji: Roki
+* Official English: ROKI
+  |date      = February 27, 2018
+  |image     = Roki_mikitop.png
+  |views     = {{v|nn|10,616,956}}, {{v|yt|90,124,458}}, and {{v|bb|3,388,000}}
+  |singers   = [[Kagamine Rin]] V4X and [[Mikito-P]]
+  |producers = [[Mikito-P]] (music, lyrics)
+* [[Rocoru]] (illustration)
+  |links     = {{l|nn|sm32798041}} {{l|yt|Xg-qfsKN2_E}} {{l|bb|av20149916}}
+}}
+
+==Background==
+{{Quote|We ain't dying; neither of us are. Thank you!!|Author's comment}}
+"'''ROKI'''" is an original song by Mikito-P.
+
+This song has entered ''[[Hall of Myths]]'' on February 3, 2024, and exceeded over 86 million views on YouTube and over 3 million views on bilibili. Hence, this is one of Mikito-P's most notable songs.
+
+==Succeeding versions==
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Mikito-P and majiko's Cover
+  |singers     = Mikito-P, {{UIW|majiko}}
+  |producers   = Mikito-P (music, lyrics), Rocoru (illust)
+  |categories  = Human Cover; Self-cover
+  |links       = nn sm33217345; yt RxBki2KfJaU
+}}
+{{Derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = ACTORS Version
+  |singers     = {{IW|actors-songs-connection|Mike Enjoji}} (CV: {{wp|Yūki Ono|Yuki Ono}}), {{IW|actors-songs-connection|Hinata Mitsutsuka}} (CV: {{wp|Soichiro Hoshi}})
+  |producers   = Gari (illust)<br>[[EXIT TUNES]]
+  |categories  = Human Cover; Original MV
+  |description = A cover featured in the ACTORS series. Featured on the album ''ACTORS 5th Anniversary Edition'', released by EXIT TUNES.
+  |links       = nn sm35254359; yt QOOOPeNjaTA
+}}
+{{clr}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |thumb       = 初音ミクシンフォニー～Miku_Symphony_2019_オーケストラ_ライブ_CD.jpg
+  |title       = Miku Symphony 2019's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version was featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2019~ Orchestra Live CD''.
+}}
+{{derivative
+  |color       = kagamine
+  |thumb       = 
+  |title       = Kagamine Rin and Len's version
+  |singers     = Kagamine Rin and Len V4X, MikitoP (chorus)
+  |producers   = Mikito-P (music, lyrics) 
+  |categories  = VOCALOID Self-cover
+  |description = This version was featured in live concerts featuring the song, ''Hatsune Miku Project DIVA: Mega Mix'' (where Len's vocals overlap MikitoP's instead), its soundtrack album and the album ''EXIT TUNES PRESENTS Vocalodelight feat. 初音ミク''. MikitoP now serves as a backing vocal for Kagamine Len. 
+  |links       = yt SRxjRI61Cjk
+}}
+{{clr}}
+{{derivative
+  |color       = #4455DD; color:white
+  |thumb       = Games - Project SEKAI - ロキ.png
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |singers     = {{IW|projectsekai|Leo/need}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Hoshino Ichika}} (CV: {{IW|projectsekai|Noguchi Ruriko}})
+  |producers   = [https://solidcube.jp/ SOLID CUBE] (motion capture)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Human Cover; Piapro Studio Cover; Arrangement; In-game Content
+  |links       = nn so40969491; yt PD8PHqWuSUI
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+}}
+{{derivative
+  |color       = #00cdba; color:white
+  |thumb       = Games - Project SEKAI - ロキ.png
+  |title       = Project SEKAI Version [Another Vocal]
+  |singers     = VIRTUAL SINGER: {{IW|projectsekai|Kagamine Len}}, {{IW|projectsekai|KAITO}}
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; In-game Content
+  |description = Featured on the compilation album ''[[バーチャル・シンガーボーカルアルバム (Virtual Singer Vocal Album)|Virtual Singer Vocal Album]]'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt V-7rmbWPAgY
+}}
+{{Clr}}
+{{derivative
+  |color       = #4455DD; color:white
+  |thumb       = Games - Project SEKAI - ロキ.png
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |singers     = Leo/need: Hatsune Miku, Hoshino Ichika (CV: Noguchi Ruriko)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Human Cover; Piapro Studio Cover; Album-exclusive content
+  |description = Full version, featured in Leo/need's 1st full album ''Leo/need SEKAI ALBUM Vol.1'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt V-7cDTePL8E
+}}
+{{derivative
+  |color       = #E53344; color:white
+  |title       = Bandori Version (Game size)
+  |thumb       = Games - BanG Dream - Roki.png
+  |singers     = {{MH|bandori|Afterglow}}: {{MH|bandori|Mitake Ran}} (CV: {{MH|bandori|Sakura Ayane}}), {{MH|bandori|Aoba Moca}} (CV: {{MH|bandori|Misawa Sachika}})
+  |producers   = Tomaru Ryota & Kawabuchi Ryusei (arrangement),<br>{{wp|Bushiroad}}
+  |categories  = Human Cover; Arrangement; In-game Content
+  |links       = yt cxpyJpojHFU; yt mmqpUJAMwNw
+  |description = Featured in the game ''{{MH|bandori|BanG Dream! Girls Band Party!}}''.
+}}
+{{clr}}
+{{derivative
+  |color       = #E53344; color:white
+  |title       = Bandori Version (Full)
+  |thumb       = Games - BanG Dream - Roki.png
+  |singers     = Afterglow: Mitake Ran (CV: Sakura Ayane), Aoba Moca (CV: Misawa Sachika)
+  |producers   = Tomaru Ryota & Kawabuchi Ryusei (arrangement),<br>Bushiroad
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |links       = yt 96ygpEYzu-k
+  |comments    = full audio
+  |description = Full version, featured in the album ''{{MH|bandori|Garupa Vocaloid Cover Collection}}'' from the game ''BanG Dream! Girls Band Party!''
+}}
+{{Derivative
+  |color       = #b73e91; color:white
+  |title       = ARGONAVIS Version (Game size)
+  |thumb       = Games - AAside - Roki.png
+  |singers     = {{IW|argo-bdp|εpsilonΦ}}: {{IW|argo-bdp|Shu Ujigawa}} (CV: Sakakihara Yuuki), {{IW|argo-bdp|Haruka Nijo}} (CV: {{Wp|Gakuto Kajiwara}})
+  |producers   = Hirosawa Yuuya (arrangement),<br>DeNA, Bushiroad
+  |categories  = Human Cover; Arrangement; In-game Content
+  |description = Featured in the game ''{{IW|argo-bdp|ARGONAVIS from BanG Dream! AAside}}''.
+}}
+{{clr}}
+{{Derivative
+  |color       = #b73e91; color:white
+  |title       = ARGONAVIS Version (Full)
+  |thumb       = Games - AAside - Roki.png
+  |singers     = εpsilonΦ: Shu Ujigawa (CV: Sakakihara Yuuki), Haruka Nijo (CV: Gakuto Kajiwara)
+  |producers   = Hirosawa Yuuya (arrangement),<br>DeNA, Bushiroad
+  |categories  = Human Cover; Arrangement; Album-exclusive Content
+  |links       = yt LlmQM04Z3Q
+  |description = Full version, featured in the digital single ''Hikari no Akuma'' from in the game ''ARGONAVIS from BanG Dream! AAside''.
+}}
+{{Derivative
+|color = ace
+|title = Chinese Version ft. YANHE AI & Longya AI
+|singers = {{IW|vocalsynth|YANHE|YANHE AI Beta}}, {{IW|vocalsynth|Yuezheng Longya|Yuezheng Longya AI Beta}}
+|producers = mikitoP (compose, arrange, lyrics), [[Daiku LN]] (Chinese translyrics), [[Rui'an Ryan]] (tuning), Quan Tai Studio (mixing)
+|categories = Alternative language; ACE Virtual Singer cover
+|links = bb BV18N4y1y7Rd; db 537378}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+Japanese ver.=
+{{lrc legend|#484A94; color:#FFECFF
+|Rin:#E5C100
+|Mikito-P:orange
+|Both|n3=y}}
+{| style="width:100%"
+|{{Shared}}|(Uh)
+|-
+|<br>
+|-
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|rin|さあ 眠眠打破}}
+|{{lrc color|rin|saa minmin daha}}
+|-
+|{{lrc color|mikito-p|昼夜逆転}}
+|{{lrc color|mikito-p|chuuya gyakuten}}
+|-
+|{{lrc color|rin|VOX AC30}}w
+|{{lrc color|rin|bokusu eeshii sanjuu}} watto
+|-
+|{{lrc color|rin|テレキャスター背負ったサブカルボーイがバンド仲間にやっほー}}
+|{{lrc color|rin|terekyasutaa seotta sabukarubooi ga bando nakama ni yahhoo}}
+|-
+|{{lrc color|mikito-p|アルバイトはネクラモード}}
+|{{lrc color|mikito-p|arubaito wa nekuramoodo}}
+|-
+|{{lrc color|rin|対バンにはATフィールド}}
+|{{lrc color|rin|tai ban ni wa AT fiirudo}}
+|-
+|人見知り”宣言で逃げる気か BOY
+|"hitomishiri" sengen de nigeru ki ka BOY
+|-
+|<br>
+|-
+|ゆーて お坊ちゃん お嬢ちゃん お金も才能も
+|yuute obocchan ojouchan okane mo sainou mo
+|-
+|なまじっかあるだけ厄介でやんす
+|namajikka aru dake yakkai de yansu
+|-
+|{{lrc color|rin|Boys be ambitious…}} {{lrc color|mikito-p|(はい はい)}} {{lrc color|rin|like this old man}}
+|{{lrc color|rin|Boys be ambitious…}} {{lrc color|mikito-p|(Hai Hai)}} {{lrc color|rin|like this old man}}
+|-
+|長い前髪 君 誰の信者
+|nagai maegami kimi dare no shinja
+|-
+|信者 信者
+|shinja shinja
+|-
+|勘違いすんな 教祖はオマエだ
+|kanchigai sunna kyouso wa omae da
+|-
+|<br>
+|-
+|ロキロキのロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|{{lrc color|rin|かき鳴らすエレクトリックギターは}}
+|{{lrc color|rin|kakinarasu erekutorikku gitaa wa}}
+|-
+| {{Shared}}|Don't Stop! Don't Stop!
+|-
+|{{lrc color|mikito-p|さあ君の全てを}}
+|{{lrc color|mikito-p|saa kimi no subete o}}
+|-
+|{{lrc color|rin|曝け出してみせろよ}}
+|{{lrc color|rin|sarake dashite misero yo}}
+|-
+|ロキロキのロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|<br>
+|-
+|{{lrc color|rin|さあ}} {{lrc color|mikito-p|日進月歩}}
+|{{lrc color|rin|saa}} {{lrc color|mikito-p|nisshingeppo}}
+|-
+|{{lrc color|rin|いい曲書いてる？}} {{lrc color|mikito-p|動員ふえてる？}}
+|{{lrc color|rin|ii kyoku kaiteru?}} {{lrc color|mikito-p|douin fueteru?}}
+|-
+|{{lrc color|rin|「知名度あるけど人気はそんなにないから色々大変ですね。」}}
+|{{lrc color|rin|"chimeido aru kedo ninki wa sonna ni nai kara iroiro taihen desu ne."}}
+|-
+|{{lrc color|mikito-p|はっきり言うなよ 匿名アイコン}}
+|{{lrc color|mikito-p|hakkiri iu na yo tokumei aikon}}
+|-
+|{{lrc color|rin|はっきり見せない 実写のアイコン}}
+|{{lrc color|rin|hakkiri misenai jissha no aikon}}
+|-
+|いい歳こいて自意識まだ BOY
+|ii toshi koite jīshiki mada BOY
+|-
+|<br>
+|-
+|ぶっちゃけどんだけ賢くあざとくやったって
+|bucchake dondake kashikoku azatoku yattatte
+|-
+|10年後にメイクは落ちてんだよ
+|juunengo ni meiku wa ochiten da yo
+|-
+|{{lrc color|rin|Boys be ambitious…}} {{lrc color|mikito-p|(はい はい)}} {{lrc color|rin|like this old man}} {{lrc color|mikito-p|(え?)}}
+|{{lrc color|rin|Boys be ambitious…}} {{lrc color|mikito-p|(Hai Hai)}} {{lrc color|rin|like this old man}} {{lrc color|mikito-p|(E?)}}
+|-
+|生き抜くためだ キメろ Take a "Selfy"
+|ikinuku tame da kimero Take a "Selfy"
+|-
+| {{Shared}}|"Selfy" "Selfy"
+|-
+|死ぬんじゃねぇぞ お互いにな！
+|shinun ja nee zo otagai ni na!
+|-
+|<br>
+|-
+|ロキロキのロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|{{lrc color|rin|薄っぺらいラブソングでもいい}}
+|{{lrc color|rin|usupperai rabusongu demo ii}}
+|-
+| {{Shared}}|Don't Stop! Don't Stop!
+|-
+|{{lrc color|mikito-p|さあ目の前のあの子を}}
+|{{lrc color|mikito-p|saa me no mae no ano ko o}}
+|-
+|{{lrc color|rin|撃ち抜いてみせろよ}}
+|{{lrc color|rin|uchinuite misero yo}}
+|-
+|ロキロキのロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|<br>
+|-
+|{{lrc color|rin|お茶を濁してちゃ満足できない}}
+|{{lrc color|rin|ocha o nigoshitecha manzoku dekinai}}
+|-
+|{{lrc color|mikito-p|スタジオに運ばれたスロートコートは}}
+|{{lrc color|mikito-p|sutajio ni hakobareta surootokooto wa}}
+|-
+|安心 不安心 プレッシャーでいっぱい
+|anshin fuanshin puresshaa de ippai
+|-
+|{{lrc color|rin|「実は昨日から}} 風邪で声が出ません」
+|{{lrc color|rin|"jitsu wa kinou kara}} kaze de koe ga demasen"
+|-
+|は？ は？ は？ は？
+|ha? ha? ha? ha?
+|-
+|<br>
+|-
+|{{lrc color|rin|はぁ…}}
+|{{lrc color|rin|haa…}}
+|-
+|寝言は寝て言え
+|negoto wa nete ie
+|-
+|{{lrc color|rin|ベイビー}} {{lrc color|mikito-p|ベイビー}}
+|{{lrc color|rin|beibii}} {{lrc color|mikito-p|beibii}}
+|-
+|{{lrc color|rin|ベイビー}} {{lrc color|mikito-p|ベイビー}}
+|{{lrc color|rin|beibii}} {{lrc color|mikito-p|beibii}}
+|-
+|{{lrc color|rin|ベイビー}} {{lrc color|mikito-p|ベイビー}}
+|{{lrc color|rin|beibii}} {{lrc color|mikito-p|beibii}}
+|-
+|{{lrc color|rin|ベイビー}} {{lrc color|mikito-p|ベイビー}}
+|{{lrc color|rin|beibii}} {{lrc color|mikito-p|beibii}}
+|-
+|{{lrc color|rin|死ぬんじゃねぇぞ お互いにな！}}
+|{{lrc color|rin|shinun janee zo otagai ni na!}}
+|-
+|<br>
+|-
+|ロキロキのロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|{{lrc color|rin|かき鳴らすエレクトリックギターは}}
+|{{lrc color|rin|kakinarasu erekutorikku gitaa wa}}
+|-
+| {{Shared}}|Don't Stop! Don't Stop!
+|-
+|{{lrc color|mikito-p|さあ君の全てを}}
+|{{lrc color|mikito-p|saa kimi no subete o}}
+|-
+|{{lrc color|rin|曝け出してみせろよ}}
+|{{lrc color|rin|sarake dashite misero yo}}
+|-
+|ロキロキのロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|<br>
+|-
+|ロキロキの ロックンロックンロール
+|rokiroki no rokkunrokkunrooru
+|-
+|<br>
+|-
+|{{lrc color|rin|死ぬんじゃねぇぞ}}
+|{{lrc color|rin|shinun ja nee zo}}
+|-
+|{{lrc color|mikito-p|（死ぬんじゃねぇぞ）}}
+|{{lrc color|mikito-p|(shinun ja nee zo)}}
+|-
+|死にたかねぇのは お互い様！
+|shinita ka nee no wa otagaisama!
+|}
+|-|
+Chinese ver.=
+''These lyrics were featured in the official Mandarin Chinese version featuring the {{IW|vocalsynth|ACE Virtual Singer}} voicebanks YANHE AI Beta and Yuezheng Longya AI Beta.''
+{{lrc legend|#484A94; color:#FFECFF
+|YANHE|Longya|Both
+|n3=y}}
+{| style="width:100%"
+! align=left |''Chinese'' (中文歌词)
+! align=left |''Pinyin'' (拼音)
+|-
+|{{lrc color|yanhe|快 抿抿红牛}}
+|{{lrc color|yanhe|kuai minmin hongniu}}
+|-
+|{{lrc color|longya|昼与夜转变}}
+|{{lrc color|longya|zhou yu ye zhuanbian}}
+|-
+|{{lrc color|yanhe|Vox AC 三零插电}}
+|{{lrc color|yanhe|Vox AC sanling cha dian}}
+|-
+|{{lrc color|yanhe|喜欢音乐的宅宅同好们组成乐队了哦耶}}
+|{{lrc color|yanhe|xihuan yinyue de zhaizhai tonghaomen zucheng yuedui le o ye}}
+|-
+|{{lrc color|longya|打工时切换阴暗模样}}
+|{{lrc color|longya|dagong shi qiehuan yin'an muyang}}
+|-
+|{{lrc color|yanhe|舞台上全开AT立场}}
+|{{lrc color|yanhe|wutai shang quankai AT lichang}}
+|-
+|是想借口说“我太害怕“所以逃跑 Boy
+|shi xiang jiekou shuo "wo tai haipa" suoyi taopao Boy
+|-
+|<br />
+|-
+|不过少爷们千金们
+|buguo shaoyemen qianjinmen
+|-
+|钱也没 才也没 才会麻烦上身心里不是滋味
+|qian ye mei cai ye mei cai hui mafan shangshen xinli bushiziwei
+|-
+|{{lrc color|yanhe|Boys be ambitious...}}{{lrc color|longya|（嗨嗨）}}
+|{{lrc color|yanhe|Boys be ambitious...}} {{lrc color|longya|(hai hai)}}
+|-
+|{{shared}}|{{lrc color|yanhe|like this old man}}
+|-
+|刘海太长遮住双眼扮演谁的信徒
+|liuhai taichang zhezhu shuangyan banyan shei de xintu
+|-
+|<br />
+|-
+|别搞错了教祖就在镜中快打招呼
+|bie gaocuo le jiaozu jiu zai jingzhong kuai dazhaohu
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|{{lrc color|yanhe|响彻天空的吉他 在手中倾倒感受}}
+|{{lrc color|yanhe|xiangche tiankong de jita zai shouzhong qingdao ganshou}}
+|-
+|{{shared}}|Don't Stop! Don't Stop!
+|-
+|{{lrc color|longya|就将你心中的所有}} {{lrc color|yanhe|曝光给我分毫不留}}
+|{{lrc color|longya|jiu jiang ni xinzhong de suoyou}} {{lrc color|yanhe|baoguang gei wo fenhao buliu}}
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|<br />
+|-
+|{{lrc color|yanhe|请看}} {{lrc color|longya|风云变幻}}
+|{{lrc color|yanhe|qingkan}} {{lrc color|longya|fengyunbianhuan}}
+|-
+|{{lrc color|yanhe|新曲子是否完工？}}
+|{{lrc color|yanhe|xin quzi shifou wangong?}}
+|-
+|{{lrc color|longya|动员的人数？}}
+|{{lrc color|longya|dongyuan de renshu?}}
+|-
+|{{lrc color|yanhe|“尽管上升一些知名度但播放数卡住不动蛮痛苦”}}
+|{{lrc color|yanhe|"jinguan shangsheng yixie zhimingdu dan bofang shu kazhu budong man tongku"}}
+|-
+|{{lrc color|longya|匿名头像说这么明白是何苦}}
+|{{lrc color|longya|niming touxiang shuo zheme mingbai shi heku}}
+|-
+|{{lrc color|yanhe|本人的照片拿出来看个清楚}}
+|{{lrc color|yanhe|benren de zhaopian nachulai kan ge qingchu}}
+|-
+|都几岁了还是自我意识爆棚BOY
+|dou jisui le haishi ziwoyishi baopeng BOY
+|-
+|<br />
+|-
+|讲真的化妆术再高超再服贴用光心机
+|jiang zhende huazhuangshu zai gaochao zai futie yongguang xinji
+|-
+|十年之后从里到外都掉干净了哟
+|shinian zhihou conglidaowai dou diao ganjing le yo
+|-
+|<br />
+|-
+|{{lrc color|yanhe|Boys be ambitious...}}{{lrc color|longya|（嗨嗨）}}
+|{{lrc color|yanhe|Boys be ambitious...}} {{lrc color|longya|(hai hai).}}
+|-
+|{{lrc color|yanhe|like this old man}}{{lrc color|longya|（诶？）}}
+|{{lrc color|yanhe|like this old man}} {{lrc color|longya|(ei?)}}
+|-
+|这一切都是为了{{lrc color|yanhe|未来继续存活}}{{lrc color|longya|（摆姿势Take a Selfy）}}
+|zhe yiqie dou shi weile {{lrc color|yanhe|weilai jixu cunhuo}} {{lrc color|longya|(bai zishi Take a Selfy)}}
+|-
+|{{shared}}|(Selfy... Selfy...)
+|-
+|<br />
+|-
+|我死之前请你务必千万别认命
+|wo si zhiqian qing ni wubi qianwan bie renming
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|{{lrc color|yanhe|哪怕是没意思的情歌也无所谓}}
+|{{lrc color|yanhe|napa shi meiyisi de qingge ye wusuowei}}
+|-
+|{{shared}}|Don't Stop! Don't Stop!
+|-
+|{{lrc color|longya|快将站在你身前的女孩}} {{lrc color|yanhe|一击之力就攻略下来}}
+|{{lrc color|longya|kuai jiang zhan zai ni qianshen de nühai}} {{lrc color|yanhe|yi ji zhi li jiu gonglüe xialai}}
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|<br />
+|-
+|{{lrc color|yanhe|光是敷衍没机会获得心满的答案}}
+|{{lrc color|yanhe|guangshi fuyan mei jihui huode xin man de da'an}}
+|-
+|{{lrc color|longya|一盒接一盒送进录音棚的润喉茶全都喝完}}
+|{{lrc color|longya|yi he jie yi he song jin luyinpeng de runhou cha quandou he wan}}
+|-
+|<br />
+|-
+|安心or担心 挤占大脑决战
+|anxin or danxin jizhan danao juezhan
+|-
+|“其实啊昨天就发烧所以我嗓子哑啦”
+|"qishi a zuotian jiu fashao suoyi wo sangzi ya la"
+|-
+|哈？ 哈？ 哈？ 哈？
+|ha? ha? ha? ha?
+|-
+|<br />
+|-
+|要讲梦话何必现在 BABY
+|yao jiang menghua hebi xianzai BABY
+|-
+|<br />
+|-
+|{{lrc color|yanhe|我死之前请你务必千万别认命}}
+|{{lrc color|yanhe|wo si zhiqian qing ni wubi qianwan bie renming}}
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|{{lrc color|yanhe|响彻天空的吉他  在手中倾倒感受}}
+|{{lrc color|yanhe|xiangche tiankong de jita zai shouzhong qingdao ganshou}}
+|-
+|{{shared}}|Don't Stop! Don't Stop!
+|-
+|{{lrc color|longya|就将你心中的所有}} {{lrc color|yanhe|曝光给我分毫不留}}
+|{{lrc color|longya|jiu jiang ni xinzhong de suoyou}} {{lrc color|yanhe|baoguang gei wo fenhao buliu}}
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|ROKIROKI哦Rock'n Rock'n Roll
+|ROKIROKI o Rock'n Rock'n Roll
+|-
+|<br />
+|-
+|{{lrc color|yanhe|别死 好好过下去}} {{lrc color|longya|（要乖乖活下去）}}
+|{{lrc color|yanhe|bie si haohao guo xiaqu}} {{lrc color|longya|(yao guaiguai huoxiaqu)}}
+|-
+|不想去死的我们啊 不再说谎话
+|buxiang qusi de women a buzai shuo huanghua
+|}
+</tabber>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{derivative
+  |color       = hatsune miku|thumb = yt
+  |title       = ANGL's Cover ft. Hatsune Miku
+  |singers     = [[Hatsune Miku]] SOLID, Mikito-P
+  |producers   = ANGL (cover), [[mikito-P]] (lyrics, composition, additional vocals)
+  |categories  = VOCALOID Cover
+  |links       = nn sm32889723; yt IHAxNc9CsPU
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Fabulous Brit's Cover ft. Hatsune Miku and KAITO
+  |singers     = [[Hatsune Miku]] and [[KAITO]]
+  |producers   = Fabulous Brit (cover, VSQx), [[mikito-P]] (lyrics, composition)
+  |categories  = VOCALOID Cover; Fanmade MMD PV
+  |links       = yt 7hq6avD65aQ; sc user-982117940/hatsune-miku-kaitoroki-miku-12th-anniversary
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = SpØØki's Cover ft. Otori Kohaku and Fukase
+  |singers     = [[Otori Kohaku]] and [[Fukase]]
+  |producers   = SpØØki (cover, VSQx), Katsuo Bushi (base UST), [[mikito-P]] (lyrics, composition)
+  |categories  = VOCALOID Cover
+  |links       = nn sm32889723; yt JgMx9_DjvRc
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = HizumiP's Cover ft. MEIKO and KAITO
+  |singers     = [[MEIKO]] and [[KAITO]]
+  |producers   = HizumiP (cover, video), Tokitomi Mine (illust), [[mikito-P]] (lyrics, composition)
+  |categories  = VOCALOID Cover; Fanmade Hand-drawn PV
+  |links       = nn sm34124222; yt KF-QuUyKGLI
+}}
+{{Clr}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = EKCT AY's Cover ft. Hatsune Miku and Hiyama Kiyoteru
+  |singers     = [[Hatsune Miku]] SOLID and [[Hiyama Kiyoteru]] V4 Rock
+  |producers   = EKCT AY (cover, VSQx), [[mikito-P]] (lyrics, composition)
+  |categories  = VOCALOID Cover
+  |links       = yt jl55CoQAKxQ
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = euphausia's Cover ft. Camui Gackpo and Hiyama Kiyoteru
+  |singers     = [[Camui Gackpo]] V4 Power and [[Hiyama Kiyoteru]] V4 Rock
+  |producers   = euphausia (cover, illust, video), [[mikito-P]] (lyrics, composition)
+  |categories  = VOCALOID Cover
+  |links       = nn sm34942455; yt NL3dHHZTnWo
+}}
+{{derivative
+  |color       = gumi|thumb = yt
+  |title       = Namiumi's Cover ft. GUMI
+  |singers     = [[GUMI]], Mikito-P
+  |producers   = Namiumi (cover), Nanakusa (illust), [[mikito-P]] (lyrics, composition, additional vocals)
+  |categories  = VOCALOID Cover
+  |links       = nn sm34295378; yt UnqVLcOLb3k
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Suzie's Cover ft. Otomachi Una and Kasane Teto
+  |singers     = [[Otomachi Una]], {{UW|teto-kasane|Kasane Teto}}
+  |producers   = suzie (mixing, tuning, video), Hugwalk (UST), Crydiaa (illust), [[mikito-P]] (lyrics, composition)
+  |categories  = VOCALOID Cover, UTAU cover
+  |links       = yt lVqErjrRDwE
+}}
+  |human = 
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = After the Rain's Cover
+  |producers   = {{UIW|After the Rain}}: {{UIW|Mafumafu}} (mixing, vocals), {{UIW|Soraru}} (vocals), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = nn sm32882962; yt 1REzG6oK7p4; yt hugCt8kSLJ8
+  |comments    = Mafumafu ver.; Mafumafu ver.; Soraru ver.
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = melost's Cover
+  |producers   = {{UIW|melost}}: ({{UIW|Amatsuki (male)|Amatsuki}} and {{UIW|Hashiyan}}) (vocals), kain (mixing), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = nn sm32862780; yt RAJTppa96FE; bb BV1Rb411y7Kh
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Eve and Sou's Cover
+  |producers   = {{UIW|Sou}} (mixing, vocals), {{UIW|Eve}} (vocals), Shintaro (mastering), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = nn sm32867394; yt 4C0PMc7wvsM
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = nqrse and Araki's Cover
+  |producers   = {{UIW|nqrse}} (rap lyrics, mixing, vocals), {{UIW|Araki}} (vocals), Soraru (mastering), Mizuki (special thanks), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = nn sm32974949; yt -SDwP1olCWw
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Megater Zero's Cover
+  |producers   = {{UIW|Megater Zero}} (vocals), Roman Nishino (mixing), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = nn sm32820076; yt 2Vn5ca585kQ
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = 96Neko and Touyu's Cover
+  |producers   = {{UIW|96Neko}} (vocals), {{UIW|Touyu}} (vocals), Pizuya (mastering), kyo zip (illust), KOTODOKI (movie), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = nn sm33562324; yt dT9YiZXbHvI; bb BV12J411k7sW
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Natsukawa Shiina's Cover with 417P
+  |producers   = {{IW|jpop|Natsukawa Shiina}}, 417P
+  |categories  = Human Cover
+  |links       = yt xyOZxkVebtc
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Oda Nobuhime's Cover
+  |producers   = {{IW|virtualyoutuber|Oda Nobuhime}} (vocals)
+  |categories  = Human Cover
+  |links       = yt fo_T8Rsg64M
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = HimeHina's Cover
+  |singers     = {{IW|virtualyoutuber|HIMEHINA#Tanaka Hime|Tanaka Hime}} (as Rin), {{IW|virtualyoutuber|HIMEHINA#Suzuki Hina|Suzuki Hina}} (as mikito-P)
+  |producers   = {{IW|VirtualYoutuber|HIMEHINA|Tanaka Hime, Suzuki Hina}} (vocals), Tanaka Engineering Company (production cooperation), ChangSang (director), Nakajima (production, edit), Tetsu Pippi (music director), Magical Bell (recording, mixing), {{OW|Akari & Yukari (ATY)}} (dance instruction), Takamoto (acting instruction, photography), Summer Candy Teto & Maoman (hair, makeup), Chimpan G (technician), Rin Suzuki & Giz (MMD creation), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover; Fanmade PV
+  |links       = nn sm34146742; yt mtb-qa8xvFU
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Mirai Akari's Cover
+  |producers   = {{IW|virtualyoutuber|Mirai Akari}} (vocals), no name (mixing, mastering), [[mikito-P]] (lyrics, composition)
+  |categories  = Human Cover
+  |links       = yt f_3t9AhqnUw
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Kizuna AI and Black AI's Cover
+  |producers   = {{IW|virtualyoutuber|Kizuna AI}} (vocals), AST ARTS (music production), Marirui (production), Powder stick (choreography)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt jOTAqsB-8Fk; bb BV1kJ411j7bw
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Tenjin Kotone's Cover
+  |producers   = {{IW|virtualyoutuber|Tenjin Kotone}} (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt 4knjZf6neh4
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Tenbin Hakari and Yagiri Mei's Cover
+  |producers   = {{IW|VirtualYoutuber|Re:AcT#Former Members|Tenbin Hakari, Yagiri Mei}} (vocals), 冷凍ちょこ (mixing), 霜月あいす (illustration), 三階の住人 (movie)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt ctcyq0Ilkec
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Suzuka Utako's Cover
+  |producers   = {{IW|VirtualYouTuber|Suzuka Utako}} (vocals), syun (mixing), Yanagi Jun'ya (CG), Miyama Eimi (movie)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt FSJpnr-2D30
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Mochizuki Himari's Cover
+  |producers   = Mochizuki Himari (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt _YGgCK7qKx8
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Minase Rui's Cover
+  |producers   = Minase Rui (vocals), Maccormick (illustration), NUMEsk (PV), Re:fAce (mixing)
+  |categories  = Human Cover
+  |links       = yt zbFdLpb1syk
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF|thumb = yt
+  |title       = Hibiki Ao's Cover
+  |producers   = {{IW|virtualyoutuber|Hibiki Ao}} (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt NoJZcmcaJ4c
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Hanamaru Hareru and Kohigashi Hitona's Cover
+  |producers   = {{IW|Virtualyoutuber|Kohigashi Hitona}}, {{IW|virtualYouTuber|Hanamaru Hareru}} (vocals), [[Signal-P]] (mixing), へちま (illustration)
+  |categories  = Human Cover
+  |links       = yt 54CiN019rZo
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = RUKIROKI's Cover
+  |producers   = {{IW|Virtualyoutuber|list of minor VTubers|RUKIROKI (Sasugano Ruki, Sasugano Roki)}} (first vocals), {{IW|Virtualyoutuber|list of minor VTubers|Sasugano Roki}} (second vocals)
+  |categories  = Human Cover
+  |description = Sasugano Ruki proposes a change the "Roki Roki" portion of the song's chorus into "Ruki Roki", but Roki opts for it to be "Ruki Ruki", much to Ruki's dismay.
+  |links       = yt jLMh1KNmzwI
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Chikuwa's Cover
+  |producers   = お花さん (illustration), {{IW|VirtualYoutuber|Chikuwa}} (vocals)
+  |categories  = Human Cover
+  |links       = yt _xsACc507t4
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Mitsumata Rube's Cover
+  |producers   = Mitsumata Rube (of {{IW|Virtualyoutuber|VGeneration}}) (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt U3HTiYrj77k
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Tsuru Shurina and Mitsuki Yurumi's Cover
+  |producers   = Tsuru Shurina (illustration, movie, vocals), Mitsuki Yurumi (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt mGrQnDw11xM
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Taka Radjiman and Min Suha's Cover
+  |singers     = {{IW|VirtualYoutuber|Taka Radjiman}}, {{IW|VirtualYouTuber|Min Suha}}
+  |producers   = Nifuji (illust), Lavi (from Grooming Studio) (mixing), Rou Fleur (movie)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt bsU4t4sWqak
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = BOOGEY VOXX's Cover and Rap Arrange
+  |singers     = {{IW|virtualyoutuber|BOOGEY VOXX}} (Ci and Fra)
+  |producers   = Fra (rap lyrics and vocals), Ci (singing vocals), Neppi (mixing), Hikari Tamago (design director), mochi (logo design)
+  |categories  = Human Cover
+  |links       = yt dDAQt9Fe6mA
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = BOOGEY VOXX's Cover and Rap Arrange (April Fools' version)
+  |singers     = BOOGEY VOXX (Ci and Fra)
+  |producers   = Fra (rap lyrics, singing vocals), Ci (rap vocals), Neppi (mixing), Hikari Tamago (design director), mochi (logo design)
+  |categories  = Human Cover
+  |links       = yt vYx0WICWgaQ
+  |description = Ci and Fra swap roles in singing and rapping in this April Fool's cover of the song.
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Fuwa Minato and Mashiro's Cover
+  |singers     = {{IW|virtualyoutuber|Fuwa Minato}}, {{IW|VirtualYoutuber|Mashiro (Nijisanji)|Mashiro}}
+  |producers   = [[KaiseiP]] (mixing), [[△○□×]] (illustration, movie)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt kpX7w_C4lRo
+}}
+{{Clr}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Mori Calliope's English Rap Cover
+  |singers     = {{IW|virtualyoutuber|Mori Calliope}}
+  |producers   = ALLATheNinety (arrangement), Riguruma (movie), AO (mixing), SAVI (illust), Mori Calliope (English lyrics adaption)
+  |categories  = Human Cover; Fanmade PV; Alternative Language
+  |links       = yt 8nI1CDsNZI0
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Nishizono Chigusa and Nagao Kei's Cover
+  |singers     = {{IW|virtualyoutuber|Nishizono Chigusa}}, {{IW|virtualyoutuber|Nagao Kei}}
+  |producers   = aao (illust), Satoo_Sio (video), YAB (mixing)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt 9c-SGnfzh_Y; bb BV1KM4y1c7sw
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Mika Melatika and Xia Ekavira's Cover
+  |singers     = {{IW|VirtualYouTuber|Mika Melatika}}, {{IW|VirtualYouTuber|Xia Ekavira}}
+  |producers   = Udin (mixing, tuning, harmonization), Yaku (illust), Akira (video)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt 5bjPqvOTalg
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Shirakami Fubuki and Kageyama Shien's Cover
+  |singers     = {{IW|VirtualYouTuber|Shirakami Fubuki}}, {{IW|VirtualYouTuber|Kageyama Shien}}
+  |producers   = iimo (movie), Angelina Fujii (mixing), Hanako (illust), Shirakami Fubuki, Kageyama Shien (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt dJtME9ULWQ8
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = AZKi and Momosuzu Nene's Cover
+  |singers     = {{IW|VirtualYouTuber|AZKi}}, {{IW|VirtualYouTuber|Momosuzu Nene}}
+  |producers   = 404 (movie), [[Signal-P]] (mixing), AZKi, Momosuzu Nene (vocals)
+  |categories  = Human Cover; Fanmade PV
+  |links       = yt 1IIX8hBvVuY
+}}
+{{derivative
+  |color       = #484A94; color:#FFECFF
+  |title       = Kanda Sayaka and Ogata Megumi's Cover
+  |singers     = {{Wp|Sayaka Kanda|Kanda Sayaka}}, {{Wp|Megumi Ogata|Ogata Megumi}}
+  |producers   =  
+  |categories  = Human Cover
+  |links       = yt 8spXHFsCliY
+}}
+{{derivative
+|color=#6CCB20; color:white
+|title=Yoshioka Mayu and Honnizumi Rina's Cover
+|singers={{IW|ProjectSekai|Yoshioka Mayu}}, {{IW|ProjectSekai|Honnizumi Rina}}
+  |categories  = Human Cover
+|links=yt 3OaO7cFpA9Y
+}}
+{{Derivative
+  |color      = #484A94; color:#FFECFF
+  |title      = Asami Shimoda's Cover
+  |singers    = [[Asami Shimoda]]
+  |producers  = Takamura Masaki (recording engineer), Aizawa (camerman)<br>ONKIO HAUS (recording studio), Crypton Future Media, Inc. (cooperation)
+  |categories = Human Cover
+  |links      = yt CXxV-fTXtFo
+}}
+{{Derivative
+  |color      = #484A94; color:#FFECFF
+  |title      = nokkosnukka's Finnish Cover ft. Battletron42
+  |singers    = nokkosnukka, Joona "Battletron42" Niemi
+  |producers  = 
+  |categories = Human Cover
+  |links      = yt NZp59bTdvhc
+}}
+}}
+==Other media appearances==
+===Discography===
+This song was featured in the following albums:
+* [[DAISAN WAVE]]
+* ロキ (Roki) (single)
+* ロキ (Roki) (vinyl)
+
+This song was featured in the following compilation albums:
+* 初音ミク Project DIVA MEGA39’s 10th アニバーサリーコレクション (Hatsune Miku Project DIVA MEGA39's 10th Anniversary Collection) (Rin & Len's Version)
+* [[EXIT TUNES PRESENTS Vocalodelight feat. 初音ミク]] (Rin & Len's Version)
+* Leo/need SEKAI ALBUM Vol. 1 (SEKAI version by Leo/need and Hatsune Miku)
+
+===Concerts===
+This song was featured in the following concerts with [[Kagamine Len]]'s V4X vocals in-place of Mikito-P:
+{{col-2b|
+* [[Hatsune Miku × Kodo Taiko Special Live 2018|Hatsune Miku × Kodo 2018]]
+* [[Hatsune Miku Magical Mirai 2018|Magical Mirai 2018]]
+* [[MIKU WITH YOU 2018]]
+* [[HATSUNE MIKU EXPO 2018 EUROPE|Miku Expo 2018 Europe]]
+* [[Hatsune Miku Magical Mirai 2019|Magical Mirai 2019]] (Osaka and Tokyo, Day 2)
+* [[HATSUNE MIKU LIVE - UNTITLED 0 -]]
+|
+* [[MIKU WITH YOU 2021]]
+* [[Kagamine Rin & Len Happy 14th Birthday Party 「Two You☆★」]]
+* [[Hatsune Miku JAPAN LIVE TOUR 2025 ～BLOOMING～]] (Osaka/Fukuoka/Tokyo, Day 2/Hokkaido)
+* [[HATSUNE MIKU EXPO 2025 ASIA|MIKU EXPO 2025 ASIA]] (Setlist B)
+*[[HATSUNE MIKU EXPO 2026 North America|MIKU EXPO 2026 North America]] (Setlist C)}}
+
+===Literature===
+This song was adapted into the book ''ROKI: THE CURSED SONG'', published by MF Bunko. The book is written by Souya Mukai, with MikitoP credited as the creator and Rocoru (under the name GAS) credited with the book's illustrations. It was originally released on September 22, 2022.
+
+===Video games===
+This song was featured in the following games:
+===={{Wp|Chunithm|CHUNITHM}} Series====
+{{col-2b|
+* CHUNITHM AMAZON / AMAZON PLUS
+* CHUNITHM CRYSTAL / CRYSTAL PLUS
+|
+* CHUNITHM PARADISE / PARADISE LOST
+* CHUNITHM NEW / NEW PLUS}}
+
+===={{Wp|Maimai (video game)|maimai}} Series====
+{{col-2b|
+* maimai FiNALE
+* maimai Deluxe / Deluxe PLUS
+|
+* maimai Deluxe Splash / Splash PLUS
+* maimai UNiVERSE / UNiVERSE PLUS}}
+
+====O.N.G.E.K.I. Series====
+{{col-2b|
+* O.N.G.E.K.I. PLUS
+* O.N.G.E.K.I. SUMMER / SUMMER PLUS
+|
+* O.N.G.E.K.I. R.E.D. / R.E.D. PLUS
+* O.N.G.E.K.I. bright / bright MEMORY}}
+
+===={{Wp:ja|WACCA}} Series====
+{{col-2b|
+* WACCA
+* WACCA S
+* WACCA Lily
+|
+* WACCA Lily R
+* WACCA Reverse}}
+
+===={{Wp|Sound Voltex|SOUND VOLTEX}} Series====
+* SOUND VOLTEX VIVID WAVE
+* SOUND VOLTEX EXCEED GEAR
+
+===={{Wp:ja|ノスタルジア (音楽ゲーム)|NOSTALGIA}} Series====
+* NOSTALGIA Op.2
+* NOSTALGIA Op.3
+
+===={{Wp|Dance Dance Revolution}} Series====
+* {{Wp|Dance Dance Revolution A20}}
+* {{IW|dancedancerevolution|Dance Dance Revolution A3}}
+
+===={{Wp|Groove Coaster}} Series====
+{{col-2b|
+* GROOVE COASTER 4MAX DIAMOND GALAXY
+* {{IW|groovecoaster|Groove Coaster: Wai Wai Party!!!!}}
+|}}
+
+====[[Hatsune Miku -Project DIVA- (series)|Hatsune Miku -Project DIVA-]] Series====
+* [[Hatsune Miku: Project DIVA Mega Mix]] (Kagamine Len V4X's vocals overlap Mikito-P's)
+* {{IW|project-diva|Hatsune Miku: Project DIVA MegaMix+}}
+
+===={{Wp|Taiko no Tatsujin}} Series====
+{{col-2b|
+* {{IW|taiko|Taiko no Tatsujin: Green Version}}
+* {{IW|taiko|Taiko no Tatsujin: Drum Session!}}
+* {{IW|taiko|Taiko no Tatsujin: Rhythmic Adventure Pack}} (Rhythmic Adventure 1)
+|
+* {{IW|taiko|Taiko no Tatsujin (2020)|Taiko no Tatsujin: Nijiiro Ver. 2020}}
+* {{IW|taiko|Taiko no Tatsujin: Drum 'n' Fun!}}
+* {{IW|taiko|Taiko no Tatsujin: Rhythm Festival}}
+}}
+
+====Other games====
+{{col-2b|
+* {{IW|popnmusic|pop'n music peace}}
+* {{MH|bandori|BanG Dream! Girls Band Party!}} (covered by Afterglow)
+* {{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by Kagamine Rin and Mikito-P; SEKAI version by Leo/need and Hatsune Miku)
+* {{IW|argo-bdp|ARGONAVIS from BanG Dream! AAside}} (covered by εpsilonΦ)
+* MUSIC DIVER
+|
+* Tetote x Connect
+* {{IW|polarischord|Polaris Chord}} (covered by HIMEHINA)
+* {{IW|initiald|Initial D The Arcade}} (Project DIVA Collaboration)
+* QQQbeats!!!
+}}
+
+==Gallery==
+<tabber>
+|-|Games=
+<gallery hideaddbutton="true" position="center" bordercolor="#484A94">
+Games - BanG Dream - Roki.png|Music jacket featured in ''BanG Dream! Girls Band Party!''
+Games - Project SEKAI - ロキ.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+Games - AAside - Roki.png|Music jacket featured in ''ARGONAVIS from BanG Dream! AAside''
+</gallery>
+|-|Merchandise=
+<gallery hideaddbutton="true" position="center" bordercolor="#484A94">
+DAISAN_WAVE.jpg|Album cover of ''[[DAISAN WAVE]]'', also featured as the cover of the single ''ロキ (Roki)'' and as the music jacket in ''-Project DIVA- Mega Mix'' and ''Future Tone''
+Roki Novel.jpg|Cover artwork of ''Roki ''novel, illustrated by Rocoru
+</gallery>
+|-|Concerts =
+<gallery hideaddbutton="true" position="center" bordercolor="#484A94">
+Miku Japan Tour 2025 - ROKI.jpg|Rin and Len performing "ROKI" at Hatsune Miku JAPAN LIVE TOUR 2025 ～BLOOMING～
+</gallery>
+</tabber>
+
+==External links==
+===Official===
+{{Official
+  |media = [https://rocorocor.weebly.com/uploads/2/9/6/8/29680037/742673319_orig.png Illustration] — Rocoru's Website
+  |dwlds = [https://www.dropbox.com/scl/fo/7shlxvx9qr5r0agjdyhg6/AP9wSy77Ifgix3HTjV6TaGs/ROKI_offvocal?rlkey=33pnphoph2i05dirygols3y7q&e=2&subfolder_nav_tracking=1&dl=0 Off-vocal] — Dropbox
+  |prchs = [https://music.apple.com/jp/album/%E3%83%AD%E3%82%AD/1446850239?i=1446850240 Single Purchase] — Apple Music
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 37319
+  |nico   = sm32798041
+  |vocadb = 185363
+  |utadb  = 38167
+  |pixiv  = ロキ
+  |mgp    = Roki
+  |tag    = ロキ
+  |vlw    = ロキ (Roki)
+  |url    = {{MH|bandori|Roki|BanG Dream! Wiki}}
+* {{IW|projectsekai|Roki|Project SEKAI Wiki}}
+* {{IW|project-diva|ROKI|Project DIVA Wiki}}
+* {{IW|argo-bdp|Roki|ARGONAVIS from BanG Dream! Wiki}}
+* {{IW|popnmusic|Roki (mikitoP)|The pop'n music Encyclopedia}}
+}}
+
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Japanese duet songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring Kagamine Rin]]
+[[Category:Songs featuring Kagamine Len]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Self-covers]]
+[[Category:Concert songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]

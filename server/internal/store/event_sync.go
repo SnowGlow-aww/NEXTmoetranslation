@@ -1,12 +1,15 @@
 package store
 
+import "database/sql"
+
 // EventSyncState summarizes one event story for the CN-sync strategy.
 type EventSyncState struct {
-	EventID       int
-	Source        string
-	IsOfficialCN  bool
-	IsLLM         bool
-	PreserveLocal bool // has human/pinned title or line — never overwrite
+	EventID          int
+	Source           string
+	IsOfficialCN     bool
+	IsLLM            bool
+	PreserveLocal    bool // has human/pinned title or line — never overwrite
+	MissingScenarios bool
 }
 
 // EventSyncStates returns the sync state of every stored event story plus the
@@ -60,7 +63,47 @@ func (s *EventStore) EventSyncStates() (map[int]EventSyncState, int, error) {
 			states[id] = st
 		}
 	}
-	return states, maxID, editRows.Err()
+	if err := editRows.Err(); err != nil {
+		return nil, 0, err
+	}
+	missingRows, err := s.db.Query(`SELECT ep.event_id, ep.episode_no, ep.scenario_id,
+		scenario.scenario_id, scenario.canonical_json, scenario.sha256
+		FROM event_story_episodes ep
+		LEFT JOIN event_story_scenarios scenario
+		ON scenario.event_id=ep.event_id AND scenario.episode_no=ep.episode_no
+		ORDER BY ep.event_id, ep.position`)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer missingRows.Close()
+	for missingRows.Next() {
+		var identity EventEpisodeIdentity
+		var sideScenarioID, canonicalJSON, digest sql.NullString
+		if err := missingRows.Scan(&identity.EventID, &identity.EpisodeNo, &identity.ScenarioID,
+			&sideScenarioID, &canonicalJSON, &digest); err != nil {
+			return nil, 0, err
+		}
+		record := EventScenarioRecord{
+			EventID: identity.EventID, EpisodeNo: identity.EpisodeNo, ScenarioID: sideScenarioID.String,
+			CanonicalJSON: canonicalJSON.String, SHA256: digest.String,
+		}
+		valid := sideScenarioID.Valid && sideScenarioID.String == identity.ScenarioID && ValidateEventScenarioRecord(record) == nil
+		if valid {
+			covered, err := eventEpisodeHasCanonicalSegments(s.db, record)
+			if err != nil {
+				return nil, 0, err
+			}
+			valid = covered
+		}
+		if valid {
+			continue
+		}
+		if state, ok := states[identity.EventID]; ok {
+			state.MissingScenarios = true
+			states[identity.EventID] = state
+		}
+	}
+	return states, maxID, missingRows.Err()
 }
 
 // Source-constant aliases (avoid importing model into many call sites).

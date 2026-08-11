@@ -1,0 +1,43 @@
+{
+  "prefix": {
+    "blank-existing": {
+      "text": "机器保留",
+      "source": "llm"
+    },
+    "cn": {
+      "text": "官方新值",
+      "source": "cn"
+    },
+    "human": {
+      "text": "官方人工",
+      "source": "cn",
+      "ids": [
+        "old",
+        "new"
+      ]
+    },
+    "llm": {
+      "text": "官方机器",
+      "source": "cn"
+    },
+    "new": {
+      "text": "官方新增",
+      "source": "cn",
+      "ids": [
+        "7"
+      ]
+    },
+    "pinned": {
+      "text": "锁定人工",
+      "source": "pinned",
+      "ids": [
+        "old",
+        "new"
+      ]
+    },
+    "unknown": {
+      "text": "官方未知",
+      "source": "cn"
+    }
+  }
+}

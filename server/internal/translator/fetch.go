@@ -5,7 +5,6 @@
 package translator
 
 import (
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,9 +13,11 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"moesekai/server/internal/config"
+	"moesekai/server/internal/httpx"
 )
 
 const (
@@ -32,6 +33,9 @@ const (
 	defaultCNAssetsURL         = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets/ondemand"
 	defaultCNAssetsFallbackURL = ""
 	defaultSourceHedgeDelay    = 2 * time.Second
+	maxMasterdataWireBytes     = 64 << 20
+	maxMasterdataDecodedBytes  = 128 << 20
+	maxMasterdataRecords       = 500_000
 )
 
 type sourceFailure struct {
@@ -48,6 +52,9 @@ func (t *Translator) fetchMasterdata(filename, server string) ([]map[string]any,
 	arr, ok := data.([]any)
 	if !ok {
 		return nil, fmt.Errorf("unexpected json type for %s", filename)
+	}
+	if len(arr) > maxMasterdataRecords {
+		return nil, fmt.Errorf("too many records in %s: %d", filename, len(arr))
 	}
 	out := make([]map[string]any, 0, len(arr))
 	for _, item := range arr {
@@ -168,7 +175,9 @@ func (t *Translator) fetchJSONURLs(urls []string) (any, error) {
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
+		if err := t.wait(500 * time.Millisecond); err != nil {
+			return nil, err
+		}
 		result, retryFailures, ok := t.fetchJSONRound(dedupeURLs(retryable))
 		if ok {
 			return result, nil
@@ -187,13 +196,17 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 		data any
 		err  error
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.runContext())
 	defer cancel()
 	results := make(chan fetchResult, len(urls))
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	next, active := 0, 0
 	start := func(url string) {
 		active++
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			data, err := t.fetchJSONURLOnceContext(ctx, url)
 			results <- fetchResult{url: url, data: data, err: err}
 		}()
@@ -237,6 +250,8 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 			continue
 		}
 		select {
+		case <-ctx.Done():
+			return nil, append(failures, sourceFailure{err: ctx.Err()}), false
 		case result := <-results:
 			active--
 			if result.err == nil {
@@ -263,7 +278,7 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 }
 
 func (t *Translator) fetchJSONURLOnce(url string) (any, error) {
-	return t.fetchJSONURLOnceContext(context.Background(), url)
+	return t.fetchJSONURLOnceContext(t.runContext(), url)
 }
 
 func (t *Translator) fetchJSONURLOnceContext(ctx context.Context, url string) (any, error) {
@@ -283,16 +298,7 @@ func (t *Translator) fetchJSONURLOnceContext(ctx context.Context, url string) (a
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 400))
 		return nil, fmt.Errorf("GET %s: http %d: %s", url, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	var reader io.Reader = resp.Body
-	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
-		zr, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("GET %s: gzip: %w", url, err)
-		}
-		defer zr.Close()
-		reader = zr
-	}
-	raw, err := io.ReadAll(reader)
+	raw, err := httpx.ReadBody(resp, maxMasterdataWireBytes, maxMasterdataDecodedBytes)
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: read: %w", url, err)
 	}
@@ -316,6 +322,9 @@ func (t *Translator) fetchJPScenarioJSON(assetPath string) (any, error) {
 	failures := make([]sourceFailure, 0, len(urls)*2)
 	retryable := make([]string, 0, len(urls))
 	for _, url := range urls {
+		if err := t.runContext().Err(); err != nil {
+			return nil, err
+		}
 		result, err := t.fetchJSONURLOnce(url)
 		if err == nil && scenarioHasTalkData(result) {
 			return result, nil
@@ -330,7 +339,9 @@ func (t *Translator) fetchJPScenarioJSON(assetPath string) (any, error) {
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
+		if err := t.wait(500 * time.Millisecond); err != nil {
+			return nil, err
+		}
 		for _, url := range retryable {
 			result, err := t.fetchJSONURLOnce(url)
 			if err == nil && scenarioHasTalkData(result) {

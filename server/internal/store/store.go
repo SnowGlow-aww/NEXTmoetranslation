@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,20 +9,86 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/semaphore"
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/model"
 )
+
+const (
+	contentGateWeight      int64 = 1 << 20
+	lyricsMutexStripeCount       = 256
+)
+
+// Snapshot writes a point-in-time SQLite copy including committed WAL content.
+// The destination must not already exist.
+func (s *Store) Snapshot(path string) error {
+	return s.SnapshotContext(context.Background(), path)
+}
+
+func (s *Store) SnapshotContext(ctx context.Context, path string) error {
+	_, err := s.db.ExecContext(ctx, `VACUUM INTO ?`, path)
+	return err
+}
 
 // Store provides CRUD over translation entries backed by SQLite.
 type Store struct {
 	db *db.DB
 
-	mu          sync.RWMutex
-	changeHooks []func()
+	mu            sync.RWMutex
+	changeHooks   []func()
+	contentGate   *semaphore.Weighted
+	lyricsMutexes [lyricsMutexStripeCount]sync.Mutex
 }
 
 func New(database *db.DB) *Store {
-	return &Store{db: database}
+	return &Store{db: database, contentGate: semaphore.NewWeighted(contentGateWeight)}
+}
+
+// LockContentShared prevents a restore or public rebuild from crossing a
+// multi-step editor/translator operation. The returned function must be called
+// exactly once when the operation finishes.
+func (s *Store) LockContentShared() func() {
+	release, err := s.LockContentSharedContext(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	return release
+}
+
+// LockContentExclusive creates a complete replacement/snapshot boundary.
+func (s *Store) LockContentExclusive() func() {
+	release, err := s.LockContentExclusiveContext(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	return release
+
+}
+
+// LockContentSharedContext acquires shared content access while allowing a
+// request or shutdown cancellation to interrupt the wait.
+func (s *Store) LockContentSharedContext(ctx context.Context) (func(), error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := s.contentGate.Acquire(ctx, 1); err != nil {
+		return nil, err
+	}
+	var once sync.Once
+	return func() { once.Do(func() { s.contentGate.Release(1) }) }, nil
+}
+
+// LockContentExclusiveContext acquires the complete replacement/snapshot
+// boundary while allowing cancellation before the critical section starts.
+func (s *Store) LockContentExclusiveContext(ctx context.Context) (func(), error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := s.contentGate.Acquire(ctx, contentGateWeight); err != nil {
+		return nil, err
+	}
+	var once sync.Once
+	return func() { once.Do(func() { s.contentGate.Release(contentGateWeight) }) }, nil
 }
 
 // OnChange registers a callback invoked after any write that changes data.
@@ -50,16 +117,20 @@ func (s *Store) NotifyChange() {
 // ImportCategory replaces all rows for a category with the given full-format data.
 // Used by the migration tool. Runs in a single transaction.
 func (s *Store) ImportCategory(category string, cat model.Category) (int, error) {
-	tx, err := s.db.Begin()
+	return s.ImportCategoryContext(context.Background(), category, cat)
+}
+
+func (s *Store) ImportCategoryContext(ctx context.Context, category string, cat model.Category) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`DELETE FROM entries WHERE category = ?`, category); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM entries WHERE category = ?`, category); err != nil {
 		return 0, err
 	}
-	stmt, err := tx.Prepare(`INSERT INTO entries
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO entries
 		(category, field, jp_key, cn_text, source, ids_json, updated_at, updated_by)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
@@ -71,6 +142,9 @@ func (s *Store) ImportCategory(category string, cat model.Category) (int, error)
 	count := 0
 	for field, entries := range cat {
 		for jpKey, e := range entries {
+			if err := ctx.Err(); err != nil {
+				return 0, err
+			}
 			idsJSON := ""
 			if len(e.Ids) > 0 {
 				b, _ := json.Marshal(e.Ids)
@@ -80,7 +154,7 @@ func (s *Store) ImportCategory(category string, cat model.Category) (int, error)
 			if source == "" {
 				source = model.SourceUnknown
 			}
-			if _, err := stmt.Exec(category, field, jpKey, e.Text, source, idsJSON, now, "migrate"); err != nil {
+			if _, err := stmt.ExecContext(ctx, category, field, jpKey, e.Text, source, idsJSON, now, "migrate"); err != nil {
 				return 0, fmt.Errorf("insert %s/%s: %w", category, field, err)
 			}
 			count++
@@ -226,10 +300,12 @@ func (s *Store) GetEntries(category, field, source string) ([]model.EntryWithKey
 	return result, rows.Err()
 }
 
-// UpdateEntry sets text/source for one entry. Returns "ok" or "noop".
-// The row must already exist (it is created during sync/migration); if it does
-// not, it is inserted so manual edits never silently vanish.
+// UpdateEntry sets text/source for one existing source entry. Unknown identities
+// are rejected so a stale client cannot create a key in the wrong field.
 func (s *Store) UpdateEntry(category, field, key, text, source, user string) (string, error) {
+	if !model.IsValidSource(source) {
+		return "", fmt.Errorf("invalid translation source: %q", source)
+	}
 	var curText, curSource string
 	err := s.db.QueryRow(
 		`SELECT cn_text, source FROM entries WHERE category = ? AND field = ? AND jp_key = ?`,
@@ -237,15 +313,7 @@ func (s *Store) UpdateEntry(category, field, key, text, source, user string) (st
 
 	now := time.Now().Unix()
 	if err == sql.ErrNoRows {
-		_, ierr := s.db.Exec(`INSERT INTO entries
-			(category, field, jp_key, cn_text, source, ids_json, updated_at, updated_by)
-			VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
-			category, field, key, text, source, now, user)
-		if ierr != nil {
-			return "", ierr
-		}
-		s.NotifyChange()
-		return "ok", nil
+		return "", sql.ErrNoRows
 	}
 	if err != nil {
 		return "", err

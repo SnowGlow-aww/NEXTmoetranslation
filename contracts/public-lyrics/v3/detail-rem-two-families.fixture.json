@@ -1,0 +1,74 @@
+{
+  "version": 3,
+  "musicId": 14,
+  "revision": 1,
+  "updatedAt": "2026-07-31T04:00:00Z",
+  "state": "complete",
+  "renditions": [
+    {
+      "key": "sekai",
+      "kind": "sekai",
+      "label": "SEKAI Version",
+      "availableVersions": ["full", "game"],
+      "performers": [],
+      "full": {
+        "version": {"kind": "sekai", "label": "SEKAI Version"},
+        "lines": [
+          {
+            "id": "full-000001",
+            "order": 0,
+            "japanese": "歌う",
+            "segments": [{"text": "歌う", "performerIds": [], "ruby": [{"text": "歌", "reading": "うた"}, {"text": "う"}]}],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "game": {
+        "version": {"kind": "sekai", "label": "SEKAI Version"},
+        "lines": [
+          {
+            "id": "game-000001",
+            "order": 0,
+            "japanese": "歌う",
+            "segments": [{"text": "歌う", "performerIds": [], "ruby": [{"text": "歌", "reading": "うた"}, {"text": "う"}]}],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "relation": {"kind": "exact_projection", "fullRenditionKey": "sekai", "lineIds": ["full-000001"]},
+      "sourceTabPaths": [["Full Version"], ["Game Version", "SEKAI"]],
+      "provenance": [
+        {"component": "renditions/sekai/full_text", "provider": "sekaipedia", "title": "SEKAI Version", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"},
+        {"component": "renditions/sekai/game_text", "provider": "sekaipedia", "title": "SEKAI Version", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"},
+        {"component": "renditions/sekai/relation", "provider": "sekaipedia", "title": "SEKAI Version", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"},
+        {"component": "renditions/sekai/version", "provider": "sekaipedia", "title": "SEKAI Version", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"}
+      ]
+    },
+    {
+      "key": "vocaloid",
+      "kind": "vocaloid",
+      "label": "VIRTUAL SINGER",
+      "availableVersions": ["game"],
+      "performers": [],
+      "game": {
+        "version": {"kind": "vocaloid", "label": "VIRTUAL SINGER"},
+        "lines": [
+          {
+            "id": "game-000001",
+            "order": 0,
+            "japanese": "歌う",
+            "segments": [{"text": "歌う", "performerIds": [], "ruby": [{"text": "歌", "reading": "うた"}, {"text": "う"}]}],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "relation": {"kind": "none"},
+      "sourceTabPaths": [["Game Version", "VIRTUAL SINGER"]],
+      "provenance": [
+        {"component": "renditions/vocaloid/game_text", "provider": "sekaipedia", "title": "VIRTUAL SINGER", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"},
+        {"component": "renditions/vocaloid/relation", "provider": "sekaipedia", "title": "VIRTUAL SINGER", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"},
+        {"component": "renditions/vocaloid/version", "provider": "sekaipedia", "title": "VIRTUAL SINGER", "revisionId": 1202, "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202", "licenseName": "CC BY-SA 4.0", "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"}
+      ]
+    }
+  ]
+}
