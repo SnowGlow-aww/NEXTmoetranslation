@@ -293,9 +293,9 @@ jobs:
           preflight_data="$RUNNER_TEMP/nexttrans-workspace-preflight-data"
           mkdir -p "$preflight_data"
           printf '%s\n' 'persistent-volume-sentinel' > "$preflight_data/sentinel"
-          sudo chown -R 65532:65532 "$preflight_data"
           chmod 0755 "$preflight_data"
           chmod 0644 "$preflight_data/sentinel"
+          sudo chown -R 65532:65532 "$preflight_data"
           sentinel_sha=$(sha256sum "$preflight_data/sentinel" | cut -d' ' -f1)
           assert_preflight_data_untouched() {
             test "$(stat -c %a "$preflight_data")" = 755
