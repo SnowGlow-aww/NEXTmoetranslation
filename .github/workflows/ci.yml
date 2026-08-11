@@ -125,9 +125,13 @@ jobs:
         run: go test -race -count=1 -timeout=60m ./internal/api
 
   race-store:
-    name: Race Store
+    name: Race Store shard ${{ matrix.shard }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -149,9 +153,28 @@ jobs:
             echo "MOESEKAI_SESSION_ROOT=$test_root/active-run"
             echo "MOESEKAI_RECOVERY_V2_TEST_PRIVATE_RUN_ROOT=$test_root/recovery-tests"
           } >> "$GITHUB_ENV"
-      - name: Race internal store
+      - name: Race internal store shard
         working-directory: server
-        run: go test -race -count=1 -timeout=60m ./internal/store
+        shell: bash
+        env:
+          STORE_SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          tests=()
+          while IFS= read -r test_name; do
+            tests+=("$test_name")
+          done < <(go test -list '^(Test|Example|Fuzz)' ./internal/store | grep -E '^(Test|Example|Fuzz)')
+          test "${#tests[@]}" -gt 0
+          selected=()
+          for index in "${!tests[@]}"; do
+            if (( index % 4 == STORE_SHARD )); then
+              selected+=("${tests[$index]}")
+            fi
+          done
+          test "${#selected[@]}" -gt 0
+          regex="^($(IFS='|'; echo "${selected[*]}"))$"
+          printf 'store shard %s selected %s of %s runnable tests\n' "$STORE_SHARD" "${#selected[@]}" "${#tests[@]}"
+          go test -race -count=1 -timeout=30m -run "$regex" ./internal/store
 
   race-rest:
     name: Race remaining Go packages
