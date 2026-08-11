@@ -18,6 +18,7 @@ export type SSEEvent =
   | "sse.disconnected"
   | "sse.reconnected"
   | "sse.missed-events"
+  | "gate.status"
   | "ping";
 
 export type SSEHandler = (event: SSEEvent, data: unknown) => void;
