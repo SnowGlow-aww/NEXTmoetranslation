@@ -20,6 +20,8 @@ Repository variables used by push CI to build the candidate exactly once:
 | `RUNTIME_IMAGE_DIGEST` | Approved 64-character lowercase SHA-256 for `RUNTIME_IMAGE`. |
 | `GITHUB_ARTIFACT_ATTESTATIONS_ENABLED` | Optional. Set exactly `true` only when the repository and plan support GitHub artifact attestations. Omit or set false otherwise. |
 
+The Dockerfile also carries the same reviewed image names and immutable digests as defaults so direct source builders such as Zeabur do not expand a `FROM` instruction to an empty image or digest. These defaults are source-build compatibility values only. Push CI continues to pass the four repository variables explicitly, validate their exact shape and approved image references, and build the release candidate once; the release workflow still rebuilds nothing and promotes only those validated candidate bytes.
+
 Do not shadow the four base-image variables in the `production` environment. Release never rebuilds and does not read them; it downloads the exact tested CI candidate, validates its canonical metadata and checksums, and promotes those bytes. CI uploads both `next-production-candidate-<sha>-<attempt>` and `rollback-<sha>-<attempt>` with 90-day retention. Complete rollout records must archive both artifacts durably before that retention window expires.
 
 Configure these values only on the protected `production` environment, never as repository-wide values:

@@ -17,14 +17,15 @@
 # There is no Node.js or reverse proxy in the runtime image.
 
 ARG NODE_IMAGE=node:20.19.4-alpine3.22
-ARG NODE_IMAGE_DIGEST
+ARG NODE_IMAGE_DIGEST=df02558528d3d3d0d621f112e232611aecfee7cbc654f6b375765f72bb262799
 ARG GO_IMAGE=golang:1.25.1-alpine3.22
-ARG GO_IMAGE_DIGEST
-ARG RUNTIME_IMAGE
-ARG RUNTIME_IMAGE_DIGEST
+ARG GO_IMAGE_DIGEST=b6ed3fd0452c0e9bcdef5597f29cc1418f61672e9d3a2f55bf02e7222c014abd
+ARG RUNTIME_IMAGE=buildpack-deps:bookworm-scm
+ARG RUNTIME_IMAGE_DIGEST=877e9e4d949edfbcbedabc3a2d7ab593955fee5d6d0777adf3a991eb30c750d8
 
-# Digest arguments deliberately have no defaults. Release builds must provide
-# immutable digests for approved image references.
+# These are the approved immutable defaults for direct source builders such as
+# Zeabur. CI and release jobs still pass explicit repository values and validate
+# every digest before building or publishing.
 FROM ${NODE_IMAGE}@sha256:${NODE_IMAGE_DIGEST} AS web-builder
 WORKDIR /web
 COPY web/package.json web/package-lock.json* ./

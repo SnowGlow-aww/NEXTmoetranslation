@@ -39,6 +39,10 @@ grep -q 'Authorization.*Bearer' web/src/lib/fetch-sse.mjs
 for image_arg in NODE_IMAGE NODE_IMAGE_DIGEST GO_IMAGE GO_IMAGE_DIGEST RUNTIME_IMAGE RUNTIME_IMAGE_DIGEST; do
   grep -q "ARG $image_arg" Dockerfile
 done
+grep -Fq 'ARG NODE_IMAGE_DIGEST=df02558528d3d3d0d621f112e232611aecfee7cbc654f6b375765f72bb262799' Dockerfile
+grep -Fq 'ARG GO_IMAGE_DIGEST=b6ed3fd0452c0e9bcdef5597f29cc1418f61672e9d3a2f55bf02e7222c014abd' Dockerfile
+grep -Fq 'ARG RUNTIME_IMAGE=buildpack-deps:bookworm-scm' Dockerfile
+grep -Fq 'ARG RUNTIME_IMAGE_DIGEST=877e9e4d949edfbcbedabc3a2d7ab593955fee5d6d0777adf3a991eb30c750d8' Dockerfile
 grep -Fq 'FROM ${NODE_IMAGE}@sha256:${NODE_IMAGE_DIGEST}' Dockerfile
 grep -Fq 'FROM ${GO_IMAGE}@sha256:${GO_IMAGE_DIGEST}' Dockerfile
 grep -Fq 'FROM ${RUNTIME_IMAGE}@sha256:${RUNTIME_IMAGE_DIGEST}' Dockerfile

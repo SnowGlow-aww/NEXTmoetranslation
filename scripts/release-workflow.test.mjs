@@ -51,6 +51,10 @@ test('Docker defaults to a standalone production target without workspace bytes'
   for (const name of ['NODE_IMAGE', 'NODE_IMAGE_DIGEST', 'GO_IMAGE', 'GO_IMAGE_DIGEST', 'RUNTIME_IMAGE', 'RUNTIME_IMAGE_DIGEST']) {
     assert.match(dockerfile, new RegExp(`ARG ${name}`))
   }
+  assert.match(dockerfile, /ARG NODE_IMAGE_DIGEST=df02558528d3d3d0d621f112e232611aecfee7cbc654f6b375765f72bb262799/)
+  assert.match(dockerfile, /ARG GO_IMAGE_DIGEST=b6ed3fd0452c0e9bcdef5597f29cc1418f61672e9d3a2f55bf02e7222c014abd/)
+  assert.match(dockerfile, /ARG RUNTIME_IMAGE=buildpack-deps:bookworm-scm/)
+  assert.match(dockerfile, /ARG RUNTIME_IMAGE_DIGEST=877e9e4d949edfbcbedabc3a2d7ab593955fee5d6d0777adf3a991eb30c750d8/)
   assert.match(dockerfile, /FROM \$\{NODE_IMAGE\}@sha256:\$\{NODE_IMAGE_DIGEST\}/)
   assert.match(dockerfile, /FROM \$\{GO_IMAGE\}@sha256:\$\{GO_IMAGE_DIGEST\}/)
   assert.match(dockerfile, /FROM \$\{RUNTIME_IMAGE\}@sha256:\$\{RUNTIME_IMAGE_DIGEST\}/)

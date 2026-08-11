@@ -123,6 +123,8 @@ npm run dev          # http://localhost:3000，自动代理 /api 到 :8080（可
 
 ### Docker
 
+Dockerfile 内置了供 Zeabur 等直接从源码构建的平台使用的审核基础镜像默认值：Node、Go 和 runtime 镜像名及其完整 sha256 digest 均已固定。官方 GitHub Actions CI/release 仍会显式传入仓库批准的变量，并继续对镜像名、digest 和最终候选制品执行独立校验；这些默认值不替代受保护发布链路。
+
 ```bash
 # 发布构建必须使用经审核且带 sha256 digest 的三个基础镜像。runtime 镜像需预装
 # 固定版本的 git、CA 证书与 tzdata；Dockerfile 不会在构建时安装可变软件包。
