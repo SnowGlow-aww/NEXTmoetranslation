@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -79,6 +80,18 @@ type storedEvidence struct {
 	envelope     lyricssource.IndexEvidence
 }
 
+func (checkpoint *sourceCheckpoint) databaseMainFileMatchesPinnedDescriptor(mainFile string) bool {
+	if checkpoint == nil || checkpoint.fileInfo == nil || checkpoint.operationalPath == "" || mainFile == "" ||
+		strings.TrimSpace(mainFile) != mainFile || !filepath.IsAbs(mainFile) || filepath.Clean(mainFile) != mainFile {
+		return false
+	}
+	if filepath.Clean(mainFile) == filepath.Clean(checkpoint.operationalPath) {
+		return true
+	}
+	info, err := os.Stat(mainFile)
+	return err == nil && info.Mode().IsRegular() && os.SameFile(checkpoint.fileInfo, info)
+}
+
 func (checkpoint *sourceCheckpoint) validate(ctx context.Context) (checkpointSummary, error) {
 	var summary checkpointSummary
 	if checkpoint == nil || checkpoint.database == nil {
@@ -129,7 +142,7 @@ func (checkpoint *sourceCheckpoint) validate(ctx context.Context) (checkpointSum
 		`SELECT COUNT(*) FROM pragma_database_list WHERE name NOT IN ('main','temp')`).Scan(&unexpectedAttachments); err != nil {
 		return summary, err
 	}
-	if mainCount != 1 || unexpectedAttachments != 0 || filepath.Clean(mainFile) != filepath.Clean(checkpoint.operationalPath) {
+	if mainCount != 1 || unexpectedAttachments != 0 || !checkpoint.databaseMainFileMatchesPinnedDescriptor(mainFile) {
 		return summary, errors.New("checkpoint SQLite handle is not bound only to the pinned read-only descriptor")
 	}
 	if err := checkpoint.validateSchema(ctx); err != nil {

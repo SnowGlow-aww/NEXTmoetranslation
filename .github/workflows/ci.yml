@@ -46,6 +46,25 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      - name: Prepare hermetic Go test roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 1777 /private/tmp
+          test_root="$RUNNER_TEMP/nexttrans-go-tests"
+          install -d -m 0700 \
+            "$test_root" \
+            "$test_root/tmp" \
+            "$test_root/gotmp" \
+            "$test_root/active-run" \
+            "$test_root/recovery-tests"
+          {
+            echo "TMPDIR=$test_root/tmp"
+            echo "GOTMPDIR=$test_root/gotmp"
+            echo "MOESEKAI_SESSION_ROOT=$test_root/active-run"
+            echo "MOESEKAI_RECOVERY_V2_TEST_PRIVATE_RUN_ROOT=$test_root/recovery-tests"
+          } >> "$GITHUB_ENV"
+
       - name: Verify Go
         working-directory: server
         run: |
