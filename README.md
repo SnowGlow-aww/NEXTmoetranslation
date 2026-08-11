@@ -141,12 +141,11 @@ docker build \
 docker run -p 8080:8080 -v nexttrans-data:/data \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
   -e JWT_SECRET=... -e MOESEKAI_MASTER_KEY=... \
-  -e CONSOLE_ORIGIN='https://console.example.com' \
   -e ADMIN_USER=admin -e ADMIN_PASSWORD=... \
   nexttrans
 ```
 
-`ADMIN_PASSWORD` 只应在受控首次启动或管理员恢复时临时注入；确认管理员和持久卷身份后应从长期容器环境移除。生产容器应使用镜像默认的 `DB_PATH=/data/moesekai.db`、`DATA_DIR=/data` 与精确 `TZ=UTC`（`.env.example` 也按容器路径编写）；本地 `go run` 才覆盖为 `./data/...`。生产启动还会把 Go 的进程本地时区固定为 UTC，不依赖基础镜像的 `/etc/localtime`。
+`ADMIN_PASSWORD` 只应在受控首次启动或管理员恢复时临时注入；确认管理员和持久卷身份后应从长期容器环境移除。服务默认监听 `0.0.0.0:8080`；`CONSOLE_ORIGIN` 未配置时使用 `*`，适配 Zeabur 等平台分配的生产域名，也可在需要时覆盖为一个精确的 http(s) origin。公开 `/files/*` 与 `/translation/*` 始终返回通配 CORS。生产容器应使用镜像默认的 `DB_PATH=/data/moesekai.db`、`DATA_DIR=/data` 与精确 `TZ=UTC`（`.env.example` 也按容器路径编写）；本地 `go run` 才覆盖为 `./data/...`。生产启动还会把 Go 的进程本地时区固定为 UTC，不依赖基础镜像的 `/etc/localtime`。
 
 镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse`、`/files` 与 `/translation`。生产必须保持单实例，并使用 `Recreate`（先停止旧实例，再启动新实例），不能让两个 SQLite writer 或两个进程内 editor gate 同时对外服务。仓库默认不附带 `seed-translations/`；如需首次迁移，应在上线前显式提供并验证种子，迁移或无损 round-trip 校验失败会终止容器启动。
 

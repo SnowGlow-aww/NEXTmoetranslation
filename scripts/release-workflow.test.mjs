@@ -120,6 +120,7 @@ test('CI exports the exact tested image and immutable rollback inputs', () => {
 
 test('CI proves workspace routes are disabled and cannot fall back to the console', () => {
   const smoke = stepSection(ciWorkflow, 'Smoke standalone read-only root and single SQLite writer', 'Export the exact tested production candidate')
+  assert.doesNotMatch(smoke, /CONSOLE_ORIGIN=/)
   for (const path of ['/workspace', '/workspace/', '/workspace/editor/cards', '/workspace/assets/app.js']) {
     assert.ok(smoke.includes(path), `missing ${path} probe`)
   }
