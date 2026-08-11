@@ -13,9 +13,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  fast:
+    name: Fast verification
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 45
     env:
       NODE_IMAGE: node:20.19.4-alpine3.22
       NODE_IMAGE_DIGEST: ${{ vars.NODE_IMAGE_DIGEST }}
@@ -23,7 +24,6 @@ jobs:
       GO_IMAGE_DIGEST: ${{ vars.GO_IMAGE_DIGEST }}
       RUNTIME_IMAGE: ${{ vars.RUNTIME_IMAGE }}
       RUNTIME_IMAGE_DIGEST: ${{ vars.RUNTIME_IMAGE_DIGEST }}
-      CI_IMAGE: nexttrans-standalone-ci:${{ github.sha }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -65,11 +65,10 @@ jobs:
             echo "MOESEKAI_RECOVERY_V2_TEST_PRIVATE_RUN_ROOT=$test_root/recovery-tests"
           } >> "$GITHUB_ENV"
 
-      - name: Verify Go
+      - name: Verify Go without race
         working-directory: server
         run: |
           go test -count=1 -timeout=30m ./...
-          go test -race -count=1 -timeout=60m ./...
           go vet ./...
 
       - name: Verify Web
@@ -83,6 +82,145 @@ jobs:
 
       - name: Verify standalone release contracts
         run: ./scripts/verify-release.sh
+
+      - name: Validate immutable image inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for digest in "$NODE_IMAGE_DIGEST" "$GO_IMAGE_DIGEST" "$RUNTIME_IMAGE_DIGEST"; do
+            printf '%s' "$digest" | grep -Eq '^[0-9a-f]{64}$'
+          done
+          for image in "$NODE_IMAGE" "$GO_IMAGE" "$RUNTIME_IMAGE"; do
+            printf '%s' "$image" | grep -Eq '^[a-z0-9][a-z0-9./:_-]*$'
+            case "$image" in *@*) exit 1;; esac
+          done
+
+  race-api:
+    name: Race API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v6
+        with:
+          go-version: 1.25.1
+          cache-dependency-path: server/go.sum
+      - name: Prepare hermetic Go test roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 1777 /private/tmp
+          test_root="$RUNNER_TEMP/nexttrans-go-tests"
+          install -d -m 0700 "$test_root" "$test_root/tmp" "$test_root/gotmp" "$test_root/active-run" "$test_root/recovery-tests"
+          {
+            echo "TMPDIR=$test_root/tmp"
+            echo "GOTMPDIR=$test_root/gotmp"
+            echo "MOESEKAI_SESSION_ROOT=$test_root/active-run"
+            echo "MOESEKAI_RECOVERY_V2_TEST_PRIVATE_RUN_ROOT=$test_root/recovery-tests"
+          } >> "$GITHUB_ENV"
+      - name: Race internal API
+        working-directory: server
+        run: go test -race -count=1 -timeout=60m ./internal/api
+
+  race-store:
+    name: Race Store
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v6
+        with:
+          go-version: 1.25.1
+          cache-dependency-path: server/go.sum
+      - name: Prepare hermetic Go test roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 1777 /private/tmp
+          test_root="$RUNNER_TEMP/nexttrans-go-tests"
+          install -d -m 0700 "$test_root" "$test_root/tmp" "$test_root/gotmp" "$test_root/active-run" "$test_root/recovery-tests"
+          {
+            echo "TMPDIR=$test_root/tmp"
+            echo "GOTMPDIR=$test_root/gotmp"
+            echo "MOESEKAI_SESSION_ROOT=$test_root/active-run"
+            echo "MOESEKAI_RECOVERY_V2_TEST_PRIVATE_RUN_ROOT=$test_root/recovery-tests"
+          } >> "$GITHUB_ENV"
+      - name: Race internal store
+        working-directory: server
+        run: go test -race -count=1 -timeout=60m ./internal/store
+
+  race-rest:
+    name: Race remaining Go packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v6
+        with:
+          go-version: 1.25.1
+          cache-dependency-path: server/go.sum
+      - name: Prepare hermetic Go test roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 1777 /private/tmp
+          test_root="$RUNNER_TEMP/nexttrans-go-tests"
+          install -d -m 0700 "$test_root" "$test_root/tmp" "$test_root/gotmp" "$test_root/active-run" "$test_root/recovery-tests"
+          {
+            echo "TMPDIR=$test_root/tmp"
+            echo "GOTMPDIR=$test_root/gotmp"
+            echo "MOESEKAI_SESSION_ROOT=$test_root/active-run"
+            echo "MOESEKAI_RECOVERY_V2_TEST_PRIVATE_RUN_ROOT=$test_root/recovery-tests"
+          } >> "$GITHUB_ENV"
+      - name: Race all remaining Go packages
+        working-directory: server
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(go list ./... | grep -Ev '/internal/(api|store)$')
+          test "${#packages[@]}" -gt 0
+          ! printf '%s\n' "${packages[@]}" | grep -Eq '/internal/(api|store)$'
+          go test -race -count=1 -timeout=60m "${packages[@]}"
+
+  verify:
+    needs: [fast, race-api, race-store, race-rest]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NODE_IMAGE: node:20.19.4-alpine3.22
+      NODE_IMAGE_DIGEST: ${{ vars.NODE_IMAGE_DIGEST }}
+      GO_IMAGE: golang:1.25.1-alpine3.22
+      GO_IMAGE_DIGEST: ${{ vars.GO_IMAGE_DIGEST }}
+      RUNTIME_IMAGE: ${{ vars.RUNTIME_IMAGE }}
+      RUNTIME_IMAGE_DIGEST: ${{ vars.RUNTIME_IMAGE_DIGEST }}
+      CI_IMAGE: nexttrans-standalone-ci:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v6
+        with:
+          go-version: 1.25.1
+          cache-dependency-path: server/go.sum
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20.19.4
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build local rollback web inputs
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
 
       - name: Validate immutable image inputs
         shell: bash

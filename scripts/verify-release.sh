@@ -66,9 +66,21 @@ test ! -e .github/workflows/release-paired.yml
 test ! -e PAIRED_RELEASE.md
 test -f STANDALONE_RELEASE.md
 
-grep -q '^    timeout-minutes: 120$' "$ci"
+grep -q '^  fast:$' "$ci"
+grep -q '^  race-api:$' "$ci"
+grep -q '^  race-store:$' "$ci"
+grep -q '^  race-rest:$' "$ci"
+grep -q '^  verify:$' "$ci"
+grep -q 'needs: \[fast, race-api, race-store, race-rest\]' "$ci"
+grep -q 'timeout-minutes: 45' "$ci"
+grep -q 'timeout-minutes: 75' "$ci"
+grep -q 'timeout-minutes: 90' "$ci"
+grep -q 'timeout-minutes: 60' "$ci"
 grep -q 'go test -count=1 -timeout=30m ./...' "$ci"
-grep -q 'go test -race -count=1 -timeout=60m ./...' "$ci"
+grep -q 'go test -race -count=1 -timeout=60m ./internal/api' "$ci"
+grep -q 'go test -race -count=1 -timeout=60m ./internal/store' "$ci"
+grep -q 'mapfile -t packages' "$ci"
+grep -q "grep -Ev '/internal/(api|store)\$'" "$ci"
 grep -q 'Build standalone production image' "$ci"
 grep -q -- '--target next-production' "$ci"
 grep -q 'WORKSPACE_MODE=disabled' "$ci"
