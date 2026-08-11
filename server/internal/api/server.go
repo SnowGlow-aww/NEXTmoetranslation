@@ -88,6 +88,17 @@ type Server struct {
 	search interface {
 		Status() searchindex.Status
 	}
+	wsHub interface {
+		Broadcast(event string, data any)
+		BroadcastGateStatus()
+	}
+}
+
+func (s *Server) SetWsHub(w interface {
+	Broadcast(event string, data any)
+	BroadcastGateStatus()
+}) {
+	s.wsHub = w
 }
 
 func (s *Server) SetSearchStatus(provider interface {
@@ -128,10 +139,14 @@ func NewServer(s *store.Store, es *store.EventStore, a *auth.Auth, cfg *config.C
 	}
 }
 
-// broadcast sends an SSE event if a hub is configured (it may be nil in tests).
+// broadcast sends an SSE/WS event if a hub is configured (it may be nil in tests).
 func (s *Server) broadcast(event string, data any) {
 	if s.hub != nil {
 		s.hub.Broadcast(event, data)
+	}
+	if s.wsHub != nil {
+		s.wsHub.Broadcast(event, data)
+		s.wsHub.BroadcastGateStatus()
 	}
 }
 

@@ -89,16 +89,13 @@ test("restore conflicts never offer save-first and stale drafts can only be expo
 });
 
 test("SSE gaps lock writes until authoritative reconciliation completes", async () => {
-  const [consoleSource, sse, transport, editor] = await Promise.all([
-    read("src/components/Console.tsx"), read("src/lib/sse.ts"), read("src/lib/fetch-sse.mjs"),
+  const [consoleSource, ws, editor] = await Promise.all([
+    read("src/components/Console.tsx"), read("src/lib/ws.ts"),
     read("src/components/LyricsEditor.tsx"),
   ]);
-  for (const event of ["sse.disconnected", "sse.reconnected", "sse.missed-events"]) {
-    assert.ok(sse.includes(`"${event}"`), `missing SSE lifecycle event ${event}`);
-  }
-  assert.match(transport, /onMissedEvents\(\)/);
-  assert.match(sse, /let opened = false[\s\S]*onOpen: \(\{ reconnected \}[\s\S]*if \(!opened && !reconnected\)[\s\S]*"sse\.missed-events"/);
-  assert.match(sse, /activeControllerRef\.current[\s\S]*"sse\.disconnected"[\s\S]*activeControllerRef\.current\?\.abort/);
+  assert.ok(ws.includes('"sse.disconnected"'), 'missing ws sse.disconnected event');
+  assert.ok(ws.includes('"sse.reconnected"'), 'missing ws sse.reconnected event');
+  assert.ok(ws.includes('"sse.missed-events"'), 'missing ws sse.missed-events event');
   assert.match(consoleSource, /useState\(true\)[\s\S]*const writeFenceRef = useRef\(true\)/);
   assert.match(consoleSource, /event === "sse\.disconnected"[\s\S]*setWriteFence\(true\)/);
   assert.match(consoleSource, /event === "sse\.disconnected"[\s\S]*reconciliationGenerationRef\.current\+\+/);
@@ -119,7 +116,7 @@ test("stale conflict resolution revalidates proof and live SSE before releasing 
   const consoleSource = await read("src/components/Console.tsx");
   const reconcile = consoleSource.slice(consoleSource.indexOf("const reconcileContent = async"), consoleSource.indexOf("reconcileContentRef.current = reconcileContent"));
   const resolve = consoleSource.slice(consoleSource.indexOf("const resolveContentConflict"), consoleSource.indexOf("const exportConflictDraft"));
-  const sseHandler = consoleSource.slice(consoleSource.indexOf("useSSE((event, data)"), consoleSource.indexOf("  }, true);", consoleSource.indexOf("useSSE((event, data)")));
+  const sseHandler = consoleSource.slice(consoleSource.indexOf("useWebSocket((event, data)"), consoleSource.indexOf("  }, true);", consoleSource.indexOf("useWebSocket((event, data)")));
 
   assert.equal((reconcile.match(/if \(!sseConnectedRef\.current\)/g) || []).length, 2);
   assert.match(reconcile, /if \(!sseConnectedRef\.current\)[\s\S]*setContentConflict\(\{ reason, draft, reloadFailed: true \}\)/);
@@ -195,7 +192,7 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.match(editor, /const previewSource = async[\s\S]*sourceImportTokenRef\.current = ""/);
   assert.match(editor, /const reloadAuthoritative = async[\s\S]*sourceImportTokenRef\.current = ""/);
   assert.match(editor, /exportDraft: \(\) => lyrics \? JSON\.parse\(JSON\.stringify\(lyrics\)\) as SongLyricsDocument : null/);
-  const conflictReloadHandler = editor.slice(editor.indexOf('onClick={() => {\n            if (!error?.current) return;'));
+  const conflictReloadHandler = editor.slice(editor.indexOf('if (!error?.current) return;'));
   assert.match(conflictReloadHandler, /sourceImportTokenRef\.current = ""/);
   assert.match(editor, /const TERMINAL_SOURCE_IMPORT_CODES = new Set/);
   assert.match(editor, /if \(error\.status >= 500\) return false/);

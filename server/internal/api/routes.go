@@ -99,6 +99,17 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 		})))
 	}
 
+	if s.wsHub != nil {
+		if wsHandler, ok := s.wsHub.(interface {
+			Handler(func(*http.Request) string, func(*http.Request) bool) http.HandlerFunc
+		}); ok {
+			mux.HandleFunc("/ws", s.auth.RequireAuth(wsHandler.Handler(currentUser, func(r *http.Request) bool {
+				_, err := s.auth.VerifyToken(auth.BearerTokenFromRequest(r))
+				return err == nil
+			})))
+		}
+	}
+
 	// Keep unknown API paths inside the JSON API contract instead of falling
 	// through to the static SPA catch-all.
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {

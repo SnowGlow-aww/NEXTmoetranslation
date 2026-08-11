@@ -36,6 +36,7 @@ import (
 	"moesekai/server/internal/translator"
 	"moesekai/server/internal/upstream"
 	"moesekai/server/internal/workspaceverify"
+	"moesekai/server/internal/ws"
 )
 
 // runtimeProfile is overridden only in the standalone production binary via
@@ -262,9 +263,11 @@ func main() {
 	if err != nil {
 		fatal("init editor gate", err)
 	}
+	wsHub := ws.NewHub(editorGate)
 	tr := translator.New(st, es, cfg, editorGate)
 	tr.SetProgress(func(stage, detail string, cur, total int) {
 		hub.Broadcast(stage, map[string]any{"detail": detail, "current": cur, "total": total})
+		wsHub.Broadcast(stage, map[string]any{"detail": detail, "current": cur, "total": total})
 	})
 
 	// Upstream watcher: polls current_version.json directly (not GitHub REST API),
@@ -292,6 +295,7 @@ func main() {
 	backupMgr := backup.NewManager(cfg, gen, st, es, filepath.Join(dataDir, "backup-work"))
 
 	apiServer := api.NewServer(st, es, authSvc, cfg, hub, tr, watcher, backupMgr, editorGate)
+	apiServer.SetWsHub(wsHub)
 	apiServer.SetProjectionStatus(fileService)
 	apiServer.SetSearchStatus(idx)
 

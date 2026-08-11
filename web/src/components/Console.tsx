@@ -20,7 +20,7 @@ import {
   EVENT_STORY_TITLE_MARKER, buildEventStoryEntries, eventStoryEntryLabel, parseEventStoryEntryKey,
   buildMoesekaiUrl,
 } from "@/lib/labels";
-import { useSSE } from "@/lib/sse";
+import { useWebSocket } from "@/lib/ws";
 
 interface Progress { label: string; current: number; total: number }
 interface ContentConflict {
@@ -373,13 +373,22 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     });
   };
 
-  // ---- SSE realtime ----
-  useSSE((event, data) => {
+  // ---- Realtime WebSocket ----
+  useWebSocket((event, data) => {
     const d = data as Record<string, unknown>;
     if (event === "entry.updated" || event === "entry.locale.updated" ||
         event === "eventstory.updated" || event === "eventstory.locale.updated" ||
         event === "lyrics.updated" || event === "content.restored") {
       contentEventGenerationRef.current++;
+    }
+    if (event === "gate.status" && d && typeof d === "object") {
+      const status = d as unknown as EditorGateStatus;
+      if (status.instanceId && !status.running) {
+        acceptLoadedProducerState(status);
+        if (!contentConflict && !preservedConflictDraftRef.current && writeFenceRef.current) {
+          setWriteFence(false);
+        }
+      }
     }
     if (event === "sse.disconnected") {
       reconciliationGenerationRef.current++;
@@ -388,7 +397,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       setWriteFence(true);
     } else if (event === "sse.reconnected") {
       sseConnectedRef.current = true;
-      show("实时连接已恢复，正在校对服务器数据", "ok");
+      show("实时连接已恢复，正在校验服务器数据", "ok");
     } else if (event === "sse.missed-events") {
       sseConnectedRef.current = true;
       void reconcileContent("gap");
