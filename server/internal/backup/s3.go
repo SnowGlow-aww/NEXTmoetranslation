@@ -108,6 +108,12 @@ func encryptBackupPayloadContext(ctx context.Context, work string, payload backu
 	if err != nil {
 		return nil, err
 	}
+	if len(encryptionKey) == 0 {
+		out := make([]byte, len(tarball))
+		copy(out, tarball)
+		clear(tarball)
+		return out, nil
+	}
 	defer clear(tarball)
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -125,12 +131,15 @@ func encryptBackupPayloadContext(ctx context.Context, work string, payload backu
 
 func (m *Manager) publishS3BackupArtifactContext(ctx context.Context, cfg s3Settings, artifact []byte) error {
 	ts := time.Now().UTC().Format("20060102-150405")
-	key := fmt.Sprintf("%s/translations-%s.enc", cfg.prefix, ts)
+	ext := "tar.gz"
+	if !bytes.HasPrefix(artifact, []byte{0x1f, 0x8b}) {
+		ext = "enc"
+	}
+	key := fmt.Sprintf("%s/translations-%s.%s", cfg.prefix, ts, ext)
 	if err := m.s3PutContext(ctx, cfg, key, artifact); err != nil {
 		return err
 	}
-	// Also write/overwrite a "latest" encrypted object for easy restore.
-	latestKey := fmt.Sprintf("%s/latest.enc", cfg.prefix)
+	latestKey := fmt.Sprintf("%s/latest.%s", cfg.prefix, ext)
 	return m.s3PutContext(ctx, cfg, latestKey, artifact)
 }
 
@@ -158,20 +167,31 @@ func (m *Manager) prepareS3RestoreContext(ctx context.Context) (restoreCandidate
 	if err != nil {
 		return restoreCandidate{}, err
 	}
-	encryptionKey, err := loadBackupEncryptionKey()
-	if err != nil {
-		return restoreCandidate{}, err
-	}
+	encryptionKey, _ := loadBackupEncryptionKey()
 	defer clear(encryptionKey)
-	latestKey := fmt.Sprintf("%s/latest.enc", cfg.prefix)
+	latestKey := fmt.Sprintf("%s/latest.tar.gz", cfg.prefix)
 	data, err := m.s3GetContext(ctx, cfg, latestKey)
 	if err != nil {
-		return restoreCandidate{}, err
+		latestKeyEnc := fmt.Sprintf("%s/latest.enc", cfg.prefix)
+		var errEnc error
+		data, errEnc = m.s3GetContext(ctx, cfg, latestKeyEnc)
+		if errEnc != nil {
+			return restoreCandidate{}, fmt.Errorf("s3 restore artifact not found (checked %s and %s): %w", latestKey, latestKeyEnc, err)
+		}
 	}
-	archive, err := decryptBackupEnvelope(data, encryptionKey)
-	clear(data)
-	if err != nil {
-		return restoreCandidate{}, err
+	var archive []byte
+	if bytes.HasPrefix(data, []byte{0x1f, 0x8b}) {
+		archive = data
+	} else if len(encryptionKey) > 0 {
+		var errDecrypt error
+		archive, errDecrypt = decryptBackupEnvelope(data, encryptionKey)
+		clear(data)
+		if errDecrypt != nil {
+			return restoreCandidate{}, errDecrypt
+		}
+	} else {
+		clear(data)
+		return restoreCandidate{}, errors.New("s3 backup artifact is encrypted but no encryption key was provided")
 	}
 	defer clear(archive)
 	work := filepath.Join(m.workDir, "s3-restore")

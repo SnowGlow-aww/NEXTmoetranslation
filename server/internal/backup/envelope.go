@@ -51,7 +51,7 @@ var ErrBackupEnvelopeAuthentication = errors.New("backup envelope authentication
 func loadBackupEncryptionKey() ([]byte, error) {
 	raw, present := os.LookupEnv(backupEncryptionKeyEnv)
 	if !present || raw == "" {
-		return nil, fmt.Errorf("backup encryption key is not configured: set %s to the canonical base64 encoding of 32 random bytes", backupEncryptionKeyEnv)
+		return nil, nil
 	}
 	if raw != strings.TrimSpace(raw) {
 		return nil, fmt.Errorf("invalid %s: surrounding whitespace is not allowed", backupEncryptionKeyEnv)
