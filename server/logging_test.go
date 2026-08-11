@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -48,5 +50,20 @@ func TestLoggingWriterExposesTransportDeadlines(t *testing.T) {
 	}
 	if !underlying.deadlineSet {
 		t.Fatal("logging writer hid the transport write deadline")
+	}
+}
+
+type hijackerResponseWriter struct {
+	http.ResponseWriter
+}
+
+func (w *hijackerResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return nil, nil, nil
+}
+
+func TestLoggingWriterImplementsHijacker(t *testing.T) {
+	wrapped := &loggingResponseWriter{ResponseWriter: &hijackerResponseWriter{ResponseWriter: httptest.NewRecorder()}}
+	if _, ok := any(wrapped).(http.Hijacker); !ok {
+		t.Fatal("loggingResponseWriter does not implement http.Hijacker interface")
 	}
 }

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -18,7 +21,7 @@ var (
 )
 
 // loggingResponseWriter wraps http.ResponseWriter to capture the status code
-// while transparently forwarding Flush, so SSE streaming keeps working.
+// while transparently forwarding Flush and Hijack for SSE and WebSocket connections.
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	status      int
@@ -51,6 +54,14 @@ func (w *loggingResponseWriter) Flush() {
 	if f, ok := w.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+// Hijack forwards to the underlying writer when it supports connection hijacking (WebSocket).
+func (w *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("underlying http.ResponseWriter does not implement http.Hijacker")
 }
 
 // loggingMiddleware logs one line per request: method, path, status, duration,
