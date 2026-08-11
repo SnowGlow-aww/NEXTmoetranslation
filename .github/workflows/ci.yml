@@ -369,7 +369,6 @@ jobs:
           master_key_log="$RUNNER_TEMP/nexttrans-missing-master-key.log"
           if docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
             -e JWT_SECRET=ci-synthetic-jwt-secret-at-least-32-bytes \
-            -e CONSOLE_ORIGIN=http://127.0.0.1 \
             "$CI_IMAGE" >"$master_key_log" 2>&1; then
             cat "$master_key_log"
             exit 1
@@ -380,7 +379,6 @@ jobs:
           if docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
             -e JWT_SECRET=ci-synthetic-jwt-secret-at-least-32-bytes \
             -e MOESEKAI_MASTER_KEY=ci-synthetic-master-key-at-least-32-bytes \
-            -e CONSOLE_ORIGIN=http://127.0.0.1 \
             -e TRANSLATE_SCHEDULER_ENABLED=false \
             "$CI_IMAGE" >"$admin_log" 2>&1; then
             cat "$admin_log"
@@ -392,7 +390,6 @@ jobs:
           if docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
             -e JWT_SECRET=ci-synthetic-jwt-secret-at-least-32-bytes \
             -e MOESEKAI_MASTER_KEY=ci-synthetic-master-key-at-least-32-bytes \
-            -e CONSOLE_ORIGIN=http://127.0.0.1 \
             -e ADMIN_USER=admin \
             -e ADMIN_PASSWORD=replace-with-12-or-more-characters \
             -e TRANSLATE_SCHEDULER_ENABLED=false \
@@ -424,7 +421,6 @@ jobs:
               --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
               -e JWT_SECRET=ci-synthetic-jwt-secret-at-least-32-bytes \
               -e MOESEKAI_MASTER_KEY=ci-synthetic-master-key-at-least-32-bytes \
-              -e CONSOLE_ORIGIN=http://127.0.0.1 \
               -e SEARCH_INDEX_RETRY_MIN_MS=100 \
               -e SEARCH_INDEX_RETRY_MAX_MS=1000 \
               -e UPSTREAM_JP_MASTERDATA_URL=https://example.invalid/jp/master \
@@ -469,7 +465,6 @@ jobs:
             --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
             -e JWT_SECRET=ci-synthetic-jwt-secret-at-least-32-bytes \
             -e MOESEKAI_MASTER_KEY=ci-synthetic-master-key-at-least-32-bytes \
-            -e CONSOLE_ORIGIN=http://127.0.0.1 \
             -e TRANSLATE_SCHEDULER_ENABLED=false \
             "$CI_IMAGE" >"$competing_log" 2>&1; then
             cat "$competing_log"

@@ -795,8 +795,8 @@ func validateProductionMasterKey(production bool, masterKey string) error {
 
 func validateConsoleOrigin(production bool, origin string) error {
 	origin = strings.TrimSpace(origin)
-	if production && (origin == "" || origin == "*") {
-		return fmt.Errorf("production requires an explicit console origin")
+	if origin == "" {
+		return fmt.Errorf("must be * or one absolute http(s) origin")
 	}
 	if origin == "*" {
 		return nil

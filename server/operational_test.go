@@ -506,8 +506,11 @@ func TestProductionStartupRequiresMasterKeyAndInitializedAdmin(t *testing.T) {
 	if err := validateProductionMasterKey(false, "short"); err != nil {
 		t.Fatalf("development rejected a short master key: %v", err)
 	}
-	if err := validateConsoleOrigin(true, "*"); err == nil {
-		t.Fatal("production accepted wildcard console CORS")
+	if err := validateConsoleOrigin(true, "*"); err != nil {
+		t.Fatalf("production rejected wildcard console CORS: %v", err)
+	}
+	if err := validateConsoleOrigin(true, ""); err == nil {
+		t.Fatal("production accepted an empty console origin")
 	}
 	if err := validateConsoleOrigin(true, "https://console.example"); err != nil {
 		t.Fatalf("production rejected explicit console origin: %v", err)
