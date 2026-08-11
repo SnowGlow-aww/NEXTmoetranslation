@@ -56,7 +56,9 @@ WORKSPACE_MODE=disabled
 
 The runtime identity is `65532:65532`. `/app`, its binaries, and exported console files are root-owned and non-writable. Production starts with a read-only root filesystem, a writable persistent `/data` volume, and a bounded writable `/tmp` tmpfs. One process owns the SQLite location for its lifetime; a competing writer must fail before opening the database.
 
-CI builds this exact production target and verifies the permanent environment, absence of `/app/workspace`, read-only application tree, UID/GID, fail-closed production secrets and administrator initialization, disabled `/workspace*` responses, the single-writer lock, persistent restart, and bounded clean shutdown.
+The server binary also embeds the accepted public-only 700-song Public Lyrics v3 runtime projection at `server/internal/publiclyricsbundle/public-v3.tar.gz`. Its archive SHA-256 is `6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b`; initial public projection and every later rebuild require the exact closed inventory of 654 JSON assets, 47,561,072 uncompressed bytes, 700 unique catalog records, 653 details, and the reviewed state counts. The package rejects any nested, duplicate, non-regular, oversized, unexpected, or identity-mismatched member. It contains only `index.json` and `music_<id>.json`: no candidate manifest, receipt, producer database, recovery evidence, or authenticated/private input. After every database-backed files-service rebuild, these immutable bytes atomically replace both canonical `translation/lyrics/*` assets and all supported `v2/{locale}/translation/lyrics/*` mirrors. The overlay does not migrate, replace, or write `/data/moesekai.db`.
+
+CI builds this exact production target and verifies the permanent environment, absence of `/app/workspace`, read-only application tree, UID/GID, fail-closed production secrets and administrator initialization, disabled `/workspace*` responses, the single-writer lock, persistent restart, bounded clean shutdown, and the content-addressed Public Lyrics bundle contract.
 
 ## Publication Sequence
 

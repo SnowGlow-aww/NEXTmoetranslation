@@ -64,7 +64,15 @@ func TestBackupEnvelopeRoundTripRejectsWrongKeyAndTampering(t *testing.T) {
 	}
 }
 
-func TestBackupAllRejectsMissingOrInvalidEncryptionKeyBeforeRemoteIO(t *testing.T) {
+func TestMissingBackupEncryptionKeySelectsLegacyUnencryptedArtifact(t *testing.T) {
+	t.Setenv(backupEncryptionKeyEnv, "")
+	key, err := loadBackupEncryptionKey()
+	if err != nil || len(key) != 0 {
+		t.Fatalf("missing backup encryption key = %d bytes, err=%v", len(key), err)
+	}
+}
+
+func TestBackupAllRejectsInvalidEncryptionKeyBeforeRemoteIO(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake git sentinel uses a POSIX shell script")
 	}
@@ -72,7 +80,6 @@ func TestBackupAllRejectsMissingOrInvalidEncryptionKeyBeforeRemoteIO(t *testing.
 		name  string
 		value string
 	}{
-		{name: "missing"},
 		{name: "invalid", value: "not-canonical-base64"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -119,10 +126,10 @@ func TestBackupAllRejectsMissingOrInvalidEncryptionKeyBeforeRemoteIO(t *testing.
 				t.Fatalf("BackupAll results = %#v", results)
 			}
 			if got := requests.Load(); got != 0 {
-				t.Fatalf("missing/invalid key allowed %d S3 requests", got)
+				t.Fatalf("invalid key allowed %d S3 requests", got)
 			}
 			if _, statErr := os.Stat(marker); !errors.Is(statErr, os.ErrNotExist) {
-				t.Fatalf("missing/invalid key invoked remote git: %v", statErr)
+				t.Fatalf("invalid key invoked remote git: %v", statErr)
 			}
 		})
 	}

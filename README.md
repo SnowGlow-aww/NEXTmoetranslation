@@ -16,6 +16,7 @@ v2/
 │       ├── legacy/         旧文件加载（含 virtualLive 损坏数据恢复）
 │       ├── files/          从 DB 再生成兼容格式 JSON
 │       ├── filesvc/        /files/* 内存缓存服务（ETag + Cache-Control）
+│       ├── publiclyricsbundle/ 已验收 700 首 Public Lyrics v3 只读运行时包
 │       ├── searchindex/    search-index.json 生成
 │       ├── config/         设置存储（AES-GCM 加密密钥）+ env 种子
 │       ├── auth/           JWT + bcrypt + RBAC（admin/editor）
@@ -46,7 +47,8 @@ v2/
 
 1. **编辑真源**：SQLite。所有翻译、活动剧情、来源标记、ID 追踪都存在 DB。
 2. **公开分发**：DB 变更（去抖）后再生成 `/files/translation/*.json` 与 `search-index.json`。
-3. **来源优先级**：pinned > human > cn > llm > unknown。
+3. **Public Lyrics 700 发布覆盖**：生产 standalone 镜像内嵌已验收的 Public Lyrics v3 只读包（归档 SHA-256 `6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b`，654 个公开 JSON，700 首目录记录）。每次 files-service projection rebuild 都先完成普通 SQLite 投影，再以同一组不可变 bytes 覆盖 canonical `/translation/lyrics/*` 及 `v2/{locale}/translation/lyrics/*`；不会替换或迁移生产 SQLite，也不会把 manifest、receipt、producer DB、evidence 或私有输入打进公开包。
+4. **来源优先级**：pinned > human > cn > llm > unknown。
 
 歌词首次普通保存可以不填 `sourceUrl`，也可以填写有效的非托管外部参考链接；产品托管的 Vocaloid Wiki 精确 origin 只能通过服务端验证 preview/import 路径写入完整 page/revision/SHA1/fetch identity，不能仅粘贴 Wiki URL 绕过验证。历史上已经存在的仅 URL Wiki 草稿仍可继续编辑翻译，但其 URL、来源 identity 和日文来源结构必须保持不变。固定 page/revision/SHA1 只证明保存内容与某次抓取的修订一致，不证明转载、翻译或发布获授权；私有 `sourceNote`、`licenseNote` 与公开 `attribution` 都是 operator-authored metadata，系统不会把它们当作权利或许可证明。
 
@@ -92,7 +94,7 @@ go run ./cmd/lyrics-import-stage \
 
 应用内 Git/S3 内容备份不是完整数据库备份：它不包含用户、密码哈希、token generation、设置、审计记录或加密配置。生产环境必须另行使用 SQLite 在线备份语义生成完整快照，执行 `PRAGMA integrity_check`，加密后传到独立的 off-host 存储，并定期做恢复演练。不能在 WAL 活跃时只复制 `moesekai.db` 主文件。
 
-备份中的 `translations/` 以 `Generator.WriteAllContext` 生成的 legacy category/event restore projection 为基础；`materializeBackupPayload` 再从同一个 SQLite snapshot 明确写入与 `PublishedLyricsJSON` 字节完全一致的 `translations/lyrics/index.json` 和 `translations/lyrics/music_<id>.json` canonical public lyrics 归档，而不改变通用 legacy generator 的输出语义。published lyrics 的草稿、私有来源资料和 publication snapshot 另存于 `translation-content/lyrics.json`，用于恢复 SQLite 后由运行中的 `filesvc` 原子重建公开投影。该 materialization 与备份 push 都不是部署、静态站点发布或 CDN 同步；v2 locale projections 与 search indexes 仍不进入该归档。
+备份中的 `translations/` 以 `Generator.WriteAllContext` 生成的 legacy category/event restore projection 为基础；`materializeBackupPayload` 再从同一个 SQLite snapshot 明确写入与该快照 `PublishedLyricsJSON` 字节完全一致的 `translations/lyrics/index.json` 和 `translations/lyrics/music_<id>.json` 数据库投影归档，而不改变通用 legacy generator 的输出语义。published lyrics 的草稿、私有来源资料和 publication snapshot 另存于 `translation-content/lyrics.json`，用于恢复 SQLite 自身的可编辑状态。当前 700 首生产发布覆盖属于镜像内不可变公开 release content，不进入内容备份、不会被 restore 写入数据库，并会在 restore 后的下一次 files-service rebuild 中继续覆盖对外歌词路径。该 materialization 与备份 push 都不是部署、静态站点发布或 CDN 同步；v2 locale projections 与 search indexes 仍不进入该归档。
 
 增量备份继续使用 `translation-content` schemaVersion 1；`event-stories.json` 追加规范化 Scenario 与独立 `scenarioCount`，旧 `count` 语义不变。旧备份不含 Scenario 时会显式清空该 side table，恢复前会校验 SHA 与 event/episode/scenario 父身份并保持整笔事务原子。
 

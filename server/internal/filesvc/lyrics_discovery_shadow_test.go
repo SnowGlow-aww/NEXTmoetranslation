@@ -53,6 +53,7 @@ func TestLyricsDiscoveryShadowCompletionHasNoAuthoritativeOrPublicSideEffects(t 
 		t.Fatal(err)
 	}
 	service := New(translations, events, files.NewGenerator(translations, events, ""))
+	service.publicLyrics = nil
 	service.debounce = time.Millisecond
 	service.Start()
 	defer func() {

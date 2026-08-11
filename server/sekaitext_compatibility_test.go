@@ -205,6 +205,15 @@ func TestSekaiTextCategorySaveToPublicFilesAndExistingBackups(t *testing.T) {
 	if !bytes.Equal(filesBody, aliasBody) || !bytes.Contains(filesBody, []byte("saved through API")) {
 		t.Fatalf("public aliases differ or omit save\n/files: %s\n/translation: %s", filesBody, aliasBody)
 	}
+	lyricsIndex := compatibilityPublicGET(t, server.URL+"/translation/lyrics/index.json")
+	for _, path := range []string{"/translation/lyrics", "/translation/lyrics/"} {
+		if got := compatibilityPublicGET(t, server.URL+path); !bytes.Equal(got, lyricsIndex) {
+			t.Fatalf("lyrics directory alias %s differs from index", path)
+		}
+	}
+	if !bytes.Contains(lyricsIndex, []byte(`"version": 3`)) {
+		t.Fatalf("lyrics index is not the accepted public v3 contract: %s", lyricsIndex)
+	}
 
 	backupResponse := compatibilityJSON(t, token, http.MethodPost, server.URL+"/api/backup/push", map[string]any{})
 	defer backupResponse.Body.Close()
