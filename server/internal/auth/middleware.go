@@ -16,15 +16,17 @@ func FromContext(ctx context.Context) (*Claims, bool) {
 	return c, ok
 }
 
-// BearerTokenFromRequest extracts a token from the Authorization header. Query
-// parameters are deliberately excluded so credentials in URLs cannot
-// authenticate APIs.
+// BearerTokenFromRequest extracts a token from the Authorization header or
+// from the "token" query parameter (required for browser WebSocket connections).
 func BearerTokenFromRequest(r *http.Request) string {
 	scheme, token, ok := strings.Cut(strings.TrimSpace(r.Header.Get("Authorization")), " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" || strings.ContainsAny(token, " \t") {
-		return ""
+	if ok && strings.EqualFold(scheme, "Bearer") && token != "" && !strings.ContainsAny(token, " \t") {
+		return token
 	}
-	return token
+	if queryToken := strings.TrimSpace(r.URL.Query().Get("token")); queryToken != "" && !strings.ContainsAny(queryToken, " \t") {
+		return queryToken
+	}
+	return ""
 }
 
 // RequireAuth wraps a handler, rejecting requests without a valid JWT and

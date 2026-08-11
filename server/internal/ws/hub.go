@@ -182,73 +182,78 @@ func (h *Hub) Close() {
 
 // Handler handles WebSocket connections.
 func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.Request) bool) http.HandlerFunc {
-	wsHandler := websocket.Handler(func(ws *websocket.Conn) {
-		r := ws.Request()
-		user := ""
-		if usernameFn != nil {
-			user = usernameFn(r)
-		}
-		c, err := h.add(user, ws)
-		if err != nil {
-			return
-		}
-		defer h.remove(c.id)
-
-		// Immediately push current editor gate status upon connection.
-		if h.editorGate != nil {
-			c.ch <- Message{Event: EventGateStatus, Data: h.editorGate.Status()}
-		}
-
-		// Writer goroutine: sends queued messages to client over WS.
-		go func() {
-			ticker := time.NewTicker(20 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-c.done:
-					return
-				case msg, ok := <-c.ch:
-					if !ok {
-						return
-					}
-					_ = ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
-					if err := websocket.JSON.Send(ws, msg); err != nil {
-						c.disconnect()
-						return
-					}
-				case <-ticker.C:
-					if validFn != nil && !validFn(r) {
-						c.disconnect()
-						return
-					}
-					_ = ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
-					if err := websocket.JSON.Send(ws, Message{Event: EventPing, Data: time.Now().Unix()}); err != nil {
-						c.disconnect()
-						return
-					}
-				}
+	wsServer := websocket.Server{
+		Handshake: func(config *websocket.Config, req *http.Request) error {
+			return nil
+		},
+		Handler: websocket.Handler(func(ws *websocket.Conn) {
+			r := ws.Request()
+			user := ""
+			if usernameFn != nil {
+				user = usernameFn(r)
 			}
-		}()
-
-		// Reader goroutine (main WS handler context): listens for client frames like ping/check_sync.
-		for {
-			var clientMsg ClientMsg
-			_ = ws.SetReadDeadline(time.Now().Add(60 * time.Second))
-			if err := websocket.JSON.Receive(ws, &clientMsg); err != nil {
+			c, err := h.add(user, ws)
+			if err != nil {
 				return
 			}
-			if clientMsg.Type == "check_sync" || clientMsg.Type == "ping" {
-				if h.editorGate != nil {
+			defer h.remove(c.id)
+
+			// Immediately push current editor gate status upon connection.
+			if h.editorGate != nil {
+				c.ch <- Message{Event: EventGateStatus, Data: h.editorGate.Status()}
+			}
+
+			// Writer goroutine: sends queued messages to client over WS.
+			go func() {
+				ticker := time.NewTicker(20 * time.Second)
+				defer ticker.Stop()
+				for {
 					select {
-					case c.ch <- Message{Event: EventGateStatus, Data: h.editorGate.Status()}:
-					default:
+					case <-c.done:
+						return
+					case msg, ok := <-c.ch:
+						if !ok {
+							return
+						}
+						_ = ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+						if err := websocket.JSON.Send(ws, msg); err != nil {
+							c.disconnect()
+							return
+						}
+					case <-ticker.C:
+						if validFn != nil && !validFn(r) {
+							c.disconnect()
+							return
+						}
+						_ = ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+						if err := websocket.JSON.Send(ws, Message{Event: EventPing, Data: time.Now().Unix()}); err != nil {
+							c.disconnect()
+							return
+						}
+					}
+				}
+			}()
+
+			// Reader goroutine (main WS handler context): listens for client frames like ping/check_sync.
+			for {
+				var clientMsg ClientMsg
+				_ = ws.SetReadDeadline(time.Now().Add(60 * time.Second))
+				if err := websocket.JSON.Receive(ws, &clientMsg); err != nil {
+					return
+				}
+				if clientMsg.Type == "check_sync" || clientMsg.Type == "ping" {
+					if h.editorGate != nil {
+						select {
+						case c.ch <- Message{Event: EventGateStatus, Data: h.editorGate.Status()}:
+						default:
+						}
 					}
 				}
 			}
-		}
-	})
+		}),
+	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		wsHandler.ServeHTTP(w, r)
+		wsServer.ServeHTTP(w, r)
 	}
 }
