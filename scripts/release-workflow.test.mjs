@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 
@@ -11,6 +12,11 @@ const releaseDocumentation = readFileSync(new URL('STANDALONE_RELEASE.md', root)
 const productionContract = readFileSync(new URL('PRODUCTION_CONTRACT.md', root), 'utf8')
 const rollbackRunbook = readFileSync(new URL('ROLLBACK_RUNBOOK.md', root), 'utf8')
 const readme = readFileSync(new URL('README.md', root), 'utf8')
+const publicLyricsBundlePath = new URL('server/internal/publiclyricsbundle/public-v3.tar.gz', root)
+const publicLyricsBundleSource = readFileSync(new URL('server/internal/publiclyricsbundle/bundle.go', root), 'utf8')
+const publicLyricsBundleBuilder = readFileSync(new URL('scripts/build-public-lyrics-v3-bundle.py', root), 'utf8')
+const publicLyricsBundle = readFileSync(publicLyricsBundlePath)
+const expectedPublicLyricsBundleSHA256 = '6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b'
 
 function stepSection(source, name, nextName) {
   const start = source.indexOf(`      - name: ${name}\n`)
@@ -33,6 +39,24 @@ test('paired release workflow and runbook are retired by deletion', () => {
   assert.equal(existsSync(new URL('PAIRED_RELEASE.md', root)), false)
   assert.equal(existsSync(new URL('.github/workflows/release-next.yml', root)), true)
   assert.equal(existsSync(new URL('STANDALONE_RELEASE.md', root)), true)
+})
+
+test('the accepted public lyrics bundle is present and content-addressed', () => {
+  assert.equal(existsSync(publicLyricsBundlePath), true)
+  assert.equal(createHash('sha256').update(publicLyricsBundle).digest('hex'), expectedPublicLyricsBundleSHA256)
+  assert.match(publicLyricsBundleSource, /ExpectedArchiveSHA256\s+=\s+\"6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b\"/)
+  assert.match(publicLyricsBundleSource, /ExpectedInventorySHA256\s+=\s+\"604aae68e3cd6824a8960a3cbbec5e015af48e5fcdd9895f785ff61e019d1f4b\"/)
+  assert.match(publicLyricsBundleSource, /ExpectedTarSHA256\s+=\s+\"c08f53d7ad0dda1e5a32042608d5d7b9d570292c36371f618dec0529f90cac96\"/)
+  assert.match(publicLyricsBundleSource, /ExpectedRuntimeBytes\s+=\s+47561072/)
+  assert.match(publicLyricsBundleSource, /ExpectedAssetCount\s+=\s+654/)
+  assert.match(publicLyricsBundleSource, /ExpectedCatalogCount\s+=\s+700/)
+  assert.match(publicLyricsBundleSource, /ExpectedDetailCount\s+=\s+653/)
+  assert.match(publicLyricsBundleSource, /DecodePublicLyricsV3Index/)
+  assert.match(publicLyricsBundleSource, /DecodePublicLyricsV3Detail/)
+  assert.match(publicLyricsBundleSource, /go:embed public-v3\.tar\.gz/)
+  assert.match(publicLyricsBundleBuilder, /EXPECTED_MANIFEST_SHA256 = \"b88f3076e40a6711b9e6a55321ede9da0aef0b69489a22b5b74fe468f5676d6f\"/)
+  assert.match(publicLyricsBundleBuilder, /EXPECTED_RECEIPT_FILE_SHA256 = \"a4bf207f446feffd71f2e51ab1755ac3c9cd648b34fe72596f85de3c6a559deb\"/)
+  assert.match(publicLyricsBundleBuilder, /generated public runtime bundle differs from the accepted release/)
 })
 
 test('Docker defaults to a standalone production target without workspace bytes', () => {

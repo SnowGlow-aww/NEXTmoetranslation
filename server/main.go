@@ -453,7 +453,11 @@ func registerPublicFileRoutes(mux *http.ServeMux, fileService *filesvc.Service) 
 	// /translation/* is a backward-compatible alias for /files/translation/*.
 	// External sites (e.g. pjsk.moe) fetch translation JSON from this path.
 	mux.HandleFunc("/translation/", func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/files/translation/" + strings.TrimPrefix(r.URL.Path, "/translation/")
+		suffix := strings.TrimPrefix(r.URL.Path, "/translation/")
+		if suffix == "lyrics" || suffix == "lyrics/" {
+			suffix = "lyrics/index.json"
+		}
+		r.URL.Path = "/files/translation/" + suffix
 		fileService.Handler().ServeHTTP(w, r)
 	})
 }

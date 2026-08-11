@@ -16,24 +16,50 @@ func FromContext(ctx context.Context) (*Claims, bool) {
 	return c, ok
 }
 
-// BearerTokenFromRequest extracts a token from the Authorization header or
-// from the "token" query parameter (required for browser WebSocket connections).
+// BearerTokenFromRequest extracts a token only from the Authorization header.
+// URL credentials are deliberately excluded from normal HTTP and SSE routes.
 func BearerTokenFromRequest(r *http.Request) string {
 	scheme, token, ok := strings.Cut(strings.TrimSpace(r.Header.Get("Authorization")), " ")
-	if ok && strings.EqualFold(scheme, "Bearer") && token != "" && !strings.ContainsAny(token, " \t") {
+	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" || strings.ContainsAny(token, " \t") {
+		return ""
+	}
+	return token
+}
+
+// WebSocketTokenFromRequest additionally accepts one query token because the
+// browser WebSocket API cannot set an Authorization header. Callers must scope
+// this extractor exclusively to the /ws handshake and connection revalidation.
+func WebSocketTokenFromRequest(r *http.Request) string {
+	if token := BearerTokenFromRequest(r); token != "" {
 		return token
 	}
-	if queryToken := strings.TrimSpace(r.URL.Query().Get("token")); queryToken != "" && !strings.ContainsAny(queryToken, " \t") {
-		return queryToken
+	values, ok := r.URL.Query()["token"]
+	if !ok || len(values) != 1 {
+		return ""
 	}
-	return ""
+	token := strings.TrimSpace(values[0])
+	if token == "" || strings.ContainsAny(token, " \t") {
+		return ""
+	}
+	return token
 }
 
 // RequireAuth wraps a handler, rejecting requests without a valid JWT and
 // attaching the claims to the request context.
 func (a *Auth) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return a.requireToken(BearerTokenFromRequest, next)
+}
+
+// RequireWebSocketAuth authenticates the /ws browser handshake. It is the only
+// middleware allowed to consume a query token; normal API and SSE routes remain
+// header-only through RequireAuth.
+func (a *Auth) RequireWebSocketAuth(next http.HandlerFunc) http.HandlerFunc {
+	return a.requireToken(WebSocketTokenFromRequest, next)
+}
+
+func (a *Auth) requireToken(extract func(*http.Request) string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		claims, err := a.VerifyToken(BearerTokenFromRequest(r))
+		claims, err := a.VerifyToken(extract(r))
 		if err != nil {
 			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 			return

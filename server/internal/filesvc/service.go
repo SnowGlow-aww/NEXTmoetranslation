@@ -6,6 +6,7 @@
 package filesvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -19,6 +20,7 @@ import (
 
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/model"
+	"moesekai/server/internal/publiclyricsbundle"
 	"moesekai/server/internal/store"
 )
 
@@ -40,12 +42,14 @@ type ProjectionStatus struct {
 
 // Service holds generated assets in memory and serves them.
 type Service struct {
-	gen      *files.Generator
-	store    *store.Store
-	events   *store.EventStore
-	maxAge   time.Duration
-	swr      time.Duration
-	debounce time.Duration
+	gen             *files.Generator
+	store           *store.Store
+	events          *store.EventStore
+	publicLyrics    map[string][]byte
+	publicLyricsErr error
+	maxAge          time.Duration
+	swr             time.Duration
+	debounce        time.Duration
 
 	mu        sync.RWMutex
 	assets    map[string]asset // path key e.g. "translation/cards.json"
@@ -68,20 +72,23 @@ type Service struct {
 }
 
 func New(s *store.Store, es *store.EventStore, gen *files.Generator) *Service {
+	publicLyrics, publicLyricsErr := publiclyricsbundle.Load()
 	ctx, cancel := context.WithCancel(context.Background())
 	svc := &Service{
-		gen:       gen,
-		store:     s,
-		events:    es,
-		maxAge:    5 * time.Minute,
-		swr:       time.Hour,
-		debounce:  2 * time.Second,
-		assets:    map[string]asset{},
-		rebuildCh: make(chan struct{}, 1),
-		retryMin:  time.Second,
-		retryMax:  30 * time.Second,
-		ctx:       ctx,
-		cancel:    cancel,
+		gen:             gen,
+		store:           s,
+		events:          es,
+		publicLyrics:    publicLyrics,
+		publicLyricsErr: publicLyricsErr,
+		maxAge:          5 * time.Minute,
+		swr:             time.Hour,
+		debounce:        2 * time.Second,
+		assets:          map[string]asset{},
+		rebuildCh:       make(chan struct{}, 1),
+		retryMin:        time.Second,
+		retryMax:        30 * time.Second,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 	svc.rebuildAssetsFn = svc.rebuildAssets
 	return svc
@@ -295,6 +302,12 @@ func (svc *Service) rebuildAssets() error {
 }
 
 func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if svc.publicLyricsErr != nil {
+		return fmt.Errorf("public lyrics bundle: %w", svc.publicLyricsErr)
+	}
 	releaseContent, err := svc.store.LockContentExclusiveContext(ctx)
 	if err != nil {
 		return err
@@ -361,9 +374,16 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 			next[key] = makeAsset(b, "application/json; charset=utf-8", now)
 		}
 	}
-	lyrics, err := svc.gen.PublishedLyricsJSON()
-	if err != nil {
-		return fmt.Errorf("lyrics: %w", err)
+	// The accepted recovery-v3 projection is public, immutable release content.
+	// When present it is the complete lyrics publication source, so malformed or
+	// legacy database publications cannot block or replace the reviewed 700-song
+	// contract. Canonical and locale-mirror paths publish in one asset generation.
+	lyrics := svc.publicLyrics
+	if lyrics == nil {
+		lyrics, err = svc.gen.PublishedLyricsJSON()
+		if err != nil {
+			return fmt.Errorf("lyrics: %w", err)
+		}
 	}
 	for key, body := range lyrics {
 		next[key] = makeAsset(body, "application/json; charset=utf-8", now)
@@ -397,13 +417,28 @@ func (svc *Service) SetAssets(bodies map[string][]byte, contentType string) {
 	now := time.Now()
 	prepared := make(map[string]asset, len(bodies))
 	for key, body := range bodies {
-		prepared[key] = makeAsset(body, contentType, now)
+		if svc.publicLyrics != nil && isPublicLyricsAssetKey(key) {
+			continue
+		}
+		prepared[key] = makeAsset(bytes.Clone(body), contentType, now)
 	}
 	svc.mu.Lock()
 	for key, value := range prepared {
 		svc.assets[key] = value
 	}
 	svc.mu.Unlock()
+}
+
+func isPublicLyricsAssetKey(key string) bool {
+	if strings.HasPrefix(key, "translation/lyrics/") {
+		return true
+	}
+	for _, locale := range model.SupportedLocales {
+		if strings.HasPrefix(key, fmt.Sprintf("v2/%s/translation/lyrics/", locale)) {
+			return true
+		}
+	}
+	return false
 }
 
 func makeAsset(body []byte, contentType string, t time.Time) asset {

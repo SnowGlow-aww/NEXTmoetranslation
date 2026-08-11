@@ -320,6 +320,120 @@ func TestLegacyPublicFileHTTPContract(t *testing.T) {
 	}
 }
 
+func TestSetAssetsDefensivelyCopiesBodies(t *testing.T) {
+	svc := &Service{assets: map[string]asset{}}
+	body := []byte(`{"version":1}`)
+	svc.SetAsset("data/search-index.json", body, "application/json; charset=utf-8")
+	body[2] = 'X'
+
+	req := httptest.NewRequest(http.MethodGet, "/files/data/search-index.json", nil)
+	resp := httptest.NewRecorder()
+	svc.Handler().ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK || resp.Body.String() != `{"version":1}` {
+		t.Fatalf("SetAsset retained a mutable caller buffer: status=%d body=%s", resp.Code, resp.Body.String())
+	}
+}
+
+func TestEmbeddedPublicLyricsOverlaySurvivesDatabaseRebuild(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "embedded-public-lyrics.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.Rebuild()
+
+	read := func(path string) (int, []byte) {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		resp := httptest.NewRecorder()
+		svc.Handler().ServeHTTP(resp, req)
+		return resp.Code, resp.Body.Bytes()
+	}
+	status, index := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK {
+		t.Fatalf("embedded lyrics index status=%d body=%s", status, index)
+	}
+	var document struct {
+		Version int           `json:"version"`
+		Songs   []interface{} `json:"songs"`
+	}
+	if err := json.Unmarshal(index, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.Version != 3 || len(document.Songs) != 700 {
+		t.Fatalf("embedded lyrics index version=%d songs=%d", document.Version, len(document.Songs))
+	}
+	if status, _ := read("/files/translation/lyrics/music_307.json"); status != http.StatusOK {
+		t.Fatalf("embedded music_307 status=%d", status)
+	}
+	if status, _ := read("/files/translation/lyrics/music_789.json"); status != http.StatusNotFound {
+		t.Fatalf("embedded incomplete music_789 status=%d", status)
+	}
+	for _, locale := range model.SupportedLocales {
+		root := "/files/v2/" + locale + "/translation/lyrics/"
+		if status, localizedIndex := read(root + "index.json"); status != http.StatusOK || !bytes.Equal(localizedIndex, index) {
+			t.Fatalf("embedded locale index %s status=%d differs=%v", locale, status, !bytes.Equal(localizedIndex, index))
+		}
+		if status, _ := read(root + "music_307.json"); status != http.StatusOK {
+			t.Fatalf("embedded locale music_307 %s status=%d", locale, status)
+		}
+		if status, _ := read(root + "music_789.json"); status != http.StatusNotFound {
+			t.Fatalf("embedded locale incomplete music_789 %s status=%d", locale, status)
+		}
+	}
+
+	const malformedMusicID = 99001
+	const malformedPerformerID = 99002
+	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{{MusicID: malformedMusicID, JapaneseTitle: "壊れたDB投影"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: malformedPerformerID, JapaneseName: "試験歌唱者"}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, changed, err := s.SaveImportedLyricsMutation(model.SongLyrics{
+		MusicID: malformedMusicID, Attribution: "Synthetic private database publication",
+		SourceURL: "https://source.invalid/wiki/99001", SourcePageID: 99001, SourceRevisionID: 1,
+		SourceSHA1: "0123456789abcdef0123456789abcdef01234567", SourceFetchedAt: "2026-08-11T00:00:00Z",
+		Lines: []model.LyricLine{{
+			ID: "malformed-db-line", Order: 0, Japanese: "壊れたDB投影",
+			Segments: []model.LyricSegment{{Text: "壊れたDB投影", PerformerIDs: []int{malformedPerformerID}}},
+		}},
+	}, "fixture")
+	if err != nil || !changed {
+		t.Fatalf("save malformed DB fixture changed=%t err=%v", changed, err)
+	}
+	if _, err := s.PublishLyrics(saved.MusicID, saved.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE song_lyrics_publications SET payload_json='{' WHERE music_id=?`, malformedMusicID); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	status, malformedDBIndex := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK || !bytes.Equal(malformedDBIndex, index) || svc.Status().LastError != "" {
+		t.Fatalf("malformed DB publication blocked immutable bundle: status=%d projection=%+v", status, svc.Status())
+	}
+
+	svc.SetAsset("translation/lyrics/index.json", []byte(`{"version":1,"songs":[]}`), "application/json; charset=utf-8")
+	svc.SetAsset("v2/zh-CN/translation/lyrics/index.json", []byte(`{"version":1,"songs":[]}`), "application/json; charset=utf-8")
+	for _, path := range []string{
+		"/files/translation/lyrics/index.json",
+		"/files/v2/zh-CN/translation/lyrics/index.json",
+	} {
+		status, protectedIndex := read(path)
+		if status != http.StatusOK || !bytes.Equal(protectedIndex, index) {
+			t.Fatalf("external asset setter replaced immutable public lyrics %s: status=%d", path, status)
+		}
+	}
+	svc.Rebuild()
+	status, rebuiltIndex := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK || !bytes.Equal(rebuiltIndex, index) {
+		t.Fatalf("database rebuild did not retain immutable public lyrics overlay: status=%d", status)
+	}
+}
+
 func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 	publicLocales := []string{"ja-JP", "zh-CN", "en-US"}
 	firstMusicID := 41001
@@ -381,6 +495,7 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 	}
 
 	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.publicLyrics = nil
 	svc.Rebuild()
 
 	readAsset := func(path string) ([]byte, string, int) {

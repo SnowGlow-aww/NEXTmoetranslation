@@ -103,8 +103,8 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 		if wsHandler, ok := s.wsHub.(interface {
 			Handler(func(*http.Request) string, func(*http.Request) bool) http.HandlerFunc
 		}); ok {
-			mux.HandleFunc("/ws", s.auth.RequireAuth(wsHandler.Handler(currentUser, func(r *http.Request) bool {
-				_, err := s.auth.VerifyToken(auth.BearerTokenFromRequest(r))
+			mux.HandleFunc("/ws", s.auth.RequireWebSocketAuth(wsHandler.Handler(currentUser, func(r *http.Request) bool {
+				_, err := s.auth.VerifyToken(auth.WebSocketTokenFromRequest(r))
 				return err == nil
 			})))
 		}
