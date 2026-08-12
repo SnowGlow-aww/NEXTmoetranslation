@@ -3167,6 +3167,10 @@ ALTER TABLE song_lyrics ADD COLUMN proofreading_credit TEXT NOT NULL DEFAULT '';
 	version: 27,
 	name:    "lyrics_peer_renditions_and_localizations",
 	sql:     migrationV27LyricsRenditionsSQL,
+}, {
+	version: 28,
+	name:    "embedded_lyrics_editor_seed_ledger",
+	sql:     migrationV28EmbeddedLyricsEditorSeedSQL,
 }}
 
 func validateLyricsDiscoveryIntegerTypes(tx *sql.Tx) error {

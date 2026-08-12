@@ -232,6 +232,8 @@ export interface CatalogMusicItem {
   isNewlyWrittenMusic: boolean;
   /** Editable/publishable SQLite state. This never describes the immutable embedded release. */
   lyricsStatus?: "draft" | "published" | "draft-published";
+  /** Persisted SQLite availability state for reviewed songs without an editable text document. */
+  lyricsAvailabilityState?: "satisfied_no_lyrics" | "ambiguous" | "missing" | "incomplete" | "failed";
   /** Independent read-only metadata for the embedded Public Lyrics release. */
   runtimeLyrics?: RuntimeLyricsMetadata;
 }

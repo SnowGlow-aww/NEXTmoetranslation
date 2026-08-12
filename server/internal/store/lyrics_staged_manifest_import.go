@@ -283,9 +283,9 @@ func validateStagedImportRuntimeSchema(ctx context.Context, tx *sql.Tx) error {
 		return fmt.Errorf("read staged-import runtime schema: %w", err)
 	}
 	if minimumVersion != 1 || count != maximumVersion || maximumVersion < lyricsstaging.MaximumCatalogRuntimeSchema ||
-		maximumVersion > lyricsRecoveryImportRuntimeSchema {
+		maximumVersion > lyricsImportMaximumCompatibleRuntimeSchema {
 		return fmt.Errorf("staged lyrics import requires a contiguous schema-v%d through schema-v%d runtime",
-			lyricsstaging.MaximumCatalogRuntimeSchema, lyricsRecoveryImportRuntimeSchema)
+			lyricsstaging.MaximumCatalogRuntimeSchema, lyricsImportMaximumCompatibleRuntimeSchema)
 	}
 	return nil
 }

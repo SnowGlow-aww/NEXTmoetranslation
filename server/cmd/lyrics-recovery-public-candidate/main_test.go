@@ -73,7 +73,40 @@ func TestRunRejectsHistoricalMixedLyricsStorageOwnership(t *testing.T) {
 	}
 }
 
-func TestRunReadsV24DatabaseWithoutChangingBytesOrCreatingSidecars(t *testing.T) {
+func TestRunRejectsUnreviewedV29RuntimeWithoutCreatingOutput(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "future-recovery.db")
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
+		VALUES (29,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Checkpoint(t.Context()); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	output := filepath.Join(filepath.Dir(path), "candidate")
+	err = run(context.Background(), []string{
+		"--database", path,
+		"--batch-sha256", strings.Repeat("c", 64),
+		"--output-directory", output,
+	}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "contiguous schema v27 through v28 history") {
+		t.Fatalf("future runtime schema error=%v", err)
+	}
+	if _, statErr := os.Lstat(output); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("failed future-schema candidate created output: %v", statErr)
+	}
+}
+
+func TestRunReadsV28DatabaseWithoutChangingBytesOrCreatingSidecars(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "recovery.db")
 	database, err := db.Open(path)
 	if err != nil {

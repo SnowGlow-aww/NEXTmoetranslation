@@ -23,6 +23,7 @@ import (
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/editorgate"
+	"moesekai/server/internal/embeddedlyricsseed"
 	"moesekai/server/internal/files"
 	"moesekai/server/internal/filesvc"
 	"moesekai/server/internal/httpx"
@@ -157,6 +158,24 @@ func main() {
 	}
 	defer database.Close()
 
+	st := store.New(database)
+	if runtimeProfile == runtimeProfileNextProduction {
+		editorSeed, err := embeddedlyricsseed.Load()
+		if err != nil {
+			fatal("load embedded lyrics editor seed", err)
+		}
+		seedResult, err := st.ApplyEmbeddedLyricsEditorSeed(context.Background(), editorSeed)
+		if errors.Is(err, store.ErrEmbeddedLyricsEditorSeedCatalogNotReady) {
+			log.Printf("embedded lyrics editor seed: deferred because catalog is not initialized")
+		} else if err != nil {
+			fatal("apply embedded lyrics editor seed", err)
+		} else {
+			log.Printf("embedded lyrics editor seed: seed=%s inserted=%d preserved=%d replayed=%d sourceV3=%d legacy=%d availability=%d",
+				seedResult.SeedSHA256, seedResult.Inserted, seedResult.PreservedExisting, seedResult.Replayed,
+				seedResult.SourceV3, seedResult.Legacy, seedResult.Availability)
+		}
+	}
+
 	tokenTTL, err := parseTTL(envOr("TOKEN_TTL_HOURS", "168"))
 	if err != nil {
 		fatal("TOKEN_TTL_HOURS", err)
@@ -181,7 +200,6 @@ func main() {
 		fatal("production startup validation", err)
 	}
 
-	st := store.New(database)
 	es := store.NewEventStore(database)
 	var lyricsDiscoveryWorker *lyricsdiscovery.Worker
 	var lyricsFetchRevisionWorker *lyricsdiscovery.FetchWorker

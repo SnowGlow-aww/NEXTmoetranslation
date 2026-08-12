@@ -16,6 +16,8 @@ import (
 	"moesekai/server/internal/store"
 )
 
+const recoveryPublicCandidateMaximumCompatibleRuntimeSchema = 28
+
 type options struct {
 	databasePath            string
 	batchSHA256             string
@@ -37,7 +39,7 @@ func run(ctx context.Context, arguments []string, output io.Writer) error {
 	var opts options
 	flags := flag.NewFlagSet("lyrics-recovery-public-candidate", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&opts.databasePath, "database", "", "existing standalone v27 recovery SQLite database")
+	flags.StringVar(&opts.databasePath, "database", "", "existing standalone recovery SQLite database with contiguous schema v27 through v28")
 	flags.StringVar(&opts.batchSHA256, "batch-sha256", "", "exact lowercase recovery batch SHA-256")
 	flags.StringVar(&opts.outputDirectory, "output-directory", "", "new immutable local strict Public v3 candidate directory")
 	flags.StringVar(&opts.v2CompatOutputDirectory, "v2-compat-output-directory", "", "optional separate immutable lossless Public v2 compatibility directory")
@@ -84,10 +86,11 @@ func run(ctx context.Context, arguments []string, output io.Writer) error {
 		Scan(&minimumVersion, &maximumVersion, &versionCount); err != nil {
 		return fmt.Errorf("read recovery Public candidate schema: %w", err)
 	}
-	if minimumVersion != 1 || maximumVersion != lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion ||
-		versionCount != lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion {
-		return fmt.Errorf("recovery Public candidate database must be exactly schema v%d",
-			lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion)
+	if minimumVersion != 1 || versionCount != maximumVersion ||
+		maximumVersion < lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion ||
+		maximumVersion > recoveryPublicCandidateMaximumCompatibleRuntimeSchema {
+		return fmt.Errorf("recovery Public candidate database must have a contiguous schema v%d through v%d history",
+			lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion, recoveryPublicCandidateMaximumCompatibleRuntimeSchema)
 	}
 	if err := snapshot.Database.ValidateLyricsStorageOwnership(ctx); err != nil {
 		return fmt.Errorf("validate recovery Public candidate lyrics storage ownership: %w", err)

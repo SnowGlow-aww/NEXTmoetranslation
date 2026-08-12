@@ -95,14 +95,18 @@ test("embedded Public Lyrics metadata remains independent from editable SQLite s
   assert.match(api, /interface RuntimeLyricsMetadata/);
   assert.match(api, /immutableOverlay: boolean/);
   assert.match(api, /runtimeLyrics\?: RuntimeLyricsMetadata/);
+  assert.match(api, /lyricsAvailabilityState\?:/);
   assert.match(editor, /数据库：\{databaseLyricsStatusLabel\(item\)\}/);
+  assert.match(editor, /数据库已记录歌词可用性，但当前没有可编辑正文/);
   assert.match(editor, /公开镜像：\{runtimeLyricsStateLabel\(item\.runtimeLyrics\.state\)\}/);
   assert.match(editor, /reason instanceof APIError && reason\.status === 404 && item\.runtimeLyrics\?\.immutableOverlay/);
   assert.match(editor, /setRuntimeOnlyMissingDatabaseSource\(true\)/);
   assert.match(editor, /公开镜像仍在，后台数据库尚无可编辑源/);
   assert.match(editor, /系统不会把 detail 404 静默转换成可保存的空草稿/);
 
+  const availabilityGuard = editor.indexOf("reason instanceof APIError && reason.status === 404 && item.lyricsAvailabilityState");
   const runtimeGuard = editor.indexOf("reason instanceof APIError && reason.status === 404 && item.runtimeLyrics?.immutableOverlay");
   const blankDraft = editor.indexOf("const blank = emptyLyrics(item.musicId)");
+  assert.ok(availabilityGuard >= 0 && availabilityGuard < runtimeGuard, "database availability must be handled before runtime-only fallback");
   assert.ok(runtimeGuard >= 0 && runtimeGuard < blankDraft, "runtime-only 404 must be handled before legacy blank-draft creation");
 });

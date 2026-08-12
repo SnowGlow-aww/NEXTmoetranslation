@@ -25,12 +25,13 @@ type RuntimeLyricsMetadata struct {
 }
 
 type CatalogMusicItem struct {
-	MusicID             int                    `json:"musicId"`
-	Title               LocalizedTitle         `json:"title"`
-	JacketURL           string                 `json:"jacketUrl,omitempty"`
-	IsNewlyWrittenMusic bool                   `json:"isNewlyWrittenMusic"`
-	LyricsStatus        string                 `json:"lyricsStatus,omitempty"`
-	RuntimeLyrics       *RuntimeLyricsMetadata `json:"runtimeLyrics,omitempty"`
+	MusicID                 int                    `json:"musicId"`
+	Title                   LocalizedTitle         `json:"title"`
+	JacketURL               string                 `json:"jacketUrl,omitempty"`
+	IsNewlyWrittenMusic     bool                   `json:"isNewlyWrittenMusic"`
+	LyricsStatus            string                 `json:"lyricsStatus,omitempty"`
+	LyricsAvailabilityState string                 `json:"lyricsAvailabilityState,omitempty"`
+	RuntimeLyrics           *RuntimeLyricsMetadata `json:"runtimeLyrics,omitempty"`
 }
 
 type CatalogMusicResponse struct {

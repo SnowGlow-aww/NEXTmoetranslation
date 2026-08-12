@@ -782,7 +782,7 @@ func TestCatalogSnapshotContractStartsSourceOnlyAfterLoaderReturns(t *testing.T)
 func TestCatalogSnapshotContractAcceptsSupportedRuntimeSnapshots(t *testing.T) {
 	records := sevenClassSnapshotRecords()
 	report := buildSevenClassSnapshotReport(t, records)
-	for _, runtimeVersion := range []int{lyricsstaging.CatalogSchemaVersion, 19, lyricsstaging.MaximumCatalogRuntimeSchema} {
+	for _, runtimeVersion := range []int{lyricsstaging.CatalogSchemaVersion, 19, lyricsstaging.MaximumCatalogRuntimeSchema, maximumCompatibleCatalogRuntimeSchema} {
 		t.Run(fmt.Sprintf("v%d", runtimeVersion), func(t *testing.T) {
 			databasePath := writeSnapshotContractDatabaseAtVersion(t, records, runtimeVersion)
 			opts := snapshotContractOptions(t, databasePath, report)
@@ -801,7 +801,7 @@ func TestCatalogSnapshotContractAcceptsSupportedRuntimeSnapshots(t *testing.T) {
 func TestCatalogSnapshotContractRejectsFutureRuntimeSchemaBeforeSource(t *testing.T) {
 	records := sevenClassSnapshotRecords()
 	report := buildSevenClassSnapshotReport(t, records)
-	databasePath := writeSnapshotContractDatabaseAtVersion(t, records, lyricsstaging.MaximumCatalogRuntimeSchema+1)
+	databasePath := writeSnapshotContractDatabaseAtVersion(t, records, maximumCompatibleCatalogRuntimeSchema+1)
 	opts := snapshotContractOptions(t, databasePath, report)
 	var calls atomic.Int32
 	_, err := execute(context.Background(), opts, fakeSourceClient{fetchCandidate: func(context.Context, lyricssource.MusicIdentity, lyricssource.Candidate) (lyricssource.FixedRevision, error) {
@@ -809,7 +809,7 @@ func TestCatalogSnapshotContractRejectsFutureRuntimeSchemaBeforeSource(t *testin
 		return snapshotContractFixed(report.UniqueComplete[0]), nil
 	}})
 	wantHistory := fmt.Sprintf("contiguous v%d through v%d history",
-		lyricsstaging.CatalogSchemaVersion, lyricsstaging.MaximumCatalogRuntimeSchema)
+		lyricsstaging.CatalogSchemaVersion, maximumCompatibleCatalogRuntimeSchema)
 	if err == nil || calls.Load() != 0 || !strings.Contains(err.Error(), wantHistory) {
 		t.Fatalf("future runtime schema err=%v calls=%d want=%q", err, calls.Load(), wantHistory)
 	}
@@ -818,7 +818,7 @@ func TestCatalogSnapshotContractRejectsFutureRuntimeSchemaBeforeSource(t *testin
 func TestCatalogSnapshotContractRejectsMissingPinnedColumnBeforeSource(t *testing.T) {
 	records := sevenClassSnapshotRecords()
 	report := buildSevenClassSnapshotReport(t, records)
-	databasePath := writeSnapshotContractDatabaseAtVersion(t, records, lyricsstaging.MaximumCatalogRuntimeSchema)
+	databasePath := writeSnapshotContractDatabaseAtVersion(t, records, maximumCompatibleCatalogRuntimeSchema)
 	database, err := sql.Open("sqlite", "file:"+databasePath+"?mode=rw")
 	if err != nil {
 		t.Fatal(err)

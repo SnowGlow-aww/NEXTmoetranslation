@@ -30,10 +30,11 @@ import (
 )
 
 const (
-	maxConcurrency        = 16
-	maxAttempts           = 5
-	defaultRequestTimeout = 8 * time.Minute
-	maxRequestTimeout     = 10 * time.Minute
+	maxConcurrency                        = 16
+	maxAttempts                           = 5
+	defaultRequestTimeout                 = 8 * time.Minute
+	maxRequestTimeout                     = 10 * time.Minute
+	maximumCompatibleCatalogRuntimeSchema = 28
 )
 
 var sqliteSidecarSuffixes = [...]string{"-wal", "-shm", "-journal"}
@@ -123,7 +124,7 @@ func runContextWithDependencies(ctx context.Context, arguments []string, stdout 
 		flags.SetOutput(stdout)
 	}
 	reportPath := flags.String("report", "", "complete lyrics-preflight JSON report")
-	databasePath := flags.String("db", "", fmt.Sprintf("existing local schema-v%d through schema-v%d SQLite snapshot with the pinned v%d catalog contract, opened read-only", lyricsstaging.CatalogSchemaVersion, lyricsstaging.MaximumCatalogRuntimeSchema, lyricsstaging.CatalogSchemaVersion))
+	databasePath := flags.String("db", "", fmt.Sprintf("existing local schema-v%d through schema-v%d SQLite snapshot with the pinned v%d catalog contract, opened read-only", lyricsstaging.CatalogSchemaVersion, maximumCompatibleCatalogRuntimeSchema, lyricsstaging.CatalogSchemaVersion))
 	outputPath := flags.String("output", "", "new private local staging manifest path")
 	evidenceReceiptOutputPath := flags.String("evidence-receipt-output", "", "optional new private canonical EvidenceReceipt-v1 path for lyrics-import-stage -evidence-receipt")
 	concurrency := flags.Int("concurrency", 4, "bounded fixed-revision fetch concurrency")
@@ -927,9 +928,9 @@ func validateCatalogRuntimeContract(ctx context.Context, transaction *sql.Tx) er
 		return fmt.Errorf("read local database schema version: %w", err)
 	}
 	if minimumVersion != 1 || versionCount != maximumVersion ||
-		maximumVersion < lyricsstaging.CatalogSchemaVersion || maximumVersion > lyricsstaging.MaximumCatalogRuntimeSchema {
+		maximumVersion < lyricsstaging.CatalogSchemaVersion || maximumVersion > maximumCompatibleCatalogRuntimeSchema {
 		return fmt.Errorf("local database schema must be a contiguous v%d through v%d history with the pinned v%d catalog contract",
-			lyricsstaging.CatalogSchemaVersion, lyricsstaging.MaximumCatalogRuntimeSchema, lyricsstaging.CatalogSchemaVersion)
+			lyricsstaging.CatalogSchemaVersion, maximumCompatibleCatalogRuntimeSchema, lyricsstaging.CatalogSchemaVersion)
 	}
 
 	rows, err := transaction.QueryContext(ctx, `PRAGMA table_info('catalog_music')`)

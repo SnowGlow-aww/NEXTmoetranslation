@@ -23,7 +23,14 @@ import (
 	"moesekai/server/internal/model"
 )
 
-const lyricsRecoveryImportRuntimeSchema = 27
+const (
+	// lyricsRecoveryImportRuntimeSchema remains the immutable schema version
+	// encoded by the existing recovery/staging input contracts. Schema v28 is
+	// an additive editor-seed ledger that does not change those inputs or their
+	// catalog identity, so reviewed imports may also run on a contiguous v28 DB.
+	lyricsRecoveryImportRuntimeSchema          = 27
+	lyricsImportMaximumCompatibleRuntimeSchema = 28
+)
 
 var (
 	ErrLyricsRecoveryImportConflict = errors.New("lyrics recovery import conflicts with existing private lyrics state")
@@ -288,8 +295,10 @@ func validateRecoveryImportRuntimeSchema(ctx context.Context, tx *sql.Tx) error 
 		Scan(&minimumVersion, &maximumVersion, &count); err != nil {
 		return fmt.Errorf("read recovery-import runtime schema: %w", err)
 	}
-	if minimumVersion != 1 || maximumVersion != lyricsRecoveryImportRuntimeSchema || count != maximumVersion {
-		return fmt.Errorf("recovery lyrics import requires a contiguous schema-v%d runtime", lyricsRecoveryImportRuntimeSchema)
+	if minimumVersion != 1 || count != maximumVersion || maximumVersion < lyricsRecoveryImportRuntimeSchema ||
+		maximumVersion > lyricsImportMaximumCompatibleRuntimeSchema {
+		return fmt.Errorf("recovery lyrics import requires a contiguous schema-v%d through schema-v%d runtime",
+			lyricsRecoveryImportRuntimeSchema, lyricsImportMaximumCompatibleRuntimeSchema)
 	}
 	return nil
 }

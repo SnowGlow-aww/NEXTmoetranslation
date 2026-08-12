@@ -301,7 +301,11 @@ func (s *Store) GetLyricsDocument(musicID int) (any, error) {
 	if !errors.Is(pluralErr, ErrLyricsNotFound) {
 		return nil, pluralErr
 	}
-	return s.GetLyrics(musicID)
+	legacy, legacyErr := s.GetLyrics(musicID)
+	if legacyErr != nil {
+		return nil, legacyErr
+	}
+	return legacy, nil
 }
 
 func (s *Store) GetLyricsRenditionDocument(musicID int) (LyricsRenditionDocument, error) {

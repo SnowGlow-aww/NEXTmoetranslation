@@ -5,9 +5,11 @@ expected_index=9a735e96f856da9b94e1362883df13616a8b6e3cd33afce5d5e1468b4784b475
 expected_detail=224a7d34e1d4d551bca21cbe70374f504a781edef90eb644d8d4ec9e5fca064c
 expected_db=2eb61967a5f5b96a4961c0258984d6d5bb2f7b813379872d9d50a427704b8877
 expected_public_lyrics_bundle=6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b
+expected_editor_lyrics_seed=a8a2a7c841d0d73e448fd69f9adb236965b3b01a89d2ba58dcc921925e6ea479
 expected_public_lyrics_inventory=604aae68e3cd6824a8960a3cbbec5e015af48e5fcdd9895f785ff61e019d1f4b
 expected_public_lyrics_tar=c08f53d7ad0dda1e5a32042608d5d7b9d570292c36371f618dec0529f90cac96
 public_lyrics_bundle=server/internal/publiclyricsbundle/public-v3.tar.gz
+editor_lyrics_seed=server/internal/embeddedlyricsseed/editor-seed.tar.gz
 
 hash_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -47,6 +49,15 @@ grep -Fq "EXPECTED_RECEIPT_FILE_SHA256 = \"a4bf207f446feffd71f2e51ab1755ac3c9cd6
 grep -Fq "EXPECTED_RECEIPT_SHA256 = \"fddf772043e1fa4a70e0bc677ada44e61121ef9c6ef1ccf7e04c419c789b039d\"" scripts/build-public-lyrics-v3-bundle.py
 grep -Fq "EXPECTED_ARCHIVE_SHA256 = \"$expected_public_lyrics_bundle\"" scripts/build-public-lyrics-v3-bundle.py
 grep -Fq "EXPECTED_INVENTORY_SHA256 = \"$expected_public_lyrics_inventory\"" scripts/build-public-lyrics-v3-bundle.py
+test -f "$editor_lyrics_seed"
+test -f server/internal/embeddedlyricsseed/bundle.go
+test -f server/internal/embeddedlyricsseed/bundle_test.go
+test -f server/internal/embeddedlyricsseed/contract.go
+test -f scripts/build-embedded-lyrics-editor-seed.py
+test "$(hash_file "$editor_lyrics_seed")" = "$expected_editor_lyrics_seed"
+grep -Fq "const ExpectedArchiveSHA256 = \"$expected_editor_lyrics_seed\"" server/internal/embeddedlyricsseed/bundle.go
+grep -Fq '//go:embed editor-seed.tar.gz' server/internal/embeddedlyricsseed/bundle.go
+grep -Fq 'EXPECTED_DB_SHA256 = "160e9c9c36e066aa6e33c0a09bffb36b08101a9b9e1e6cd99b7b05e13cd9b766"' scripts/build-embedded-lyrics-editor-seed.py
 python3 - "$public_lyrics_bundle" "$expected_public_lyrics_inventory" "$expected_public_lyrics_tar" <<'PY'
 import collections
 import gzip
@@ -363,9 +374,14 @@ grep -qi 'standalone production image' PRODUCTION_CONTRACT.md
 grep -q 'lyrics_peer_renditions_and_localizations' PRODUCTION_CONTRACT.md
 grep -q 'contracts/public-lyrics/v3/' PRODUCTION_CONTRACT.md
 grep -q 'server/internal/publiclyricsbundle/public-v3.tar.gz' PRODUCTION_CONTRACT.md
+grep -q 'embedded_lyrics_editor_seed_ledger' PRODUCTION_CONTRACT.md
+grep -q 'server/internal/embeddedlyricsseed/editor-seed.tar.gz' STANDALONE_RELEASE.md
 grep -q "$expected_public_lyrics_bundle" PRODUCTION_CONTRACT.md
 grep -q "$expected_public_lyrics_bundle" STANDALONE_RELEASE.md
 grep -q "$expected_public_lyrics_bundle" README.md
+grep -q "$expected_editor_lyrics_seed" PRODUCTION_CONTRACT.md
+grep -q "$expected_editor_lyrics_seed" STANDALONE_RELEASE.md
+grep -q "$expected_editor_lyrics_seed" README.md
 grep -q 'DB_PATH.*data/moesekai.db' STANDALONE_RELEASE.md
 grep -q 'DATA_DIR.*data' STANDALONE_RELEASE.md
 grep -q 'TZ.*UTC' STANDALONE_RELEASE.md

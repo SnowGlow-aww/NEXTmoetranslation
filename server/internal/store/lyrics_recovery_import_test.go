@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 
@@ -10,22 +11,58 @@ import (
 	"moesekai/server/internal/model"
 )
 
-func TestRecoveryImportRuntimeSchemaRequiresV27Contiguously(t *testing.T) {
-	s := setupLyricsStore(t)
-	tx, err := s.db.BeginTx(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
+func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV28Contiguously(t *testing.T) {
+	validators := map[string]func(context.Context, *sql.Tx) error{
+		"recovery": validateRecoveryImportRuntimeSchema,
+		"staged":   validateStagedImportRuntimeSchema,
 	}
-	defer tx.Rollback()
-	if err := validateRecoveryImportRuntimeSchema(context.Background(), tx); err != nil {
-		t.Fatalf("current runtime schema: %v", err)
+	cases := []struct {
+		name      string
+		mutate    func(*testing.T, *sql.Tx)
+		wantError bool
+	}{
+		{name: "current v28"},
+		{name: "v27 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=28`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "gap before v28", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=27`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "unreviewed v29", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
+				VALUES (29,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+				t.Fatal(err)
+			}
+		}},
 	}
-	if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=27`); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateRecoveryImportRuntimeSchema(context.Background(), tx); err == nil ||
-		!strings.Contains(err.Error(), "contiguous schema-v27 runtime") {
-		t.Fatalf("schema-v25 recovery gate error=%v", err)
+	for validatorName, validate := range validators {
+		for _, test := range cases {
+			t.Run(validatorName+"/"+test.name, func(t *testing.T) {
+				s := setupLyricsStore(t)
+				tx, err := s.db.BeginTx(context.Background(), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tx.Rollback()
+				if test.mutate != nil {
+					test.mutate(t, tx)
+				}
+				err = validate(context.Background(), tx)
+				if test.wantError {
+					if err == nil || !strings.Contains(err.Error(), "contiguous schema-v27 through schema-v28 runtime") {
+						t.Fatalf("runtime schema gate error=%v", err)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("runtime schema gate: %v", err)
+				}
+			})
+		}
 	}
 }
 
