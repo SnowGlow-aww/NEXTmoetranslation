@@ -6,6 +6,7 @@ import { SettingsModal } from "@/components/SettingsModal";
 import { AdminModal } from "@/components/AdminModal";
 import { LyricsEditor, LyricsEditorHandle } from "@/components/LyricsEditor";
 import { LyricsSourceReview, LyricsSourceReviewHandle } from "@/components/LyricsSourceReview";
+import { EventStoryTxtImport, type EventStoryTxtDraft } from "@/components/EventStoryTxtImport";
 import { Modal } from "@/components/Modal";
 import {
   CategoryInfo, EditorGateStatus, EventStorySummary, Locale, TranslationEntry,
@@ -27,6 +28,73 @@ interface ContentConflict {
   reason: "restore" | "gap";
   draft: string | null;
   reloadFailed: boolean;
+}
+
+const EVENT_TXT_DRAFT_STORAGE_PREFIX = "moesekai-event-txt-draft-v1";
+
+function eventTxtDraftStorageKey(username: string, eventID: number, locale: "zh-CN" | "en-US"): string {
+  return `${EVENT_TXT_DRAFT_STORAGE_PREFIX}:${encodeURIComponent(username)}:${eventID}:${locale}`;
+}
+
+function persistEventTxtDraft(username: string, draft: EventStoryTxtDraft): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    localStorage.setItem(eventTxtDraftStorageKey(username, draft.eventId, draft.locale), JSON.stringify(draft));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearPersistedEventTxtDraft(username: string, eventID: number, locale: Locale): boolean {
+  if (typeof window === "undefined" || locale === "ja-JP") return true;
+  try {
+    localStorage.removeItem(eventTxtDraftStorageKey(username, eventID, locale));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function recoverEventTxtDraft(username: string, eventID: number, locale: Locale, entries: readonly TranslationEntry[]): EventStoryTxtDraft | null {
+  if (typeof window === "undefined" || locale === "ja-JP") return null;
+  const key = eventTxtDraftStorageKey(username, eventID, locale);
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<EventStoryTxtDraft>;
+    if (value.eventId !== eventID || value.locale !== locale || typeof value.episodeNo !== "string" || !value.episodeNo ||
+        typeof value.snapshotRevision !== "string" || !value.snapshotRevision || typeof value.fileName !== "string" ||
+        !Array.isArray(value.translations) || value.translations.length === 0 || value.translations.length > 4000) {
+      throw new Error("invalid event TXT draft");
+    }
+    const bySegment = new Map(entries.flatMap((entry) => entry.segmentId ? [[entry.segmentId, entry] as const] : []));
+    const seen = new Set<string>();
+    for (const candidate of value.translations) {
+      if (!candidate || typeof candidate.segmentId !== "string" || !candidate.segmentId || seen.has(candidate.segmentId) ||
+          typeof candidate.sourceHash !== "string" || !candidate.sourceHash || !Number.isSafeInteger(candidate.revision) || candidate.revision < 0 ||
+          typeof candidate.authoritativeText !== "string" || typeof candidate.text !== "string") {
+        throw new Error("invalid event TXT draft row");
+      }
+      const entry = bySegment.get(candidate.segmentId);
+      if (!entry || entry.episodeNo !== value.episodeNo || entry.sourceHash !== candidate.sourceHash ||
+          (entry.revision ?? 0) !== candidate.revision || entry.text !== candidate.authoritativeText) {
+        throw new Error("stale event TXT draft row");
+      }
+      seen.add(candidate.segmentId);
+    }
+    return { ...value, undoAvailable: value.undoAvailable === true } as EventStoryTxtDraft;
+  } catch {
+    try { localStorage.removeItem(key); } catch { /* best effort */ }
+    return null;
+  }
+}
+
+function overlayEventTxtDraft(entries: readonly TranslationEntry[], draft: EventStoryTxtDraft): TranslationEntry[] {
+  const imported = new Map(draft.translations.map((translation) => [translation.segmentId, translation.text]));
+  return entries.map((entry) => entry.segmentId && imported.has(entry.segmentId)
+    ? { ...entry, text: imported.get(entry.segmentId) as string }
+    : entry);
 }
 
 // localStorage-backed boolean preference. Falls back gracefully on SSR.
@@ -101,6 +169,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [eventTxtDraft, setEventTxtDraft] = useState<EventStoryTxtDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
@@ -153,11 +222,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       setEntries([]);
       setSelectedKey(null);
       setEditValue("");
+      setEventTxtDraft(null);
       return true;
     }
     setEntries([]);
     setSelectedKey(null);
     setEditValue("");
+    setEventTxtDraft(null);
     if (isLyrics || isLyricsSourceReview) {
       setLoading(false);
       return true;
@@ -168,8 +239,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         const detail = await getEventStory(Number(field), locale);
         if (loadGenerationRef.current !== generation) return true;
         const list = buildEventStoryEntries(detail);
-        setEntries(list);
-        if (list.length) { setSelectedKey(list[0].key); setEditValue(list[0].text); }
+        const recovered = recoverEventTxtDraft(username, Number(field), locale, list);
+        const visible = recovered ? overlayEventTxtDraft(list, recovered) : list;
+        setEventTxtDraft(recovered);
+        setEntries(visible);
+        if (visible.length) { setSelectedKey(visible[0].key); setEditValue(visible[0].text); }
+        if (recovered) show(`已恢复 ${recovered.fileName} 的 ${recovered.translations.length} 条 TXT 本地草稿`, "ok");
         return true;
       }
       const data = await getEntries(category, field, undefined, locale);
@@ -187,7 +262,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } finally {
       if (loadGenerationRef.current === generation) setLoading(false);
     }
-  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, show]);
+  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, show, username]);
 
   useEffect(() => { void loadEntries(); }, [loadEntries]);
 
@@ -208,7 +283,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   );
   const selectedEntry = selectedKey ? entries.find((entry) => entry.key === selectedKey) ?? null : null;
   const entryDirty = selectedEntry != null && editValue !== selectedEntry.text;
-  const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty;
+  const eventTxtDraftDirty = isEventStory && (eventTxtDraft?.translations.length ?? 0) > 0;
+  const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty || eventTxtDraftDirty;
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -232,6 +308,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       : {
           kind: "translation", category, field, locale, key: selectedKey,
           staleText: editValue, previouslyLoadedText: selectedEntry?.text ?? "",
+          eventTxtDraft,
         };
     return JSON.stringify({ exportedAt: new Date().toISOString(), ...payload }, null, 2);
   };
@@ -336,6 +413,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }), []);
 
   const resolveContentConflict = (conflict: ContentConflict) => {
+    if (eventTxtDraft && !clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale)) {
+      show("无法清理 TXT 本地草稿，旧缓冲区仍被保留", "err");
+      return;
+    }
+    setEventTxtDraft(null);
     preservedConflictDraftRef.current = null;
     setContentConflict({ ...conflict, draft: null, reloadFailed: true });
     void reconcileContent(conflict.reason, null);
@@ -452,6 +534,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const performSelectField = (cat: string, f: string) => {
     contextGenerationRef.current++;
     loadGenerationRef.current++;
+    setEventTxtDraft(null);
     setCategory(cat); setField(f); setQuery(""); setSelectedKey(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       setSidebarOpen(false);
@@ -466,6 +549,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const applyLocale = (next: Locale) => {
     contextGenerationRef.current++;
     loadGenerationRef.current++;
+    setEventTxtDraft(null);
     setLocale(next);
     setEntries([]);
     setSelectedKey(null);
@@ -487,14 +571,64 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [selectedIndex, filtered]);
 
-  const navigate = (dir: 1 | -1) => runOrGuard("切换条目", () => performNavigate(dir));
+  const navigate = (dir: 1 | -1) => {
+    if (eventTxtDraftDirty && !entryDirty) performNavigate(dir);
+    else runOrGuard("切换条目", () => performNavigate(dir));
+  };
 
   const selectEntry = (entry: TranslationEntry) => {
     if (entry.key === selectedKey) return;
-    runOrGuard("切换条目", () => {
+    const action = () => {
       setSelectedKey(entry.key);
       setEditValue(entry.text);
-    });
+    };
+    if (eventTxtDraftDirty && !entryDirty) action();
+    else runOrGuard("切换条目", action);
+  };
+
+  const applyEventTxtDraft = (draft: EventStoryTxtDraft) => {
+    if (!isEventStory || Number(field) !== draft.eventId || locale !== draft.locale || writeFenceRef.current) return;
+    const bySegment = new Map(entries.flatMap((entry) => entry.segmentId ? [[entry.segmentId, entry] as const] : []));
+    for (const translation of draft.translations) {
+      const entry = bySegment.get(translation.segmentId);
+      if (!entry || entry.episodeNo !== draft.episodeNo || entry.sourceHash !== translation.sourceHash ||
+          (entry.revision ?? 0) !== translation.revision || entry.text !== translation.authoritativeText) {
+        show(`条目 ${translation.segmentId} 已不等于导入预览，请重新加载后再导入`, "err");
+        return;
+      }
+    }
+    const selectedTranslation = selectedEntry?.segmentId
+      ? draft.translations.find((translation) => translation.segmentId === selectedEntry.segmentId)
+      : undefined;
+    if (!persistEventTxtDraft(username, draft)) {
+      show("无法写入 TXT 本地草稿，导入已取消", "err");
+      return;
+    }
+    setEntries((current) => current.map((entry) => {
+      const translation = entry.segmentId ? draft.translations.find((candidate) => candidate.segmentId === entry.segmentId) : undefined;
+      return translation ? { ...entry, text: translation.text } : entry;
+    }));
+    if (selectedTranslation) setEditValue(selectedTranslation.text);
+    setEventTxtDraft(draft);
+  };
+
+  const undoEventTxtDraft = () => {
+    const draft = eventTxtDraft;
+    if (!draft?.undoAvailable || entryDirty) return;
+    if (!clearPersistedEventTxtDraft(username, draft.eventId, draft.locale)) {
+      show("无法清理 TXT 本地草稿，撤销已取消", "err");
+      return;
+    }
+    const selectedTranslation = selectedEntry?.segmentId
+      ? draft.translations.find((translation) => translation.segmentId === selectedEntry.segmentId)
+      : undefined;
+    setEntries((current) => current.map((entry) => {
+      const translation = entry.segmentId ? draft.translations.find((candidate) => candidate.segmentId === entry.segmentId) : undefined;
+      return translation ? { ...entry, text: translation.authoritativeText } : entry;
+    }));
+    if (selectedTranslation) setEditValue(selectedTranslation.authoritativeText);
+    setEventTxtDraft(null);
+    show("已一步撤销本次 TXT 导入，本地译文恢复到导入前的权威内容", "ok");
   };
 
   const save = useCallback(async (overrideSource?: string, advance = true) => {
@@ -522,6 +656,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}` : e.key,
                 text: saveValue, source: src, revision: result.revision }
             : e));
+        if (saveEntry?.segmentId && eventTxtDraft) {
+          const translations = eventTxtDraft.translations.filter((translation) => translation.segmentId !== saveEntry.segmentId);
+          const nextDraft = translations.length > 0 ? { ...eventTxtDraft, undoAvailable: false, translations } : null;
+          const persisted = nextDraft
+            ? persistEventTxtDraft(username, nextDraft)
+            : clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale);
+          if (!persisted) {
+            show("远端保存成功，但 TXT 本地草稿状态无法更新；请勿离开页面并手动导出当前草稿", "err");
+          }
+          setEventTxtDraft(nextDraft);
+        }
         if (entryType === "title" && !saveEntry?.segmentId) setSelectedKey(`${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}`);
       } else {
         await updateEntry(saveCategory, saveField, saveKey, saveValue, src, saveLocale);
@@ -546,7 +691,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } finally {
       savingRef.current = false;
     }
-  }, [selectedKey, selectedEntry, category, field, editValue, filtered, isEventStory, isReadOnly, locale, show]);
+  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, show, username]);
 
   const closePendingAction = () => {
     pendingActionRef.current = null;
@@ -558,12 +703,24 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const action = pendingActionRef.current;
     if (!action) return;
     if (saveFirst) {
+      const importedCountBeforeSave = eventTxtDraft?.translations.length ?? 0;
+      const selectedImportedBeforeSave = Boolean(selectedEntry?.segmentId && eventTxtDraft?.translations.some((translation) => translation.segmentId === selectedEntry.segmentId));
       const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);
       if (!saved) return;
+      if (isEventStory && importedCountBeforeSave - (selectedImportedBeforeSave ? 1 : 0) > 0) {
+        closePendingAction();
+        show("当前条目已保存；TXT 草稿仍有剩余条目，请继续逐条保存，未保存部分不会被丢弃", "ok");
+        return;
+      }
     } else if (isLyrics) {
       lyricsEditorRef.current?.discard();
-    } else if (selectedEntry) {
-      setEditValue(selectedEntry.text);
+    } else {
+      if (eventTxtDraft && !clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale)) {
+        show("无法清理 TXT 本地草稿，放弃操作已取消", "err");
+        return;
+      }
+      setEventTxtDraft(null);
+      if (selectedEntry) setEditValue(selectedEntry.text);
     }
     closePendingAction();
     action();
@@ -598,7 +755,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- Change source for a single entry ----
   const handleSourceChange = useCallback(async (key: string, newSource: string) => {
-    if (writeFenceRef.current || !category || !field) return;
+    if (writeFenceRef.current || eventTxtDraftDirty || !category || !field) return;
     const entry = entries.find((e) => e.key === key);
     if (!entry) return;
     const generation = contextGenerationRef.current;
@@ -623,7 +780,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } catch (err) {
       show(err instanceof Error ? err.message : "修改失败", "err");
     }
-  }, [category, field, entries, isEventStory, locale, show]);
+  }, [category, eventTxtDraftDirty, field, entries, isEventStory, locale, show]);
 
   // Per-story AI gap-fill: translate only the currently open event story.
   const doAIStory = () => withBusy(async () => {
@@ -808,19 +965,33 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             </div>
 
             {/* Per-story toolbar */}
-            {isEventStory && locale === "zh-CN" && (
+            {isEventStory && locale !== "ja-JP" && (
               <div className="story-toolbar">
                 <span className="story-status">
                   {currentStory && currentStory.untranslatedCount > 0
                     ? <><span className="story-dot pending" /> {currentStory.untranslatedCount} 条未翻译</>
                     : <><span className="story-dot done" /> 已全部翻译</>}
                 </span>
-                {role === "admin" && <div className="story-toolbar-actions">
-                  <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
-                  <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
-                </div>}
+                <div className="story-toolbar-actions">
+                  <EventStoryTxtImport
+                    eventId={Number(field)}
+                    locale={locale}
+                    entries={entries}
+                    defaultEpisodeNo={selectedEntry?.episodeNo}
+                    disabled={busy || writesLocked || entryDirty || eventTxtDraftDirty}
+                    onApply={applyEventTxtDraft}
+                  />
+                  {eventTxtDraft && <>
+                    <span className="event-txt-import-pending" role="status">TXT 本地草稿剩余 {eventTxtDraft.translations.length} 条；只会通过现有保存按钮逐条提交</span>
+                    {eventTxtDraft.undoAvailable && <button type="button" className="btn btn-ghost btn-sm" onClick={undoEventTxtDraft} disabled={busy || writesLocked || entryDirty}>撤销本次导入</button>}
+                  </>}
+                  {role === "admin" && locale === "zh-CN" && <>
+                    <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
+                  </>}
+                </div>
               </div>
             )}
 
@@ -904,7 +1075,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                             value={entry.source}
                             onChange={(e) => handleSourceChange(entry.key, e.target.value)}
                             className={`source-tag ${entry.source}`}
-                            disabled={isReadOnly || writesLocked}
+                            disabled={isReadOnly || writesLocked || eventTxtDraftDirty}
                             aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
                           >
                             {Object.entries(SOURCE_LABELS).map(([k, v]) => (

@@ -98,6 +98,34 @@ export interface EventStoryDetail {
   episodes: Record<string, EventStoryEpisode>;
 }
 
+export interface EventScenarioSourceTalk {
+  speaker: string;
+  text: string;
+  voices?: string[];
+  volume?: number[];
+  charIndex: number;
+  chara2d?: number;
+  talkDataIndex?: number;
+}
+
+export interface EventEpisodeScenarioSnapshot {
+  scenarioId: string;
+  fileName: string;
+  sha256: string;
+  parserVersion: number;
+  rawJson: string;
+  sourceTalks: EventScenarioSourceTalk[];
+}
+
+export interface EventEpisodeSnapshot {
+  eventId: number;
+  episodeNo: string;
+  locale: Locale;
+  revision: string;
+  segments: EventStorySegment[];
+  scenario: EventEpisodeScenarioSnapshot;
+}
+
 export interface TranslateStatus {
   translator: { running: boolean; lastRun?: string; lastMode?: string; lastError?: string; lastNote?: string };
   clients?: number;
@@ -848,6 +876,10 @@ export const getEventStory = (eventId: number, locale?: Locale) => {
   const p = new URLSearchParams({ eventId: String(eventId) });
   addLocale(p, locale);
   return apiFetch<EventStoryDetail>(`/event-story?${p}`);
+};
+export const getEventEpisodeSnapshot = (eventId: number, episodeNo: string, locale: Locale) => {
+  const p = new URLSearchParams({ eventId: String(eventId), episodeNo, locale });
+  return apiFetch<EventEpisodeSnapshot>(`/event-story/episode-snapshot?${p}`);
 };
 export interface EventStoryUpdateResult {
   status: "ok";

@@ -43,6 +43,32 @@ test("dirty state survives filtering and event reload tools are guarded", async 
   assert.match(consoleSource, /runOrGuard\("同步协作者更新", loadEntries\)/);
 });
 
+test("event story TXT import uses authoritative snapshots, selective local drafts, undo, and the existing save path", async () => {
+  const [api, consoleSource, importer, codec] = await Promise.all([
+    read("src/lib/api.ts"), read("src/components/Console.tsx"), read("src/components/EventStoryTxtImport.tsx"),
+    read("src/lib/event-txt-import.mjs"),
+  ]);
+  assert.match(api, /getEventEpisodeSnapshot[\s\S]*\/event-story\/episode-snapshot/);
+  assert.match(importer, /TextDecoder\("utf-8", \{ fatal: true \}\)/);
+  assert.match(importer, /validateEventEpisodeSnapshot\(snapshot\)/);
+  assert.match(importer, /assertSnapshotMatchesLoaded/);
+  assert.match(importer, /selectedByDefault/);
+  assert.match(importer, /应用到本地草稿/);
+  assert.match(importer, /此步骤不会写入服务器/);
+  assert.match(codec, /event TXT alignment is too large for a local preview/);
+  assert.match(codec, /未按行号猜测/);
+  assert.match(consoleSource, /EventStoryTxtImport/);
+  assert.match(consoleSource, /TXT 本地草稿剩余/);
+  assert.match(consoleSource, /undoEventTxtDraft/);
+  assert.match(consoleSource, /updateEventStoryLine/);
+  assert.match(consoleSource, /persistEventTxtDraft/);
+  assert.match(consoleSource, /recoverEventTxtDraft/);
+  assert.match(consoleSource, /clearPersistedEventTxtDraft/);
+  assert.match(consoleSource, /resolveContentConflict[\s\S]*clearPersistedEventTxtDraft/);
+  assert.match(consoleSource, /TXT 草稿仍有剩余条目，请继续逐条保存/);
+  assert.match(consoleSource, /disabled={isReadOnly \|\| writesLocked \|\| eventTxtDraftDirty}/);
+});
+
 test("event story segment revisions survive detail flattening and advance from mutation responses", async () => {
   const [api, labels, consoleSource] = await Promise.all([
     read("src/lib/api.ts"), read("src/lib/labels.ts"), read("src/components/Console.tsx"),
@@ -286,7 +312,7 @@ test("editor UI hides mutations while preserving read-only backup status", async
     read("src/components/Console.tsx"),
     read("src/components/SettingsModal.tsx"),
   ]);
-  assert.match(consoleSource, /role === "admin" && <div className="story-toolbar-actions">/);
+  assert.match(consoleSource, /role === "admin" && locale === "zh-CN" && <>/);
   assert.match(settings, /<DataManagementCard canMutate={role === "admin"}/);
   assert.doesNotMatch(settings, /role === "admin" && <DataManagementCard/);
   assert.match(settings, /{canMutate && <>[\s\S]*数据更新（CN 同步）[\s\S]*手动备份[\s\S]*<\/\>}[\s\S]*刷新状态/);
