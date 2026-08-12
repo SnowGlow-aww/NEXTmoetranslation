@@ -26,24 +26,26 @@ import (
 )
 
 const (
-	SchemaVersion         = 1
-	ManifestName          = "manifest.json"
-	DocumentsName         = "source-documents.json"
-	ArtifactsName         = "source-artifacts.json"
-	ContributionsName     = "source-contributions.json"
-	LegacyDocumentsName   = "legacy-documents.json"
-	LegacyLinesName       = "legacy-lines.json"
-	LegacySegmentsName    = "legacy-segments.json"
-	AvailabilityName      = "availability-documents.json"
-	ExpectedCatalogCount  = 700
-	ExpectedSourceV3      = 652
-	ExpectedLegacy        = 1
-	ExpectedAvailability  = 47
-	ExpectedArtifacts     = 785
-	ExpectedContributions = 4893
-	maxArchiveBytes       = 64 << 20
-	maxTarBytes           = 192 << 20
-	maxEntryBytes         = 64 << 20
+	SchemaVersion          = 1
+	ManifestName           = "manifest.json"
+	DocumentsName          = "source-documents.json"
+	ArtifactsName          = "source-artifacts.json"
+	ContributionsName      = "source-contributions.json"
+	LegacyDocumentsName    = "legacy-documents.json"
+	LegacyLinesName        = "legacy-lines.json"
+	LegacySegmentsName     = "legacy-segments.json"
+	AvailabilityName       = "availability-documents.json"
+	ExpectedCatalogCount   = 700
+	ExpectedSourceV3       = 652
+	ExpectedLegacy         = 1
+	ExpectedLegacyLines    = 65
+	ExpectedLegacySegments = 65
+	ExpectedAvailability   = 47
+	ExpectedArtifacts      = 785
+	ExpectedContributions  = 4893
+	maxArchiveBytes        = 64 << 20
+	maxTarBytes            = 192 << 20
+	maxEntryBytes          = 64 << 20
 )
 
 var canonicalSHA256 = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -191,36 +193,8 @@ func DecodeArchive(archive []byte) (Bundle, error) {
 	}
 	archiveDigest := sha256.Sum256(archive)
 	bundle := Bundle{ArchiveSHA256: hex.EncodeToString(archiveDigest[:])}
-	files, err := decodeTarGzip(archive)
-	if err != nil {
+	if err := decodeTarGzip(archive, &bundle); err != nil {
 		return Bundle{}, err
-	}
-	manifestBody, ok := files[ManifestName]
-	if !ok {
-		return Bundle{}, errors.New("embedded lyrics editor seed manifest is missing")
-	}
-	if err := decodeClosedJSON(manifestBody, &bundle.Manifest); err != nil {
-		return Bundle{}, fmt.Errorf("decode embedded lyrics editor seed manifest: %w", err)
-	}
-	delete(files, ManifestName)
-	if err := validateManifest(bundle.Manifest, files); err != nil {
-		return Bundle{}, err
-	}
-	for _, target := range []struct {
-		name  string
-		value any
-	}{
-		{DocumentsName, &bundle.Documents},
-		{ArtifactsName, &bundle.Artifacts},
-		{ContributionsName, &bundle.Contributions},
-		{LegacyDocumentsName, &bundle.LegacyDocuments},
-		{LegacyLinesName, &bundle.LegacyLines},
-		{LegacySegmentsName, &bundle.LegacySegments},
-		{AvailabilityName, &bundle.Availability},
-	} {
-		if err := decodeClosedJSON(files[target.name], target.value); err != nil {
-			return Bundle{}, fmt.Errorf("decode embedded lyrics editor seed %s: %w", target.name, err)
-		}
 	}
 	if err := validateBundle(bundle); err != nil {
 		return Bundle{}, err
@@ -228,49 +202,119 @@ func DecodeArchive(archive []byte) (Bundle, error) {
 	return bundle, nil
 }
 
-func decodeTarGzip(archive []byte) (map[string][]byte, error) {
-	compressed, err := gzip.NewReader(bytes.NewReader(archive))
+func decodeTarGzip(archive []byte, bundle *Bundle) error {
+	source := bytes.NewReader(archive)
+	compressed, err := gzip.NewReader(source)
 	if err != nil {
-		return nil, fmt.Errorf("open embedded lyrics editor seed archive: %w", err)
+		return fmt.Errorf("open embedded lyrics editor seed archive: %w", err)
 	}
 	defer compressed.Close()
 	compressed.Multistream(false)
 	if compressed.Name != "" || compressed.Comment != "" || len(compressed.Extra) != 0 || !compressed.ModTime.IsZero() {
-		return nil, errors.New("embedded lyrics editor seed gzip metadata is not canonical")
+		return errors.New("embedded lyrics editor seed gzip metadata is not canonical")
 	}
 	limited := &io.LimitedReader{R: compressed, N: maxTarBytes + 1}
 	reader := tar.NewReader(limited)
-	files := map[string][]byte{}
-	for {
+	targets := []struct {
+		name   string
+		decode func(io.Reader, int) error
+	}{
+		{DocumentsName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.Documents, count)
+		}},
+		{ArtifactsName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.Artifacts, count)
+		}},
+		{ContributionsName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.Contributions, count)
+		}},
+		{LegacyDocumentsName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.LegacyDocuments, count)
+		}},
+		{LegacyLinesName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.LegacyLines, count)
+		}},
+		{LegacySegmentsName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.LegacySegments, count)
+		}},
+		{AvailabilityName, func(reader io.Reader, count int) error {
+			return decodeClosedJSONArray(reader, &bundle.Availability, count)
+		}},
+	}
+	for index := -1; ; index++ {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
+			if index != len(targets) {
+				return errors.New("embedded lyrics editor seed archive is incomplete")
+			}
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("read embedded lyrics editor seed archive: %w", err)
+			return fmt.Errorf("read embedded lyrics editor seed archive: %w", err)
 		}
-		if header.Typeflag != tar.TypeReg || header.Mode != 0o400 || header.Uid != 0 || header.Gid != 0 ||
-			header.Uname != "" || header.Gname != "" || header.Linkname != "" || header.Devmajor != 0 || header.Devminor != 0 ||
-			header.ModTime.Unix() != 0 || !header.AccessTime.IsZero() || !header.ChangeTime.IsZero() ||
-			len(header.PAXRecords) != 0 || len(header.Xattrs) != 0 || path.Clean(header.Name) != header.Name || strings.Contains(header.Name, "/") {
-			return nil, fmt.Errorf("invalid embedded lyrics editor seed entry %q", header.Name)
+		if index >= len(targets) {
+			return fmt.Errorf("unexpected embedded lyrics editor seed entry %q", header.Name)
 		}
-		if header.Size < 2 || header.Size > maxEntryBytes {
-			return nil, fmt.Errorf("invalid embedded lyrics editor seed entry size for %q", header.Name)
+		expectedName := ManifestName
+		if index >= 0 {
+			expectedName = targets[index].name
 		}
-		if _, duplicate := files[header.Name]; duplicate {
-			return nil, fmt.Errorf("duplicate embedded lyrics editor seed entry %q", header.Name)
+		if header.Name != expectedName {
+			return fmt.Errorf("embedded lyrics editor seed entry %q is out of order; expected %q", header.Name, expectedName)
 		}
-		body, err := io.ReadAll(io.LimitReader(reader, maxEntryBytes+1))
-		if err != nil || int64(len(body)) != header.Size {
-			return nil, fmt.Errorf("read embedded lyrics editor seed entry %q", header.Name)
+		if err := validateTarHeader(header); err != nil {
+			return err
 		}
-		files[header.Name] = body
+		entry := &io.LimitedReader{R: reader, N: header.Size}
+		if index == -1 {
+			body, err := io.ReadAll(entry)
+			if err != nil || entry.N != 0 {
+				return fmt.Errorf("read embedded lyrics editor seed entry %q", header.Name)
+			}
+			if err := decodeClosedJSON(body, &bundle.Manifest); err != nil {
+				return fmt.Errorf("decode embedded lyrics editor seed %s: %w", header.Name, err)
+			}
+			if err := validateManifestIdentity(bundle.Manifest); err != nil {
+				return err
+			}
+			continue
+		}
+		record := bundle.Manifest.Files[index]
+		digest := sha256.New()
+		if err := targets[index].decode(io.TeeReader(entry, digest), record.Count); err != nil {
+			return fmt.Errorf("decode embedded lyrics editor seed %s: %w", header.Name, err)
+		}
+		if entry.N != 0 || record.Name != header.Name || record.Bytes != int(header.Size) || record.Count < 0 ||
+			!canonicalSHA256.MatchString(record.SHA256) || record.SHA256 != hex.EncodeToString(digest.Sum(nil)) {
+			return fmt.Errorf("embedded lyrics editor seed file inventory is invalid for %q", header.Name)
+		}
+	}
+	if _, err := io.Copy(io.Discard, limited); err != nil {
+		return fmt.Errorf("finish embedded lyrics editor seed archive: %w", err)
 	}
 	if limited.N <= 0 {
-		return nil, errors.New("embedded lyrics editor seed tar exceeds its size limit")
+		return errors.New("embedded lyrics editor seed tar exceeds its size limit")
 	}
-	return files, nil
+	if err := compressed.Close(); err != nil {
+		return fmt.Errorf("close embedded lyrics editor seed archive: %w", err)
+	}
+	if source.Len() != 0 {
+		return errors.New("embedded lyrics editor seed gzip has trailing data")
+	}
+	return nil
+}
+
+func validateTarHeader(header *tar.Header) error {
+	if header.Typeflag != tar.TypeReg || header.Mode != 0o400 || header.Uid != 0 || header.Gid != 0 ||
+		header.Uname != "" || header.Gname != "" || header.Linkname != "" || header.Devmajor != 0 || header.Devminor != 0 ||
+		header.ModTime.Unix() != 0 || !header.AccessTime.IsZero() || !header.ChangeTime.IsZero() ||
+		len(header.PAXRecords) != 0 || len(header.Xattrs) != 0 || path.Clean(header.Name) != header.Name || strings.Contains(header.Name, "/") {
+		return fmt.Errorf("invalid embedded lyrics editor seed entry %q", header.Name)
+	}
+	if header.Size < 2 || header.Size > maxEntryBytes {
+		return fmt.Errorf("invalid embedded lyrics editor seed entry size for %q", header.Name)
+	}
+	return nil
 }
 
 func decodeClosedJSON(body []byte, target any) error {
@@ -294,7 +338,48 @@ func decodeClosedJSON(body []byte, target any) error {
 	return nil
 }
 
-func validateManifest(manifest Manifest, files map[string][]byte) error {
+func decodeClosedJSONArray[T any](reader io.Reader, target *[]T, expectedCount int) error {
+	if target == nil || expectedCount < 0 {
+		return errors.New("JSON array target or count is invalid")
+	}
+	decoder := json.NewDecoder(reader)
+	start, err := decoder.Token()
+	if err != nil || start != json.Delim('[') {
+		return errors.New("JSON body is not an array")
+	}
+	result := make([]T, 0, expectedCount)
+	for decoder.More() {
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			return err
+		}
+		var item T
+		if err := decodeClosedJSON(raw, &item); err != nil {
+			return err
+		}
+		result = append(result, item)
+		if len(result) > expectedCount {
+			return errors.New("JSON array count exceeds the manifest")
+		}
+	}
+	end, err := decoder.Token()
+	if err != nil || end != json.Delim(']') {
+		return errors.New("JSON array is incomplete")
+	}
+	if len(result) != expectedCount {
+		return errors.New("JSON array count differs from the manifest")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("trailing JSON value")
+		}
+		return err
+	}
+	*target = result
+	return nil
+}
+
+func validateManifestIdentity(manifest Manifest) error {
 	if manifest.SchemaVersion != SchemaVersion || strings.TrimSpace(manifest.ReleaseID) != manifest.ReleaseID || manifest.ReleaseID == "" ||
 		!canonicalSHA256.MatchString(manifest.SourceBatchSHA256) || !canonicalSHA256.MatchString(manifest.RootSHA256) ||
 		manifest.CatalogPolicyVersion != model.LyricsCatalogIdentityPolicyVersion || manifest.CatalogCount != ExpectedCatalogCount ||
@@ -302,22 +387,26 @@ func validateManifest(manifest Manifest, files map[string][]byte) error {
 		!canonicalSHA256.MatchString(manifest.SeedSHA256) || manifest.CreatedAt <= 0 || len(manifest.Items) != ExpectedCatalogCount {
 		return errors.New("embedded lyrics editor seed manifest identity is invalid")
 	}
-	if len(manifest.Files) != len(files) {
+	expectedFiles := []struct {
+		name  string
+		count int
+	}{
+		{DocumentsName, ExpectedSourceV3},
+		{ArtifactsName, ExpectedArtifacts},
+		{ContributionsName, ExpectedContributions},
+		{LegacyDocumentsName, ExpectedLegacy},
+		{LegacyLinesName, ExpectedLegacyLines},
+		{LegacySegmentsName, ExpectedLegacySegments},
+		{AvailabilityName, ExpectedAvailability},
+	}
+	if len(manifest.Files) != len(expectedFiles) {
 		return errors.New("embedded lyrics editor seed file inventory count differs")
 	}
-	seenFiles := map[string]bool{}
-	for _, record := range manifest.Files {
-		body, exists := files[record.Name]
-		digest := sha256.Sum256(body)
-		if !exists || seenFiles[record.Name] || record.Bytes != len(body) || record.Count < 0 ||
-			!canonicalSHA256.MatchString(record.SHA256) || record.SHA256 != hex.EncodeToString(digest[:]) {
-			return fmt.Errorf("embedded lyrics editor seed file inventory is invalid for %q", record.Name)
-		}
-		seenFiles[record.Name] = true
-	}
-	for _, name := range []string{DocumentsName, ArtifactsName, ContributionsName, LegacyDocumentsName, LegacyLinesName, LegacySegmentsName, AvailabilityName} {
-		if !seenFiles[name] {
-			return fmt.Errorf("embedded lyrics editor seed file %q is missing", name)
+	for index, expected := range expectedFiles {
+		record := manifest.Files[index]
+		if record.Name != expected.name || record.Bytes < 2 || record.Bytes > maxEntryBytes || record.Count != expected.count ||
+			!canonicalSHA256.MatchString(record.SHA256) {
+			return fmt.Errorf("embedded lyrics editor seed file inventory is invalid for %q", expected.name)
 		}
 	}
 	return nil
@@ -384,7 +473,12 @@ func validateBundle(bundle Bundle) error {
 		return errors.New("embedded lyrics editor seed catalog digest or partition differs")
 	}
 
-	documents := make(map[int]SourceDocumentRecord, len(bundle.Documents))
+	type validatedSourceDocument struct {
+		record     SourceDocumentRecord
+		identities map[string]model.LyricsSourceFixedIdentity
+		bindings   map[string]string
+	}
+	documents := make(map[int]validatedSourceDocument, len(bundle.Documents))
 	artifactKeys := make(map[int]map[string]bool, len(bundle.Documents))
 	contributionKeys := make(map[int]map[string]bool, len(bundle.Documents))
 	for _, record := range bundle.Documents {
@@ -402,24 +496,32 @@ func validateBundle(bundle Bundle) error {
 		if _, duplicate := documents[record.MusicID]; duplicate {
 			return fmt.Errorf("embedded lyrics editor seed source document %d is duplicated", record.MusicID)
 		}
-		documents[record.MusicID] = record
+		identities := make(map[string]model.LyricsSourceFixedIdentity, len(document.FixedIdentities))
+		for _, identity := range document.FixedIdentities {
+			if _, duplicate := identities[identity.RenditionKey]; duplicate {
+				return fmt.Errorf("embedded lyrics editor seed source document %d has duplicate fixed identities", record.MusicID)
+			}
+			identities[identity.RenditionKey] = identity
+		}
+		componentBindings, bindingErr := model.EnumerateLyricsSourceRenditionComponents(document.Renditions)
+		if bindingErr != nil {
+			return fmt.Errorf("embedded lyrics editor seed source document %d has invalid contribution bindings", record.MusicID)
+		}
+		bindings := make(map[string]string, len(componentBindings))
+		for _, binding := range componentBindings {
+			bindings[binding.ComponentKey] = binding.FixedIdentityKey
+		}
+		documents[record.MusicID] = validatedSourceDocument{record: record, identities: identities, bindings: bindings}
 	}
 	for _, record := range bundle.Artifacts {
-		documentRecord, exists := documents[record.MusicID]
-		document, err := model.DecodeLyricsSourceDocument([]byte(documentRecord.DocumentJSON))
+		document, exists := documents[record.MusicID]
+		expected, expectedExists := document.identities[record.RenditionKey]
 		identity, identityErr := model.DecodeLyricsSourceFixedIdentity([]byte(record.FixedIdentityJSON))
 		canonicalIdentity, marshalErr := json.Marshal(identity)
 		identityDigest := sha256.Sum256([]byte(record.FixedIdentityJSON))
-		var expected *model.LyricsSourceFixedIdentity
-		for index := range document.FixedIdentities {
-			if document.FixedIdentities[index].RenditionKey == record.RenditionKey {
-				expected = &document.FixedIdentities[index]
-				break
-			}
-		}
 		categories, categoriesErr := json.Marshal(identity.Categories)
 		references, referencesErr := json.Marshal(identity.IndexEvidenceRefs)
-		if !exists || err != nil || identityErr != nil || marshalErr != nil || expected == nil || !sameIdentity(*expected, identity) ||
+		if !exists || !expectedExists || identityErr != nil || marshalErr != nil || !sameIdentity(expected, identity) ||
 			string(canonicalIdentity) != record.FixedIdentityJSON || record.FixedIdentitySHA256 != hex.EncodeToString(identityDigest[:]) ||
 			record.Provider != string(identity.Provider) || record.Origin != identity.Origin || record.PageID != identity.PageID ||
 			record.RevisionID != identity.RevisionID || record.RevisionTimestamp != identity.RevisionTimestamp ||
@@ -439,25 +541,16 @@ func validateBundle(bundle Bundle) error {
 		}
 		artifactKeys[record.MusicID][record.RenditionKey] = true
 	}
-	for musicID, record := range documents {
-		document, _ := model.DecodeLyricsSourceDocument([]byte(record.DocumentJSON))
-		if len(artifactKeys[musicID]) != len(document.FixedIdentities) {
+	for musicID, document := range documents {
+		if len(artifactKeys[musicID]) != len(document.identities) {
 			return fmt.Errorf("embedded lyrics editor seed source artifacts for music %d are incomplete", musicID)
 		}
 	}
 	for _, record := range bundle.Contributions {
-		documentRecord, exists := documents[record.MusicID]
-		document, err := model.DecodeLyricsSourceDocument([]byte(documentRecord.DocumentJSON))
-		bindings, bindingErr := model.EnumerateLyricsSourceRenditionComponents(document.Renditions)
-		expectedKey := ""
-		for _, binding := range bindings {
-			if binding.ComponentKey == record.Component {
-				expectedKey = binding.FixedIdentityKey
-				break
-			}
-		}
-		digest := sha256.Sum256([]byte(documentRecord.DocumentSHA256 + "\x00" + record.Component + "\x00" + record.RenditionKey))
-		if !exists || err != nil || bindingErr != nil || expectedKey == "" || expectedKey != record.RenditionKey ||
+		document, exists := documents[record.MusicID]
+		expectedKey := document.bindings[record.Component]
+		digest := sha256.Sum256([]byte(document.record.DocumentSHA256 + "\x00" + record.Component + "\x00" + record.RenditionKey))
+		if !exists || expectedKey == "" || expectedKey != record.RenditionKey ||
 			!artifactKeys[record.MusicID][record.RenditionKey] || record.ContributionSHA256 != hex.EncodeToString(digest[:]) {
 			return fmt.Errorf("embedded lyrics editor seed contribution %d/%s is invalid", record.MusicID, record.Component)
 		}
@@ -469,10 +562,8 @@ func validateBundle(bundle Bundle) error {
 		}
 		contributionKeys[record.MusicID][record.Component] = true
 	}
-	for musicID, record := range documents {
-		document, _ := model.DecodeLyricsSourceDocument([]byte(record.DocumentJSON))
-		bindings, _ := model.EnumerateLyricsSourceRenditionComponents(document.Renditions)
-		if len(contributionKeys[musicID]) != len(bindings) {
+	for musicID, document := range documents {
+		if len(contributionKeys[musicID]) != len(document.bindings) {
 			return fmt.Errorf("embedded lyrics editor seed contributions for music %d are incomplete", musicID)
 		}
 	}
