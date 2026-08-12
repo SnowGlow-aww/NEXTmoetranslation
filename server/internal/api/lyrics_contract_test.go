@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +19,7 @@ import (
 	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
+	"moesekai/server/internal/publiclyricsbundle"
 	"moesekai/server/internal/store"
 )
 
@@ -106,6 +108,72 @@ func apiLyrics() model.SongLyrics {
 			Segments: []model.LyricSegment{{Text: "初音", PerformerIDs: []int{1}}, {Text: "歌う", PerformerIDs: []int{1}}},
 		}},
 	}
+}
+
+func TestCatalogMusicAddsEmbeddedRuntimeLyricsWithoutChangingDBStatus(t *testing.T) {
+	h := setupLegacyAPI(t)
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{
+		{MusicID: 307, JapaneseTitle: "おこちゃま戦争"},
+		{MusicID: 789, JapaneseTitle: "天秤、指先で触れて"},
+		{MusicID: 999999, JapaneseTitle: "Bundle 外の曲"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	response := authorizedRequest(t, h, http.MethodGet, "/api/catalog/music?newlyWritten=false&limit=100", nil)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("catalog status=%d", response.StatusCode)
+	}
+	var result model.CatalogMusicResponse
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	items := make(map[int]model.CatalogMusicItem, len(result.Items))
+	for _, item := range result.Items {
+		items[item.MusicID] = item
+	}
+	complete := items[307]
+	if complete.LyricsStatus != "" || complete.RuntimeLyrics == nil || complete.RuntimeLyrics.ReleaseID != publiclyricsbundle.ReleaseID ||
+		!complete.RuntimeLyrics.ImmutableOverlay || complete.RuntimeLyrics.State != "complete" || !complete.RuntimeLyrics.HasDetail ||
+		complete.RuntimeLyrics.Revision != 1 || complete.RuntimeLyrics.UpdatedAt != "2026-08-08T13:24:16Z" ||
+		!reflect.DeepEqual(complete.RuntimeLyrics.AvailableVersions, []string{"full", "game"}) ||
+		complete.RuntimeLyrics.BatchSHA256 != publiclyricsbundle.BatchSHA256 || complete.RuntimeLyrics.RootSHA256 != publiclyricsbundle.RootSHA256 {
+		t.Fatalf("complete catalog item=%+v", complete)
+	}
+	incomplete := items[789]
+	if incomplete.RuntimeLyrics == nil {
+		t.Fatalf("incomplete catalog item has no runtime metadata: %+v", incomplete)
+	}
+	if incomplete.LyricsStatus != "" || incomplete.RuntimeLyrics.State != "incomplete" ||
+		incomplete.RuntimeLyrics.HasDetail || incomplete.RuntimeLyrics.AvailableVersions == nil || len(incomplete.RuntimeLyrics.AvailableVersions) != 0 {
+		t.Fatalf("incomplete catalog item=%+v runtime=%+v", incomplete, *incomplete.RuntimeLyrics)
+	}
+	outside := items[999999]
+	if outside.LyricsStatus != "" || outside.RuntimeLyrics != nil {
+		t.Fatalf("non-bundle catalog item=%+v", outside)
+	}
+
+	saved, err := h.store.SaveLyrics(model.SongLyrics{MusicID: 307, Status: "draft", Lines: []model.LyricLine{{
+		ID: "line-1", Order: 0, Japanese: "歌", Segments: []model.LyricSegment{{Text: "歌", PerformerIDs: []int{}}},
+	}}}, "alice")
+	if err != nil || saved.Revision != 1 {
+		t.Fatalf("save source draft=%+v err=%v", saved, err)
+	}
+	response = authorizedRequest(t, h, http.MethodGet, "/api/catalog/music?newlyWritten=false&limit=100", nil)
+	defer response.Body.Close()
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range result.Items {
+		if item.MusicID == 307 {
+			if item.LyricsStatus != "draft" || item.RuntimeLyrics == nil || item.RuntimeLyrics.State != "complete" {
+				t.Fatalf("DB draft/runtime overlay item=%+v", item)
+			}
+			return
+		}
+	}
+	t.Fatal("music 307 missing after DB draft save")
 }
 
 func TestLyricsAPIContractAndRBAC(t *testing.T) {

@@ -33,6 +33,25 @@ function emptyLyrics(musicId: number): SongLyrics {
   };
 }
 
+function databaseLyricsStatusLabel(item: CatalogMusicItem): string {
+  if (item.lyricsStatus === "published") return "已发布";
+  if (item.lyricsStatus === "draft-published") return "草稿（旧版公开）";
+  if (item.lyricsStatus === "draft") return "草稿";
+  return "未录入";
+}
+
+function runtimeLyricsStateLabel(state: string): string {
+  if (state === "complete") return "完整公开";
+  if (state === "game_only") return "仅 Game 公开";
+  if (state === "satisfied_no_lyrics") return "无需歌词";
+  if (state === "incomplete") return "未完成";
+  return state;
+}
+
+function runtimeLyricsVersionsLabel(versions: string[]): string {
+  return versions.length > 0 ? versions.map((version) => version === "full" ? "Full" : version === "game" ? "Game" : version).join("/") : "无 detail";
+}
+
 function isLegacyLyricsDocument(document: SongLyricsDocument | null | undefined): document is SongLyrics {
   return Boolean(document) && !isRenditionLyricsDocument(document);
 }
@@ -207,6 +226,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const [performers, setPerformers] = useState<CatalogPerformerItem[]>([]);
   const [selectedMusic, setSelectedMusic] = useState<CatalogMusicItem | null>(null);
   const [lyrics, setLyrics] = useState<SongLyricsDocument | null>(null);
+  const [runtimeOnlyMissingDatabaseSource, setRuntimeOnlyMissingDatabaseSource] = useState(false);
   const [baseline, setBaseline] = useState("");
   const [loading, setLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -374,6 +394,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     selectedMusicIDRef.current = item.musicId;
     setSelectedMusic(item);
     setLoading(true);
+    setRuntimeOnlyMissingDatabaseSource(false);
     setError(null);
     setCandidates([]);
     setSourceSearchCompleted(false);
@@ -405,7 +426,16 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       loadedSuccessfully = true;
     } catch (reason) {
       if (!requestIsCurrent(sequence, item.musicId)) return false;
-      if (reason instanceof APIError && reason.status === 404) {
+      if (reason instanceof APIError && reason.status === 404 && item.runtimeLyrics?.immutableOverlay) {
+        // The embedded Public Lyrics release is a read-only runtime overlay, not
+        // an editable SQLite revision. Never turn its missing DB detail into a
+        // saveable blank draft; the controlled offline recovery import owns that bridge.
+        documentGenerationRef.current++;
+        setLyrics(null);
+        setBaseline("");
+        setRuntimeOnlyMissingDatabaseSource(true);
+        loadedSuccessfully = true;
+      } else if (reason instanceof APIError && reason.status === 404) {
         const blank = emptyLyrics(item.musicId);
         documentGenerationRef.current++;
         setLyrics(blank);
@@ -1183,7 +1213,8 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
           ) : catalog.map((item) => (
             <button key={item.musicId} className={selectedMusic?.musicId === item.musicId ? "active" : ""} aria-current={selectedMusic?.musicId === item.musicId ? "page" : undefined} onClick={() => chooseMusic(item)} disabled={busy}>
               <strong>{item.title["zh-CN"] || item.title["ja-JP"]}</strong>
-              <span>#{item.musicId} · {item.lyricsStatus === "published" ? "已发布" : item.lyricsStatus === "draft-published" ? "草稿（旧版公开）" : item.lyricsStatus === "draft" ? "草稿" : "未录入"}</span>
+              <span>#{item.musicId} · 数据库：{databaseLyricsStatusLabel(item)}</span>
+              {item.runtimeLyrics?.immutableOverlay && <span>公开镜像：{runtimeLyricsStateLabel(item.runtimeLyrics.state)} · {runtimeLyricsVersionsLabel(item.runtimeLyrics.availableVersions)}</span>}
             </button>
           ))}
         </div>
@@ -1192,6 +1223,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       <section className="lyrics-editor">
         {!selectedMusic ? <div className="center-state"><p>从目录选择一首曲目</p></div> : loading ? (
           <div className="center-state" role="status" aria-live="polite"><div className="spinner" />加载歌词…</div>
+        ) : runtimeOnlyMissingDatabaseSource && selectedMusic.runtimeLyrics ? (
+          <div className="lyrics-runtime-only" role="status">
+            <strong>公开镜像仍在，后台数据库尚无可编辑源</strong>
+            <p>这首歌包含在 embedded Public Lyrics {selectedMusic.runtimeLyrics.releaseId} 中，状态为“{runtimeLyricsStateLabel(selectedMusic.runtimeLyrics.state)}”，可用版本为 {runtimeLyricsVersionsLabel(selectedMusic.runtimeLyrics.availableVersions)}。该镜像是 standalone binary 内的只读发布资产，不是 SQLite 草稿或发布记录。</p>
+            <p>系统不会把 detail 404 静默转换成可保存的空草稿。要在后台编辑现有歌词，必须执行受控离线 recovery import；导入流程不会在此页面触发，也不会覆盖账号、普通翻译、剧情或审核数据。</p>
+            <button className="btn btn-secondary" onClick={() => void performChooseMusic(selectedMusic)}>重新检查数据库</button>
+          </div>
         ) : lyrics ? (
           <fieldset className="lyrics-edit-fence" disabled={busy} aria-busy={busy} aria-disabled={writeLocked} onKeyDown={handleEditorKeyDown}>
             <div className="lyrics-editor-head">

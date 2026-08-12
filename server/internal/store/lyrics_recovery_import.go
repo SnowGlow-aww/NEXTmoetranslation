@@ -41,10 +41,12 @@ type RecoveryLyricsImportItem struct {
 	AvailabilityDocumentSHA256 string
 }
 
-// RecoveryLyricsImportCommitHook runs after every durable row and audit entry
-// has been written or verified. If it returns nil, Commit is the next database
-// call. This is the receipt boundary for the all-root importer.
-type RecoveryLyricsImportCommitHook func(*sql.Tx, []RecoveryLyricsImportItem) error
+// RecoveryLyricsImportCommitHook runs after every durable row and the ordinary
+// recovery audit have been written or verified. The timestamp is the immutable
+// batch created_at value, including on exact replay. If the hook returns nil,
+// SQLite Commit is the next database call. This is the receipt boundary for the
+// all-root importer.
+type RecoveryLyricsImportCommitHook func(*sql.Tx, []RecoveryLyricsImportItem, int64) error
 
 func (s *Store) ImportRecoveryLyricsManifest(
 	ctx context.Context,
@@ -254,14 +256,20 @@ func (s *Store) ImportRecoveryLyricsManifestWithCommitHook(
 		if itemCount != len(manifest.Items) {
 			return nil, false, fmt.Errorf("%w: committed recovery batch item count changed", ErrLyricsRecoveryImportDrift)
 		}
-	} else {
+	}
+	if !batchExists {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO audit_log(ts,user,action,detail) VALUES (?,?,'lyrics.import_recovery',?)`,
 			now, actor, fmt.Sprintf("rootId=%s rootSha256=%s batchSha256=%s items=%d", root.RootID, root.RootSHA256, manifest.BatchSHA256, len(manifest.Items))); err != nil {
 			return nil, false, err
 		}
 	}
+	var batchCreatedAt int64
+	if err := tx.QueryRowContext(ctx, `SELECT created_at FROM lyrics_recovery_import_batches WHERE batch_sha256=?`, manifest.BatchSHA256).
+		Scan(&batchCreatedAt); err != nil {
+		return nil, false, err
+	}
 	if beforeCommit != nil {
-		if err := beforeCommit(tx, results); err != nil {
+		if err := beforeCommit(tx, results, batchCreatedAt); err != nil {
 			return nil, false, err
 		}
 	}

@@ -12,12 +12,25 @@ type LocalizedTitle struct {
 	English  string `json:"en-US,omitempty"`
 }
 
+type RuntimeLyricsMetadata struct {
+	ReleaseID         string   `json:"releaseId"`
+	ImmutableOverlay  bool     `json:"immutableOverlay"`
+	State             string   `json:"state"`
+	HasDetail         bool     `json:"hasDetail"`
+	AvailableVersions []string `json:"availableVersions"`
+	Revision          int      `json:"revision"`
+	UpdatedAt         string   `json:"updatedAt"`
+	BatchSHA256       string   `json:"batchSha256,omitempty"`
+	RootSHA256        string   `json:"rootSha256,omitempty"`
+}
+
 type CatalogMusicItem struct {
-	MusicID             int            `json:"musicId"`
-	Title               LocalizedTitle `json:"title"`
-	JacketURL           string         `json:"jacketUrl,omitempty"`
-	IsNewlyWrittenMusic bool           `json:"isNewlyWrittenMusic"`
-	LyricsStatus        string         `json:"lyricsStatus,omitempty"`
+	MusicID             int                    `json:"musicId"`
+	Title               LocalizedTitle         `json:"title"`
+	JacketURL           string                 `json:"jacketUrl,omitempty"`
+	IsNewlyWrittenMusic bool                   `json:"isNewlyWrittenMusic"`
+	LyricsStatus        string                 `json:"lyricsStatus,omitempty"`
+	RuntimeLyrics       *RuntimeLyricsMetadata `json:"runtimeLyrics,omitempty"`
 }
 
 type CatalogMusicResponse struct {

@@ -213,12 +213,27 @@ export interface LocalizedTitle {
   "en-US"?: string;
 }
 
+export interface RuntimeLyricsMetadata {
+  releaseId: string;
+  immutableOverlay: boolean;
+  state: "complete" | "game_only" | "satisfied_no_lyrics" | "incomplete";
+  hasDetail: boolean;
+  availableVersions: string[];
+  revision: number;
+  updatedAt: string;
+  batchSha256?: string;
+  rootSha256?: string;
+}
+
 export interface CatalogMusicItem {
   musicId: number;
   title: LocalizedTitle;
   jacketUrl?: string;
   isNewlyWrittenMusic: boolean;
+  /** Editable/publishable SQLite state. This never describes the immutable embedded release. */
   lyricsStatus?: "draft" | "published" | "draft-published";
+  /** Independent read-only metadata for the embedded Public Lyrics release. */
+  runtimeLyrics?: RuntimeLyricsMetadata;
 }
 
 export interface CatalogPerformerItem {

@@ -19,11 +19,17 @@ import (
 )
 
 const (
-	ImportReceiptSchemaVersion        = 1
-	ImportReceiptKind                 = "lyrics-recovery-import-receipt-v1"
-	ImportReceiptRuntimeSchemaVersion = 27
-	ImportReceiptAuditAction          = "lyrics.import_recovery"
-	MaxImportReceiptBytes             = 4 << 20
+	ImportReceiptSchemaVersion          = 2
+	ImportReceiptKind                   = "lyrics-recovery-import-receipt-v2"
+	ImportReceiptSchemaVersionV1        = 1
+	ImportReceiptKindV1                 = "lyrics-recovery-import-receipt-v1"
+	ImportReceiptRuntimeSchemaVersion   = 27
+	ImportReceiptAuditAction            = "lyrics.import_recovery"
+	ImportReceiptReceiptAuditAction     = "lyrics.import_recovery.receipt"
+	ImportReceiptCommitProtocol         = "durable-precommit-v1"
+	ImportReceiptStateDigestVersion     = "moesekai-recovery-logical-state-v1"
+	ImportReceiptProtectedDigestVersion = "moesekai-recovery-protected-state-v2"
+	MaxImportReceiptBytes               = 4 << 20
 )
 
 type ImportReceiptItem struct {
@@ -50,6 +56,71 @@ type ImportReceipt struct {
 	Kind                      string                      `json:"kind"`
 	RuntimeSchemaVersion      int                         `json:"runtimeSchemaVersion"`
 	DatabaseAuditAction       string                      `json:"databaseAuditAction"`
+	CommitProtocol            string                      `json:"commitProtocol"`
+	ReceiptAuditAction        string                      `json:"receiptAuditAction"`
+	RootManifestFileSHA256    string                      `json:"rootManifestFileSha256"`
+	RootID                    string                      `json:"rootId"`
+	RootSHA256                string                      `json:"rootSha256"`
+	ImportManifestFileSHA256  string                      `json:"importManifestFileSha256"`
+	BatchSHA256               string                      `json:"batchSha256"`
+	EvidenceReceiptFileSHA256 string                      `json:"evidenceReceiptFileSha256"`
+	EvidenceReceiptSHA256     string                      `json:"evidenceReceiptSha256"`
+	PackSHA256                string                      `json:"packSha256"`
+	SelectionSHA256           string                      `json:"selectionSha256"`
+	CatalogCount              int                         `json:"catalogCount"`
+	MusicIDsSHA256            string                      `json:"musicIdsSha256"`
+	Coverage                  lyricsrootmanifest.Coverage `json:"coverage"`
+	BackupSHA256              string                      `json:"backupSha256"`
+	StateDigestVersion        string                      `json:"stateDigestVersion"`
+	BackupStateSHA256         string                      `json:"backupStateSha256"`
+	PreImportDatabaseSHA256   string                      `json:"preImportDatabaseSha256"`
+	PreImportStateSHA256      string                      `json:"preImportStateSha256"`
+	PostImportStateSHA256     string                      `json:"postImportStateSha256"`
+	ProtectedDigestVersion    string                      `json:"protectedDigestVersion"`
+	PreImportProtectedSHA256  string                      `json:"preImportProtectedSha256"`
+	PostImportProtectedSHA256 string                      `json:"postImportProtectedSha256"`
+	AuditBoundaryID           int64                       `json:"auditBoundaryId"`
+	DatabasePath              string                      `json:"databasePath"`
+	RecoveryDatabasePath      string                      `json:"recoveryDatabasePath"`
+	ReceiptPath               string                      `json:"receiptPath"`
+	Actor                     string                      `json:"actor"`
+	BatchCreatedAt            string                      `json:"batchCreatedAt"`
+	PreparedAt                string                      `json:"preparedAt"`
+	// CommittedAt is populated only when DecodeImportReceiptCanonical projects
+	// a historical v1 receipt. It is never serialized into or accepted for v2.
+	CommittedAt   string              `json:"-"`
+	Counts        ImportStorageCounts `json:"counts"`
+	Items         []ImportReceiptItem `json:"items"`
+	ReceiptSHA256 string              `json:"receiptSha256"`
+}
+
+type ImportReceiptBinding struct {
+	RootManifestFileSHA256    string
+	ImportManifestFileSHA256  string
+	EvidenceReceiptFileSHA256 string
+	BackupSHA256              string
+	BackupStateSHA256         string
+	PreImportDatabaseSHA256   string
+	PreImportStateSHA256      string
+	PostImportStateSHA256     string
+	PreImportProtectedSHA256  string
+	PostImportProtectedSHA256 string
+	AuditBoundaryID           int64
+	DatabasePath              string
+	RecoveryDatabasePath      string
+	ReceiptPath               string
+	Actor                     string
+	BatchCreatedAt            string
+	PreparedAt                string
+	Counts                    ImportStorageCounts
+	Items                     []ImportReceiptItem
+}
+
+type importReceiptV1 struct {
+	SchemaVersion             int                         `json:"schemaVersion"`
+	Kind                      string                      `json:"kind"`
+	RuntimeSchemaVersion      int                         `json:"runtimeSchemaVersion"`
+	DatabaseAuditAction       string                      `json:"databaseAuditAction"`
 	RootManifestFileSHA256    string                      `json:"rootManifestFileSha256"`
 	RootID                    string                      `json:"rootId"`
 	RootSHA256                string                      `json:"rootSha256"`
@@ -71,29 +142,14 @@ type ImportReceipt struct {
 	ReceiptSHA256             string                      `json:"receiptSha256"`
 }
 
-type ImportReceiptBinding struct {
-	RootManifestFileSHA256    string
-	ImportManifestFileSHA256  string
-	EvidenceReceiptFileSHA256 string
-	DatabasePath              string
-	ReceiptPath               string
-	Actor                     string
-	CommittedAt               string
-	Counts                    ImportStorageCounts
-	Items                     []ImportReceiptItem
-}
-
-func NewImportReceipt(
-	root lyricsrootmanifest.Manifest,
-	manifest Manifest,
-	evidence EvidenceReceipt,
-	binding ImportReceiptBinding,
-) (ImportReceipt, error) {
+func NewImportReceipt(root lyricsrootmanifest.Manifest, manifest Manifest, evidence EvidenceReceipt, binding ImportReceiptBinding) (ImportReceipt, error) {
 	receipt := ImportReceipt{
 		SchemaVersion:             ImportReceiptSchemaVersion,
 		Kind:                      ImportReceiptKind,
 		RuntimeSchemaVersion:      ImportReceiptRuntimeSchemaVersion,
 		DatabaseAuditAction:       ImportReceiptAuditAction,
+		CommitProtocol:            ImportReceiptCommitProtocol,
+		ReceiptAuditAction:        ImportReceiptReceiptAuditAction,
 		RootManifestFileSHA256:    binding.RootManifestFileSHA256,
 		RootID:                    root.RootID,
 		RootSHA256:                root.RootSHA256,
@@ -106,10 +162,22 @@ func NewImportReceipt(
 		CatalogCount:              manifest.Root.CatalogCount,
 		MusicIDsSHA256:            manifest.Root.MusicIDsSHA256,
 		Coverage:                  manifest.Root.Coverage,
+		BackupSHA256:              binding.BackupSHA256,
+		StateDigestVersion:        ImportReceiptStateDigestVersion,
+		BackupStateSHA256:         binding.BackupStateSHA256,
+		PreImportDatabaseSHA256:   binding.PreImportDatabaseSHA256,
+		PreImportStateSHA256:      binding.PreImportStateSHA256,
+		PostImportStateSHA256:     binding.PostImportStateSHA256,
+		ProtectedDigestVersion:    ImportReceiptProtectedDigestVersion,
+		PreImportProtectedSHA256:  binding.PreImportProtectedSHA256,
+		PostImportProtectedSHA256: binding.PostImportProtectedSHA256,
+		AuditBoundaryID:           binding.AuditBoundaryID,
 		DatabasePath:              binding.DatabasePath,
+		RecoveryDatabasePath:      binding.RecoveryDatabasePath,
 		ReceiptPath:               binding.ReceiptPath,
 		Actor:                     binding.Actor,
-		CommittedAt:               binding.CommittedAt,
+		BatchCreatedAt:            binding.BatchCreatedAt,
+		PreparedAt:                binding.PreparedAt,
 		Counts:                    binding.Counts,
 		Items:                     append([]ImportReceiptItem(nil), binding.Items...),
 	}
@@ -124,12 +192,7 @@ func NewImportReceipt(
 	return receipt, nil
 }
 
-func ValidateImportReceiptAgainst(
-	receipt ImportReceipt,
-	root lyricsrootmanifest.Manifest,
-	manifest Manifest,
-	evidence EvidenceReceipt,
-) error {
+func ValidateImportReceiptAgainst(receipt ImportReceipt, root lyricsrootmanifest.Manifest, manifest Manifest, evidence EvidenceReceipt) error {
 	if err := ValidateImportReceipt(receipt); err != nil {
 		return err
 	}
@@ -173,61 +236,47 @@ func ValidateImportReceiptAgainst(
 func ValidateImportReceipt(receipt ImportReceipt) error {
 	if receipt.SchemaVersion != ImportReceiptSchemaVersion || receipt.Kind != ImportReceiptKind ||
 		receipt.RuntimeSchemaVersion != ImportReceiptRuntimeSchemaVersion ||
-		receipt.DatabaseAuditAction != ImportReceiptAuditAction ||
+		receipt.DatabaseAuditAction != ImportReceiptAuditAction || receipt.CommitProtocol != ImportReceiptCommitProtocol ||
+		receipt.ReceiptAuditAction != ImportReceiptReceiptAuditAction ||
 		!canonicalSHA256.MatchString(receipt.RootManifestFileSHA256) || !compactImportReceiptID(receipt.RootID) ||
 		!canonicalSHA256.MatchString(receipt.RootSHA256) || !canonicalSHA256.MatchString(receipt.ImportManifestFileSHA256) ||
 		!canonicalSHA256.MatchString(receipt.BatchSHA256) || !canonicalSHA256.MatchString(receipt.EvidenceReceiptFileSHA256) ||
 		!canonicalSHA256.MatchString(receipt.EvidenceReceiptSHA256) || !canonicalSHA256.MatchString(receipt.PackSHA256) ||
 		!canonicalSHA256.MatchString(receipt.SelectionSHA256) || receipt.CatalogCount <= 0 ||
-		!canonicalSHA256.MatchString(receipt.MusicIDsSHA256) || !canonicalImportReceiptPath(receipt.DatabasePath) ||
-		!canonicalImportReceiptPath(receipt.ReceiptPath) || receipt.DatabasePath == receipt.ReceiptPath ||
+		!canonicalSHA256.MatchString(receipt.MusicIDsSHA256) || !canonicalSHA256.MatchString(receipt.BackupSHA256) ||
+		receipt.StateDigestVersion != ImportReceiptStateDigestVersion ||
+		!canonicalSHA256.MatchString(receipt.BackupStateSHA256) || !canonicalSHA256.MatchString(receipt.PreImportDatabaseSHA256) ||
+		!canonicalSHA256.MatchString(receipt.PreImportStateSHA256) || receipt.BackupStateSHA256 != receipt.PreImportStateSHA256 ||
+		!canonicalSHA256.MatchString(receipt.PostImportStateSHA256) ||
+		receipt.ProtectedDigestVersion != ImportReceiptProtectedDigestVersion ||
+		!canonicalSHA256.MatchString(receipt.PreImportProtectedSHA256) ||
+		!canonicalSHA256.MatchString(receipt.PostImportProtectedSHA256) ||
+		receipt.PreImportProtectedSHA256 != receipt.PostImportProtectedSHA256 || receipt.AuditBoundaryID < 0 ||
+		!canonicalImportReceiptPath(receipt.DatabasePath) || !canonicalImportReceiptPath(receipt.RecoveryDatabasePath) ||
+		!canonicalImportReceiptPath(receipt.ReceiptPath) || receipt.DatabasePath == receipt.RecoveryDatabasePath ||
+		receipt.DatabasePath == receipt.ReceiptPath || receipt.RecoveryDatabasePath == receipt.ReceiptPath ||
 		receipt.Actor == "" || receipt.Actor != strings.TrimSpace(receipt.Actor) || len(receipt.Actor) > 128 ||
-		!utf8.ValidString(receipt.Actor) || strings.ContainsAny(receipt.Actor, "\x00\r\n") ||
+		!utf8.ValidString(receipt.Actor) || strings.ContainsAny(receipt.Actor, "\x00\r\n") || receipt.CommittedAt != "" ||
 		receipt.Items == nil || len(receipt.Items) != receipt.CatalogCount || len(receipt.Items) > MaxManifestItems ||
 		!canonicalSHA256.MatchString(receipt.ReceiptSHA256) {
 		return errors.New("recovery import receipt envelope is invalid")
 	}
-	if _, err := canonicalImportReceiptTimestamp(receipt.CommittedAt); err != nil {
+	batchCreatedAt, err := canonicalImportReceiptTimestamp(receipt.BatchCreatedAt, "batchCreatedAt")
+	if err != nil {
 		return err
+	}
+	preparedAt, err := canonicalImportReceiptTimestamp(receipt.PreparedAt, "preparedAt")
+	if err != nil {
+		return err
+	}
+	if preparedAt.Before(batchCreatedAt) {
+		return errors.New("recovery import receipt preparedAt precedes batchCreatedAt")
 	}
 	if !validImportStorageCounts(receipt.Counts, receipt.CatalogCount) {
 		return errors.New("recovery import receipt storage counts are invalid")
 	}
-	states := map[lyricsrootmanifest.CoverageState]int{}
-	lastMusicID := 0
-	for index, item := range receipt.Items {
-		if item.MusicID <= lastMusicID {
-			return errors.New("recovery import receipt items are not strictly ordered")
-		}
-		lastMusicID = item.MusicID
-		switch item.State {
-		case lyricsrootmanifest.CoverageComplete:
-			// Source-v3 peer documents that are not losslessly editable through the
-			// legacy song_lyrics projection intentionally own revision 0. Exact
-			// positive-vs-zero ownership is checked against the import manifest.
-			if item.Revision < 0 || !canonicalSHA256.MatchString(item.DocumentSHA256) || item.AvailabilityDocumentSHA256 != "" {
-				return fmt.Errorf("recovery import receipt complete item %d is invalid", index)
-			}
-		case lyricsrootmanifest.CoverageGameOnly:
-			if item.DocumentSHA256 != "" && item.AvailabilityDocumentSHA256 != "" ||
-				item.DocumentSHA256 == "" && item.AvailabilityDocumentSHA256 == "" ||
-				item.DocumentSHA256 != "" && !canonicalSHA256.MatchString(item.DocumentSHA256) ||
-				item.AvailabilityDocumentSHA256 != "" && !canonicalSHA256.MatchString(item.AvailabilityDocumentSHA256) || item.Revision < 0 {
-				return fmt.Errorf("recovery import receipt Game-only item %d is invalid", index)
-			}
-		case lyricsrootmanifest.CoverageSatisfiedNoLyrics, lyricsrootmanifest.CoverageAmbiguous,
-			lyricsrootmanifest.CoverageMissing, lyricsrootmanifest.CoverageIncomplete, lyricsrootmanifest.CoverageFailed:
-			if item.Revision != 0 || item.DocumentSHA256 != "" ||
-				!canonicalSHA256.MatchString(item.AvailabilityDocumentSHA256) {
-				return fmt.Errorf("recovery import receipt availability item %d is invalid", index)
-			}
-		default:
-			return fmt.Errorf("recovery import receipt item %d has an unsupported state", index)
-		}
-		states[item.State]++
-	}
-	if !coverageCountsMatch(receipt.Coverage, states, len(receipt.Items)) {
-		return errors.New("recovery import receipt coverage does not match its items")
+	if err := validateImportReceiptItems(receipt.Items, receipt.Coverage); err != nil {
+		return err
 	}
 	digest, err := importReceiptDigest(receipt)
 	if err != nil || digest != receipt.ReceiptSHA256 {
@@ -240,6 +289,42 @@ func ValidateImportReceipt(receipt ImportReceipt) error {
 	return nil
 }
 
+func validateImportReceiptItems(items []ImportReceiptItem, coverage lyricsrootmanifest.Coverage) error {
+	states := map[lyricsrootmanifest.CoverageState]int{}
+	lastMusicID := 0
+	for index, item := range items {
+		if item.MusicID <= lastMusicID {
+			return errors.New("recovery import receipt items are not strictly ordered")
+		}
+		lastMusicID = item.MusicID
+		switch item.State {
+		case lyricsrootmanifest.CoverageComplete:
+			if item.Revision < 0 || !canonicalSHA256.MatchString(item.DocumentSHA256) || item.AvailabilityDocumentSHA256 != "" {
+				return fmt.Errorf("recovery import receipt complete item %d is invalid", index)
+			}
+		case lyricsrootmanifest.CoverageGameOnly:
+			if item.DocumentSHA256 != "" && item.AvailabilityDocumentSHA256 != "" ||
+				item.DocumentSHA256 == "" && item.AvailabilityDocumentSHA256 == "" ||
+				item.DocumentSHA256 != "" && !canonicalSHA256.MatchString(item.DocumentSHA256) ||
+				item.AvailabilityDocumentSHA256 != "" && !canonicalSHA256.MatchString(item.AvailabilityDocumentSHA256) || item.Revision < 0 {
+				return fmt.Errorf("recovery import receipt Game-only item %d is invalid", index)
+			}
+		case lyricsrootmanifest.CoverageSatisfiedNoLyrics, lyricsrootmanifest.CoverageAmbiguous,
+			lyricsrootmanifest.CoverageMissing, lyricsrootmanifest.CoverageIncomplete, lyricsrootmanifest.CoverageFailed:
+			if item.Revision != 0 || item.DocumentSHA256 != "" || !canonicalSHA256.MatchString(item.AvailabilityDocumentSHA256) {
+				return fmt.Errorf("recovery import receipt availability item %d is invalid", index)
+			}
+		default:
+			return fmt.Errorf("recovery import receipt item %d has an unsupported state", index)
+		}
+		states[item.State]++
+	}
+	if !coverageCountsMatch(coverage, states, len(items)) {
+		return errors.New("recovery import receipt coverage does not match its items")
+	}
+	return nil
+}
+
 func importReceiptItemOwnsEditableLyrics(item Item) bool {
 	if item.State != lyricsrootmanifest.CoverageComplete && item.State != lyricsrootmanifest.CoverageGameOnly {
 		return false
@@ -247,10 +332,6 @@ func importReceiptItemOwnsEditableLyrics(item Item) bool {
 	if item.Draft == nil {
 		return item.State == lyricsrootmanifest.CoverageComplete
 	}
-	// Every source-v3 draft is owned by the plural rendition editor and keeps
-	// revision 0 in the legacy import receipt even when its rendition set is
-	// losslessly representable as a v2 document. Only legacy/v2 drafts own the
-	// singular SongLyrics projection and a positive editable revision.
 	return item.Draft.Document.SchemaVersion != model.LyricsSourceDocumentSchemaVersionV3
 }
 
@@ -261,8 +342,6 @@ func ExpectedImportStorageCounts(manifest Manifest, evidence EvidenceReceipt) Im
 		if item.Draft != nil {
 			counts.SourceDocuments++
 			artifacts = item.Draft.Artifacts
-			// Source-v3 documents never materialize the legacy SongLyrics
-			// projection, even when their rendition set is losslessly v2-shaped.
 			if item.Draft.Document.SchemaVersion != model.LyricsSourceDocumentSchemaVersionV3 {
 				counts.EditableLyrics++
 			}
@@ -289,7 +368,7 @@ func ExpectedImportStorageCounts(manifest Manifest, evidence EvidenceReceipt) Im
 }
 
 func sourceProvenanceComponentCount(provenance model.LyricsSourceComponentProvenance) int {
-	count := 2 // Full text and version evidence are mandatory.
+	count := 2
 	if provenance.PerformerSegmentation != nil {
 		count++
 	}
@@ -306,7 +385,7 @@ func sourceProvenanceComponentCount(provenance model.LyricsSourceComponentProven
 }
 
 func availabilityProvenanceComponentCount(provenance model.LyricsAvailabilityComponentProvenance) int {
-	count := 2 // Game text and version evidence are mandatory.
+	count := 2
 	if provenance.PerformerSegmentation != nil {
 		count++
 	}
@@ -338,6 +417,9 @@ func MarshalImportReceiptCanonical(receipt ImportReceipt) ([]byte, error) {
 	return body, nil
 }
 
+// DecodeImportReceiptCanonical accepts the current v2 contract and historical
+// canonical v1 receipts. V1 values are validated in place and projected into
+// ImportReceipt without inventing v2-only commit or digest evidence.
 func DecodeImportReceiptCanonical(body []byte) (ImportReceipt, error) {
 	if len(body) == 0 || len(body) > MaxImportReceiptBytes || !utf8.Valid(body) {
 		return ImportReceipt{}, errors.New("recovery import receipt bytes are invalid")
@@ -345,26 +427,135 @@ func DecodeImportReceiptCanonical(body []byte) (ImportReceipt, error) {
 	if err := legacy.ValidateUniqueJSON(body); err != nil {
 		return ImportReceipt{}, err
 	}
+	var envelope struct {
+		SchemaVersion int `json:"schemaVersion"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return ImportReceipt{}, err
+	}
+	switch envelope.SchemaVersion {
+	case ImportReceiptSchemaVersion:
+		decoder := json.NewDecoder(bytes.NewReader(body))
+		decoder.DisallowUnknownFields()
+		var receipt ImportReceipt
+		if err := decoder.Decode(&receipt); err != nil {
+			return ImportReceipt{}, err
+		}
+		if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+			return ImportReceipt{}, errors.New("recovery import receipt contains trailing JSON")
+		}
+		if err := ValidateImportReceipt(receipt); err != nil {
+			return ImportReceipt{}, err
+		}
+		canonical, err := MarshalImportReceiptCanonical(receipt)
+		if err != nil || !bytes.Equal(canonical, body) {
+			return ImportReceipt{}, errors.New("recovery import receipt is not canonical JSON")
+		}
+		return receipt, nil
+	case ImportReceiptSchemaVersionV1:
+		legacyReceipt, err := decodeImportReceiptV1Canonical(body)
+		if err != nil {
+			return ImportReceipt{}, err
+		}
+		return importReceiptFromV1(legacyReceipt), nil
+	default:
+		return ImportReceipt{}, errors.New("recovery import receipt schema version is unsupported")
+	}
+}
+
+func decodeImportReceiptV1Canonical(body []byte) (importReceiptV1, error) {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
-	var receipt ImportReceipt
+	var receipt importReceiptV1
 	if err := decoder.Decode(&receipt); err != nil {
-		return ImportReceipt{}, err
+		return importReceiptV1{}, err
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return ImportReceipt{}, errors.New("recovery import receipt contains trailing JSON")
+		return importReceiptV1{}, errors.New("recovery import receipt contains trailing JSON")
 	}
-	if err := ValidateImportReceipt(receipt); err != nil {
-		return ImportReceipt{}, err
+	if err := validateImportReceiptV1(receipt); err != nil {
+		return importReceiptV1{}, err
 	}
-	canonical, err := MarshalImportReceiptCanonical(receipt)
+	canonical, err := marshalImportReceiptV1Canonical(receipt)
 	if err != nil || !bytes.Equal(canonical, body) {
-		return ImportReceipt{}, errors.New("recovery import receipt is not canonical JSON")
+		return importReceiptV1{}, errors.New("recovery import receipt is not canonical JSON")
 	}
 	return receipt, nil
 }
 
+func validateImportReceiptV1(receipt importReceiptV1) error {
+	if receipt.SchemaVersion != ImportReceiptSchemaVersionV1 || receipt.Kind != ImportReceiptKindV1 ||
+		receipt.RuntimeSchemaVersion != ImportReceiptRuntimeSchemaVersion || receipt.DatabaseAuditAction != ImportReceiptAuditAction ||
+		!canonicalSHA256.MatchString(receipt.RootManifestFileSHA256) || !compactImportReceiptID(receipt.RootID) ||
+		!canonicalSHA256.MatchString(receipt.RootSHA256) || !canonicalSHA256.MatchString(receipt.ImportManifestFileSHA256) ||
+		!canonicalSHA256.MatchString(receipt.BatchSHA256) || !canonicalSHA256.MatchString(receipt.EvidenceReceiptFileSHA256) ||
+		!canonicalSHA256.MatchString(receipt.EvidenceReceiptSHA256) || !canonicalSHA256.MatchString(receipt.PackSHA256) ||
+		!canonicalSHA256.MatchString(receipt.SelectionSHA256) || receipt.CatalogCount <= 0 ||
+		!canonicalSHA256.MatchString(receipt.MusicIDsSHA256) || !canonicalImportReceiptPath(receipt.DatabasePath) ||
+		!canonicalImportReceiptPath(receipt.ReceiptPath) || receipt.DatabasePath == receipt.ReceiptPath ||
+		receipt.Actor == "" || receipt.Actor != strings.TrimSpace(receipt.Actor) || len(receipt.Actor) > 128 ||
+		!utf8.ValidString(receipt.Actor) || strings.ContainsAny(receipt.Actor, "\x00\r\n") ||
+		receipt.Items == nil || len(receipt.Items) != receipt.CatalogCount || len(receipt.Items) > MaxManifestItems ||
+		!canonicalSHA256.MatchString(receipt.ReceiptSHA256) {
+		return errors.New("historical recovery import receipt envelope is invalid")
+	}
+	if _, err := canonicalImportReceiptTimestamp(receipt.CommittedAt, "committedAt"); err != nil {
+		return err
+	}
+	if !validImportStorageCounts(receipt.Counts, receipt.CatalogCount) {
+		return errors.New("historical recovery import receipt storage counts are invalid")
+	}
+	if err := validateImportReceiptItems(receipt.Items, receipt.Coverage); err != nil {
+		return err
+	}
+	digest, err := importReceiptV1Digest(receipt)
+	if err != nil || digest != receipt.ReceiptSHA256 {
+		return errors.New("historical recovery import receipt digest does not match")
+	}
+	return nil
+}
+
+func marshalImportReceiptV1Canonical(receipt importReceiptV1) ([]byte, error) {
+	if err := validateImportReceiptV1(receipt); err != nil {
+		return nil, err
+	}
+	body, err := json.MarshalIndent(receipt, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	body = append(body, '\n')
+	if len(body) > MaxImportReceiptBytes {
+		return nil, errors.New("historical recovery import receipt exceeds its canonical byte boundary")
+	}
+	return body, nil
+}
+
+func importReceiptFromV1(receipt importReceiptV1) ImportReceipt {
+	return ImportReceipt{
+		SchemaVersion: receipt.SchemaVersion, Kind: receipt.Kind,
+		RuntimeSchemaVersion: receipt.RuntimeSchemaVersion, DatabaseAuditAction: receipt.DatabaseAuditAction,
+		RootManifestFileSHA256: receipt.RootManifestFileSHA256, RootID: receipt.RootID, RootSHA256: receipt.RootSHA256,
+		ImportManifestFileSHA256: receipt.ImportManifestFileSHA256, BatchSHA256: receipt.BatchSHA256,
+		EvidenceReceiptFileSHA256: receipt.EvidenceReceiptFileSHA256, EvidenceReceiptSHA256: receipt.EvidenceReceiptSHA256,
+		PackSHA256: receipt.PackSHA256, SelectionSHA256: receipt.SelectionSHA256,
+		CatalogCount: receipt.CatalogCount, MusicIDsSHA256: receipt.MusicIDsSHA256, Coverage: receipt.Coverage,
+		DatabasePath: receipt.DatabasePath, ReceiptPath: receipt.ReceiptPath, Actor: receipt.Actor,
+		CommittedAt: receipt.CommittedAt, Counts: receipt.Counts,
+		Items: append([]ImportReceiptItem(nil), receipt.Items...), ReceiptSHA256: receipt.ReceiptSHA256,
+	}
+}
+
 func importReceiptDigest(receipt ImportReceipt) (string, error) {
+	receipt.ReceiptSHA256 = ""
+	body, err := json.Marshal(receipt)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(body)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func importReceiptV1Digest(receipt importReceiptV1) (string, error) {
 	receipt.ReceiptSHA256 = ""
 	body, err := json.Marshal(receipt)
 	if err != nil {
@@ -379,10 +570,10 @@ func canonicalImportReceiptPath(value string) bool {
 		filepath.IsAbs(value) && filepath.Clean(value) == value
 }
 
-func canonicalImportReceiptTimestamp(value string) (time.Time, error) {
+func canonicalImportReceiptTimestamp(value, field string) (time.Time, error) {
 	parsed, err := time.Parse(time.RFC3339Nano, value)
 	if err != nil || !strings.HasSuffix(value, "Z") || parsed.UTC().Format(time.RFC3339Nano) != value || parsed.Unix() <= 0 {
-		return time.Time{}, errors.New("recovery import receipt committedAt is not canonical UTC")
+		return time.Time{}, fmt.Errorf("recovery import receipt %s is not canonical UTC", field)
 	}
 	return parsed, nil
 }

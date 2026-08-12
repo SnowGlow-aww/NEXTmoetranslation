@@ -160,10 +160,11 @@ grep -q 'COPY --chmod=0555 --from=go-builder /moesekai-server-next-production ./
 grep -q 'MOESEKAI_PRODUCTION=true' Dockerfile
 grep -q 'WEB_DIR=/app/web' Dockerfile
 grep -q 'DB_PATH=/data/moesekai.db' Dockerfile
+grep -q 'DATA_DIR=/data' Dockerfile
 grep -q 'TZ=UTC' Dockerfile
 grep -q '/usr/share/zoneinfo/UTC' Dockerfile
 grep -q 'WORKSPACE_MODE=disabled' Dockerfile
-grep -q 'RUN test ! -e /app/workspace && ./moesekai-server --verify-workspace' Dockerfile
+grep -q 'RUN test ! -e /app/workspace && ./moesekai-server --verify-runtime' Dockerfile
 reject_pattern 'COPY --from=workspace|--build-context workspace|AS paired|WORKSPACE_WEB_DIR|WORKSPACE_MANIFEST_SHA256' Dockerfile
 
 ci=.github/workflows/ci.yml
@@ -198,6 +199,7 @@ grep -q -- '--target next-production' "$ci"
 grep -q 'WORKSPACE_MODE=disabled' "$ci"
 grep -q 'WEB_DIR=/app/web' "$ci"
 grep -q 'DB_PATH=/data/moesekai.db' "$ci"
+grep -q 'DATA_DIR=/data' "$ci"
 grep -q 'TZ=UTC' "$ci"
 grep -q 'standalone production binary requires TZ to remain exactly' "$ci"
 grep -q 'TZ=Pacific/Honolulu' "$ci"
@@ -215,6 +217,8 @@ grep -q 'MOESEKAI_MASTER_KEY must contain at least 32 bytes' "$ci"
 grep -q 'an initialized administrator is required' "$ci"
 grep -q 'standalone production binary requires WEB_DIR to remain exactly' "$ci"
 grep -q 'standalone production binary requires DB_PATH to remain exactly' "$ci"
+grep -q 'standalone production binary requires DATA_DIR to remain exactly' "$ci"
+grep -q 'DATA_DIR=/tmp/data' "$ci"
 grep -q 'published ADMIN_PASSWORD template must be replaced' "$ci"
 grep -q '%25252Feditor' "$ci"
 grep -q '%252Feditor%25' "$ci"
@@ -278,6 +282,7 @@ grep -q 'ROLLBACK_ARTIFACT_DIGEST' "$release"
 grep -q 'REVIEWED_ROLLBACK_TAR_SHA256' "$release"
 grep -q 'verify-rollback-bundle.py' "$release"
 grep -q 'TZ=UTC' "$release"
+grep -q 'DATA_DIR=/data' "$release"
 grep -q 'sha256sum "$archive"' "$release"
 grep -q 'docker load --input image.tar' "$release"
 grep -q 'docker tag "$LOCAL_IMAGE" "$STAGING_TAG"' "$release"
@@ -362,6 +367,7 @@ grep -q "$expected_public_lyrics_bundle" PRODUCTION_CONTRACT.md
 grep -q "$expected_public_lyrics_bundle" STANDALONE_RELEASE.md
 grep -q "$expected_public_lyrics_bundle" README.md
 grep -q 'DB_PATH.*data/moesekai.db' STANDALONE_RELEASE.md
+grep -q 'DATA_DIR.*data' STANDALONE_RELEASE.md
 grep -q 'TZ.*UTC' STANDALONE_RELEASE.md
 grep -q 'commit-addressed' ROLLBACK_RUNBOOK.md
 grep -q 'STANDALONE_RELEASE.md' README.md

@@ -85,3 +85,24 @@ test("catalog listing requests every song and delegates total size to cursor pag
   assert.match(api, /if \(cursor\) p\.set\("cursor", cursor\)/);
   assert.doesNotMatch(`${editor}\n${api}`, /\b701\b/);
 });
+
+test("embedded Public Lyrics metadata remains independent from editable SQLite state", async () => {
+  const [editor, api] = await Promise.all([
+    readFile(new URL("../src/components/LyricsEditor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/lib/api.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(api, /interface RuntimeLyricsMetadata/);
+  assert.match(api, /immutableOverlay: boolean/);
+  assert.match(api, /runtimeLyrics\?: RuntimeLyricsMetadata/);
+  assert.match(editor, /数据库：\{databaseLyricsStatusLabel\(item\)\}/);
+  assert.match(editor, /公开镜像：\{runtimeLyricsStateLabel\(item\.runtimeLyrics\.state\)\}/);
+  assert.match(editor, /reason instanceof APIError && reason\.status === 404 && item\.runtimeLyrics\?\.immutableOverlay/);
+  assert.match(editor, /setRuntimeOnlyMissingDatabaseSource\(true\)/);
+  assert.match(editor, /公开镜像仍在，后台数据库尚无可编辑源/);
+  assert.match(editor, /系统不会把 detail 404 静默转换成可保存的空草稿/);
+
+  const runtimeGuard = editor.indexOf("reason instanceof APIError && reason.status === 404 && item.runtimeLyrics?.immutableOverlay");
+  const blankDraft = editor.indexOf("const blank = emptyLyrics(item.musicId)");
+  assert.ok(runtimeGuard >= 0 && runtimeGuard < blankDraft, "runtime-only 404 must be handled before legacy blank-draft creation");
+});

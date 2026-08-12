@@ -287,6 +287,7 @@ jobs:
           printf '%s\n' "$image_env" | grep -Fx 'WORKSPACE_MODE=disabled'
           printf '%s\n' "$image_env" | grep -Fx 'WEB_DIR=/app/web'
           printf '%s\n' "$image_env" | grep -Fx 'DB_PATH=/data/moesekai.db'
+          printf '%s\n' "$image_env" | grep -Fx 'DATA_DIR=/data'
           printf '%s\n' "$image_env" | grep -Fx 'TZ=UTC'
           if printf '%s\n' "$image_env" | grep -Eq '^WORKSPACE_(WEB_DIR|MANIFEST_SHA256)='; then
             echo 'standalone image unexpectedly configures an external workspace' >&2
@@ -295,7 +296,8 @@ jobs:
           docker run --rm --entrypoint /bin/sh "$CI_IMAGE" -c '
             test "$(id -u)" -eq 65532 && test "$(id -g)" -eq 65532 &&
             test "$MOESEKAI_PRODUCTION" = true && test "$WORKSPACE_MODE" = disabled && test "$WEB_DIR" = /app/web &&
-            test "$DB_PATH" = /data/moesekai.db && test "$TZ" = UTC && test -w /data && test -w /tmp && test ! -e /app/workspace &&
+            test "$DB_PATH" = /data/moesekai.db && test "$DATA_DIR" = /data && test "$TZ" = UTC &&
+            test -w /data && test -w /tmp && test ! -e /app/workspace &&
             test ! -w /app && test ! -w /app/web &&
             test -z "$(find /app ! -user root -print -quit)" &&
             test -z "$(find /app \( -perm -0200 -o -perm -0020 -o -perm -0002 \) -print -quit)" &&
@@ -362,6 +364,9 @@ jobs:
           require_workspace_preflight_failure db-path \
             'standalone production binary requires DB_PATH to remain exactly "/data/moesekai.db"' \
             -e 'DB_PATH=/data/moesekai.db?mode=rwc'
+          require_workspace_preflight_failure data-dir \
+            'standalone production binary requires DATA_DIR to remain exactly "/data"' \
+            -e DATA_DIR=/tmp/data
           require_workspace_preflight_failure timezone \
             'standalone production binary requires TZ to remain exactly "UTC"' \
             -e TZ=Pacific/Honolulu

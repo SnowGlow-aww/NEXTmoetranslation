@@ -94,7 +94,7 @@ FROM runtime AS standalone
 COPY --chmod=0555 --from=go-builder /moesekai-server-next-production ./moesekai-server
 ENV MOESEKAI_PRODUCTION=true \
     WORKSPACE_MODE=disabled
-RUN test ! -e /app/workspace && ./moesekai-server --verify-workspace
+RUN test ! -e /app/workspace && ./moesekai-server --verify-runtime
 
 # Keep a release-specific target name while making it the Dockerfile's default
 # final stage. Local backend-only characterization may explicitly target runtime.

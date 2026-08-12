@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 
+	"moesekai/server/internal/model"
 	"moesekai/server/internal/store"
 )
 
@@ -41,10 +42,13 @@ const (
 var archiveFS embed.FS
 
 var (
-	loadOnce  sync.Once
-	loaded    map[string][]byte
-	loadedErr error
-	detailRE  = regexp.MustCompile(`^music_([1-9][0-9]*)\.json$`)
+	loadOnce          sync.Once
+	loaded            map[string][]byte
+	loadedErr         error
+	metadataOnce      sync.Once
+	loadedMetadata    map[int]model.RuntimeLyricsMetadata
+	loadedMetadataErr error
+	detailRE          = regexp.MustCompile(`^music_([1-9][0-9]*)\.json$`)
 )
 
 type inventoryEntry struct {
@@ -91,6 +95,51 @@ func Load() (map[string][]byte, error) {
 		assets[key] = body
 	}
 	return assets, nil
+}
+
+// CatalogRuntimeMetadata returns the immutable Public v3 index projection used
+// only to explain what the embedded runtime serves. These records do not
+// represent authenticated editor drafts or database publication state.
+func CatalogRuntimeMetadata() (map[int]model.RuntimeLyricsMetadata, error) {
+	metadataOnce.Do(loadCatalogRuntimeMetadata)
+	if loadedMetadataErr != nil {
+		return nil, loadedMetadataErr
+	}
+	metadata := make(map[int]model.RuntimeLyricsMetadata, len(loadedMetadata))
+	for musicID, item := range loadedMetadata {
+		item.AvailableVersions = append([]string{}, item.AvailableVersions...)
+		metadata[musicID] = item
+	}
+	return metadata, nil
+}
+
+func loadCatalogRuntimeMetadata() {
+	assets, err := Load()
+	if err != nil {
+		loadedMetadataErr = err
+		return
+	}
+	index, err := store.DecodePublicLyricsV3Index(assets["translation/lyrics/index.json"])
+	if err != nil {
+		loadedMetadataErr = err
+		return
+	}
+	metadata := make(map[int]model.RuntimeLyricsMetadata, len(index.Songs))
+	for _, song := range index.Songs {
+		versions := append([]string(nil), song.AvailableVersions...)
+		metadata[song.MusicID] = model.RuntimeLyricsMetadata{
+			ReleaseID:         ReleaseID,
+			ImmutableOverlay:  true,
+			State:             string(song.State),
+			HasDetail:         song.State == store.PublicLyricsStateComplete || song.State == store.PublicLyricsStateGameOnly,
+			AvailableVersions: versions,
+			Revision:          song.Revision,
+			UpdatedAt:         song.UpdatedAt,
+			BatchSHA256:       BatchSHA256,
+			RootSHA256:        RootSHA256,
+		}
+	}
+	loadedMetadata = metadata
 }
 
 func load() {

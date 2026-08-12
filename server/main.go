@@ -99,6 +99,11 @@ func main() {
 	if err != nil {
 		fatal("DB_PATH", err)
 	}
+	dataDirRaw, dataDirConfigured := os.LookupEnv("DATA_DIR")
+	dataDir, err := resolveDataDir(production, dataDirRaw, dataDirConfigured)
+	if err != nil {
+		fatal("DATA_DIR", err)
+	}
 	if verifyWorkspaceOnly || verifyRuntimeOnly {
 		if workspaceModeRaw == workspaceverify.ModeDisabled {
 			log.Println("workspace verified: disabled")
@@ -111,7 +116,6 @@ func main() {
 	}
 
 	port := envOr("PORT", "8080")
-	dataDir := envOr("DATA_DIR", "./data")
 	masterKey := os.Getenv("MOESEKAI_MASTER_KEY")
 	jwtSecret := envOr("JWT_SECRET", "")
 	allowOrigin := envOr("CONSOLE_ORIGIN", "*")
@@ -764,6 +768,19 @@ func resolveDBPath(production bool, value string, configured bool) (string, erro
 	}
 	if value == "" {
 		return "./data/moesekai.db", nil
+	}
+	return value, nil
+}
+
+func resolveDataDir(production bool, value string, configured bool) (string, error) {
+	if production {
+		if !configured || value != "/data" {
+			return "", errors.New(`standalone production binary requires DATA_DIR to remain exactly "/data"`)
+		}
+		return value, nil
+	}
+	if value == "" {
+		return "./data", nil
 	}
 	return value, nil
 }

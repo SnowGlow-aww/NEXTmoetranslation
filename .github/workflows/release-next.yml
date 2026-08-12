@@ -340,9 +340,13 @@ jobs:
           printf '%s\n' "$image_env" | grep -Fx 'WORKSPACE_MODE=disabled'
           printf '%s\n' "$image_env" | grep -Fx 'WEB_DIR=/app/web'
           printf '%s\n' "$image_env" | grep -Fx 'DB_PATH=/data/moesekai.db'
+          printf '%s\n' "$image_env" | grep -Fx 'DATA_DIR=/data'
           printf '%s\n' "$image_env" | grep -Fx 'TZ=UTC'
           if printf '%s\n' "$image_env" | grep -Eq '^WORKSPACE_(WEB_DIR|MANIFEST_SHA256)='; then exit 1; fi
-          docker run --rm --entrypoint /bin/sh "$local_image" -c 'test "$TZ" = UTC && (test -s /usr/share/zoneinfo/UTC || test -s /usr/share/zoneinfo/Etc/UTC)'
+          docker run --rm --entrypoint /bin/sh "$local_image" -c '
+            test "$DB_PATH" = /data/moesekai.db && test "$DATA_DIR" = /data && test "$WEB_DIR" = /app/web && test "$TZ" = UTC &&
+            (test -s /usr/share/zoneinfo/UTC || test -s /usr/share/zoneinfo/Etc/UTC)
+          '
           printf 'local_image=%s\nimage_id=%s\n' "$local_image" "$expected_image_id" >> "$GITHUB_OUTPUT"
           printf 'image_tar_sha256=%s\n' "$(sha256sum image.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           printf 'metadata_sha256=%s\n' "$(sha256sum metadata.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"

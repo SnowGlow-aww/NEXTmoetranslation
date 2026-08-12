@@ -25,14 +25,22 @@ func importReceiptFixture(t *testing.T) ImportReceipt {
 	receipt := ImportReceipt{
 		SchemaVersion: ImportReceiptSchemaVersion, Kind: ImportReceiptKind,
 		RuntimeSchemaVersion: ImportReceiptRuntimeSchemaVersion, DatabaseAuditAction: ImportReceiptAuditAction,
+		CommitProtocol: ImportReceiptCommitProtocol, ReceiptAuditAction: ImportReceiptReceiptAuditAction,
 		RootManifestFileSHA256: strings.Repeat("1", 64), RootID: manifest.Root.RootID,
 		RootSHA256: manifest.Root.RootSHA256, ImportManifestFileSHA256: strings.Repeat("2", 64),
 		BatchSHA256: manifest.BatchSHA256, EvidenceReceiptFileSHA256: strings.Repeat("3", 64),
 		EvidenceReceiptSHA256: evidence.ReceiptSHA256, PackSHA256: evidence.PackSHA256,
 		SelectionSHA256: evidence.SelectionSHA256, CatalogCount: manifest.Root.CatalogCount,
 		MusicIDsSHA256: manifest.Root.MusicIDsSHA256, Coverage: manifest.Root.Coverage,
-		DatabasePath: "/tmp/recovery-import.db", ReceiptPath: "/tmp/recovery-import-receipt.json",
-		Actor: "offline-review", CommittedAt: "2026-08-05T03:04:05Z",
+		BackupSHA256: strings.Repeat("4", 64), StateDigestVersion: ImportReceiptStateDigestVersion,
+		BackupStateSHA256: strings.Repeat("5", 64), PreImportDatabaseSHA256: strings.Repeat("6", 64),
+		PreImportStateSHA256: strings.Repeat("5", 64), PostImportStateSHA256: strings.Repeat("7", 64),
+		ProtectedDigestVersion:   ImportReceiptProtectedDigestVersion,
+		PreImportProtectedSHA256: strings.Repeat("8", 64), PostImportProtectedSHA256: strings.Repeat("8", 64),
+		AuditBoundaryID: 17,
+		DatabasePath:    "/tmp/recovery-import.db", RecoveryDatabasePath: "/tmp/.lyrics-recovery-import-fixture/database.sqlite",
+		ReceiptPath: "/tmp/recovery-import-receipt.json", Actor: "offline-review",
+		BatchCreatedAt: "2026-08-05T03:04:05Z", PreparedAt: "2026-08-05T03:05:06Z",
 		Counts: ExpectedImportStorageCounts(manifest, evidence), Items: items,
 	}
 	digest, err := importReceiptDigest(receipt)
@@ -69,6 +77,12 @@ func TestRecoveryImportReceiptRejectsStateCountAndDigestDrift(t *testing.T) {
 	for name, mutate := range map[string]func(*ImportReceipt){
 		"state": func(receipt *ImportReceipt) {
 			receipt.Items[0].State = receipt.Items[1].State
+		},
+		"prepared before batch": func(receipt *ImportReceipt) {
+			receipt.PreparedAt = "2026-08-05T03:04:04Z"
+		},
+		"legacy committedAt in v2": func(receipt *ImportReceipt) {
+			receipt.CommittedAt = receipt.BatchCreatedAt
 		},
 		"availability digest": func(receipt *ImportReceipt) {
 			receipt.Items[0].AvailabilityDocumentSHA256 = ""
@@ -108,12 +122,41 @@ func TestImportReceiptRevisionOwnershipDistinguishesEditableAndSourceOnlyItems(t
 	}
 }
 
+func TestRecoveryImportReceiptDecodesHistoricalV1CanonicalReceipt(t *testing.T) {
+	current := importReceiptFixture(t)
+	legacy := importReceiptV1{
+		SchemaVersion: ImportReceiptSchemaVersionV1, Kind: ImportReceiptKindV1,
+		RuntimeSchemaVersion: current.RuntimeSchemaVersion, DatabaseAuditAction: current.DatabaseAuditAction,
+		RootManifestFileSHA256: current.RootManifestFileSHA256, RootID: current.RootID, RootSHA256: current.RootSHA256,
+		ImportManifestFileSHA256: current.ImportManifestFileSHA256, BatchSHA256: current.BatchSHA256,
+		EvidenceReceiptFileSHA256: current.EvidenceReceiptFileSHA256, EvidenceReceiptSHA256: current.EvidenceReceiptSHA256,
+		PackSHA256: current.PackSHA256, SelectionSHA256: current.SelectionSHA256,
+		CatalogCount: current.CatalogCount, MusicIDsSHA256: current.MusicIDsSHA256, Coverage: current.Coverage,
+		DatabasePath: current.DatabasePath, ReceiptPath: current.ReceiptPath, Actor: current.Actor,
+		CommittedAt: current.BatchCreatedAt, Counts: current.Counts, Items: append([]ImportReceiptItem(nil), current.Items...),
+	}
+	legacy.ReceiptSHA256, _ = importReceiptV1Digest(legacy)
+	body, err := marshalImportReceiptV1Canonical(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeImportReceiptCanonical(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.SchemaVersion != ImportReceiptSchemaVersionV1 || decoded.Kind != ImportReceiptKindV1 ||
+		decoded.CommitProtocol != "" || decoded.BackupSHA256 != "" || decoded.CommittedAt != legacy.CommittedAt ||
+		decoded.BatchCreatedAt != "" || decoded.PreparedAt != "" || decoded.ReceiptSHA256 != legacy.ReceiptSHA256 {
+		t.Fatalf("historical receipt projection=%+v", decoded)
+	}
+}
+
 func TestRecoveryImportReceiptRejectsUnknownFieldsAndNoncanonicalJSON(t *testing.T) {
 	body, err := MarshalImportReceiptCanonical(importReceiptFixture(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	unknown := bytes.Replace(body, []byte(`"schemaVersion": 1,`), []byte("\"schemaVersion\": 1,\n  \"lyrics\": \"forbidden\","), 1)
+	unknown := bytes.Replace(body, []byte(`"schemaVersion": 2,`), []byte("\"schemaVersion\": 2,\n  \"lyrics\": \"forbidden\","), 1)
 	if _, err := DecodeImportReceiptCanonical(unknown); err == nil {
 		t.Fatal("unknown content field was accepted")
 	}

@@ -14,6 +14,7 @@ import (
 	"moesekai/server/internal/auth"
 	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
+	"moesekai/server/internal/publiclyricsbundle"
 	"moesekai/server/internal/sse"
 	"moesekai/server/internal/store"
 )
@@ -45,6 +46,18 @@ func (s *Server) handleCatalogMusic(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
+	}
+	runtimeLyrics, err := publiclyricsbundle.CatalogRuntimeMetadata()
+	if err != nil {
+		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
+		return
+	}
+	for index := range result.Items {
+		if metadata, ok := runtimeLyrics[result.Items[index].MusicID]; ok {
+			copy := metadata
+			copy.AvailableVersions = append([]string{}, metadata.AvailableVersions...)
+			result.Items[index].RuntimeLyrics = &copy
+		}
 	}
 	writeJSON(w, http.StatusOK, result)
 }
