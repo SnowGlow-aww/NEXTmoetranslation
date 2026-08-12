@@ -703,6 +703,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const action = pendingActionRef.current;
     if (!action) return;
     if (saveFirst) {
+      if (isEventStory && eventTxtDraftDirty && !entryDirty) {
+        closePendingAction();
+        action();
+        return;
+      }
       const importedCountBeforeSave = eventTxtDraft?.translations.length ?? 0;
       const selectedImportedBeforeSave = Boolean(selectedEntry?.segmentId && eventTxtDraft?.translations.some((translation) => translation.segmentId === selectedEntry.segmentId));
       const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);

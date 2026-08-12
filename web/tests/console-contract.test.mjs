@@ -66,6 +66,7 @@ test("event story TXT import uses authoritative snapshots, selective local draft
   assert.match(consoleSource, /clearPersistedEventTxtDraft/);
   assert.match(consoleSource, /resolveContentConflict[\s\S]*clearPersistedEventTxtDraft/);
   assert.match(consoleSource, /TXT 草稿仍有剩余条目，请继续逐条保存/);
+  assert.match(consoleSource, /isEventStory && eventTxtDraftDirty && !entryDirty[\s\S]*action\(\)/);
   assert.match(consoleSource, /disabled={isReadOnly \|\| writesLocked \|\| eventTxtDraftDirty}/);
 });
 
