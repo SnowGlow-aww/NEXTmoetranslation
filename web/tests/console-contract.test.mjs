@@ -4,6 +4,15 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
+test("the full-screen app layout keeps the lyrics workspace stretched with independent scrolling", async () => {
+  const css = await read("src/app/globals.css");
+  assert.match(css, /\.app \{[\s\S]*position: fixed;[\s\S]*inset: 0;[\s\S]*min-height: 0;[\s\S]*overflow: hidden;/);
+  assert.doesNotMatch(css, /\.app \{[^}]*height: 100vh;/);
+  assert.match(css, /\.main \{[\s\S]*min-height: 0;[\s\S]*height: 100%;[\s\S]*overflow: hidden;/);
+  assert.match(css, /\.lyrics-workspace \{[\s\S]*min-height: 0;[\s\S]*height: 100%;[\s\S]*overflow: hidden;/);
+  assert.match(css, /\.lyrics-editor \{[\s\S]*min-height: 0;[\s\S]*height: 100%;[\s\S]*overflow-y: auto;/);
+});
+
 test("Chinese and English console requests always carry an explicit locale", async () => {
   const api = await read("src/lib/api.ts");
   assert.match(api, /function addLocale[\s\S]*if \(locale\) params\.set\("locale", locale\)/);
