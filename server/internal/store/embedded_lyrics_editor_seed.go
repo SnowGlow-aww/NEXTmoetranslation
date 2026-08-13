@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"moesekai/server/internal/embeddedlyricsseed"
+	"moesekai/server/internal/model"
 )
 
 var (
@@ -200,7 +202,9 @@ var reviewedEmbeddedLyricsEditorCatalogExtras = map[int]embeddedLyricsEditorCata
 }
 
 func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, bundle embeddedlyricsseed.Bundle) error {
-	rows, err := tx.QueryContext(ctx, `SELECT music_id,title_ja,lyrics_catalog_fingerprint,lyrics_catalog_policy_version
+	rows, err := tx.QueryContext(ctx, `SELECT music_id,title_ja,producer_metadata,lyricist,composer,arranger,
+		assetbundle_name,version_hint,lyrics_version,lyrics_evidence_presence_json,vocal_signals_json,
+		lyrics_catalog_fingerprint,lyrics_catalog_policy_version
 		FROM catalog_music ORDER BY music_id`)
 	if err != nil {
 		return err
@@ -214,21 +218,25 @@ func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, 
 	seenExtras := make(map[int]struct{}, len(reviewedEmbeddedLyricsEditorCatalogExtras))
 	for rows.Next() {
 		var musicID int
-		var title, fingerprint, policy string
-		if err := rows.Scan(&musicID, &title, &fingerprint, &policy); err != nil {
+		var title, producerMetadata, lyricist, composer, arranger, assetbundleName, versionHint, lyricsVersion string
+		var presenceJSON, vocalsJSON, fingerprint, policy string
+		if err := rows.Scan(&musicID, &title, &producerMetadata, &lyricist, &composer, &arranger,
+			&assetbundleName, &versionHint, &lyricsVersion, &presenceJSON, &vocalsJSON, &fingerprint, &policy); err != nil {
 			return err
 		}
 		if expected, ok := expectedItems[musicID]; ok {
-			if title != expected.JapaneseTitle || fingerprint != expected.CatalogFingerprint ||
-				policy != bundle.Manifest.CatalogPolicyVersion {
+			if title != expected.JapaneseTitle || policy != bundle.Manifest.CatalogPolicyVersion ||
+				!catalogFingerprintMatchesCurrentEvidence(musicID, title, producerMetadata, lyricist, composer, arranger,
+					assetbundleName, versionHint, lyricsVersion, presenceJSON, vocalsJSON, fingerprint, expected.CatalogFingerprint) {
 				return fmt.Errorf("%w at music %d", ErrEmbeddedLyricsEditorSeedCatalogMismatch, musicID)
 			}
 			seen[musicID] = struct{}{}
 			continue
 		}
 		extra, ok := reviewedEmbeddedLyricsEditorCatalogExtras[musicID]
-		if !ok || title != extra.JapaneseTitle || fingerprint != extra.CatalogFingerprint ||
-			policy != bundle.Manifest.CatalogPolicyVersion {
+		if !ok || title != extra.JapaneseTitle || policy != bundle.Manifest.CatalogPolicyVersion ||
+			!catalogFingerprintMatchesCurrentEvidence(musicID, title, producerMetadata, lyricist, composer, arranger,
+				assetbundleName, versionHint, lyricsVersion, presenceJSON, vocalsJSON, fingerprint, extra.CatalogFingerprint) {
 			return fmt.Errorf("%w at out-of-scope music %d", ErrEmbeddedLyricsEditorSeedCatalogMismatch, musicID)
 		}
 		seenExtras[musicID] = struct{}{}
@@ -253,6 +261,36 @@ func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, 
 		return fmt.Errorf("%w: database catalog count or digest differs", ErrEmbeddedLyricsEditorSeedCatalogMismatch)
 	}
 	return nil
+}
+
+func catalogFingerprintMatchesCurrentEvidence(musicID int, title, producerMetadata, lyricist, composer, arranger,
+	assetbundleName, versionHint, lyricsVersion, presenceJSON, vocalsJSON, actualFingerprint, seedFingerprint string,
+) bool {
+	if actualFingerprint == seedFingerprint {
+		return true
+	}
+	var presence model.CatalogEvidencePresence
+	if err := json.Unmarshal([]byte(presenceJSON), &presence); err != nil {
+		return false
+	}
+	var vocals []model.CatalogVocalSignal
+	if err := json.Unmarshal([]byte(vocalsJSON), &vocals); err != nil {
+		return false
+	}
+	evidence := model.CatalogLyricsEvidence{
+		PolicyVersion: model.LyricsCatalogIdentityPolicyVersion,
+		Title:         title,
+		Lyricist:      lyricist,
+		Composer:      composer,
+		Arranger:      arranger,
+		Assetbundle:   assetbundleName,
+		VersionHint:   versionHint,
+		LyricsVersion: lyricsVersion,
+		Vocals:        vocals,
+		Presence:      presence,
+	}
+	computed, err := model.CatalogLyricsEvidenceFingerprint(evidence)
+	return err == nil && computed == actualFingerprint && musicID > 0
 }
 
 func ensureNoOtherEmbeddedLyricsSeedBatchTx(ctx context.Context, tx *sql.Tx, expectedSeedSHA string) error {
