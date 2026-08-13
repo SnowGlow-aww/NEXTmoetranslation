@@ -374,7 +374,55 @@ kbd {
 }
 .search-bar input:focus { border-color: var(--accent); }
 
-.content { flex: 1; overflow-y: auto; }
+.content { flex: 1; min-height: 0; overflow-y: auto; }
+
+.translation-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  overflow: hidden;
+  background: var(--bg);
+}
+.translation-workspace.resizing { user-select: none; }
+.translation-editor-pane {
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 1px;
+}
+.translation-entry-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--border);
+}
+.translation-resizer {
+  position: relative;
+  z-index: 2;
+  min-height: 10px;
+  cursor: row-resize;
+  touch-action: none;
+  background: var(--surface-3);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.translation-resizer:hover,
+.translation-resizer:focus-visible,
+.translation-workspace.resizing .translation-resizer { background: var(--accent-soft); outline: none; }
+.translation-resizer > span,
+.translation-resizer > span::before,
+.translation-resizer > span::after {
+  position: absolute;
+  left: 50%;
+  width: 28px;
+  height: 2px;
+  content: "";
+  border-radius: 999px;
+  background: var(--border-strong);
+  transform: translateX(-50%);
+}
+.translation-resizer > span { top: 3px; }
+.translation-resizer > span::before { top: 3px; }
+.translation-resizer > span::after { top: 6px; }
 
 /* ---- Proof panel ---- */
 
@@ -1115,6 +1163,9 @@ kbd {
 /* ---- Responsive: tablet / mobile ---- */
 @media (max-width: 768px) {
   .app { position: relative; }
+  .translation-workspace { grid-template-rows: auto auto auto !important; overflow: visible; }
+  .translation-editor-pane, .translation-entry-list { overflow-y: visible; }
+  .translation-resizer { display: none; }
 
   /* Sidebar becomes an overlay drawer. */
   .sidebar {

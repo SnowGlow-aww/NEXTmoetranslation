@@ -22,6 +22,25 @@ test("Chinese and English console requests always carry an explicit locale", asy
   assert.doesNotMatch(api, /locale !== "zh-CN"/);
 });
 
+test("translation review uses a resizable fixed editor and scrolls only the lower entry list", async () => {
+  const [consoleSource, css] = await Promise.all([
+    read("src/components/Console.tsx"),
+    read("src/app/globals.css"),
+  ]);
+  assert.match(consoleSource, /const translationWorkspaceRef = useRef<HTMLDivElement>\(null\)/);
+  assert.match(consoleSource, /const translationEntryListRef = useRef<HTMLDivElement>\(null\)/);
+  assert.match(consoleSource, /className={`translation-workspace\$\{isTranslationResizing/);
+  assert.match(consoleSource, /style=\{\{ gridTemplateRows: `\$\{translationTopHeight\}px 10px minmax\(0, 1fr\)` \}\}/);
+  assert.match(consoleSource, /role="separator"[\s\S]*onPointerDown=\{startTranslationResize\}[\s\S]*onPointerMove=\{moveTranslationResize\}/);
+  assert.match(consoleSource, /const keepTranslationEntryVisible = useCallback[\s\S]*translationEntryListRef\.current[\s\S]*container\.scrollTo\(\{ top: nextTop/);
+  assert.match(consoleSource, /setTimeout\(\(\) => keepTranslationEntryVisible\(next\.key\), 40\)/);
+  assert.doesNotMatch(consoleSource, /scrollIntoView/);
+  assert.match(css, /\.translation-workspace \{[\s\S]*display: grid;[\s\S]*overflow: hidden;/);
+  assert.match(css, /\.translation-editor-pane \{[\s\S]*overflow-y: auto;/);
+  assert.match(css, /\.translation-entry-list \{[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
+  assert.match(css, /\.translation-resizer \{[\s\S]*cursor: row-resize;[\s\S]*touch-action: none;/);
+});
+
 test("locale changes expose save discard and cancel dirty choices", async () => {
   const consoleSource = await read("src/components/Console.tsx");
   assert.match(consoleSource, /保存并继续/);

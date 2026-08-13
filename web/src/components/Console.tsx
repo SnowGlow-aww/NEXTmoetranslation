@@ -173,6 +173,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const translationWorkspaceRef = useRef<HTMLDivElement>(null);
+  const translationEntryListRef = useRef<HTMLDivElement>(null);
   const savingRef = useRef(false);
   const loadGenerationRef = useRef(0);
   const contextGenerationRef = useRef(0);
@@ -188,6 +190,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [translationTopHeight, setTranslationTopHeight] = useState(420);
+  const [isTranslationResizing, setIsTranslationResizing] = useState(false);
+  const translationResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const [enterSaves, setEnterSaves] = usePref("ui.saveShortcut", false);
   const hiddenBadges = useHiddenBadges();
 
@@ -561,6 +566,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     runOrGuard("切换编辑语言", () => applyLocale(next));
   };
 
+  const keepTranslationEntryVisible = useCallback((key: string) => {
+    const container = translationEntryListRef.current;
+    const row = container?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
+    if (!container || !row) return;
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const nextTop = rowRect.top < containerRect.top
+      ? container.scrollTop + rowRect.top - containerRect.top - 12
+      : rowRect.bottom > containerRect.bottom
+        ? container.scrollTop + rowRect.bottom - containerRect.bottom + 12
+        : container.scrollTop;
+    if (nextTop !== container.scrollTop) container.scrollTo({ top: nextTop, behavior: "smooth" });
+  }, []);
+
   const performNavigate = useCallback((dir: 1 | -1) => {
     if (selectedIndex < 0) return;
     const idx = selectedIndex + dir;
@@ -568,8 +587,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const next = filtered[idx];
     setSelectedKey(next.key);
     setEditValue(next.text);
-    document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [selectedIndex, filtered]);
+    requestAnimationFrame(() => keepTranslationEntryVisible(next.key));
+  }, [selectedIndex, filtered, keepTranslationEntryVisible]);
 
   const navigate = (dir: 1 | -1) => {
     if (eventTxtDraftDirty && !entryDirty) performNavigate(dir);
@@ -679,7 +698,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         if (idx >= 0 && idx < filtered.length - 1) {
           const next = filtered[idx + 1];
           setSelectedKey(next.key); setEditValue(next.text);
-          setTimeout(() => document.querySelector(`[data-key="${CSS.escape(next.key)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
+          setTimeout(() => keepTranslationEntryVisible(next.key), 40);
         } else {
           show("已到最后一条", "ok");
         }
@@ -691,7 +710,31 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } finally {
       savingRef.current = false;
     }
-  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, show, username]);
+  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, show, username, keepTranslationEntryVisible]);
+
+  const startTranslationResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!translationWorkspaceRef.current) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    translationResizeRef.current = { startY: event.clientY, startHeight: translationTopHeight };
+    setIsTranslationResizing(true);
+  };
+
+  const moveTranslationResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const resize = translationResizeRef.current;
+    const workspace = translationWorkspaceRef.current;
+    if (!resize || !workspace) return;
+    const bounds = workspace.getBoundingClientRect();
+    const min = 220;
+    const max = Math.max(min, bounds.height - 220);
+    const next = Math.min(max, Math.max(min, resize.startHeight + event.clientY - resize.startY));
+    setTranslationTopHeight(next);
+  };
+
+  const stopTranslationResize = () => {
+    translationResizeRef.current = null;
+    setIsTranslationResizing(false);
+  };
 
   const closePendingAction = () => {
     pendingActionRef.current = null;
@@ -1004,8 +1047,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               <input aria-label="搜索当前翻译" placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
 
-            <div className="content">
-              {selectedEntry && (
+            <div
+              className={`translation-workspace${isTranslationResizing ? " resizing" : ""}`}
+              ref={translationWorkspaceRef}
+              style={{ gridTemplateRows: `${translationTopHeight}px 10px minmax(0, 1fr)` }}
+            >
+              <section className="translation-editor-pane" aria-label="当前翻译编辑区">
+                {selectedEntry && (
                 <div className="proof-panel">
                   <div className="proof-jp">
                     <span className="label">日文原文</span>
@@ -1050,14 +1098,37 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     </div>
                   </div>
                 </div>
-              )}
+                )}
+              </section>
 
-              {loading ? (
-                <div className="center-state"><div className="spinner" />加载中…</div>
-              ) : filtered.length === 0 ? (
-                <div className="center-state"><p>暂无数据</p></div>
-              ) : (
-                <table className="entry-table">
+              <div
+                className="translation-resizer"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="调整编辑区与翻译列表的高度"
+                tabIndex={0}
+                onPointerDown={startTranslationResize}
+                onPointerMove={moveTranslationResize}
+                onPointerUp={stopTranslationResize}
+                onPointerCancel={stopTranslationResize}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                    event.preventDefault();
+                    const delta = event.key === "ArrowUp" ? -40 : 40;
+                    setTranslationTopHeight((value) => Math.max(220, Math.min(1200, value + delta)));
+                  }
+                }}
+              >
+                <span aria-hidden="true" />
+              </div>
+
+              <div className="translation-entry-list" ref={translationEntryListRef}>
+                {loading ? (
+                  <div className="center-state"><div className="spinner" />加载中…</div>
+                ) : filtered.length === 0 ? (
+                  <div className="center-state"><p>暂无数据</p></div>
+                ) : (
+                  <table className="entry-table">
                   <thead>
                     <tr><th className="col-source">来源</th><th>日文原文</th><th>当前翻译</th></tr>
                   </thead>
@@ -1098,8 +1169,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              )}
+                  </table>
+                )}
+              </div>
             </div>
           </>
         )}
