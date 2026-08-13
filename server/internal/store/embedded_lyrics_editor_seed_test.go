@@ -456,6 +456,173 @@ func TestApplyEmbeddedLyricsEditorSeedRejects707CatalogWithoutDatabaseChanges(t 
 	assertEmbeddedLyricsEditorSeedCounts(t, database, 0, 0, 0, 0)
 }
 
+func TestApplyEmbeddedLyricsEditorSeedAcceptsReviewed707CatalogAndReplaysAfterRestart(t *testing.T) {
+	bundle, err := embeddedlyricsseed.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "embedded-editor-seed-reviewed-707.db")
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := New(database)
+	seedEmbeddedLyricsEditorCatalog(t, database, bundle, false)
+	seedReviewedEmbeddedLyricsEditorCatalogExtras(t, database, bundle.Manifest.CatalogPolicyVersion)
+	seedEmbeddedLyricsEditorLegacyPerformers(t, database, bundle)
+	result, err := s.ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle)
+	if err != nil || result.Inserted != embeddedlyricsseed.ExpectedCatalogCount || result.PreservedExisting != 0 {
+		database.Close()
+		t.Fatalf("reviewed 707 initial seed result=%+v err=%v", result, err)
+	}
+	var catalogCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM catalog_music`).Scan(&catalogCount); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if catalogCount != embeddedlyricsseed.ExpectedCatalogCount+len(reviewedEmbeddedLyricsEditorCatalogExtras) {
+		database.Close()
+		t.Fatalf("reviewed catalog count after initial seed=%d", catalogCount)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	replay, err := New(reopened).ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Inserted != 0 || replay.PreservedExisting != 0 || replay.Replayed != embeddedlyricsseed.ExpectedCatalogCount ||
+		replay.SourceV3 != 0 || replay.Legacy != 0 || replay.Availability != 0 {
+		t.Fatalf("reviewed 707 replay result=%+v", replay)
+	}
+}
+
+func TestApplyEmbeddedLyricsEditorSeedRejectsArbitraryCatalogExtraAfterAttestation(t *testing.T) {
+	bundle, err := embeddedlyricsseed.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "embedded-editor-seed-arbitrary-extra.db")
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := New(database)
+	seedEmbeddedLyricsEditorCatalog(t, database, bundle, false)
+	seedEmbeddedLyricsEditorLegacyPerformers(t, database, bundle)
+	if _, err := s.ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO catalog_music
+		(music_id,title_ja,lyrics_catalog_fingerprint,lyrics_catalog_policy_version)
+		VALUES (900001,'追加曲',?,?)`, strings.Repeat("f", 64), bundle.Manifest.CatalogPolicyVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	beforeHash := embeddedLyricsEditorFileSHA256(t, path)
+	result, err := s.ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle)
+	if !errors.Is(err, ErrEmbeddedLyricsEditorSeedCatalogMismatch) {
+		t.Fatalf("arbitrary extra result=%+v error=%v", result, err)
+	}
+	if result.Inserted != 0 || result.PreservedExisting != 0 || result.Replayed != 0 {
+		t.Fatalf("arbitrary extra returned mutations: %+v", result)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if afterHash := embeddedLyricsEditorFileSHA256(t, path); afterHash != beforeHash {
+		t.Fatalf("arbitrary extra changed SQLite main bytes before=%s after=%s", beforeHash, afterHash)
+	}
+}
+
+func TestApplyEmbeddedLyricsEditorSeedRejectsReviewedCatalogExtraIdentityDrift(t *testing.T) {
+	bundle, err := embeddedlyricsseed.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "embedded-editor-seed-reviewed-extra-drift.db")
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	seedEmbeddedLyricsEditorCatalog(t, database, bundle, false)
+	extra := reviewedEmbeddedLyricsEditorCatalogExtras[388]
+	if _, err := database.Exec(`INSERT INTO catalog_music
+		(music_id,title_ja,lyrics_catalog_fingerprint,lyrics_catalog_policy_version) VALUES (388,?,?,?)`,
+		extra.JapaneseTitle, strings.Repeat("f", 64), bundle.Manifest.CatalogPolicyVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	beforeHash := embeddedLyricsEditorFileSHA256(t, path)
+	result, err := New(database).ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle)
+	if !errors.Is(err, ErrEmbeddedLyricsEditorSeedCatalogMismatch) {
+		t.Fatalf("reviewed extra drift result=%+v error=%v", result, err)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if afterHash := embeddedLyricsEditorFileSHA256(t, path); afterHash != beforeHash {
+		t.Fatalf("reviewed extra drift changed SQLite main bytes before=%s after=%s", beforeHash, afterHash)
+	}
+	assertEmbeddedLyricsEditorSeedCounts(t, database, 0, 0, 0, 0)
+}
+
+func TestApplyEmbeddedLyricsEditorSeedRejectsSeededCatalogDriftWithoutChanges(t *testing.T) {
+	bundle, err := embeddedlyricsseed.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "embedded-editor-seed-drift.db")
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := New(database)
+	seedEmbeddedLyricsEditorCatalog(t, database, bundle, false)
+	seedEmbeddedLyricsEditorLegacyPerformers(t, database, bundle)
+	if _, err := s.ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle); err != nil {
+		t.Fatal(err)
+	}
+	item := bundle.Manifest.Items[0]
+	if _, err := database.Exec(`UPDATE catalog_music SET title_ja=? WHERE music_id=?`, item.JapaneseTitle+" drift", item.MusicID); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	beforeHash := embeddedLyricsEditorFileSHA256(t, path)
+	result, err := s.ApplyEmbeddedLyricsEditorSeed(context.Background(), bundle)
+	if !errors.Is(err, ErrEmbeddedLyricsEditorSeedCatalogMismatch) {
+		t.Fatalf("drift result=%+v error=%v", result, err)
+	}
+	if result.Inserted != 0 || result.PreservedExisting != 0 || result.Replayed != 0 {
+		t.Fatalf("seeded catalog drift returned mutations: %+v", result)
+	}
+	if err := database.Checkpoint(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if afterHash := embeddedLyricsEditorFileSHA256(t, path); afterHash != beforeHash {
+		t.Fatalf("seeded catalog drift changed SQLite main bytes before=%s after=%s", beforeHash, afterHash)
+	}
+}
+
 func seedEmbeddedLyricsEditorCatalog(t *testing.T, database *db.DB, bundle embeddedlyricsseed.Bundle, addSeven bool) {
 	t.Helper()
 	tx, err := database.Begin()
@@ -481,6 +648,17 @@ func seedEmbeddedLyricsEditorCatalog(t *testing.T, database *db.DB, bundle embed
 	}
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func seedReviewedEmbeddedLyricsEditorCatalogExtras(t *testing.T, database *db.DB, policy string) {
+	t.Helper()
+	for musicID, extra := range reviewedEmbeddedLyricsEditorCatalogExtras {
+		if _, err := database.Exec(`INSERT INTO catalog_music
+			(music_id,title_ja,lyrics_catalog_fingerprint,lyrics_catalog_policy_version) VALUES (?,?,?,?)`,
+			musicID, extra.JapaneseTitle, extra.CatalogFingerprint, policy); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

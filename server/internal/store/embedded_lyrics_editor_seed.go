@@ -42,9 +42,6 @@ func (s *Store) ApplyEmbeddedLyricsEditorSeed(ctx context.Context, bundle embedd
 		return result, err
 	}
 	defer tx.Rollback()
-	if err := validateEmbeddedLyricsEditorSeedCatalogTx(ctx, tx, bundle); err != nil {
-		return result, err
-	}
 	var existingArchiveSHA, existingReleaseID, existingSourceBatchSHA, existingRootSHA, existingPolicy string
 	var existingSchemaVersion, existingCatalogCount int
 	var existingMusicIDsSHA, existingFingerprintsSHA string
@@ -62,6 +59,9 @@ func (s *Store) ApplyEmbeddedLyricsEditorSeed(ctx context.Context, bundle embedd
 			existingFingerprintsSHA != bundle.Manifest.CatalogFingerprintsSHA256 || existingCreatedAt != bundle.Manifest.CreatedAt {
 			return result, errors.New("embedded lyrics editor seed batch identity changed")
 		}
+		if err := validateEmbeddedLyricsEditorSeedCatalogTx(ctx, tx, bundle); err != nil {
+			return result, err
+		}
 		if err := validateEmbeddedLyricsEditorSeedReplayTx(ctx, tx, bundle); err != nil {
 			return result, err
 		}
@@ -72,6 +72,9 @@ func (s *Store) ApplyEmbeddedLyricsEditorSeed(ctx context.Context, bundle embedd
 		return result, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
+		return result, err
+	}
+	if err := validateEmbeddedLyricsEditorSeedCatalogTx(ctx, tx, bundle); err != nil {
 		return result, err
 	}
 	if err := ensureNoOtherEmbeddedLyricsSeedBatchTx(ctx, tx, bundle.Manifest.SeedSHA256); err != nil {
@@ -177,6 +180,25 @@ func (s *Store) ApplyEmbeddedLyricsEditorSeed(ctx context.Context, bundle embedd
 	return result, nil
 }
 
+type embeddedLyricsEditorCatalogExtra struct {
+	JapaneseTitle      string
+	CatalogFingerprint string
+}
+
+// reviewedEmbeddedLyricsEditorCatalogExtras is the closed difference between
+// the current 707-song upstream catalog and this immutable 700-song seed. The
+// seed does not own these rows, but their exact identities may coexist during
+// both first application and replay. Any other extra row remains fail-closed.
+var reviewedEmbeddedLyricsEditorCatalogExtras = map[int]embeddedLyricsEditorCatalogExtra{
+	388: {JapaneseTitle: "初音ミクの激唱", CatalogFingerprint: "825fa658f52738e340096d979d014036cd099b72d10d3d9bfe196b9d2d567842"},
+	674: {JapaneseTitle: "MASTER高難易度楽曲メドレー", CatalogFingerprint: "2ac785ce1adc4e8baadb8011a789ec04cf91b86084fc4374e8296c783dd5e794"},
+	675: {JapaneseTitle: "プロセカULTIMATE楽曲メドレー", CatalogFingerprint: "ddd77842ba389409eef3ab58b6fb99c07fdae3f3936df7898557e1f08bfd8060"},
+	676: {JapaneseTitle: "周年記念高難易度書き下ろし楽曲メドレー", CatalogFingerprint: "3ef2fbf63664de61fc682152a9328c2b603d35efee52fb26914bc172defaf652"},
+	750: {JapaneseTitle: "ロスタイムメモリー", CatalogFingerprint: "cb99f4cd4d9dcdcf54bf528edb0cb41cc8667f12cc4b6083811af9deaa2df680"},
+	751: {JapaneseTitle: "アディショナルメモリー", CatalogFingerprint: "02ab56c56503f2cb61b2d7e6fc717193a339ce6fc5e244b1f75e7951531108ae"},
+	764: {JapaneseTitle: "オツキミリサイタル", CatalogFingerprint: "0a1cfdd3d19e122bf36a3957319c3a2db99969dfe3e4b20a16979ce38ee7a1b2"},
+}
+
 func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, bundle embeddedlyricsseed.Bundle) error {
 	rows, err := tx.QueryContext(ctx, `SELECT music_id,title_ja,lyrics_catalog_fingerprint,lyrics_catalog_policy_version
 		FROM catalog_music ORDER BY music_id`)
@@ -184,35 +206,49 @@ func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, 
 		return err
 	}
 	defer rows.Close()
-	index := 0
-	musicIDs := make([]int, 0, bundle.Manifest.CatalogCount)
-	catalogDigest := sha256.New()
+	expectedItems := make(map[int]embeddedlyricsseed.CatalogItem, len(bundle.Manifest.Items))
+	for _, item := range bundle.Manifest.Items {
+		expectedItems[item.MusicID] = item
+	}
+	seen := make(map[int]struct{}, len(bundle.Manifest.Items))
+	seenExtras := make(map[int]struct{}, len(reviewedEmbeddedLyricsEditorCatalogExtras))
 	for rows.Next() {
-		if index >= len(bundle.Manifest.Items) {
-			return fmt.Errorf("%w: database catalog has more than %d items", ErrEmbeddedLyricsEditorSeedCatalogMismatch, bundle.Manifest.CatalogCount)
-		}
 		var musicID int
 		var title, fingerprint, policy string
 		if err := rows.Scan(&musicID, &title, &fingerprint, &policy); err != nil {
 			return err
 		}
-		expected := bundle.Manifest.Items[index]
-		if musicID != expected.MusicID || title != expected.JapaneseTitle || fingerprint != expected.CatalogFingerprint ||
-			policy != bundle.Manifest.CatalogPolicyVersion {
-			return fmt.Errorf("%w at music %d", ErrEmbeddedLyricsEditorSeedCatalogMismatch, musicID)
+		if expected, ok := expectedItems[musicID]; ok {
+			if title != expected.JapaneseTitle || fingerprint != expected.CatalogFingerprint ||
+				policy != bundle.Manifest.CatalogPolicyVersion {
+				return fmt.Errorf("%w at music %d", ErrEmbeddedLyricsEditorSeedCatalogMismatch, musicID)
+			}
+			seen[musicID] = struct{}{}
+			continue
 		}
-		musicIDs = append(musicIDs, musicID)
-		catalogDigest.Write([]byte(fmt.Sprintf("%d\x00%s\n", musicID, fingerprint)))
-		index++
+		extra, ok := reviewedEmbeddedLyricsEditorCatalogExtras[musicID]
+		if !ok || title != extra.JapaneseTitle || fingerprint != extra.CatalogFingerprint ||
+			policy != bundle.Manifest.CatalogPolicyVersion {
+			return fmt.Errorf("%w at out-of-scope music %d", ErrEmbeddedLyricsEditorSeedCatalogMismatch, musicID)
+		}
+		seenExtras[musicID] = struct{}{}
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if index == 0 {
-		return ErrEmbeddedLyricsEditorSeedCatalogNotReady
+	if len(seen) != len(bundle.Manifest.Items) {
+		if len(seen) == 0 && len(seenExtras) == 0 {
+			return ErrEmbeddedLyricsEditorSeedCatalogNotReady
+		}
+		return fmt.Errorf("%w: database catalog count or digest differs", ErrEmbeddedLyricsEditorSeedCatalogMismatch)
 	}
-	if index != bundle.Manifest.CatalogCount || index != len(bundle.Manifest.Items) ||
-		embeddedlyricsseed.MusicIDsSHA256(musicIDs) != bundle.Manifest.MusicIDsSHA256 ||
+	musicIDs := make([]int, 0, len(bundle.Manifest.Items))
+	catalogDigest := sha256.New()
+	for _, item := range bundle.Manifest.Items {
+		musicIDs = append(musicIDs, item.MusicID)
+		catalogDigest.Write([]byte(fmt.Sprintf("%d\x00%s\n", item.MusicID, item.CatalogFingerprint)))
+	}
+	if embeddedlyricsseed.MusicIDsSHA256(musicIDs) != bundle.Manifest.MusicIDsSHA256 ||
 		hex.EncodeToString(catalogDigest.Sum(nil)) != bundle.Manifest.CatalogFingerprintsSHA256 {
 		return fmt.Errorf("%w: database catalog count or digest differs", ErrEmbeddedLyricsEditorSeedCatalogMismatch)
 	}
