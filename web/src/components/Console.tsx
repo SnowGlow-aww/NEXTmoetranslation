@@ -157,6 +157,84 @@ const IconGlobe = () => (
   <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
 );
 
+interface EntryRowProps {
+  entry: TranslationEntry;
+  isSelected: boolean;
+  isRemoteHighlighted: boolean;
+  remoteHighlightUser?: string;
+  isEventStory: boolean;
+  isReadOnly: boolean;
+  writesLocked: boolean;
+  eventTxtDraftDirty: boolean;
+  onSelect: (entry: TranslationEntry) => void;
+  onSourceChange: (key: string, source: string) => void;
+}
+
+const EntryRow = React.memo(function EntryRow({
+  entry,
+  isSelected,
+  isRemoteHighlighted,
+  remoteHighlightUser,
+  isEventStory,
+  isReadOnly,
+  writesLocked,
+  eventTxtDraftDirty,
+  onSelect,
+  onSourceChange,
+}: EntryRowProps) {
+  return (
+    <tr
+      data-key={entry.key}
+      className={`entry-row ${isSelected ? "active" : ""}${isRemoteHighlighted ? " remote-highlight" : ""}`}
+      onClick={() => onSelect(entry)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(entry); }
+      }}
+      tabIndex={0}
+      aria-selected={isSelected}
+      title={isRemoteHighlighted && remoteHighlightUser ? `${remoteHighlightUser} 刚刚修改了这一行` : undefined}
+    >
+      <td className="col-source" onClick={(e) => e.stopPropagation()}>
+        <select
+          value={entry.source}
+          onChange={(e) => onSourceChange(entry.key, e.target.value)}
+          className={`source-tag ${entry.source}`}
+          disabled={isReadOnly || writesLocked || eventTxtDraftDirty}
+          aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
+        >
+          {Object.entries(SOURCE_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </td>
+      <td>
+        <div className="jp">
+          {entry.speakerName && <div className="speaker">{entry.speakerName}</div>}
+          {isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key}
+        </div>
+      </td>
+      <td><div className="cn">{entry.text}</div></td>
+    </tr>
+  );
+}, (prev, next) => (
+  prev.entry === next.entry &&
+  prev.isSelected === next.isSelected &&
+  prev.isRemoteHighlighted === next.isRemoteHighlighted &&
+  prev.remoteHighlightUser === next.remoteHighlightUser &&
+  prev.isEventStory === next.isEventStory &&
+  prev.isReadOnly === next.isReadOnly &&
+  prev.writesLocked === next.writesLocked &&
+  prev.eventTxtDraftDirty === next.eventTxtDraftDirty
+));
+
+interface ChapterTab {
+  episodeNo: string;
+  title: string;
+  total: number;
+  untranslated: number;
+}
+
 export function Console({ onLogout }: { onLogout: () => void }) {
   const { show } = useToast();
 
@@ -183,6 +261,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [category, setCategory] = useState("");
   const [field, setField] = useState("");
   const [entries, setEntries] = useState<TranslationEntry[]>([]);
+  const [selectedEpisode, setSelectedEpisode] = useState<string>("1");
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<"kana" | "id-desc" | "time-desc">("kana");
@@ -274,7 +353,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         const visible = recovered ? overlayEventTxtDraft(list, recovered) : list;
         setEventTxtDraft(recovered);
         setEntries(visible);
-        if (visible.length) { setSelectedKey(visible[0].key); setEditValue(visible[0].text); }
+        const availableEpisodes = [...new Set(visible.flatMap((e) => e.episodeNo ? [e.episodeNo] : []))];
+        const initialEp = availableEpisodes.length > 0 ? (availableEpisodes.includes(selectedEpisode) ? selectedEpisode : availableEpisodes[0]) : "1";
+        setSelectedEpisode(initialEp);
+        const epEntries = initialEp === "all" ? visible : visible.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === initialEp);
+        const first = epEntries.length > 0 ? epEntries[0] : visible[0];
+        if (first) { setSelectedKey(first.key); setEditValue(first.text); }
         if (recovered) show(`已恢复 ${recovered.fileName} 的 ${recovered.translations.length} 条 TXT 本地草稿`, "ok");
         return true;
       }
@@ -293,7 +377,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } finally {
       if (loadGenerationRef.current === generation) setLoading(false);
     }
-  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, show, username]);
+  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, selectedEpisode, show, username]);
 
   useEffect(() => { void loadEntries(); }, [loadEntries]);
 
@@ -324,16 +408,49 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     );
   }, [eventNameQuery, eventStories]);
 
+  const chapters = useMemo<ChapterTab[]>(() => {
+    if (!isEventStory || entries.length === 0) return [];
+    const map = new Map<string, { title: string; total: number; untranslated: number }>();
+    for (const entry of entries) {
+      const epNo = entry.episodeNo || parseEventStoryEntryKey(entry.key).episodeNo || "1";
+      let ep = map.get(epNo);
+      if (!ep) {
+        ep = { title: "", total: 0, untranslated: 0 };
+        map.set(epNo, ep);
+      }
+      ep.total++;
+      const isUntranslated = !entry.text || entry.source === "unknown" || entry.source === "llm";
+      if (isUntranslated) ep.untranslated++;
+      if (entry.entryType === "title" && !ep.title) {
+        ep.title = entry.text || entry.japanese || "";
+      }
+    }
+    const result: ChapterTab[] = [];
+    for (const [episodeNo, data] of map.entries()) {
+      result.push({
+        episodeNo,
+        title: data.title || `第 ${episodeNo} 话`,
+        total: data.total,
+        untranslated: data.untranslated,
+      });
+    }
+    result.sort((a, b) => a.episodeNo.localeCompare(b.episodeNo, undefined, { numeric: true }));
+    return result;
+  }, [entries, isEventStory]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const source = isEventStory ? entries : sortedEntries;
+    let source = isEventStory ? entries : sortedEntries;
+    if (isEventStory && selectedEpisode !== "all") {
+      source = source.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === selectedEpisode);
+    }
     if (!q) return source;
     return source.filter((e) =>
       isEventStory
         ? `${e.japanese || eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
         : e.key.toLowerCase().includes(q) || e.text.toLowerCase().includes(q),
     );
-  }, [entries, isEventStory, query, sortedEntries]);
+  }, [entries, isEventStory, query, selectedEpisode, sortedEntries]);
 
   const selectedIndex = useMemo(
     () => (selectedKey ? filtered.findIndex((e) => e.key === selectedKey) : -1),
@@ -648,8 +765,59 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       const updateLocale = String(d.locale || "zh-CN");
       if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.clientId !== clientID) {
         const remoteUser = String(d.user || "协作者");
-        if (d.segmentId) highlightRemoteRow(String(d.segmentId), remoteUser);
-        runOrGuard("同步协作者更新", loadEntries);
+        const isBulkAction = d.action === "ai-translate" || d.action === "retry" || d.action === "reorder";
+        if (d.promote === "human") {
+          setEntries((prev) => prev.map((e) => ({ ...e, source: "human" })));
+          void reloadSidebar();
+          show(`${remoteUser} 已整篇标记人工`, "ok");
+        } else if (isBulkAction) {
+          runOrGuard("同步协作者更新", loadEntries);
+        } else {
+          const segmentId = d.segmentId ? String(d.segmentId) : "";
+          const epNo = d.episodeNo != null ? String(d.episodeNo) : "";
+          const jpKey = d.jpKey != null ? String(d.jpKey) : "";
+          const entryType = d.entryType ? String(d.entryType) : "";
+          const nextText = String(d.cnText ?? d.text ?? "");
+          const nextSource = String(d.source || "human");
+          const nextRevision = typeof d.revision === "number" ? d.revision : undefined;
+
+          let targetKey: string | null = null;
+          setEntries((prev) => {
+            let found = false;
+            const updated = prev.map((e) => {
+              const matches = (segmentId && (e.segmentId === segmentId || e.key === segmentId)) ||
+                (epNo && e.episodeNo === epNo && (
+                  (entryType === "title" && e.entryType === "title") ||
+                  (jpKey && (e.japanese === jpKey || e.key === `${epNo}|${jpKey}`))
+                ));
+              if (matches && !found) {
+                found = true;
+                targetKey = e.key;
+                return {
+                  ...e,
+                  text: nextText,
+                  source: nextSource,
+                  ...(nextRevision !== undefined ? { revision: nextRevision } : {}),
+                };
+              }
+              return e;
+            });
+            return found ? updated : prev;
+          });
+
+          if (targetKey) {
+            highlightRemoteRow(targetKey, remoteUser);
+            if (targetKey === selectedKey && selectedEntry && entryDirty) {
+              setRemoteConflict({ key: targetKey, user: remoteUser });
+            } else if (targetKey === selectedKey) {
+              setEditValue(nextText);
+              setRemoteConflict(null);
+            }
+            show(`${remoteUser} 修改了第 ${epNo || "1"} 话的一条剧情翻译`, "ok");
+          } else {
+            runOrGuard("同步协作者更新", loadEntries);
+          }
+        }
       }
     } else if (event === "lyrics.updated") {
       const update = normalizeLyricsUpdateEvent(d);
@@ -740,6 +908,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     contextGenerationRef.current++;
     loadGenerationRef.current++;
     setEventTxtDraft(null);
+    setSelectedEpisode("1");
     setCategory(cat); setField(f); setQuery(""); setSelectedKey(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
       setSidebarOpen(false);
@@ -793,6 +962,21 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const navigate = (dir: 1 | -1) => {
     if (eventTxtDraftDirty && !entryDirty) performNavigate(dir);
     else runOrGuard("切换条目", () => performNavigate(dir));
+  };
+
+  const selectChapter = (epNo: string) => {
+    if (epNo === selectedEpisode) return;
+    runOrGuard("切换章节", () => {
+      setSelectedEpisode(epNo);
+      const targetEntries = epNo === "all" ? entries : entries.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === epNo);
+      if (targetEntries.length > 0) {
+        const alreadySelected = targetEntries.some((e) => e.key === selectedKey);
+        if (!alreadySelected) {
+          setSelectedKey(targetEntries[0].key);
+          setEditValue(targetEntries[0].text);
+        }
+      }
+    });
   };
 
   const selectEntry = (entry: TranslationEntry) => {
@@ -900,7 +1084,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           setSelectedKey(next.key); setEditValue(next.text);
           setTimeout(() => keepTranslationEntryVisible(next.key), 40);
         } else {
-          show("已到最后一条", "ok");
+          show(isEventStory && selectedEpisode !== "all" ? "已到本章最后一条" : "已到最后一条", "ok");
         }
       }
       return true;
@@ -910,7 +1094,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } finally {
       savingRef.current = false;
     }
-  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, show, username, keepTranslationEntryVisible]);
+  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, selectedEpisode, show, username, keepTranslationEntryVisible]);
 
   const closePendingAction = () => {
     if (pendingActionBusyRef.current) return;
@@ -1254,7 +1438,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     eventId={Number(field)}
                     locale={locale}
                     entries={entries}
-                    defaultEpisodeNo={selectedEntry?.episodeNo}
+                    defaultEpisodeNo={selectedEpisode !== "all" ? selectedEpisode : selectedEntry?.episodeNo}
                     disabled={busy || writesLocked || entryDirty || eventTxtDraftDirty}
                     onApply={applyEventTxtDraft}
                   />
@@ -1269,6 +1453,45 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
                   </>}
                 </div>
+              </div>
+            )}
+
+            {/* Chapter Navigation for Event Stories */}
+            {isEventStory && chapters.length > 0 && (
+              <div className="chapter-nav" role="tablist" aria-label="活动剧情章节切换">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedEpisode === "all"}
+                  className={`chapter-tab ${selectedEpisode === "all" ? "active" : ""}`}
+                  onClick={() => selectChapter("all")}
+                >
+                  <span>全部章节</span>
+                  <span className="chapter-tab-badge count">{entries.length}</span>
+                </button>
+                {chapters.map((ch) => {
+                  const active = selectedEpisode === ch.episodeNo;
+                  const done = ch.untranslated === 0;
+                  return (
+                    <button
+                      type="button"
+                      key={ch.episodeNo}
+                      role="tab"
+                      aria-selected={active}
+                      className={`chapter-tab ${active ? "active" : ""}`}
+                      onClick={() => selectChapter(ch.episodeNo)}
+                      title={`第 ${ch.episodeNo} 话: ${ch.title} (${ch.total} 条)`}
+                    >
+                      <span className={`story-dot ${done ? "done" : "pending"}`} aria-hidden="true" />
+                      <span className="chapter-tab-title">第 {ch.episodeNo} 话{ch.title ? ` · ${ch.title}` : ""}</span>
+                      {ch.untranslated > 0 ? (
+                        <span className="chapter-tab-badge work" title="未翻译条数">{ch.untranslated}</span>
+                      ) : (
+                        <span className="chapter-tab-badge ok" title="本章已全部翻译">✓</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -1358,40 +1581,19 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                   </thead>
                   <tbody>
                     {filtered.map((entry) => (
-                      <tr
+                      <EntryRow
                         key={entry.key}
-                        data-key={entry.key}
-                        className={`entry-row ${selectedKey === entry.key ? "active" : ""}${remoteHighlights[entry.key] ? " remote-highlight" : ""}`}
-                        onClick={() => selectEntry(entry)}
-                        onKeyDown={(event) => {
-                          if (event.target !== event.currentTarget) return;
-                          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectEntry(entry); }
-                        }}
-                        tabIndex={0}
-                        aria-selected={selectedKey === entry.key}
-                        title={remoteHighlights[entry.key] ? `${remoteHighlights[entry.key].user} 刚刚修改了这一行` : undefined}
-                      >
-                        <td className="col-source" onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={entry.source}
-                            onChange={(e) => handleSourceChange(entry.key, e.target.value)}
-                            className={`source-tag ${entry.source}`}
-                            disabled={isReadOnly || writesLocked || eventTxtDraftDirty}
-                            aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
-                          >
-                            {Object.entries(SOURCE_LABELS).map(([k, v]) => (
-                              <option key={k} value={k}>{v}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <div className="jp">
-                            {entry.speakerName && <div className="speaker">{entry.speakerName}</div>}
-                            {isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key}
-                          </div>
-                        </td>
-                        <td><div className="cn">{entry.text}</div></td>
-                      </tr>
+                        entry={entry}
+                        isSelected={selectedKey === entry.key}
+                        isRemoteHighlighted={Boolean(remoteHighlights[entry.key])}
+                        remoteHighlightUser={remoteHighlights[entry.key]?.user}
+                        isEventStory={isEventStory}
+                        isReadOnly={isReadOnly}
+                        writesLocked={writesLocked}
+                        eventTxtDraftDirty={eventTxtDraftDirty}
+                        onSelect={selectEntry}
+                        onSourceChange={handleSourceChange}
+                      />
                     ))}
                   </tbody>
                   </table>

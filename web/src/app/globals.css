@@ -406,6 +406,7 @@ kbd {
   overflow-y: auto;
   overscroll-behavior: contain;
   border-top: 1px solid var(--border);
+  contain: content;
 }
 
 /* ---- Proof panel ---- */
@@ -639,6 +640,70 @@ kbd {
 .event-txt-import-status.conflict { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); }
 .event-txt-import-status.missing, .event-txt-import-status.unmatched { color: var(--err); background: color-mix(in srgb, var(--err) 8%, var(--surface)); }
 .event-txt-import-selection { margin-right: auto; color: var(--text-secondary); font-size: 12px; }
+
+/* ---- Chapter navigation ---- */
+.chapter-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 24px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.chapter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.chapter-tab:hover {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.chapter-tab.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.chapter-tab-title {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chapter-tab-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 100px;
+}
+.chapter-tab-badge.count {
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+.chapter-tab-badge.work {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+.chapter-tab-badge.ok {
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  color: var(--ok);
+}
 
 /* ---- Moesekai detail link ---- */
 .moesekai-link {
