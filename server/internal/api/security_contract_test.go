@@ -138,7 +138,7 @@ func TestQueryTokenAuthenticationIsRejectedEverywhere(t *testing.T) {
 	if authorized.StatusCode != http.StatusOK {
 		t.Fatalf("SSE bearer status = %d", authorized.StatusCode)
 	}
-	if got := authorized.Header.Get("Content-Type"); got != "text/event-stream" {
+	if got := authorized.Header.Get("Content-Type"); got != "text/event-stream; charset=utf-8" {
 		t.Fatalf("SSE Content-Type = %q", got)
 	}
 }

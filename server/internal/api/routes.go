@@ -41,7 +41,8 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lyrics/source/search", s.auth.RequireAdmin(s.handleLyricsSourceSearch))
 	mux.HandleFunc("/api/lyrics/source/preview", s.auth.RequireAdmin(s.handleLyricsSourcePreview))
 
-	// Event stories
+	// Event stories and stable event-to-content relations.
+	mux.HandleFunc("/api/event-associations", s.auth.RequireAuth(s.handleEventAssociations))
 	mux.HandleFunc("/api/event-stories", s.auth.RequireAuth(s.handleEventStories))
 	mux.HandleFunc("/api/event-story", s.auth.RequireAuth(s.handleEventStory))
 	mux.HandleFunc("/api/event-story/episode-snapshot", s.auth.RequireAuth(s.handleEventEpisodeSnapshot))

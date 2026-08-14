@@ -1,6 +1,7 @@
 package sse
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -56,6 +57,52 @@ func TestStreamClosesAtTokenExpiry(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("SSE stream survived token expiry")
+	}
+}
+
+func TestHeartbeatArrivesBeforeShortIntermediaryIdleTimeout(t *testing.T) {
+	if defaultHeartbeatInterval != 5*time.Second {
+		t.Fatalf("default heartbeat = %s, want 5s", defaultHeartbeatInterval)
+	}
+	hub := NewHub()
+	hub.heartbeatInterval = 10 * time.Millisecond
+	server := httptest.NewServer(hub.Handler(nil, nil, nil))
+	defer server.Close()
+	response, err := http.Get(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if got := response.Header.Get("Content-Type"); got != "text/event-stream; charset=utf-8" {
+		t.Fatalf("SSE content type = %q", got)
+	}
+	if got := response.Header.Get("Cache-Control"); got != "no-cache, no-transform, no-store, must-revalidate" {
+		t.Fatalf("SSE cache control = %q", got)
+	}
+	if response.Header.Get("Pragma") != "no-cache" || response.Header.Get("Expires") != "0" {
+		t.Fatalf("SSE legacy cache headers = %#v", response.Header)
+	}
+	lines := make(chan string, 8)
+	go func() {
+		scanner := bufio.NewScanner(response.Body)
+		for scanner.Scan() {
+			lines <- scanner.Text()
+		}
+		close(lines)
+	}()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case line, ok := <-lines:
+			if !ok {
+				t.Fatal("SSE stream closed before heartbeat")
+			}
+			if line == "event: "+EventPing {
+				return
+			}
+		case <-deadline:
+			t.Fatal("SSE heartbeat was not flushed")
+		}
 	}
 }
 

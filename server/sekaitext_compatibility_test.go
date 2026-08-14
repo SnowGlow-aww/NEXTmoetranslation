@@ -92,7 +92,12 @@ func TestSekaiTextCategorySaveToPublicFilesAndExistingBackups(t *testing.T) {
 
 	generator := files.NewGenerator(translations, events, root)
 	publicFiles := filesvc.New(translations, events, generator)
+	publicFiles.SetDebounce(time.Millisecond)
 	publicFiles.Start()
+	t.Cleanup(func() {
+		publicFiles.Stop()
+		publicFiles.Wait()
+	})
 	translations.OnChange(publicFiles.Trigger)
 	hub := sse.NewHub()
 	backupManager := backup.NewManager(configStore, generator, translations, events, filepath.Join(root, "backup-work"))

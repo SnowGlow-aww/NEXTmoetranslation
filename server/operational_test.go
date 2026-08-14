@@ -355,7 +355,8 @@ func TestDrainingResponseRetainsCORSLoggingAndMetrics(t *testing.T) {
 		}
 		if recorder.Header().Get("Access-Control-Allow-Origin") != "https://console.example" ||
 			recorder.Header().Get("Vary") != "Origin" || recorder.Header().Get("X-Request-ID") == "" ||
-			!strings.Contains(recorder.Header().Get("Access-Control-Allow-Headers"), "X-Moe-Loaded-Producer-State") {
+			!strings.Contains(recorder.Header().Get("Access-Control-Allow-Headers"), "X-Moe-Loaded-Producer-State") ||
+			!strings.Contains(recorder.Header().Get("Access-Control-Allow-Headers"), "X-SSE-Presence") {
 			t.Fatalf("draining %s headers = %#v", method, recorder.Header())
 		}
 	}

@@ -156,6 +156,7 @@ var requiredRoutes = []Route{
 	{Method: "GET", Path: "/api/category/snapshot", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/editor-gate/status", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/entries", Authentication: "bearer", AllowedRoles: editorRoles},
+	{Method: "GET", Path: "/api/event-associations", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/event-stories", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/event-story", Authentication: "bearer", AllowedRoles: editorRoles},
 	{Method: "GET", Path: "/api/event-story/episode-snapshot", Authentication: "bearer", AllowedRoles: editorRoles},

@@ -28,11 +28,14 @@ func TestSSEBroadcastOnEdit(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("sse connect status %d", resp.StatusCode)
 	}
-	if got := resp.Header.Get("Content-Type"); got != "text/event-stream" {
+	if got := resp.Header.Get("Content-Type"); got != "text/event-stream; charset=utf-8" {
 		t.Fatalf("sse Content-Type = %q", got)
 	}
-	if got := resp.Header.Get("Cache-Control"); got != "no-store" {
+	if got := resp.Header.Get("Cache-Control"); got != "no-cache, no-transform, no-store, must-revalidate" {
 		t.Fatalf("sse Cache-Control = %q", got)
+	}
+	if resp.Header.Get("Pragma") != "no-cache" || resp.Header.Get("Expires") != "0" {
+		t.Fatalf("sse legacy cache headers = %#v", resp.Header)
 	}
 	if got := resp.Header.Get("X-Accel-Buffering"); got != "no" {
 		t.Fatalf("sse X-Accel-Buffering = %q", got)

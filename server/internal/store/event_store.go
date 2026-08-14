@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"moesekai/server/internal/db"
@@ -644,45 +645,110 @@ func (s *EventStore) eventDisplayNames(locale string) (map[int]eventDisplayName,
 	return result, rows.Err()
 }
 
-func (s *EventStore) eventOfficialTagState() (map[int]bool, error) {
-	rows, err := s.db.Query(`
-		SELECT 
-			es.event_id,
-			(SELECT COUNT(*) FROM event_story_episodes ep_count WHERE ep_count.event_id = es.event_id) AS total_episodes,
-			COUNT(DISTINCT seg.episode_no) AS covered_episodes,
-			COUNT(seg.segment_id) AS total_segments,
-			COALESCE(SUM(CASE 
-				WHEN seg.kind = 'title' AND ep.title_source = 'cn' THEN 1
-				WHEN seg.kind != 'title' AND line.source = 'cn' THEN 1
-				ELSE 0 
-			END), 0) AS official_segments
-		FROM event_stories es
-		LEFT JOIN event_story_episodes ep 
-		  ON ep.event_id = es.event_id
-		LEFT JOIN event_story_segments seg 
-		  ON seg.event_id = ep.event_id 
-		 AND seg.episode_no = ep.episode_no 
-		 AND seg.scenario_id = ep.scenario_id
-		LEFT JOIN event_story_lines line 
-		  ON line.event_id = seg.event_id 
-		 AND line.episode_no = seg.episode_no 
-		 AND line.jp_key = seg.jp_key
-		GROUP BY es.event_id
-	`)
+func (s *EventStore) eventOfficialTagState(locale string) (map[int]bool, error) {
+	// The "cn" source tag means official Simplified Chinese localization. It
+	// must not hide the same story from independent English translation or the
+	// Japanese read-only source view.
+	if locale != model.LocaleChinese {
+		return map[int]bool{}, nil
+	}
+	rows, err := s.db.Query(`SELECT event_id FROM event_stories ORDER BY event_id`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	result := make(map[int]bool)
+	var eventIDs []int
 	for rows.Next() {
-		var eventID, totalEpisodes, coveredEpisodes, totalSegments, officialSegments int
-		if err := rows.Scan(&eventID, &totalEpisodes, &coveredEpisodes, &totalSegments, &officialSegments); err != nil {
+		var eventID int
+		if err := rows.Scan(&eventID); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		result[eventID] = totalEpisodes > 0 && coveredEpisodes == totalEpisodes && totalSegments > 0 && totalSegments == officialSegments
+		eventIDs = append(eventIDs, eventID)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
+	result := make(map[int]bool, len(eventIDs))
+	for _, eventID := range eventIDs {
+		var episodeCount int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM event_story_episodes WHERE event_id=?`, eventID).Scan(&episodeCount); err != nil {
+			return nil, err
+		}
+		canonical, err := currentEventCanonicalSegmentIDs(s.db, eventID)
+		if err != nil || len(canonical) != episodeCount {
+			// Missing or invalid canonical coverage must fail open: never hide an
+			// event when the source set is incomplete or cannot be verified.
+			result[eventID] = false
+			continue
+		}
+		var segmentIDs []string
+		for _, ids := range canonical {
+			for segmentID := range ids {
+				segmentIDs = append(segmentIDs, segmentID)
+			}
+		}
+		if len(segmentIDs) == 0 {
+			result[eventID] = false
+			continue
+		}
+
+		placeholders := make([]string, len(segmentIDs))
+		args := make([]any, len(segmentIDs))
+		for i, segmentID := range segmentIDs {
+			placeholders[i] = "?"
+			args[i] = segmentID
+		}
+		rows, err := s.db.Query(`SELECT seg.kind, seg.source_text, ep.title_source, localization.source
+			FROM event_story_segments seg
+			JOIN event_story_episodes ep
+			  ON ep.event_id=seg.event_id AND ep.episode_no=seg.episode_no AND ep.scenario_id=seg.scenario_id
+			LEFT JOIN event_story_segment_localizations localization
+			  ON localization.segment_id=seg.segment_id AND localization.locale=?
+			WHERE seg.segment_id IN (`+strings.Join(placeholders, ",")+")", append([]any{model.LocaleChinese}, args...)...)
+		if err != nil {
+			return nil, err
+		}
+		matched, considered, official := 0, 0, 0
+		for rows.Next() {
+			matched++
+			var kind, sourceText string
+			var titleSource, localizedSource sql.NullString
+			if err := rows.Scan(&kind, &sourceText, &titleSource, &localizedSource); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			// Empty body/speaker placeholders are part of canonical scenario
+			// coverage but are not visible translation rows and must not prevent a
+			// fully official story from being hidden.
+			if strings.TrimSpace(sourceText) == "" {
+				continue
+			}
+			considered++
+			source := "unknown"
+			if kind == "title" && titleSource.Valid {
+				source = titleSource.String
+			} else if kind != "title" && localizedSource.Valid {
+				source = localizedSource.String
+			}
+			if source == model.SourceCN {
+				official++
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
+		result[eventID] = matched == len(segmentIDs) && considered > 0 && considered == official
+	}
+	return result, nil
 }
 
 // List returns summaries of all event stories, ordered by event id. The
@@ -697,7 +763,7 @@ func (s *EventStore) listSummaries(locale string) ([]model.EventStorySummary, er
 	if err != nil {
 		return nil, err
 	}
-	official, err := s.eventOfficialTagState()
+	official, err := s.eventOfficialTagState(locale)
 	if err != nil {
 		return nil, err
 	}

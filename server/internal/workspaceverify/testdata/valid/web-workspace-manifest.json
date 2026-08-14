@@ -142,6 +142,16 @@
     },
     {
       "method": "GET",
+      "path": "/api/event-associations",
+      "authentication": "bearer",
+      "producerProof": false,
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/event-stories",
       "authentication": "bearer",
       "producerProof": false,

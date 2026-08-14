@@ -76,7 +76,11 @@ export interface EventStorySummary {
   episodeCount: number;
   untranslatedCount: number;
   lastUpdated: number;
-  allOfficialTagged: boolean;
+  allOfficialTagged?: boolean;
+}
+
+export interface EventAssociationIndex {
+  categories: Record<string, Record<string, number[]>>;
 }
 
 export interface EventStoryEpisode {
@@ -913,6 +917,8 @@ export const updateEntry = async (
 };
 
 // ---- Event stories ----
+
+export const getEventAssociations = () => apiFetch<EventAssociationIndex>("/event-associations");
 
 export const getEventStories = (locale?: Locale) => {
   const p = new URLSearchParams();

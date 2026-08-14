@@ -119,7 +119,7 @@ func TestLyricsTranslationEditionMetadataBroadcastIsSongLevel(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stream.Body.Close()
-	if stream.StatusCode != http.StatusOK || stream.Header.Get("Content-Type") != "text/event-stream" {
+	if stream.StatusCode != http.StatusOK || stream.Header.Get("Content-Type") != "text/event-stream; charset=utf-8" {
 		t.Fatalf("SSE status=%d content-type=%q", stream.StatusCode, stream.Header.Get("Content-Type"))
 	}
 	events := make(chan map[string]any, 1)

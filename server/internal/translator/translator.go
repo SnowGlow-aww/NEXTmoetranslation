@@ -45,6 +45,10 @@ type Translator struct {
 
 	llmUnavailableUntil time.Time
 	llmLastError        string
+
+	eventAssociationMu        sync.Mutex
+	eventAssociationCached    EventAssociationIndex
+	eventAssociationExpiresAt time.Time
 }
 
 // Status reports the translator's current run state.

@@ -9,9 +9,9 @@ import { LyricsSourceReview, LyricsSourceReviewHandle } from "@/components/Lyric
 import { EventStoryTxtImport, type EventStoryTxtDraft } from "@/components/EventStoryTxtImport";
 import { Modal } from "@/components/Modal";
 import {
-  CategoryInfo, EditorGateStatus, EventStorySummary, Locale, TranslationEntry,
+  CategoryInfo, EditorGateStatus, EventAssociationIndex, EventStorySummary, Locale, TranslationEntry,
   acceptLoadedProducerState, clearLoadedProducerState, clearSession,
-  getCategories, getEditorGateStatus, getEntries, getEventStories, getEventStory,
+  getCategories, getEditorGateStatus, getEntries, getEventAssociations, getEventStories, getEventStory,
   getClientID, getRole, getUsername, publishProjection, triggerAIStory,
   subscribeProducerProofInvalidated,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
@@ -258,6 +258,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
+  const [eventAssociations, setEventAssociations] = useState<EventAssociationIndex>({ categories: {} });
   const [category, setCategory] = useState("");
   const [field, setField] = useState("");
   const [entries, setEntries] = useState<TranslationEntry[]>([]);
@@ -266,6 +267,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<"kana" | "id-desc" | "time-desc">("kana");
   const [eventNameQuery, setEventNameQuery] = useState("");
+  const [relatedEventQuery, setRelatedEventQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [eventTxtDraft, setEventTxtDraft] = useState<EventStoryTxtDraft | null>(null);
@@ -299,6 +301,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [enterSaves, setEnterSaves] = usePref("ui.saveShortcut", false);
+  const [eventStoriesExpanded, setEventStoriesExpanded] = usePref("ui.eventStoriesExpanded", true);
   const hiddenBadges = useHiddenBadges();
 
   // On first mount, collapse the sidebar by default on narrow screens.
@@ -324,6 +327,29 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }, [locale, show]);
 
   useEffect(() => { void reloadSidebar(); }, [reloadSidebar]);
+
+  useEffect(() => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = async () => {
+      let delay = 60 * 60 * 1000;
+      try {
+        const index = await getEventAssociations();
+        if (!stopped) setEventAssociations(index);
+      } catch {
+        // Preserve the last successful client snapshot and retry transient
+        // upstream failures without requiring a full page refresh.
+        delay = 30_000;
+      } finally {
+        if (!stopped) timer = setTimeout(refresh, delay);
+      }
+    };
+    void refresh();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   // ---- Load entries on selection change ----
   const loadEntries = useCallback(async (): Promise<boolean> => {
@@ -400,13 +426,37 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     return next;
   }, [entries, sortMode]);
 
+  const visibleEventStories = useMemo(
+    () => eventStories.filter((story) => !story.allOfficialTagged),
+    [eventStories],
+  );
+
   const filteredEventStories = useMemo(() => {
     const q = eventNameQuery.trim().toLowerCase();
-    if (!q) return eventStories;
-    return eventStories.filter((story) =>
+    if (!q) return visibleEventStories;
+    return visibleEventStories.filter((story) =>
       `${story.eventName || ""}\n${story.eventNameJapanese || ""}\n${story.eventId}`.toLowerCase().includes(q),
     );
-  }, [eventNameQuery, eventStories]);
+  }, [eventNameQuery, visibleEventStories]);
+
+  const categoryEventAssociations = useMemo(
+    () => eventAssociations.categories[category] || {},
+    [category, eventAssociations.categories],
+  );
+  const relatedEventFilterAvailable = category === "events" || Object.keys(categoryEventAssociations).length > 0;
+  const relatedEventEntityIDs = useMemo(() => {
+    const q = relatedEventQuery.trim().toLowerCase();
+    if (!q || !relatedEventFilterAvailable) return null;
+    const matchingEventIDs = new Set(eventStories
+      .filter((story) => `${story.eventName || ""}\n${story.eventNameJapanese || ""}\n${story.eventId}`.toLowerCase().includes(q))
+      .map((story) => story.eventId));
+    if (category === "events") return new Set([...matchingEventIDs].map(String));
+    const entityIDs = new Set<string>();
+    for (const [entityID, eventIDs] of Object.entries(categoryEventAssociations)) {
+      if (eventIDs.some((eventID) => matchingEventIDs.has(eventID))) entityIDs.add(entityID);
+    }
+    return entityIDs;
+  }, [category, categoryEventAssociations, eventStories, relatedEventFilterAvailable, relatedEventQuery]);
 
   const chapters = useMemo<ChapterTab[]>(() => {
     if (!isEventStory || entries.length === 0) return [];
@@ -444,13 +494,14 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (isEventStory && selectedEpisode !== "all") {
       source = source.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === selectedEpisode);
     }
-    if (!q) return source;
-    return source.filter((e) =>
-      isEventStory
+    return source.filter((e) => {
+      if (relatedEventEntityIDs && !(e.ids || []).some((id) => relatedEventEntityIDs.has(String(id)))) return false;
+      if (!q) return true;
+      return isEventStory
         ? `${e.japanese || eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
-        : e.key.toLowerCase().includes(q) || e.text.toLowerCase().includes(q),
-    );
-  }, [entries, isEventStory, query, selectedEpisode, sortedEntries]);
+        : e.key.toLowerCase().includes(q) || e.text.toLowerCase().includes(q);
+    });
+  }, [entries, isEventStory, query, relatedEventEntityIDs, selectedEpisode, sortedEntries]);
 
   const selectedIndex = useMemo(
     () => (selectedKey ? filtered.findIndex((e) => e.key === selectedKey) : -1),
@@ -1268,7 +1319,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const currentField = categories.find((c) => c.name === category)?.fields?.find((f) => f.name === field);
   const currentStory = isEventStory ? eventStories.find((s) => String(s.eventId) === field) : undefined;
-  const visibleEventStoryCount = eventStories.filter((story) => !story.allOfficialTagged).length;
+  const visibleEventStoryCount = visibleEventStories.length;
 
   const appClass = `app${sidebarOpen ? "" : " sidebar-collapsed"}`;
 
@@ -1332,31 +1383,44 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           ))}
 
           {visibleEventStoryCount > 0 && (
-            <div className="field-group">
-              <div className="field-group-title">活动剧情 ({filteredEventStories.filter((s) => !s.allOfficialTagged).length}/{visibleEventStoryCount})</div>
-              <input className="sidebar-filter" aria-label="按活动名称筛选" placeholder="按活动名称筛选…" value={eventNameQuery} onChange={(event) => setEventNameQuery(event.target.value)} />
-              {filteredEventStories.filter((s) => !s.allOfficialTagged).map((s) => {
-                const active = category === "eventStory" && field === String(s.eventId);
-                const done = s.untranslatedCount === 0;
-                const badgeKey = `eventStory:${s.eventId}`;
-                const hideBadge = hiddenBadges.has(badgeKey);
-                return (
-                  <button type="button" key={s.eventId} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField("eventStory", String(s.eventId))}>
-                    <span className="field-item-copy">
-                      <span>
-                        <span className={`story-dot ${done ? "done" : "pending"}`} title={done ? "已翻译" : "有未翻译内容"} />
-                        {s.eventName || s.eventNameJapanese || `Event #${s.eventId}`}
-                      </span>
-                      <small>#{s.eventId}{s.eventName && s.eventNameJapanese && s.eventName !== s.eventNameJapanese ? ` · ${s.eventNameJapanese}` : ""}</small>
-                    </span>
-                    {!hideBadge && (
-                      s.untranslatedCount > 0
-                        ? <span className="badge work" title="未翻译条数">{s.untranslatedCount}</span>
-                        : <span className="badge ok" title="已全部翻译">✓</span>
-                    )}
-                  </button>
-                );
-              })}
+            <div className="field-group event-story-group">
+              <button
+                type="button"
+                className="field-group-toggle"
+                aria-expanded={eventStoriesExpanded}
+                aria-controls="event-story-sidebar-list"
+                onClick={() => setEventStoriesExpanded(!eventStoriesExpanded)}
+              >
+                <span>活动剧情 ({filteredEventStories.length}/{visibleEventStoryCount})</span>
+                <span className="field-group-chevron" aria-hidden="true">{eventStoriesExpanded ? "▾" : "▸"}</span>
+              </button>
+              {eventStoriesExpanded && (
+                <div id="event-story-sidebar-list">
+                  <input className="sidebar-filter" aria-label="按活动名称筛选" placeholder="按活动名称筛选…" value={eventNameQuery} onChange={(event) => setEventNameQuery(event.target.value)} />
+                  {filteredEventStories.map((s) => {
+                    const active = category === "eventStory" && field === String(s.eventId);
+                    const done = s.untranslatedCount === 0;
+                    const badgeKey = `eventStory:${s.eventId}`;
+                    const hideBadge = hiddenBadges.has(badgeKey);
+                    return (
+                      <button type="button" key={s.eventId} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField("eventStory", String(s.eventId))}>
+                        <span className="field-item-copy">
+                          <span>
+                            <span className={`story-dot ${done ? "done" : "pending"}`} title={done ? "已翻译" : "有未翻译内容"} />
+                            {s.eventName || s.eventNameJapanese || `Event #${s.eventId}`}
+                          </span>
+                          <small>#{s.eventId}{s.eventName && s.eventNameJapanese && s.eventName !== s.eventNameJapanese ? ` · ${s.eventNameJapanese}` : ""}</small>
+                        </span>
+                        {!hideBadge && (
+                          s.untranslatedCount > 0
+                            ? <span className="badge work" title="未翻译条数">{s.untranslatedCount}</span>
+                            : <span className="badge ok" title="已全部翻译">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -1497,6 +1561,15 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             )}
 
             <div className="search-bar">
+              {relatedEventFilterAvailable && !isEventStory && (
+                <input
+                  className="related-event-filter"
+                  aria-label="按活动名称筛选当前分类"
+                  placeholder="按活动名称筛选…"
+                  value={relatedEventQuery}
+                  onChange={(event) => setRelatedEventQuery(event.target.value)}
+                />
+              )}
               <input aria-label="搜索当前翻译" placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
               {!isEventStory && (
                 <label className="sort-selector">

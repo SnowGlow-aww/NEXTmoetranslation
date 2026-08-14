@@ -49,9 +49,10 @@ type client struct {
 }
 
 const (
-	clientQueueSize      = 32
-	maxHubClients        = 128
-	maxHubClientsPerUser = 8
+	clientQueueSize          = 32
+	maxHubClients            = 128
+	maxHubClientsPerUser     = 8
+	defaultHeartbeatInterval = 5 * time.Second
 )
 
 var (
@@ -72,15 +73,16 @@ func (c *client) disconnect() {
 
 // Hub fans out messages to all connected clients.
 type Hub struct {
-	mu        sync.RWMutex
-	clients   map[uint64]*client
-	nextID    atomic.Uint64
-	closed    bool
-	closeOnce sync.Once
+	mu                sync.RWMutex
+	clients           map[uint64]*client
+	nextID            atomic.Uint64
+	closed            bool
+	closeOnce         sync.Once
+	heartbeatInterval time.Duration
 }
 
 func NewHub() *Hub {
-	return &Hub{clients: map[uint64]*client{}}
+	return &Hub{clients: map[uint64]*client{}, heartbeatInterval: defaultHeartbeatInterval}
 }
 
 // Broadcast sends a message to every connected client. A client whose queue is
@@ -274,8 +276,13 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 			h.mu.Unlock()
 		}
 
-		// Heartbeat keeps intermediaries from closing an idle connection.
-		ticker := time.NewTicker(5 * time.Second)
+		// Keep the heartbeat below the shortest known 15-second intermediary idle
+		// timeout so quiet streams remain live without a reconciliation cycle.
+		heartbeatInterval := h.heartbeatInterval
+		if heartbeatInterval <= 0 {
+			heartbeatInterval = defaultHeartbeatInterval
+		}
+		ticker := time.NewTicker(heartbeatInterval)
 		defer ticker.Stop()
 		var expiryTimer *time.Timer
 		var expiry <-chan time.Time
