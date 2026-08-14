@@ -204,6 +204,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [initialHTMLTag, setInitialHTMLTag] = useState("");
+  const initialHTMLTagRef = useRef<string | null>(null);
   const writeFenceRef = useRef(true);
   const reconciliationGenerationRef = useRef(0);
   const contentEventGenerationRef = useRef(0);
@@ -698,12 +699,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         });
         if (!response.ok) return;
         const etag = response.headers.get("ETag");
-        const current = initialHTMLTag || window.sessionStorage.getItem("nexttrans-html-etag");
-        if (etag && current && etag !== current) {
-          setUpdateAvailable(true);
-        } else if (etag && !current) {
+        if (!etag) return;
+        if (initialHTMLTagRef.current === null) {
+          initialHTMLTagRef.current = etag;
           window.sessionStorage.setItem("nexttrans-html-etag", etag);
           setInitialHTMLTag(etag);
+        } else if (etag !== initialHTMLTagRef.current) {
+          setUpdateAvailable(true);
         }
       } catch {
         // A temporary probe failure must not interrupt editing.
@@ -716,7 +718,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       stopped = true;
       if (timer) clearTimeout(timer);
     };
-  }, [initialHTMLTag]);
+  }, []);
 
   useEffect(() => {
     if (selectedKey && editRef.current) {
@@ -1174,7 +1176,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         {updateAvailable && (
           <div className="update-available-banner" role="status" aria-live="polite">
             页面已有新版本，刷新后会自动加载最新 assets；当前未保存内容不会自动替换。
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>立即刷新</button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => {
+              window.sessionStorage.removeItem("nexttrans-html-etag");
+              window.location.reload();
+            }}>立即刷新</button>
           </div>
         )}
         {writesLocked && (
