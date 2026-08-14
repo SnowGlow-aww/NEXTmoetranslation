@@ -1425,73 +1425,74 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               </span>
             </div>
 
-            {/* Per-story toolbar */}
-            {isEventStory && locale !== "ja-JP" && (
+            {/* Per-story toolbar with integrated Chapter Navigation */}
+            {isEventStory && (
               <div className="story-toolbar">
-                <span className="story-status">
-                  {currentStory && currentStory.untranslatedCount > 0
-                    ? <><span className="story-dot pending" /> {currentStory.untranslatedCount} 条未翻译</>
-                    : <><span className="story-dot done" /> 已全部翻译</>}
-                </span>
-                <div className="story-toolbar-actions">
-                  <EventStoryTxtImport
-                    eventId={Number(field)}
-                    locale={locale}
-                    entries={entries}
-                    defaultEpisodeNo={selectedEpisode !== "all" ? selectedEpisode : selectedEntry?.episodeNo}
-                    disabled={busy || writesLocked || entryDirty || eventTxtDraftDirty}
-                    onApply={applyEventTxtDraft}
-                  />
-                  {eventTxtDraft && <>
-                    <span className="event-txt-import-pending" role="status">TXT 本地草稿剩余 {eventTxtDraft.translations.length} 条；只会通过现有保存按钮逐条提交</span>
-                    {eventTxtDraft.undoAvailable && <button type="button" className="btn btn-ghost btn-sm" onClick={undoEventTxtDraft} disabled={busy || writesLocked || entryDirty}>撤销本次导入</button>}
-                  </>}
-                  {role === "admin" && locale === "zh-CN" && <>
-                    <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
-                  </>}
-                </div>
-              </div>
-            )}
-
-            {/* Chapter Navigation for Event Stories */}
-            {isEventStory && chapters.length > 0 && (
-              <div className="chapter-nav" role="tablist" aria-label="活动剧情章节切换">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedEpisode === "all"}
-                  className={`chapter-tab ${selectedEpisode === "all" ? "active" : ""}`}
-                  onClick={() => selectChapter("all")}
-                >
-                  <span>全部章节</span>
-                  <span className="chapter-tab-badge count">{entries.length}</span>
-                </button>
-                {chapters.map((ch) => {
-                  const active = selectedEpisode === ch.episodeNo;
-                  const done = ch.untranslated === 0;
-                  return (
+                {chapters.length > 0 ? (
+                  <div className="chapter-nav" role="tablist" aria-label="活动剧情章节切换">
                     <button
                       type="button"
-                      key={ch.episodeNo}
                       role="tab"
-                      aria-selected={active}
-                      className={`chapter-tab ${active ? "active" : ""}`}
-                      onClick={() => selectChapter(ch.episodeNo)}
-                      title={`第 ${ch.episodeNo} 话: ${ch.title} (${ch.total} 条)`}
+                      aria-selected={selectedEpisode === "all"}
+                      className={`chapter-tab ${selectedEpisode === "all" ? "active" : ""}`}
+                      onClick={() => selectChapter("all")}
                     >
-                      <span className={`story-dot ${done ? "done" : "pending"}`} aria-hidden="true" />
-                      <span className="chapter-tab-title">第 {ch.episodeNo} 话{ch.title ? ` · ${ch.title}` : ""}</span>
-                      {ch.untranslated > 0 ? (
-                        <span className="chapter-tab-badge work" title="未翻译条数">{ch.untranslated}</span>
-                      ) : (
-                        <span className="chapter-tab-badge ok" title="本章已全部翻译">✓</span>
-                      )}
+                      <span>全部章节</span>
+                      <span className="chapter-tab-badge count">{entries.length}</span>
                     </button>
-                  );
-                })}
+                    {chapters.map((ch) => {
+                      const active = selectedEpisode === ch.episodeNo;
+                      const done = ch.untranslated === 0;
+                      return (
+                        <button
+                          type="button"
+                          key={ch.episodeNo}
+                          role="tab"
+                          aria-selected={active}
+                          className={`chapter-tab ${active ? "active" : ""}`}
+                          onClick={() => selectChapter(ch.episodeNo)}
+                          title={`第 ${ch.episodeNo} 话: ${ch.title} (${ch.total} 条)`}
+                        >
+                          <span className={`story-dot ${done ? "done" : "pending"}`} aria-hidden="true" />
+                          <span className="chapter-tab-title">第 {ch.episodeNo} 话{ch.title ? ` · ${ch.title}` : ""}</span>
+                          {ch.untranslated > 0 ? (
+                            <span className="chapter-tab-badge work" title="未翻译条数">{ch.untranslated}</span>
+                          ) : (
+                            <span className="chapter-tab-badge ok" title="本章已全部翻译">✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="story-status">
+                    {currentStory && currentStory.untranslatedCount > 0
+                      ? <><span className="story-dot pending" /> {currentStory.untranslatedCount} 条未翻译</>
+                      : <><span className="story-dot done" /> 已全部翻译</>}
+                  </span>
+                )}
+                {locale !== "ja-JP" && (
+                  <div className="story-toolbar-actions">
+                    <EventStoryTxtImport
+                      eventId={Number(field)}
+                      locale={locale}
+                      entries={entries}
+                      defaultEpisodeNo={selectedEpisode !== "all" ? selectedEpisode : selectedEntry?.episodeNo}
+                      disabled={busy || writesLocked || entryDirty || eventTxtDraftDirty}
+                      onApply={applyEventTxtDraft}
+                    />
+                    {eventTxtDraft && <>
+                      <span className="event-txt-import-pending" role="status">TXT 本地草稿剩余 {eventTxtDraft.translations.length} 条；只会通过现有保存按钮逐条提交</span>
+                      {eventTxtDraft.undoAvailable && <button type="button" className="btn btn-ghost btn-sm" onClick={undoEventTxtDraft} disabled={busy || writesLocked || entryDirty}>撤销本次导入</button>}
+                    </>}
+                    {role === "admin" && locale === "zh-CN" && <>
+                      <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
+                    </>}
+                  </div>
+                )}
               </div>
             )}
 

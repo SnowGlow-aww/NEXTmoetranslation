@@ -615,12 +615,12 @@ kbd {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 12px 24px;
+  padding: 8px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
 }
-.story-status { font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; }
-.story-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.story-status { font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; flex-shrink: 0; }
+.story-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; flex-shrink: 0; }
 .event-txt-import-actions { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .event-txt-import-actions label { font-size: 12px; color: var(--text-dim); }
 .event-txt-import-actions select { min-width: 92px; padding: 5px 8px; font-size: 12px; }
@@ -646,12 +646,14 @@ kbd {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 24px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
+  padding: 2px 0;
+  background: transparent;
+  border-bottom: none;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .chapter-tab {
   display: inline-flex;
