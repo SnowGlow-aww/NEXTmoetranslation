@@ -84,18 +84,34 @@ export function useWebSocket(handler: SSEHandler, enabled: boolean) {
       };
 
       ws.onmessage = (event) => {
+        let parsed: { event?: unknown; data?: unknown } | null = null;
         try {
-          const parsed = JSON.parse(event.data);
-          if (parsed && typeof parsed.event === "string") {
-            handlerRef.current(parsed.event as SSEEvent, parsed.data);
-          }
+          parsed = JSON.parse(event.data) as { event?: unknown; data?: unknown } | null;
         } catch {
           // ignore non-JSON frames
+          return;
         }
+        if (!parsed || typeof parsed.event !== "string") return;
+
+        // The server's application-level heartbeat also keeps its read
+        // deadline alive. Consume it at the transport boundary so it neither
+        // reaches UI handlers nor causes an editor-gate status response.
+        if (parsed.event === "ping") {
+          if (ws.readyState === WebSocket.OPEN) {
+            try {
+              ws.send(JSON.stringify({ type: "pong" }));
+            } catch {
+              ws.close();
+            }
+          }
+          return;
+        }
+
+        handlerRef.current(parsed.event as SSEEvent, parsed.data);
       };
 
       ws.onclose = () => {
-        wsRef.current = null;
+        if (wsRef.current === ws) wsRef.current = null;
         if (!isSubscribed) return;
         handlerRef.current("sse.disconnected", { at: Date.now() });
         const delay = Math.min(1000 * (2 ** Math.min(attempt++, 5)), 10000);

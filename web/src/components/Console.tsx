@@ -186,7 +186,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const contentEventGenerationRef = useRef(0);
   const sseConnectedRef = useRef(false);
   const preservedConflictDraftRef = useRef<string | null>(null);
-  const reconcileContentRef = useRef<(reason: "restore" | "gap", draft?: string | null) => Promise<void>>(async () => {});
+  const reconcileContentRef = useRef<(reason: "restore" | "gap", draft?: string | null) => Promise<boolean>>(async () => false);
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -318,7 +318,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     return JSON.stringify({ exportedAt: new Date().toISOString(), ...payload }, null, 2);
   };
 
-  const reconcileContent = async (reason: "restore" | "gap", preservedDraft?: string | null) => {
+  const reconcileContent = async (reason: "restore" | "gap", preservedDraft?: string | null): Promise<boolean> => {
     const reconciliation = ++reconciliationGenerationRef.current;
     const contentEventGeneration = contentEventGenerationRef.current;
     setWriteFence(true);
@@ -333,7 +333,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (!sseConnectedRef.current) {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("实时连接尚未恢复，写入仍已锁定", "err");
-      return;
+      return false;
     }
     let producerBefore: EditorGateStatus;
     try {
@@ -341,12 +341,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } catch {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("无法读取内容代次，写入仍已锁定", "err");
-      return;
+      return false;
     }
     if (producerBefore.running) {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("服务器内容任务仍在运行，写入仍已锁定", "err");
-      return;
+      return false;
     }
     const lyricsReload = isLyrics
       ? lyricsEditorRef.current?.reloadAuthoritative() ?? Promise.resolve(false)
@@ -357,15 +357,14 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const [sidebarLoaded, entriesLoaded, lyricsLoaded, reviewLoaded] = await Promise.all([
       reloadSidebar(), loadEntries(), lyricsReload, reviewReload,
     ]);
-    if (reconciliationGenerationRef.current !== reconciliation) return;
+    if (reconciliationGenerationRef.current !== reconciliation) return false;
     if (contentEventGenerationRef.current !== contentEventGeneration) {
-      void reconcileContent(reason, draft);
-      return;
+      return reconcileContent(reason, draft);
     }
     if (!sidebarLoaded || !entriesLoaded || !lyricsLoaded || !reviewLoaded) {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("无法完成权威数据校对，写入仍已锁定", "err");
-      return;
+      return false;
     }
     let producerAfter: EditorGateStatus;
     try {
@@ -373,41 +372,40 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } catch {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("无法确认内容代次，写入仍已锁定", "err");
-      return;
+      return false;
     }
-    if (reconciliationGenerationRef.current !== reconciliation) return;
+    if (reconciliationGenerationRef.current !== reconciliation) return false;
     if (contentEventGenerationRef.current !== contentEventGeneration) {
-      void reconcileContent(reason, draft);
-      return;
+      return reconcileContent(reason, draft);
     }
     if (producerAfter.running) {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("校对期间服务器内容任务已启动，写入仍已锁定", "err");
-      return;
+      return false;
     }
     if (producerBefore.instanceId !== producerAfter.instanceId ||
         producerBefore.revision !== producerAfter.revision ||
         producerBefore.completedGeneration !== producerAfter.completedGeneration) {
-      void reconcileContent(reason, draft);
-      return;
+      return reconcileContent(reason, draft);
     }
     if (!sseConnectedRef.current) {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("校对期间实时连接已断开，写入仍已锁定", "err");
-      return;
+      return false;
     }
     if (!acceptLoadedProducerState(producerAfter)) {
       setContentConflict({ reason, draft, reloadFailed: true });
       show("内容代次无效，写入仍已锁定", "err");
-      return;
+      return false;
     }
     if (draft) {
       setContentConflict({ reason, draft, reloadFailed: false });
-      return;
+      return true;
     }
     preservedConflictDraftRef.current = null;
     setContentConflict(null);
     setWriteFence(false);
+    return true;
   };
   reconcileContentRef.current = reconcileContent;
 
@@ -488,10 +486,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       setWriteFence(true);
     } else if (event === "sse.reconnected") {
       sseConnectedRef.current = true;
-      show("实时连接已建立", "ok");
     } else if (event === "sse.missed-events") {
       sseConnectedRef.current = true;
-      void reconcileContent("gap");
+      void reconcileContent("gap").then((reconciled) => {
+        if (reconciled) show("实时连接已恢复", "ok");
+      });
     } else if (event === "sync.progress" || event === "translate.progress") {
       setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
       if (Number(d.current) >= Number(d.total)) setTimeout(() => setProgress(null), 1500);

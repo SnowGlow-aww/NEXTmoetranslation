@@ -49,9 +49,12 @@ type client struct {
 }
 
 const (
-	clientQueueSize      = 64
-	maxHubClients        = 128
-	maxHubClientsPerUser = 8
+	clientQueueSize          = 64
+	maxHubClients            = 128
+	maxHubClientsPerUser     = 8
+	defaultHeartbeatInterval = 20 * time.Second
+	defaultClientReadTimeout = 75 * time.Second
+	websocketWriteTimeout    = 5 * time.Second
 )
 
 var (
@@ -70,18 +73,22 @@ func (c *client) disconnect() {
 
 // Hub manages active WebSocket connections and broadcasts events.
 type Hub struct {
-	mu         sync.RWMutex
-	clients    map[uint64]*client
-	nextID     atomic.Uint64
-	closed     bool
-	closeOnce  sync.Once
-	editorGate *editorgate.Gate
+	mu                sync.RWMutex
+	clients           map[uint64]*client
+	nextID            atomic.Uint64
+	closed            bool
+	closeOnce         sync.Once
+	editorGate        *editorgate.Gate
+	heartbeatInterval time.Duration
+	clientReadTimeout time.Duration
 }
 
 func NewHub(gate *editorgate.Gate) *Hub {
 	return &Hub{
-		clients:    map[uint64]*client{},
-		editorGate: gate,
+		clients:           map[uint64]*client{},
+		editorGate:        gate,
+		heartbeatInterval: defaultHeartbeatInterval,
+		clientReadTimeout: defaultClientReadTimeout,
 	}
 }
 
@@ -205,7 +212,7 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 
 			// Writer goroutine: sends queued messages to client over WS.
 			go func() {
-				ticker := time.NewTicker(20 * time.Second)
+				ticker := time.NewTicker(h.heartbeatInterval)
 				defer ticker.Stop()
 				for {
 					select {
@@ -215,7 +222,7 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 						if !ok {
 							return
 						}
-						_ = ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+						_ = ws.SetWriteDeadline(time.Now().Add(websocketWriteTimeout))
 						if err := websocket.JSON.Send(ws, msg); err != nil {
 							c.disconnect()
 							return
@@ -225,7 +232,7 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 							c.disconnect()
 							return
 						}
-						_ = ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+						_ = ws.SetWriteDeadline(time.Now().Add(websocketWriteTimeout))
 						if err := websocket.JSON.Send(ws, Message{Event: EventPing, Data: time.Now().Unix()}); err != nil {
 							c.disconnect()
 							return
@@ -234,20 +241,27 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 				}
 			}()
 
-			// Reader goroutine (main WS handler context): listens for client frames like ping/check_sync.
+			// Reader goroutine (main WS handler context): the client answers each
+			// outbound heartbeat with {"type":"pong"}. Any valid client message
+			// refreshes the deadline, while pong itself has no application side effect.
 			for {
 				var clientMsg ClientMsg
-				_ = ws.SetReadDeadline(time.Now().Add(60 * time.Second))
+				if err := ws.SetReadDeadline(time.Now().Add(h.clientReadTimeout)); err != nil {
+					return
+				}
 				if err := websocket.JSON.Receive(ws, &clientMsg); err != nil {
 					return
 				}
-				if clientMsg.Type == "check_sync" || clientMsg.Type == "ping" {
+				switch clientMsg.Type {
+				case "check_sync", "ping":
 					if h.editorGate != nil {
 						select {
 						case c.ch <- Message{Event: EventGateStatus, Data: h.editorGate.Status()}:
 						default:
 						}
 					}
+				case "pong":
+					// Heartbeat acknowledgement only.
 				}
 			}
 		}),
