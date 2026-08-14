@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"moesekai/server/internal/db"
@@ -646,96 +645,44 @@ func (s *EventStore) eventDisplayNames(locale string) (map[int]eventDisplayName,
 }
 
 func (s *EventStore) eventOfficialTagState() (map[int]bool, error) {
-	rows, err := s.db.Query(`SELECT event_id FROM event_stories ORDER BY event_id`)
+	rows, err := s.db.Query(`
+		SELECT 
+			es.event_id,
+			(SELECT COUNT(*) FROM event_story_episodes ep_count WHERE ep_count.event_id = es.event_id) AS total_episodes,
+			COUNT(DISTINCT seg.episode_no) AS covered_episodes,
+			COUNT(seg.segment_id) AS total_segments,
+			COALESCE(SUM(CASE 
+				WHEN seg.kind = 'title' AND ep.title_source = 'cn' THEN 1
+				WHEN seg.kind != 'title' AND line.source = 'cn' THEN 1
+				ELSE 0 
+			END), 0) AS official_segments
+		FROM event_stories es
+		LEFT JOIN event_story_episodes ep 
+		  ON ep.event_id = es.event_id
+		LEFT JOIN event_story_segments seg 
+		  ON seg.event_id = ep.event_id 
+		 AND seg.episode_no = ep.episode_no 
+		 AND seg.scenario_id = ep.scenario_id
+		LEFT JOIN event_story_lines line 
+		  ON line.event_id = seg.event_id 
+		 AND line.episode_no = seg.episode_no 
+		 AND line.jp_key = seg.jp_key
+		GROUP BY es.event_id
+	`)
 	if err != nil {
 		return nil, err
 	}
-	var eventIDs []int
+	defer rows.Close()
+
+	result := make(map[int]bool)
 	for rows.Next() {
-		var eventID int
-		if err := rows.Scan(&eventID); err != nil {
-			rows.Close()
+		var eventID, totalEpisodes, coveredEpisodes, totalSegments, officialSegments int
+		if err := rows.Scan(&eventID, &totalEpisodes, &coveredEpisodes, &totalSegments, &officialSegments); err != nil {
 			return nil, err
 		}
-		eventIDs = append(eventIDs, eventID)
+		result[eventID] = totalEpisodes > 0 && coveredEpisodes == totalEpisodes && totalSegments > 0 && totalSegments == officialSegments
 	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return nil, err
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-
-	result := make(map[int]bool, len(eventIDs))
-	for _, eventID := range eventIDs {
-		var episodeCount int
-		if err := s.db.QueryRow(`SELECT COUNT(*) FROM event_story_episodes WHERE event_id=?`, eventID).Scan(&episodeCount); err != nil {
-			return nil, err
-		}
-		canonical, err := currentEventCanonicalSegmentIDs(s.db, eventID)
-		if err != nil || len(canonical) != episodeCount {
-			// Missing or invalid canonical coverage must fail open: never hide an
-			// event when the source set is incomplete or cannot be verified.
-			result[eventID] = false
-			continue
-		}
-		var segmentIDs []string
-		for _, ids := range canonical {
-			for segmentID := range ids {
-				segmentIDs = append(segmentIDs, segmentID)
-			}
-		}
-		if len(segmentIDs) == 0 {
-			result[eventID] = false
-			continue
-		}
-
-		placeholders := make([]string, len(segmentIDs))
-		args := make([]any, len(segmentIDs))
-		for i, segmentID := range segmentIDs {
-			placeholders[i] = "?"
-			args[i] = segmentID
-		}
-		rows, err := s.db.Query(`SELECT seg.kind, ep.title_source, line.source
-			FROM event_story_segments seg
-			JOIN event_story_episodes ep
-			  ON ep.event_id=seg.event_id AND ep.episode_no=seg.episode_no AND ep.scenario_id=seg.scenario_id
-			LEFT JOIN event_story_lines line
-			  ON line.event_id=seg.event_id AND line.episode_no=seg.episode_no AND line.jp_key=seg.jp_key
-			WHERE seg.segment_id IN (`+strings.Join(placeholders, ",")+")", args...)
-		if err != nil {
-			return nil, err
-		}
-		total, official := 0, 0
-		for rows.Next() {
-			var kind string
-			var titleSource, lineSource sql.NullString
-			if err := rows.Scan(&kind, &titleSource, &lineSource); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			total++
-			source := "unknown"
-			if kind == "title" && titleSource.Valid {
-				source = titleSource.String
-			} else if kind != "title" && lineSource.Valid {
-				source = lineSource.String
-			}
-			if source == model.SourceCN {
-				official++
-			}
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		if err := rows.Close(); err != nil {
-			return nil, err
-		}
-		result[eventID] = total == len(segmentIDs) && total > 0 && total == official
-	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // List returns summaries of all event stories, ordered by event id. The

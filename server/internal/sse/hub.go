@@ -275,7 +275,7 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 		}
 
 		// Heartbeat keeps intermediaries from closing an idle connection.
-		ticker := time.NewTicker(25 * time.Second)
+		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		var expiryTimer *time.Timer
 		var expiry <-chan time.Time
@@ -339,10 +339,12 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 
 func (h *Hub) setSSEHeaders(w http.ResponseWriter) {
 	hd := w.Header()
-	hd.Set("Content-Type", "text/event-stream")
-	hd.Set("Cache-Control", "no-store")
+	hd.Set("Content-Type", "text/event-stream; charset=utf-8")
+	hd.Set("Cache-Control", "no-cache, no-transform, no-store, must-revalidate")
+	hd.Set("Pragma", "no-cache")
+	hd.Set("Expires", "0")
 	hd.Set("Connection", "keep-alive")
-	// Disable proxy buffering (nginx) so events flush immediately.
+	// Disable proxy buffering (nginx, EdgeOne, etc.) so events flush immediately.
 	hd.Set("X-Accel-Buffering", "no")
 }
 
