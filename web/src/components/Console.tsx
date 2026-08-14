@@ -199,7 +199,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const savingRef = useRef(false);
   const loadGenerationRef = useRef(0);
   const contextGenerationRef = useRef(0);
-  const [restoreGeneration, setRestoreGeneration] = useState(0);
+  const restoreGeneration = 0;
   const [writesLocked, setWritesLocked] = useState(true);
   const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -665,8 +665,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               : captureUnsavedDraft();
             void reconcileContent("remote", draft, detail);
           } else {
-            setRestoreGeneration((value) => value + 1);
-            show(`${remoteUser} 更新了${targetLabel ? ` ${targetLabel}` : "当前歌曲歌词"}，正在载入服务器版本`, "ok");
+            lyricsEditorRef.current?.reloadAuthoritative();
+            show(`${remoteUser} 更新了${targetLabel ? ` ${targetLabel}` : "当前歌曲歌词"}，已载入服务器版本`, "ok");
           }
         } else {
           lyricsEditorRef.current?.reloadCatalog();

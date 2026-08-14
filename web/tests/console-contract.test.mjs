@@ -150,7 +150,8 @@ test("console generations fence loads and saves while tab identity reconciles re
   assert.match(consoleSource, /nexttrans-html-etag/);
   assert.match(consoleSource, /页面已有新版本/);
   assert.match(consoleSource, /event === "content\.restored"/);
-  assert.match(consoleSource, /setRestoreGeneration/);
+  assert.doesNotMatch(consoleSource, /setRestoreGeneration/);
+  assert.match(consoleSource, /lyricsEditorRef\.current\?\.reloadAuthoritative\(\)/);
   assert.match(consoleSource, /const captured = captureContext\(\)/);
   assert.match(consoleSource, /if \(!contextIsCurrent\(captured\)\) return/);
 });
@@ -308,12 +309,12 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.doesNotMatch(songLyricsType, /translationCredit\?:|proofreadingCredit\?:|importToken|sourceImportToken/);
   assert.match(editor, /const sourceImportTokenRef = useRef\(""\)/);
   assert.doesNotMatch(editor, /useState[^\n]*sourceImportToken|setSourceImportToken/);
-  assert.match(editor, /const findSource = async \(\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current\) return/);
-  assert.match(editor, /const previewSource = async \(candidate: LyricsSourceCandidate\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current\) return/);
+  assert.match(editor, /const findSource = async \(\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current \|\| writeLockedRef\.current\) return/);
+  assert.match(editor, /const previewSource = async \(candidate: LyricsSourceCandidate\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current \|\| writeLockedRef\.current\) return/);
   assert.match(editor, /if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| lyrics\.revision !== 0 \|\| !sourcePreview \|\| role !== "admin"/);
   assert.match(editor, /sourceImportTokenRef\.current = preview\.importToken/);
   assert.match(editor, /const importToken = lyrics\.revision === 0 \? sourceImportTokenRef\.current : ""/);
-  assert.match(editor, /const saved = await saveLyrics\(lyrics, importToken \|\| undefined\)/);
+  assert.match(editor, /const saved = importToken[\s\S]*\? await saveLyrics\(lyrics, importToken\)[\s\S]*: await checkpointLyrics\(musicID\)/);
   assert.match(editor, /const authoritative = await getLyrics\(musicID\)/);
   assert.match(editor, /sameImportedLyricsFrozenIdentity\(attempted, authoritative\)/);
   assert.match(editor, /首次保存可能已成功/);
@@ -377,7 +378,7 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.ok(editor.includes('<pre tabIndex={0} aria-label={`固定修订'));
   assert.match(editor, /lyrics\.revision === 0 && sourceActivity === "searching"/);
   assert.match(editor, /sourceRetry\.kind === "search"/);
-  assert.match(editor, /disabled={busy \|\| lyrics\.revision > 0}>\{sourceActivity === "searching" \? "正在查找…" : "查找来源"\}/);
+  assert.match(editor, /disabled={busy \|\| writeLocked \|\| lyrics\.revision > 0}>\{sourceActivity === "searching" \? "正在查找…" : "查找来源"\}/);
   assert.doesNotMatch(editor, /sourceURL/);
 });
 
@@ -478,7 +479,7 @@ test("lyrics collaboration consumes server-derived rendition targets and freezes
   assert.match(consoleSource, /lyricsUpdateMatchesEditorTarget\(update, activeTarget\)/);
   assert.match(consoleSource, /const lyricsSnapshot = lyricsEditorRef\.current\?\.snapshot\(\) \?\? null;[\s\S]*if \(lyricsSnapshot\?\.dirty \?\? lyricsDirty\)[\s\S]*reconcileContent\("remote", draft, detail\)/);
   assert.doesNotMatch(consoleSource, /runOrGuard\("同步协作者更新", \(\) => setRestoreGeneration/);
-  assert.match(consoleSource, /setRestoreGeneration\(\(value\) => value \+ 1\)/);
+  assert.match(consoleSource, /lyricsEditorRef\.current\?\.reloadAuthoritative\(\)/);
   assert.match(consoleSource, /reloadCatalog\(\)/);
   assert.match(editor, /activeTarget: \(\) => selectedMusicIDRef\.current == null \? null/);
   assert.match(editor, /renditionKey: activeRendition\?\.key \|\| ""/);

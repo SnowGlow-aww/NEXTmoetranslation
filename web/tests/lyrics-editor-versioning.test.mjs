@@ -16,9 +16,7 @@ test("LyricsEditor selects stable rendition families without merging equal text"
   assert.match(editor, /const activeSideReadOnly = activeVersion === "game" && gameSideReadOnlyReason !== null/);
   assert.match(editor, /Game <span>\{gameSideReadOnlyReason === "exact_projection" \? "只读 exact projection" : "独立简中可编辑"\}<\/span>/);
   assert.match(editor, /independent Game 简中按该 stable key\/side 独立保存/);
-  assert.match(editor, /projectionKind === "game_only"/);
-  assert.match(editor, /Game 简中按该 stable key\/side 独立保存/);
-  assert.match(editor, /const saved = await saveLyrics\(lyrics, importToken \|\| undefined\)/);
+  assert.match(editor, /const saved = importToken\s*\?\s*await saveLyrics\(lyrics, importToken\)\s*:\s*await checkpointLyrics\(musicID\)/);
   assert.doesNotMatch(editor, /renditionKey: activeRendition\.key, side: activeVersion/);
   assert.match(editor, /activeTarget: \(\) => selectedMusicIDRef\.current == null \? null/);
   assert.match(editor, /renditionKey: activeRendition\?\.key \|\| ""/);
@@ -50,7 +48,7 @@ test("authoritative conflict reload retains the current stable rendition side", 
 test("save and publish preflight block dangling Game references before network mutation", async () => {
   const editor = await readFile(new URL("../src/components/LyricsEditor.tsx", import.meta.url), "utf8");
   const savePreflight = editor.indexOf("const preflightProblems = lyricsVersionSaveProblems(lyrics);");
-  const saveRequest = editor.indexOf("await saveLyrics(lyrics, importToken || undefined)");
+  const saveRequest = editor.indexOf("await checkpointLyrics(musicID)");
 
   assert.ok(savePreflight >= 0 && savePreflight < saveRequest);
   assert.match(editor, /Rendition \/ projection 或公开署名合同无效，未发送保存请求/);
@@ -126,7 +124,8 @@ test("embedded Public Lyrics metadata remains independent from editable SQLite s
 
   const availabilityGuard = editor.indexOf("reason instanceof APIError && reason.status === 404 && item.lyricsAvailabilityState");
   const runtimeGuard = editor.indexOf("reason instanceof APIError && reason.status === 404 && item.runtimeLyrics?.immutableOverlay");
-  const blankDraft = editor.indexOf("const blank = emptyLyrics(item.musicId)");
   assert.ok(availabilityGuard >= 0 && availabilityGuard < runtimeGuard, "database availability must be handled before runtime-only fallback");
-  assert.ok(runtimeGuard >= 0 && runtimeGuard < blankDraft, "runtime-only 404 must be handled before legacy blank-draft creation");
+  assert.ok(runtimeGuard >= 0, "runtime-only 404 must remain a distinct read-only state");
+  assert.doesNotMatch(editor, /emptyLyrics|const blank =/);
+  assert.match(editor, /reason instanceof APIError && reason\.status === 404\) \{[\s\S]*startCollaboration\(item\.musicId\)/);
 });

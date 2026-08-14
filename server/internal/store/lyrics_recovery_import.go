@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	// lyricsRecoveryImportRuntimeSchema remains the immutable schema version
 	// encoded by the existing recovery/staging input contracts. Schema v28 adds
-	// the editor-seed ledger, v29 adds peer-side translation storage, and v30 adds
-	// lazily materialized translation editions. None changes those inputs or their
-	// catalog identity, so reviewed imports may run on any contiguous v27-v30 database.
+	// the editor-seed ledger, v29 adds peer-side translation storage, v30 adds
+	// lazily materialized translation editions, and v31 adds yjs collaboration.
+	// None changes those inputs or their catalog identity, so reviewed imports
+	// may run on any contiguous v27-v31 database.
 	lyricsRecoveryImportRuntimeSchema          = 27
-	lyricsImportMaximumCompatibleRuntimeSchema = 30
+	lyricsImportMaximumCompatibleRuntimeSchema = 31
 )
 
 var (

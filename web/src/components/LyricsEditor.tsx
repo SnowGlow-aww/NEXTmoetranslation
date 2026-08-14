@@ -25,17 +25,15 @@ import {
   APIError, CatalogMusicItem, CatalogPerformerItem, LyricLine, LyricRubySpan, LyricsEditorLine, LyricsEditorSegment,
   LyricsPerformerID, LyricsRendition, LyricsRenditionPerformer, LyricsRenditionSide, LyricsSourceCandidate,
   LyricsSourcePreview, ProjectionStatus, RenditionLyricsDocument, SongLyrics, SongLyricsDocument,
-  getCatalogMusic, getCatalogPerformers,
-  getLyrics, getProjectionStatus, mutateLyricsTranslationEdition, previewLyricsSource, publishLyrics, saveLyrics,
-  searchLyricsSource, unpublishLyrics,
+  checkpointLyrics, getCatalogMusic, getCatalogPerformers, getClientID, getUsername,
+  getLyrics, getProjectionStatus, issueLyricsCollabTicket, mutateLyricsTranslationEdition, previewLyricsSource, publishLyrics, saveLyrics,
+  searchLyricsSource, subscribeSessionChanged, unpublishLyrics,
 } from "@/lib/api";
-
-function emptyLyrics(musicId: number): SongLyrics {
-  return {
-    musicId, status: "draft", revision: 0, updatedAt: "",
-    attribution: "", translationCredit: "", proofreadingCredit: "", lines: [],
-  };
-}
+import {
+  LyricsCollaboration,
+  type LyricsCollaborationPeer,
+  type LyricsCollaborationStatus,
+} from "@/lib/yjs-lyrics";
 
 function databaseLyricsStatusLabel(item: CatalogMusicItem): string {
   if (item.lyricsStatus === "published") return "已发布";
@@ -260,7 +258,15 @@ type PendingAnnotationOperation =
   | { kind: "ruby-split"; lineIndex: number; segmentIndex: number; rubyIndex: number; splitOffset: number }
   | { kind: "ruby-merge"; lineIndex: number; segmentIndex: number; rubyIndex: number };
 
-export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(function LyricsEditor({ role, reloadGeneration, writeLocked = false, onDirtyChange }, ref) {
+const COLLABORATION_COLORS = ["#1677FF", "#16A085", "#C0392B", "#8E44AD", "#D97706", "#397D54"] as const;
+
+function collaborationColor(identity: string): string {
+  let hash = 0;
+  for (let index = 0; index < identity.length; index++) hash = ((hash * 31) + identity.charCodeAt(index)) >>> 0;
+  return COLLABORATION_COLORS[hash % COLLABORATION_COLORS.length];
+}
+
+export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(function LyricsEditor({ role, reloadGeneration, writeLocked: producerWriteLocked = false, onDirtyChange }, ref) {
   const { show } = useToast();
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<CatalogMusicItem[]>([]);
@@ -285,6 +291,17 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   // Keep the one-time import grant outside SongLyrics, baseline JSON, dirty checks,
   // draft exports, and any recoverable document state.
   const sourceImportTokenRef = useRef("");
+  const collaborationRef = useRef<LyricsCollaboration | null>(null);
+  const collaborationGenerationRef = useRef(0);
+  const collaborationSyncedRef = useRef(false);
+  const collaborationInitialBaselineRef = useRef<number | null>(null);
+  const collaborationDocumentJSONRef = useRef("");
+  const collaborationAuthoritativeRef = useRef<SongLyricsDocument | null>(null);
+  const collaborationStructuralConflictRef = useRef(false);
+  const [collaborationStatus, setCollaborationStatus] = useState<LyricsCollaborationStatus>("offline");
+  const [collaborationPeers, setCollaborationPeers] = useState<LyricsCollaborationPeer[]>([]);
+  const [collaborationError, setCollaborationError] = useState("");
+  const [collaborationStructuralConflict, setCollaborationStructuralConflict] = useState(false);
   const [confirmSourceImport, setConfirmSourceImport] = useState(false);
   const [confirmImportRecovery, setConfirmImportRecovery] = useState<SongLyricsDocument | null>(null);
   const [confirmConflictReload, setConfirmConflictReload] = useState(false);
@@ -298,6 +315,10 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const lyricsLoadSequence = useRef(0);
   const selectedMusicIDRef = useRef<number | null>(null);
   const busyRef = useRef(false);
+  const localSourceImportDraft = sourceImportTokenRef.current !== "";
+  const collaborationRequired = selectedMusic != null && lyrics != null && !runtimeOnlyMissingDatabaseSource && !databaseAvailabilityOnly;
+  const writeLocked = producerWriteLocked || collaborationStructuralConflict ||
+    (collaborationRequired && !localSourceImportDraft && collaborationStatus !== "synced");
   const writeLockedRef = useRef(writeLocked);
   writeLockedRef.current = writeLocked;
   const documentGenerationRef = useRef(0);
@@ -321,6 +342,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   lyricsRef.current = lyrics;
   baselineRef.current = baseline;
   activeTranslationEditionKeyRef.current = activeTranslationEditionKey;
+  const hasLocalUndo = localSourceImportDraft || collaborationRef.current?.undoManager.canUndo() === true;
   const renditionKeys = useMemo(() => (lyrics ? lyricsRenditionKeys(lyrics) : []), [lyrics]);
   const activeRendition = lyrics && isRenditionLyricsDocument(lyrics)
     ? lyricsRenditionByKey(lyrics, activeRenditionKey)
@@ -439,6 +461,103 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     }
   }, [show]);
 
+  const stopCollaboration = useCallback(() => {
+    collaborationGenerationRef.current++;
+    collaborationRef.current?.destroy();
+    collaborationRef.current = null;
+    collaborationSyncedRef.current = false;
+    collaborationInitialBaselineRef.current = null;
+    collaborationDocumentJSONRef.current = "";
+    collaborationAuthoritativeRef.current = null;
+    collaborationStructuralConflictRef.current = false;
+    setCollaborationPeers([]);
+    setCollaborationError("");
+    setCollaborationStructuralConflict(false);
+    setCollaborationStatus("offline");
+  }, []);
+
+  const startCollaboration = useCallback((musicID: number) => {
+    const generation = ++collaborationGenerationRef.current;
+    collaborationRef.current?.destroy();
+    collaborationRef.current = null;
+    collaborationSyncedRef.current = false;
+    collaborationInitialBaselineRef.current = null;
+    collaborationDocumentJSONRef.current = "";
+    collaborationStructuralConflictRef.current = false;
+    setCollaborationPeers([]);
+    setCollaborationError("");
+    setCollaborationStructuralConflict(false);
+    setCollaborationStatus("connecting");
+    const clientId = getClientID();
+    const username = getUsername();
+    const collaboration = new LyricsCollaboration({
+      musicId: musicID,
+      clientId,
+      username,
+      color: collaborationColor(`${username}:${clientId}`),
+      issueTicket: issueLyricsCollabTicket,
+      onSnapshot: (snapshot) => {
+        if (collaborationGenerationRef.current !== generation || selectedMusicIDRef.current !== musicID) return;
+        const structuralConflict = snapshot.error?.message === "invalid_lyrics_collaboration_document" ||
+          (snapshot.synced && snapshot.document === null);
+        if (structuralConflict) {
+          if (collaborationStructuralConflictRef.current) return;
+          collaborationStructuralConflictRef.current = true;
+          // Fence first: destroy/provider callbacks from the retired instance
+          // must not overwrite this terminal read-only conflict state.
+          collaborationGenerationRef.current++;
+          const conflicted = collaborationRef.current;
+          collaborationRef.current = null;
+          conflicted?.destroy();
+          collaborationSyncedRef.current = false;
+          setCollaborationStructuralConflict(true);
+          setCollaborationStatus("error");
+          setCollaborationPeers([]);
+          setCollaborationError("");
+          const authoritative = collaborationAuthoritativeRef.current;
+          if (authoritative) {
+            const editable = editableLyricsDocument(authoritative);
+            const serialized = JSON.stringify(editable);
+            collaborationInitialBaselineRef.current = editable.revision;
+            collaborationDocumentJSONRef.current = serialized;
+            documentGenerationRef.current++;
+            setLyrics(editable);
+            setBaseline(serialized);
+          }
+          setLoading(false);
+          setError(null);
+          return;
+        }
+        collaborationSyncedRef.current = snapshot.synced;
+        setCollaborationStatus(snapshot.status);
+        setCollaborationPeers(snapshot.peers);
+        setCollaborationError(snapshot.error?.message || "");
+        if (snapshot.status === "error" && !snapshot.document) {
+          setLoading(false);
+          setError(new APIError(503, { error: "lyrics_collaboration_unavailable" }));
+        }
+        if (!snapshot.synced || !snapshot.document) return;
+        const editable = editableLyricsDocument(snapshot.document);
+        const serialized = JSON.stringify(editable);
+        if (collaborationInitialBaselineRef.current === null) {
+          collaborationInitialBaselineRef.current = editable.revision;
+          setBaseline(serialized);
+        }
+        if (collaborationDocumentJSONRef.current !== serialized) {
+          collaborationDocumentJSONRef.current = serialized;
+          documentGenerationRef.current++;
+          setLyrics(editable);
+        }
+        setLoading(false);
+        setError(null);
+      },
+    });
+    collaborationRef.current = collaboration;
+  }, []);
+
+  useEffect(() => () => stopCollaboration(), [stopCollaboration]);
+  useEffect(() => subscribeSessionChanged(() => collaborationRef.current?.reconnectNow()), []);
+
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadCatalog(query); }, 200);
     return () => window.clearTimeout(timer);
@@ -484,6 +603,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   const performChooseMusic = useCallback(async (item: CatalogMusicItem) => {
     if (busyRef.current) return false;
+    stopCollaboration();
     const preserveTranslationTarget = selectedMusicIDRef.current === item.musicId;
     const currentDocument = lyricsRef.current;
     const currentEditionDocument = currentDocument && isRenditionLyricsDocument(currentDocument)
@@ -520,7 +640,11 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setProjectionStatus(null);
     setProjectionState("idle");
     setProjectionMessage("");
+    documentGenerationRef.current++;
+    setLyrics(null);
+    setBaseline("");
     let loadedSuccessfully = false;
+    let waitingForCollaboration = false;
     try {
       let loaded: SongLyricsDocument;
       try {
@@ -531,6 +655,11 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       }
       if (!requestIsCurrent(sequence, item.musicId)) return false;
       acceptAuthoritativeDocument(loaded, preferredRenditionKey, preferredVersion);
+      const authoritative = editableLyricsDocument(loaded);
+      collaborationAuthoritativeRef.current = authoritative;
+      startCollaboration(item.musicId);
+      waitingForCollaboration = true;
+      loadedSuccessfully = true;
       loadedSuccessfully = true;
     } catch (reason) {
       if (!requestIsCurrent(sequence, item.musicId)) return false;
@@ -550,20 +679,18 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
         setRuntimeOnlyMissingDatabaseSource(true);
         loadedSuccessfully = true;
       } else if (reason instanceof APIError && reason.status === 404) {
-        const blank = emptyLyrics(item.musicId);
-        documentGenerationRef.current++;
-        setLyrics(blank);
-        setBaseline(JSON.stringify(blank));
+        startCollaboration(item.musicId);
+        waitingForCollaboration = true;
         loadedSuccessfully = true;
       } else {
         setLyrics(null);
         setError(reason instanceof APIError ? reason : new APIError(500, { error: "load_failed" }));
       }
     } finally {
-      if (requestIsCurrent(sequence, item.musicId)) setLoading(false);
+      if (requestIsCurrent(sequence, item.musicId) && !waitingForCollaboration) setLoading(false);
     }
     return loadedSuccessfully;
-  }, [acceptAuthoritativeDocument, activeRenditionKey, activeVersion, requestIsCurrent]);
+  }, [acceptAuthoritativeDocument, activeRenditionKey, activeVersion, requestIsCurrent, startCollaboration, stopCollaboration]);
 
   useEffect(() => {
     if (busyRef.current) return;
@@ -666,8 +793,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   const updateLyrics = (patch: Partial<SongLyrics> | Partial<RenditionLyricsDocument>) => {
     if (!lyrics || busyRef.current || writeLocked) return;
+    const next = { ...lyrics, ...patch } as SongLyricsDocument;
     documentGenerationRef.current++;
-    setLyrics((current) => current ? { ...current, ...patch } as SongLyricsDocument : current);
+    if (!localSourceImportDraft && collaborationRef.current?.updateDocument(next)) {
+      collaborationDocumentJSONRef.current = JSON.stringify(next);
+    } else {
+      setLyrics(next);
+    }
     setError(null);
   };
 
@@ -955,16 +1087,27 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     const musicID = lyrics.musicId;
     const documentGeneration = documentGenerationRef.current;
     const importToken = lyrics.revision === 0 ? sourceImportTokenRef.current : "";
+    const collaboration = collaborationRef.current;
+    const checkpointBoundary = importToken ? 0 : collaboration?.beginCheckpoint() ?? 0;
     busyRef.current = true;
     setBusy(true);
     setError(null);
     setConfirmImportRecovery(null);
     try {
-      const saved = await saveLyrics(lyrics, importToken || undefined);
-      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return null;
+      const saved = importToken
+        ? await saveLyrics(lyrics, importToken)
+        : await checkpointLyrics(musicID);
+      if (!requestIsCurrent(sequence, musicID)) return null;
+      if (importToken && documentGenerationRef.current !== documentGeneration) return null;
       const persisted = preserveReadOnlyLyricsSourceFacts(saved, attempted);
-      documentGenerationRef.current++;
-      setLyrics(persisted);
+      collaborationAuthoritativeRef.current = editableLyricsDocument(persisted);
+      if (importToken) {
+        documentGenerationRef.current++;
+        setLyrics(persisted);
+      } else {
+        collaboration?.checkpointCommitted(checkpointBoundary);
+        collaboration?.updateAuthoritativeEnvelope(persisted);
+      }
       setBaseline(JSON.stringify(persisted));
       if (isRenditionLyricsDocument(persisted)) {
         const persistedEditionDocument = persisted as RenditionLyricsDocument;
@@ -980,10 +1123,12 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       setCandidates([]);
       setSourceSearchCompleted(false);
       void loadCatalog(query);
+      if (importToken) startCollaboration(musicID);
       show("歌词草稿已保存", "ok");
       return persisted;
     } catch (reason) {
-      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return null;
+      if (!requestIsCurrent(sequence, musicID)) return null;
+      if (importToken && documentGenerationRef.current !== documentGeneration) return null;
       const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "save_failed" });
       if (importToken && apiError.code !== "invalid_lyrics_response") {
         try {
@@ -1081,8 +1226,15 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   };
 
   const discard = (): boolean => {
+    if (busyRef.current) return false;
+    if (!sourceImportTokenRef.current && collaborationRef.current) {
+      collaborationRef.current.discardLocalChanges();
+      setError(null);
+      setPendingAnnotationOperation(null);
+      return true;
+    }
     const authoritative = baselineRef.current;
-    if (!authoritative || busyRef.current) return false;
+    if (!authoritative) return false;
     const restored = JSON.parse(authoritative) as SongLyricsDocument;
     documentGenerationRef.current++;
     setLyrics(restored);
@@ -1097,6 +1249,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setCandidates([]);
     setSourceSearchCompleted(false);
     setError(null);
+    if (selectedMusicIDRef.current === restored.musicId) startCollaboration(restored.musicId);
     return true;
   };
 
@@ -1111,7 +1264,6 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setConfirmSourceImport(false);
     setConfirmImportRecovery(null);
     setPendingAnnotationOperation(null);
-    lyricsLoadSequence.current++;
     requestSequence.current++;
     performerSequence.current++;
     await Promise.all([loadCatalog(query), loadPerformers()]);
@@ -1290,7 +1442,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return;
       const result = preserveReadOnlyLyricsSourceFacts(response, document);
       documentGenerationRef.current++;
-      setLyrics(result);
+      collaborationRef.current?.updateAuthoritativeEnvelope(result);
       setBaseline(JSON.stringify(result));
       void loadCatalog(query);
       show(nextPublished ? "数据库发布已提交，正在核对公共文件" : "数据库撤回已提交，正在核对公共文件", "ok");
@@ -1317,7 +1469,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   };
 
   const findSource = async () => {
-    if (!lyrics || isRenditionLyricsDocument(lyrics) || role !== "admin" || busyRef.current) return;
+    if (!lyrics || isRenditionLyricsDocument(lyrics) || role !== "admin" || busyRef.current || writeLockedRef.current) return;
     const sequence = lyricsLoadSequence.current;
     const musicID = lyrics.musicId;
     busyRef.current = true;
@@ -1348,7 +1500,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   };
 
   const previewSource = async (candidate: LyricsSourceCandidate) => {
-    if (!lyrics || isRenditionLyricsDocument(lyrics) || role !== "admin" || busyRef.current) return;
+    if (!lyrics || isRenditionLyricsDocument(lyrics) || role !== "admin" || busyRef.current || writeLockedRef.current) return;
     const sequence = lyricsLoadSequence.current;
     const musicID = lyrics.musicId;
     busyRef.current = true;
@@ -1385,6 +1537,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       setError(new APIError(422, { error: imported.code, details: imported.details }));
       return;
     }
+    stopCollaboration();
     updateLyrics({
       lines: imported.lines,
       sourceUrl: preview.canonicalUrl, sourcePageId: preview.pageId,
@@ -1424,12 +1577,23 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     if (saveFirst) {
       document = await saveDocument();
       if (!document) return;
+      const currentSharedDocument = collaborationRef.current?.getSnapshot().document;
+      if (collaborationRef.current?.undoManager.canUndo() ||
+          (currentSharedDocument && JSON.stringify(editableLyricsDocument(currentSharedDocument)) !== JSON.stringify(document))) {
+        show("保存期间又产生了新修改，请再次保存后再继续", "err");
+        return;
+      }
     } else if (pending.kind !== "publish" && baseline) {
       lyricsLoadSequence.current++;
       documentGenerationRef.current++;
-      document = JSON.parse(baseline) as SongLyricsDocument;
-      setLyrics(document);
-      if (isRenditionLyricsDocument(document)) setActiveTranslationEditionKey((document as RenditionLyricsDocument).translationEditionKey);
+      if (sourceImportTokenRef.current || !collaborationRef.current) {
+        document = JSON.parse(baseline) as SongLyricsDocument;
+        setLyrics(document);
+        if (isRenditionLyricsDocument(document)) setActiveTranslationEditionKey((document as RenditionLyricsDocument).translationEditionKey);
+      } else {
+        if (hasLocalUndo) collaborationRef.current?.discardLocalChanges();
+        document = collaborationRef.current?.getSnapshot().document ?? (JSON.parse(baseline) as SongLyricsDocument);
+      }
       sourceImportTokenRef.current = "";
       setSourcePreview(null);
       setSourcePreviewCandidate(null);
@@ -1559,6 +1723,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             <p>系统不会把 detail 404 静默转换成可保存的空草稿。生产启动时的私有 embedded editor seed 负责补入缺失正文；该流程不会在此页面触发，也不会覆盖账号、普通翻译、剧情、审核或既有歌词。</p>
             <button className="btn btn-secondary" onClick={() => void performChooseMusic(selectedMusic)}>重新检查数据库</button>
           </div>
+        ) : collaborationStructuralConflict && !lyrics ? (
+          <div className="lyrics-runtime-only lyrics-structural-conflict-empty" role="alert">
+            <strong>协作文档发生结构冲突，当前没有可安全显示的编辑副本</strong>
+            <p>Yjs 文档的歌词行、分段或注音结构无法安全物化。协作连接已停止，编辑和保存均已禁用，以避免覆盖其他协作者的内容。</p>
+            <p>请重新加载当前歌词；若问题仍然出现，请联系其他协作者停止编辑，并由管理员检查协作文档。</p>
+            <button className="btn btn-secondary" onClick={() => void performChooseMusic(selectedMusic)} disabled={busy}>重新加载歌词</button>
+          </div>
         ) : lyrics ? (
           <fieldset className="lyrics-edit-fence" disabled={busy} aria-busy={busy} aria-disabled={writeLocked} onKeyDown={handleEditorKeyDown}>
             <div className="lyrics-editor-head">
@@ -1577,11 +1748,38 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
                 <span>musicId {lyrics.musicId} · revision {lyrics.revision} · {lyrics.status === "published" ? "当前修订已发布" : lyrics.status === "draft-published" ? `草稿（revision ${lyrics.publishedRevision} 仍公开）` : "草稿"}{activeTranslationEdition ? ` · 译本 ${activeTranslationEdition.label}` : ""}</span>
               </div>
               <div className="lyrics-actions">
-                {role === "admin" && isLegacyLyricsDocument(lyrics) && <button className="btn btn-secondary" onClick={findSource} disabled={busy || lyrics.revision > 0}>{sourceActivity === "searching" ? "正在查找…" : "查找来源"}</button>}
+                {role === "admin" && isLegacyLyricsDocument(lyrics) && <button className="btn btn-secondary" onClick={findSource} disabled={busy || writeLocked || lyrics.revision > 0}>{sourceActivity === "searching" ? "正在查找…" : "查找来源"}</button>}
                 <button className="btn btn-primary" onClick={save} disabled={busy || writeLocked || !dirty}>保存草稿</button>
                 {role === "admin" && isLegacyLyricsDocument(lyrics) && lyrics.revision > 0 && lyrics.status !== "published" && <button className="btn btn-secondary" onClick={() => publish(true)} disabled={busy || writeLocked}>发布当前修订</button>}
                 {role === "admin" && isLegacyLyricsDocument(lyrics) && Boolean(lyrics.publishedRevision) && <button className="btn btn-secondary" onClick={() => publish(false)} disabled={busy || writeLocked}>取消发布 revision {lyrics.publishedRevision}</button>}
               </div>
+            </div>
+
+            <div className={`lyrics-collaboration-state ${collaborationStructuralConflict ? "structural-conflict" : collaborationStatus}`} role={collaborationStructuralConflict || collaborationStatus === "error" ? "alert" : "status"} aria-live="polite">
+              <div>
+                <strong>{collaborationStructuralConflict
+                  ? "协作文档发生结构冲突，已切换为只读"
+                  : localSourceImportDraft
+                  ? "固定来源草稿尚未共享"
+                  : collaborationStatus === "synced" ? "协作同步已就绪"
+                  : collaborationStatus === "reconnecting" ? "协作连接正在恢复"
+                  : collaborationStatus === "error" ? "协作连接不可用"
+                  : "正在载入协作文档"}</strong>
+                <span>{collaborationStructuralConflict
+                  ? "Yjs 已完成同步，但歌词的行、分段或注音结构无法安全物化。为避免覆盖协作者内容，编辑与保存已停用。"
+                  : localSourceImportDraft
+                  ? "首次受权保存成功后才会进入共享房间"
+                  : collaborationStatus === "synced" ? "正文由 Yjs 增量同步，保存会创建数据库 checkpoint"
+                  : "首轮远端同步完成前保持只读，避免空草稿覆盖权威内容"}</span>
+                {collaborationStructuralConflict
+                  ? <small>请重新加载当前歌词；若重新加载后仍出现此状态，请联系其他协作者停止编辑，并由管理员检查协作文档。</small>
+                  : collaborationError && <small>{collaborationError}</small>}
+              </div>
+              {!collaborationStructuralConflict && !localSourceImportDraft && collaborationPeers.length > 0 && <ul aria-label="其他在线歌词编辑者">
+                {collaborationPeers.map((peer) => <li key={peer.clientId}><i aria-hidden="true" style={{ backgroundColor: peer.color }} />{peer.username}</li>)}
+              </ul>}
+              {collaborationStructuralConflict && <button type="button" className="btn btn-secondary btn-sm" onClick={() => void performChooseMusic(selectedMusic)} disabled={busy}>重新加载歌词</button>}
+              {!collaborationStructuralConflict && !localSourceImportDraft && collaborationStatus === "error" && <button type="button" className="btn btn-secondary btn-sm" onClick={() => collaborationRef.current?.reconnectNow()}>重新连接</button>}
             </div>
 
             {renditionDocument ? (
@@ -1631,7 +1829,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
                 {!sourceImportTokenRef.current && sourceRetry && <span>固定修订授权或 verified draft 状态已失效，请重新预览后再保存。</span>}
                 {error.details.map((detail) => <span key={detail}>{detailLabel(detail)}</span>)}
                 {sourceRetry && lyrics.revision === 0 && role === "admin" && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => sourceRetry.kind === "search" ? void findSource() : void previewSource(sourceRetry.candidate)} disabled={busy}>{sourceRetry.kind === "search" ? "重试查找来源" : "重试载入固定修订"}</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => sourceRetry.kind === "search" ? void findSource() : void previewSource(sourceRetry.candidate)} disabled={busy || writeLocked}>{sourceRetry.kind === "search" ? "重试查找来源" : "重试载入固定修订"}</button>
                 )}
                 {error.code === "revision_conflict" && error.current && (
                   <button className="btn btn-secondary btn-sm" onClick={() => setConfirmConflictReload(true)}>载入服务器版本</button>
@@ -1653,9 +1851,9 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
             {role === "admin" && lyrics.revision === 0 && sourceSearchCompleted && (
               <div className="lyrics-source-panel" aria-live="polite">
-                <div className="lyrics-source-title"><strong>候选来源</strong><button type="button" className="btn btn-ghost btn-sm" onClick={() => void findSource()} disabled={busy}>重新搜索</button></div>
+                <div className="lyrics-source-title"><strong>候选来源</strong><button type="button" className="btn btn-ghost btn-sm" onClick={() => void findSource()} disabled={busy || writeLocked}>重新搜索</button></div>
                 {candidates.length === 0 ? <span className="lyrics-muted">没有找到可核对的歌词来源。可以调整曲目资料后再试，或使用手动歌词行。</span> : candidates.map((candidate) => (
-                  <button key={`${candidate.pageId}-${candidate.revisionId}`} aria-label={`预览候选来源 ${candidate.title} 的固定修订 ${candidate.revisionId}`} onClick={() => previewSource(candidate)} disabled={busy}>
+                  <button key={`${candidate.pageId}-${candidate.revisionId}`} aria-label={`预览候选来源 ${candidate.title} 的固定修订 ${candidate.revisionId}`} onClick={() => previewSource(candidate)} disabled={busy || writeLocked}>
                     {candidate.title}<span>固定修订 {candidate.revisionId}</span>
                   </button>
                 ))}
@@ -1861,6 +2059,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             setPendingTransition(null);
             setError(null);
             void loadCatalog(query);
+            startCollaboration(confirmImportRecovery.musicId);
             show("已载入服务器首次保存结果，可继续编辑", "ok");
           }}>载入服务器版本</button>
           <button className="btn btn-ghost" onClick={() => setConfirmImportRecovery(null)}>先保留本地内容</button>

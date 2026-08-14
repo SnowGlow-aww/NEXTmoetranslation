@@ -580,3 +580,21 @@ export function validateSongLyricsMutationResponse(value, expectation) {
 
   return errors.length > 0 ? { ok: false, details: errors } : { ok: true, value: modeledSongLyrics(value) };
 }
+
+/**
+ * A checkpoint persists the already-shared Y.Doc, so concurrent collaborators
+ * may legitimately make the authoritative response differ from the caller's
+ * latest React snapshot. Validate the complete DTO and correlate musicId, but
+ * deliberately do not compare it with a client-submitted document.
+ */
+export function validateSongLyricsCheckpointResponse(value, musicId) {
+  const revision = record(value) && Number.isSafeInteger(value.revision) && value.revision > 0
+    ? value.revision
+    : 0;
+  return validateSongLyricsMutationResponse(value, {
+    operation: "save",
+    musicId,
+    revision,
+    document: value,
+  });
+}

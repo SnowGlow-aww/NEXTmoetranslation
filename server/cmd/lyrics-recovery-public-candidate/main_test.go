@@ -73,14 +73,14 @@ func TestRunRejectsHistoricalMixedLyricsStorageOwnership(t *testing.T) {
 	}
 }
 
-func TestRunRejectsUnreviewedV31RuntimeWithoutCreatingOutput(t *testing.T) {
+func TestRunRejectsUnreviewedV32RuntimeWithoutCreatingOutput(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "future-recovery.db")
 	database, err := db.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
-		VALUES (31,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+		VALUES (32,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestRunRejectsUnreviewedV31RuntimeWithoutCreatingOutput(t *testing.T) {
 		"--batch-sha256", strings.Repeat("c", 64),
 		"--output-directory", output,
 	}, &bytes.Buffer{})
-	if err == nil || !strings.Contains(err.Error(), "exact known schema v27 through v30 prefix") {
+	if err == nil || !strings.Contains(err.Error(), "exact known schema v27 through v31 prefix") {
 		t.Fatalf("future runtime schema error=%v", err)
 	}
 	if _, statErr := os.Lstat(output); !errors.Is(statErr, os.ErrNotExist) {
@@ -156,11 +156,27 @@ func TestRunReadsV28DatabaseWithoutChangingBytesOrCreatingSidecars(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`DROP TABLE song_lyrics_rendition_side_translation_lines`); err != nil {
+	if _, err := database.Exec(`DROP TABLE IF EXISTS lyrics_collab_checkpoints`); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`DELETE FROM schema_migrations WHERE version IN (29,30)`); err != nil {
+	if _, err := database.Exec(`DROP TABLE IF EXISTS lyrics_collab_updates`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`DROP TABLE IF EXISTS lyrics_collab_documents`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`DROP TABLE IF EXISTS song_lyrics_translation_editions`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`DROP TABLE IF EXISTS song_lyrics_rendition_side_translation_lines`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`DELETE FROM schema_migrations WHERE version IN (29,30,31)`); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}

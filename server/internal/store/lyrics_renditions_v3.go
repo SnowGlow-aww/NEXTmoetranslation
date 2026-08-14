@@ -864,11 +864,31 @@ func buildLyricsRenditionEditorDocument(bundle lyricsRenditionEditorBundle, loca
 }
 
 func (s *Store) SaveLyricsRenditionMutation(input LyricsRenditionDocument, user string) (LyricsRenditionDocument, bool, error) {
-	result, changed, _, err := s.SaveLyricsRenditionMutationWithTargets(input, user)
+	result, changed, _, err := s.saveLyricsRenditionMutation(input, user, nil)
 	return result, changed, err
 }
 
 func (s *Store) SaveLyricsRenditionMutationWithTargets(input LyricsRenditionDocument, user string) (LyricsRenditionDocument, bool, []LyricsRenditionMutationTarget, error) {
+	return s.saveLyricsRenditionMutation(input, user, nil)
+}
+
+// SaveLyricsRenditionMutationWithBeforeCommit runs beforeCommit inside the
+// authoritative rendition save transaction. Callback errors roll back both
+// the rendition mutation and any callback writes.
+func (s *Store) SaveLyricsRenditionMutationWithBeforeCommit(
+	input LyricsRenditionDocument,
+	user string,
+	beforeCommit func(*sql.Tx, LyricsRenditionDocument, bool) error,
+) (LyricsRenditionDocument, bool, error) {
+	result, changed, _, err := s.saveLyricsRenditionMutation(input, user, beforeCommit)
+	return result, changed, err
+}
+
+func (s *Store) saveLyricsRenditionMutation(
+	input LyricsRenditionDocument,
+	user string,
+	beforeCommit func(*sql.Tx, LyricsRenditionDocument, bool) error,
+) (LyricsRenditionDocument, bool, []LyricsRenditionMutationTarget, error) {
 	unlock := s.lockLyrics(input.MusicID)
 	defer unlock()
 	tx, err := s.db.Begin()
@@ -922,6 +942,14 @@ func (s *Store) SaveLyricsRenditionMutationWithTargets(input LyricsRenditionDocu
 		return LyricsRenditionDocument{}, false, nil, err
 	}
 	if reflect.DeepEqual(requested, stored) && equalLyricsRenditionSideTranslations(requestedSides, storedSides) {
+		if beforeCommit != nil {
+			if err := beforeCommit(tx, current, false); err != nil {
+				return LyricsRenditionDocument{}, false, nil, err
+			}
+			if err := tx.Commit(); err != nil {
+				return LyricsRenditionDocument{}, false, nil, err
+			}
+		}
 		return current, false, nil, nil
 	}
 	mutationTargets := lyricsRenditionMutationTargets(input, current)
@@ -959,6 +987,11 @@ func (s *Store) SaveLyricsRenditionMutationWithTargets(input LyricsRenditionDocu
 		result, err := buildLyricsTranslationEditionDocument(bundle, nextSelection)
 		if err != nil {
 			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if beforeCommit != nil {
+			if err := beforeCommit(tx, result, true); err != nil {
+				return LyricsRenditionDocument{}, false, nil, err
+			}
 		}
 		if err := tx.Commit(); err != nil {
 			return LyricsRenditionDocument{}, false, nil, err
@@ -1018,6 +1051,11 @@ func (s *Store) SaveLyricsRenditionMutationWithTargets(input LyricsRenditionDocu
 	result, err := buildLyricsTranslationEditionDocument(bundle, selection)
 	if err != nil {
 		return LyricsRenditionDocument{}, false, nil, err
+	}
+	if beforeCommit != nil {
+		if err := beforeCommit(tx, result, true); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return LyricsRenditionDocument{}, false, nil, err

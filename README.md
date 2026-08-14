@@ -25,6 +25,7 @@ v2/
 │       ├── upstream/       current_version.json 轮询 + 内置 git 镜像
 │       ├── backup/         S3 + GitHub 备份/恢复
 │       ├── importer/       备份恢复共享导入逻辑
+│       ├── collab/         Ygo/Yjs 歌词协作、短票据、checkpoint 与 epoch fencing
 │       ├── sse/            Server-Sent Events 实时推送
 │       └── api/            HTTP 路由 + handlers
 └── web/                    Next.js 15 控制台（仿 claude.ai，无 emoji）
@@ -40,6 +41,7 @@ v2/
 |------|------|------|
 | `/files/*` | 公开翻译数据（兼容旧格式，给 pjsk.moe） | `public, max-age, stale-while-revalidate` + ETag |
 | `/api/*` | 控制台 API（JWT） | `no-store` |
+| `/yjs/lyrics/{musicId}` | Yjs 歌词协作 WebSocket（一次性短票据） | `no-store` |
 | `/sse` | 实时事件推送 | 流式，不缓存 |
 
 公开文件与旧系统**完全格式兼容**——消费端（pjsk.moe）零改动。
@@ -80,7 +82,17 @@ go run ./cmd/lyrics-import-stage \
 
 ## 实时性
 
-控制台通过 SSE（`/sse`）接收：翻译编辑、同步/翻译进度、活动剧情更新。多用户编辑即时反映在其他在线用户界面。浏览器使用 fetch 流并在 `Authorization: Bearer` 请求头中发送当前共享会话 JWT；URL、日志与重连路径均不包含 JWT。流断开时客户端按有界退避自动重连，每次重连重新读取共享会话信封；会话 epoch 变化或卸载会立即中止旧流。
+普通内容通知、editor gate、同步/翻译进度和恢复通知继续走现有事件通道；歌词正文协作独立使用浏览器 `yjs` + `y-websocket` 和同一 Go 进程内的 `github.com/reearth/ygo`。服务端不需要 Node、V8 或独立协作进程。每首歌的 `Y.Doc` 以 `lyrics` 为根，正文和结构分别使用嵌套的 `Y.Text`、`Y.Array`、`Y.Map`，不是把整份歌词塞进一个 JSON 字符串。
+
+`segments` 与 `ruby` 的数组项在 Y.Doc 内携带 `__yjsId`、`__yjsGeneration` 和可选 `__yjsOrigin`，用于识别两个客户端从同一结构基线并发 split 的情况；这些字段只属于协作协议，物化为歌词 DTO 时会剥离，不会写入规范化歌词表或公共 JSON。完全没有这些字段的旧房间仍可读取；混合新旧身份、残缺身份、重复 ID，或同一 origin 出现多个 generation 会被判定为结构冲突。客户端会立即停止自动重连、保留最近的权威歌词只读并要求重新加载，checkpoint 也会拒绝该文档，而不会猜测合并出错误歌词。
+
+连接流程固定为：浏览器携带长期会话 JWT 和已加载的 producer-state proof，以 `Authorization: Bearer` 调用严格的 `POST /api/editor/v1/lyrics/{musicId}/collab-ticket`；服务端返回严格 DTO `{ticket,room,expiresAt}`；浏览器随后连接 `/yjs/lyrics/{musicId}?ticket=...`。ticket 有效期 45 秒、只允许一次升级尝试，并绑定用户、角色/token generation、music ID、协作 epoch 与 atomically accepted editor-gate 快照。已经建立的 Yjs 写连接会一直占用 editor-gate shared admission；producer 发布 running 状态后先关闭这些房间并等待连接释放，再执行权威替换。Yjs 协作 WebSocket URL 绝不携带长期 JWT；响应中的 `room` 是服务端诊断身份，客户端仍以 URL 的 `musicId` 和 ticket 完成授权，服务端再把它改写为内部 `lyrics-{musicId}-e{epoch}` room。断线时销毁旧 provider，按有界退避重新取票，不能重放旧 ticket 或把旧 epoch 的离线 `Y.Doc` 合并进新房间。
+
+`y-websocket` 3.x 会在约 30 秒未收到服务端消息时主动重连。单人房间通常没有别人的 update/awareness，因此客户端固定设置 `resyncInterval: 15_000`；周期 SyncStep1 会得到服务端 SyncStep2，避免健康连接被 watchdog 当成静默连接。界面只在首个 `sync(true)` 后解除只读，单纯 TCP/WebSocket `connected` 不代表文档可编辑。
+
+协作 update 只是可恢复草稿，不是“已保存”。用户显式保存时调用 `POST /api/editor/v1/lyrics/{musicId}/checkpoint`；服务端重新读取权威歌词、校验基础 revision/authority hash 和 editor gate，再把 Yjs 文档物化为既有严格歌词模型，经现有校验写入 SQLite。权威歌词 mutation、协作 snapshot/epoch 与 checkpoint ledger 使用同一个 SQLite 事务，任一写入失败都会整体回滚；首次保存还会先冻结并排空旧 room，再在该事务内 reseed 新 epoch。SQLite 的规范化歌词、revision、不可变来源资料和 publication projection 继续是备份、发布与 API 的唯一权威。
+
+Ygo 资源门禁为代码固定的安全默认值：全局 50 条连接、每房间 10 个 peer、最多 256 个房间（最多 128 个常驻）、raw update 与合并文档上限均为 8 MiB，WebSocket message 上限为 8 MiB + 64 KiB 以容纳 Yjs framing、最多 100,000 个 pending item、每连接每秒 20 条消息且 burst 40、peer 写队列 256、每房间 awareness 256 KiB/256 client、10 秒握手、90 秒 awareness 过期、5 分钟空闲房间回收、持久化 coalesce 最长等待 1 秒，并每 100 次成功 flush compact 一次。当前不提供环境变量绕过这些上限。
 
 ## 更新检测
 
@@ -122,7 +134,7 @@ JWT_SECRET=$(openssl rand -hex 32) MOESEKAI_MASTER_KEY=dev ADMIN_USER=admin ADMI
 # 3. 启动前端（另开终端）
 cd ../web
 npm ci
-npm run dev          # http://localhost:3000，自动代理 /api 到 :8080（可用 BACKEND_ORIGIN 修改）
+npm run dev          # http://localhost:3000，自动代理 /api、/ws、/yjs 到 :8080（可用 BACKEND_ORIGIN 修改）
 ```
 
 ### Docker
@@ -151,7 +163,7 @@ docker run -p 8080:8080 -v nexttrans-data:/data \
 
 `ADMIN_PASSWORD` 只应在受控首次启动或管理员恢复时临时注入；确认管理员和持久卷身份后应从长期容器环境移除。服务默认监听 `0.0.0.0:8080`；`CONSOLE_ORIGIN` 未配置时使用 `*`，适配 Zeabur 等平台分配的生产域名，也可在需要时覆盖为一个精确的 http(s) origin。公开 `/files/*` 与 `/translation/*` 始终返回通配 CORS。生产容器应使用镜像默认的 `DB_PATH=/data/moesekai.db`、`DATA_DIR=/data` 与精确 `TZ=UTC`（`.env.example` 也按容器路径编写）；本地 `go run` 才覆盖为 `./data/...`。生产启动还会把 Go 的进程本地时区固定为 UTC，不依赖基础镜像的 `/etc/localtime`。
 
-镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse`、`/files` 与 `/translation`。生产必须保持单实例，并使用 `Recreate`（先停止旧实例，再启动新实例），不能让两个 SQLite writer 或两个进程内 editor gate 同时对外服务。仓库默认不附带 `seed-translations/`；如需首次迁移，应在上线前显式提供并验证种子，迁移或无损 round-trip 校验失败会终止容器启动。
+镜像只运行一个 Go 进程（默认 `:8080`）：同时提供静态控制台、`/api`、`/sse`、`/ws`、`/yjs`、`/files` 与 `/translation`。生产必须保持单实例，并使用 `Recreate`（先停止旧实例，再启动新实例），不能让两个 SQLite writer 或两个进程内 editor gate 同时对外服务。仓库默认不附带 `seed-translations/`；如需首次迁移，应在上线前显式提供并验证种子，迁移或无损 round-trip 校验失败会终止容器启动。
 
 运行阶段固定使用非 root 的 `65532:65532`；`/app`、二进制和控制台全部由 root 持有且不可写，只有持久化 `/data` 与显式 `/tmp` 可写。挂载自定义宿主数据目录时必须预先授予该 UID/GID 写入权限。CI 所需的三个 digest 与 runtime 镜像名由同名 repository variables 提供，缺失或非 64 位小写十六进制值会使构建失败。
 
