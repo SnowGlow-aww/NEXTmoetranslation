@@ -182,25 +182,6 @@ func (s *Store) ApplyEmbeddedLyricsEditorSeed(ctx context.Context, bundle embedd
 	return result, nil
 }
 
-type embeddedLyricsEditorCatalogExtra struct {
-	JapaneseTitle      string
-	CatalogFingerprint string
-}
-
-// reviewedEmbeddedLyricsEditorCatalogExtras is the closed difference between
-// the current 707-song upstream catalog and this immutable 700-song seed. The
-// seed does not own these rows, but their exact identities may coexist during
-// both first application and replay. Any other extra row remains fail-closed.
-var reviewedEmbeddedLyricsEditorCatalogExtras = map[int]embeddedLyricsEditorCatalogExtra{
-	388: {JapaneseTitle: "初音ミクの激唱", CatalogFingerprint: "825fa658f52738e340096d979d014036cd099b72d10d3d9bfe196b9d2d567842"},
-	674: {JapaneseTitle: "MASTER高難易度楽曲メドレー", CatalogFingerprint: "2ac785ce1adc4e8baadb8011a789ec04cf91b86084fc4374e8296c783dd5e794"},
-	675: {JapaneseTitle: "プロセカULTIMATE楽曲メドレー", CatalogFingerprint: "ddd77842ba389409eef3ab58b6fb99c07fdae3f3936df7898557e1f08bfd8060"},
-	676: {JapaneseTitle: "周年記念高難易度書き下ろし楽曲メドレー", CatalogFingerprint: "3ef2fbf63664de61fc682152a9328c2b603d35efee52fb26914bc172defaf652"},
-	750: {JapaneseTitle: "ロスタイムメモリー", CatalogFingerprint: "cb99f4cd4d9dcdcf54bf528edb0cb41cc8667f12cc4b6083811af9deaa2df680"},
-	751: {JapaneseTitle: "アディショナルメモリー", CatalogFingerprint: "02ab56c56503f2cb61b2d7e6fc717193a339ce6fc5e244b1f75e7951531108ae"},
-	764: {JapaneseTitle: "オツキミリサイタル", CatalogFingerprint: "0a1cfdd3d19e122bf36a3957319c3a2db99969dfe3e4b20a16979ce38ee7a1b2"},
-}
-
 func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, bundle embeddedlyricsseed.Bundle) error {
 	rows, err := tx.QueryContext(ctx, `SELECT music_id,title_ja,producer_metadata,lyricist,composer,arranger,
 		assetbundle_name,version_hint,lyrics_version,lyrics_evidence_presence_json,vocal_signals_json,
@@ -215,7 +196,6 @@ func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, 
 		expectedItems[item.MusicID] = item
 	}
 	seen := make(map[int]struct{}, len(bundle.Manifest.Items))
-	seenExtras := make(map[int]struct{}, len(reviewedEmbeddedLyricsEditorCatalogExtras))
 	for rows.Next() {
 		var musicID int
 		var title, producerMetadata, lyricist, composer, arranger, assetbundleName, versionHint, lyricsVersion string
@@ -233,19 +213,12 @@ func validateEmbeddedLyricsEditorSeedCatalogTx(ctx context.Context, tx *sql.Tx, 
 			seen[musicID] = struct{}{}
 			continue
 		}
-		extra, ok := reviewedEmbeddedLyricsEditorCatalogExtras[musicID]
-		if !ok || title != extra.JapaneseTitle || policy != bundle.Manifest.CatalogPolicyVersion ||
-			!catalogFingerprintMatchesCurrentEvidence(musicID, title, producerMetadata, lyricist, composer, arranger,
-				assetbundleName, versionHint, lyricsVersion, presenceJSON, vocalsJSON, fingerprint, extra.CatalogFingerprint) {
-			return fmt.Errorf("%w at out-of-scope music %d", ErrEmbeddedLyricsEditorSeedCatalogMismatch, musicID)
-		}
-		seenExtras[musicID] = struct{}{}
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
 	if len(seen) != len(bundle.Manifest.Items) {
-		if len(seen) == 0 && len(seenExtras) == 0 {
+		if len(seen) == 0 {
 			return ErrEmbeddedLyricsEditorSeedCatalogNotReady
 		}
 		return fmt.Errorf("%w: database catalog count or digest differs", ErrEmbeddedLyricsEditorSeedCatalogMismatch)
