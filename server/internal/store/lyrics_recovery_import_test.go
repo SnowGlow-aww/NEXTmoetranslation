@@ -11,7 +11,7 @@ import (
 	"moesekai/server/internal/model"
 )
 
-func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV28Contiguously(t *testing.T) {
+func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV30Contiguously(t *testing.T) {
 	validators := map[string]func(context.Context, *sql.Tx) error{
 		"recovery": validateRecoveryImportRuntimeSchema,
 		"staged":   validateStagedImportRuntimeSchema,
@@ -21,20 +21,30 @@ func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV28Contiguously(t *tes
 		mutate    func(*testing.T, *sql.Tx)
 		wantError bool
 	}{
-		{name: "current v28"},
+		{name: "current v30"},
+		{name: "v29 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=30`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "v28 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (29,30)`); err != nil {
+				t.Fatal(err)
+			}
+		}},
 		{name: "v27 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=28`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (28,29,30)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{name: "gap before v28", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=27`); err != nil {
+		{name: "gap before v30", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=29`); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{name: "unreviewed v29", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
+		{name: "unreviewed v31", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
 			if _, err := tx.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
-				VALUES (29,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+				VALUES (31,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -53,7 +63,7 @@ func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV28Contiguously(t *tes
 				}
 				err = validate(context.Background(), tx)
 				if test.wantError {
-					if err == nil || !strings.Contains(err.Error(), "contiguous schema-v27 through schema-v28 runtime") {
+					if err == nil || !strings.Contains(err.Error(), "contiguous schema-v27 through schema-v30 runtime") {
 						t.Fatalf("runtime schema gate error=%v", err)
 					}
 					return
@@ -96,6 +106,67 @@ func TestRecoveryCategoriesJSONAlwaysPersistsAnArray(t *testing.T) {
 			got, err := recoveryCategoriesJSON(test.categories)
 			if err != nil || got != test.want {
 				t.Fatalf("categories JSON=%q want=%q err=%v", got, test.want, err)
+			}
+		})
+	}
+}
+
+func TestPeerTranslationRuntimeSchemaRequiresExactV29OnlyWhenPresent(t *testing.T) {
+	tests := []struct {
+		name      string
+		mutate    func(*testing.T, *sql.Tx)
+		wantError string
+	}{
+		{name: "exact schema-v29"},
+		{name: "schema-v28", wantError: "requires schema-v29", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=29`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "wrong ledger name", wantError: "ledger is invalid", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`UPDATE schema_migrations SET name='wrong' WHERE version=29`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "wrong ledger checksum", wantError: "ledger is invalid", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`UPDATE schema_migrations SET checksum=? WHERE version=29`, strings.Repeat("f", 64)); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "missing peer table", wantError: "table is invalid", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DROP TABLE song_lyrics_rendition_side_translation_lines`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "missing lookup index", wantError: "index is invalid", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DROP INDEX idx_song_lyrics_rendition_side_translation_lines_lookup`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := setupLyricsStore(t)
+			tx, err := s.db.BeginTx(context.Background(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback()
+			if test.mutate != nil {
+				test.mutate(t, tx)
+			}
+			if err := validatePeerTranslationRuntimeSchema(context.Background(), tx, false, "test import"); err != nil {
+				t.Fatalf("no-peer schema gate: %v", err)
+			}
+			err = validatePeerTranslationRuntimeSchema(context.Background(), tx, true, "test import")
+			if test.wantError == "" {
+				if err != nil {
+					t.Fatalf("exact peer schema: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("peer schema error=%v want substring %q", err, test.wantError)
 			}
 		})
 	}

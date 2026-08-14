@@ -94,7 +94,7 @@ func (s *Store) GetEntriesLocale(category, field, source, locale string) ([]mode
 	if locale == model.LocaleChinese {
 		return s.GetEntries(category, field, source)
 	}
-	baseRows, err := s.db.Query(`SELECT e.jp_key, e.ids_json, l.text, l.source
+	baseRows, err := s.db.Query(`SELECT e.jp_key, e.ids_json, COALESCE(l.updated_at, e.updated_at), l.text, l.source
 		FROM entries e
 		LEFT JOIN entry_localizations l
 		  ON l.category=e.category AND l.field=e.field AND l.jp_key=e.jp_key AND l.locale=?
@@ -107,11 +107,12 @@ func (s *Store) GetEntriesLocale(category, field, source, locale string) ([]mode
 	var result []model.EntryWithKey
 	for baseRows.Next() {
 		var key, idsJSON string
+		var updatedAt int64
 		var localizedText, localizedSource sql.NullString
-		if err := baseRows.Scan(&key, &idsJSON, &localizedText, &localizedSource); err != nil {
+		if err := baseRows.Scan(&key, &idsJSON, &updatedAt, &localizedText, &localizedSource); err != nil {
 			return nil, err
 		}
-		entry := model.EntryWithKey{Key: key, Source: model.SourceUnknown}
+		entry := model.EntryWithKey{Key: key, Source: model.SourceUnknown, UpdatedAt: updatedAt}
 		if locale == model.LocaleJapanese {
 			entry.Text = key
 		} else if localizedText.Valid {
@@ -134,7 +135,7 @@ func (s *Store) GetEntriesLocale(category, field, source, locale string) ([]mode
 	if locale == model.LocaleJapanese {
 		return result, nil
 	}
-	localizedRows, err := s.db.Query(`SELECT jp_key, text, source FROM entry_localizations
+	localizedRows, err := s.db.Query(`SELECT jp_key, text, source, updated_at FROM entry_localizations
 		WHERE category=? AND field=? AND locale=?`, category, field, locale)
 	if err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ func (s *Store) GetEntriesLocale(category, field, source, locale string) ([]mode
 	defer localizedRows.Close()
 	for localizedRows.Next() {
 		var entry model.EntryWithKey
-		if err := localizedRows.Scan(&entry.Key, &entry.Text, &entry.Source); err != nil {
+		if err := localizedRows.Scan(&entry.Key, &entry.Text, &entry.Source, &entry.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if seen[entry.Key] || (source != "" && entry.Source != source) {

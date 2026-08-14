@@ -3,6 +3,7 @@ const AVAILABLE_GAME = Object.freeze(["game"]);
 const AVAILABLE_FULL_GAME = Object.freeze(["full", "game"]);
 const LEGACY_RENDITION_KEY = "legacy-v2";
 const STABLE_RENDITION_KEY = /^[a-z0-9][a-z0-9._-]{0,127}$/;
+const MAX_RENDITION_CREDIT_BYTES = 2048;
 const RUBY_HAN_RE = /\p{Script=Han}/u;
 const RUBY_NUMBER_RE = /\p{Number}/u;
 const RUBY_KANA_RE = /\p{Script=Hiragana}|\p{Script=Katakana}/u;
@@ -76,6 +77,18 @@ export function normalizedLyricsVersions(document, renditionKey) {
     return [...AVAILABLE_FULL_GAME];
   }
   return [...AVAILABLE_FULL];
+}
+
+export function retainedLyricsTranslationTarget(document, preferredRenditionKey = "", preferredVersion = "full") {
+  if (!isRenditionLyricsDocument(document)) return { renditionKey: "", version: "full" };
+  const preferred = lyricsRenditionByKey(document, preferredRenditionKey);
+  const rendition = preferred || document.renditions.find(record) || null;
+  if (!rendition) return { renditionKey: "", version: "full" };
+  const versions = normalizedLyricsVersions(document, rendition.key);
+  const version = versions.includes(preferredVersion)
+    ? preferredVersion
+    : versions.includes("full") ? "full" : "game";
+  return { renditionKey: rendition.key, version };
 }
 
 export function renditionProjectionStatus(document, renditionKey) {
@@ -177,7 +190,21 @@ export function projectGameLyricsLines(document, renditionKey) {
   const lineIds = rendition.relation?.kind === "exact_projection" && Array.isArray(rendition.relation.lineIds)
     ? [...rendition.relation.lineIds]
     : rendition.game.lines.map((line) => line?.id).filter((lineId) => typeof lineId === "string" && lineId);
-  return { ok: errors.length === 0, lines: [...rendition.game.lines], lineIds, errors };
+  if (rendition.relation?.kind !== "exact_projection" || !record(rendition.full) || !Array.isArray(rendition.full.lines)) {
+    return { ok: errors.length === 0, lines: [...rendition.game.lines], lineIds, errors };
+  }
+  const fullByID = new Map(rendition.full.lines.map((line) => [line?.id, line]));
+  const lines = rendition.game.lines.map((line, index) => {
+    const fullLine = fullByID.get(lineIds[index]);
+    if (!fullLine) return { ...line };
+    const projected = { ...line };
+    for (const locale of ["zh-CN", "en-US"]) {
+      if (Object.hasOwn(fullLine, locale)) projected[locale] = fullLine[locale];
+      else delete projected[locale];
+    }
+    return projected;
+  });
+  return { ok: errors.length === 0, lines, lineIds, errors };
 }
 
 function validateRenditionSide(side, path, expectedKind, errors) {
@@ -329,6 +356,21 @@ function renditionSaveProblems(rendition) {
         if (ids.some((performerID) => !performerIDs.has(performerID))) {
           errors.push(`rendition ${rendition.key} ${sideName} 使用了未注册的 performer ID`);
           break;
+        }
+      }
+    }
+  }
+  if (rendition.translationCredits !== undefined) {
+    if (!record(rendition.translationCredits) || Object.keys(rendition.translationCredits).length === 0 ||
+        !["translation", "proofreading"].some((field) => typeof rendition.translationCredits[field] === "string" && rendition.translationCredits[field] !== "")) {
+      errors.push(`rendition ${rendition.key} translationCredits 必须省略或至少包含一个非空署名`);
+    } else {
+      for (const field of ["translation", "proofreading"]) {
+        if (!Object.hasOwn(rendition.translationCredits, field)) continue;
+        const credit = rendition.translationCredits[field];
+        if (typeof credit !== "string" || credit !== credit.trim() ||
+            new TextEncoder().encode(credit).length > MAX_RENDITION_CREDIT_BYTES) {
+          errors.push(`rendition ${rendition.key} ${field} 署名必须首尾无空白且不超过 2048 bytes`);
         }
       }
     }

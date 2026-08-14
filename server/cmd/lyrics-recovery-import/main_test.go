@@ -113,6 +113,68 @@ func TestProtectedStateDigestIgnoresAllowedTablesAndDetectsBusinessState(t *test
 	}
 }
 
+func TestProtectedStateDigestScopesV29PeerSideTranslationsByRecoveryBatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "protected-v29-peer.db")
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	currentBatch := strings.Repeat("a", 64)
+	unrelatedBatch := strings.Repeat("b", 64)
+	if _, err := database.Exec(`INSERT INTO catalog_music(music_id,title_ja) VALUES (10,'current'),(11,'unrelated')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range []struct {
+		id      int
+		musicID int
+		batch   string
+		sha     string
+		key     string
+	}{
+		{id: 1, musicID: 10, batch: currentBatch, sha: strings.Repeat("c", 64), key: "current"},
+		{id: 2, musicID: 11, batch: unrelatedBatch, sha: strings.Repeat("d", 64), key: "unrelated"},
+	} {
+		if _, err := database.Exec(`INSERT INTO song_lyrics_source_documents
+			(document_id,music_id,schema_version,reason_code,document_json,document_sha256,manifest_batch_sha256,created_at)
+			VALUES (?,?,3,'','{}',?,?,1)`, document.id, document.musicID, document.sha, document.batch); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := database.Exec(`INSERT INTO song_lyrics_rendition_localizations
+			(document_id,rendition_key,locale,updated_at,updated_by,revision) VALUES (?,?, 'zh-CN',1,'test',1)`,
+			document.id, document.key); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scope := recoveryProtectedScope{batchSHA256: currentBatch, evidenceJSON: "[]"}
+	before, err := sqliteProtectedStateDigest(t.Context(), database, 0, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO song_lyrics_rendition_side_translation_lines
+		(document_id,rendition_key,side,locale,position,text) VALUES (1,'current','game','zh-CN',0,'allowed')`); err != nil {
+		t.Fatal(err)
+	}
+	afterCurrent, err := sqliteProtectedStateDigest(t.Context(), database, 0, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterCurrent != before {
+		t.Fatalf("current recovery batch peer-side row changed protected digest: before=%s after=%s", before, afterCurrent)
+	}
+	if _, err := database.Exec(`INSERT INTO song_lyrics_rendition_side_translation_lines
+		(document_id,rendition_key,side,locale,position,text) VALUES (2,'unrelated','game','zh-CN',0,'protected')`); err != nil {
+		t.Fatal(err)
+	}
+	afterUnrelated, err := sqliteProtectedStateDigest(t.Context(), database, 0, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterUnrelated == afterCurrent {
+		t.Fatal("unrelated recovery batch peer-side mutation was hidden from the protected digest")
+	}
+}
+
 func TestReceiptReservationIsNoOverwriteAndDetectsPathSwap(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "receipt.json")

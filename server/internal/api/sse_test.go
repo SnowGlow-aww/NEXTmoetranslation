@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"moesekai/server/internal/store"
 )
 
 // TestSSEBroadcastOnEdit connects an SSE client, performs an entry edit through
@@ -276,6 +278,67 @@ func TestLegacySSEEventStoryUpdatePayload(t *testing.T) {
 	}
 }
 
+func TestLyricsRenditionBroadcastIncludesOnlyOneActualMutationTarget(t *testing.T) {
+	h := setupLegacyAPI(t)
+	request := bearerSSERequest(t, h.server.URL, h.token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	events := make(chan map[string]any, 2)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var event string
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "event: ") {
+				event = strings.TrimPrefix(line, "event: ")
+			}
+			if event == "lyrics.updated" && strings.HasPrefix(line, "data: ") {
+				var data map[string]any
+				if json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &data) == nil {
+					events <- data
+				}
+				event = ""
+			}
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	h.api.broadcastLyricsRenditionUpdated(store.LyricsRenditionDocument{MusicID: 765, Revision: 2, TranslationEditionKey: "main"},
+		[]store.LyricsRenditionMutationTarget{{RenditionKey: "sekai", Side: "game", Locale: "zh-CN"}}, "game-window", "alice")
+	select {
+	case data := <-events:
+		if len(data) != 8 || data["musicId"] != float64(765) || data["revision"] != float64(2) || data["editionKey"] != "main" ||
+			data["clientId"] != "game-window" || data["user"] != "alice" || data["renditionKey"] != "sekai" ||
+			data["side"] != "game" || data["locale"] != "zh-CN" {
+			t.Fatalf("single-target lyrics.updated payload=%#v", data)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for single-target lyrics.updated")
+	}
+
+	h.api.broadcastLyricsRenditionUpdated(store.LyricsRenditionDocument{MusicID: 765, Revision: 3, TranslationEditionKey: "alternate"},
+		[]store.LyricsRenditionMutationTarget{
+			{RenditionKey: "sekai", Side: "full", Locale: "zh-CN"},
+			{RenditionKey: "sekai", Side: "credits", Locale: "zh-CN"},
+		}, "multi-window", "bob")
+	select {
+	case data := <-events:
+		if len(data) != 5 || data["musicId"] != float64(765) || data["revision"] != float64(3) || data["editionKey"] != "alternate" ||
+			data["clientId"] != "multi-window" || data["user"] != "bob" {
+			t.Fatalf("multi-target lyrics.updated payload=%#v", data)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for multi-target lyrics.updated")
+	}
+}
+
 func TestLyricsMutationsBroadcastCollaborationEvents(t *testing.T) {
 	h := setupLegacyAPI(t)
 	seedLyricsCatalog(t, h)
@@ -313,7 +376,8 @@ func TestLyricsMutationsBroadcastCollaborationEvents(t *testing.T) {
 		t.Helper()
 		select {
 		case data := <-events:
-			if len(data) != 3 || data["musicId"] != float64(10) || data["revision"] != float64(revision) || data["clientId"] != clientID {
+			if len(data) != 4 || data["musicId"] != float64(10) || data["revision"] != float64(revision) ||
+				data["clientId"] != clientID || data["user"] != "alice" {
 				t.Fatalf("lyrics.updated payload=%#v", data)
 			}
 		case <-time.After(2 * time.Second):

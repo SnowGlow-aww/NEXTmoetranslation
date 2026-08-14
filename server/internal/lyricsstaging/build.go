@@ -584,6 +584,9 @@ func newManifest(report PreflightReport, reportSHA256 string, drafts []Draft) (M
 		return Manifest{}, errors.New("complete preflight report contains no unique_complete items")
 	}
 	canonicalDrafts := append([]Draft{}, drafts...)
+	for index := range canonicalDrafts {
+		canonicalDrafts[index].RenditionTranslations = cloneRenditionTranslations(canonicalDrafts[index].RenditionTranslations)
+	}
 	sort.Slice(canonicalDrafts, func(i, j int) bool { return canonicalDrafts[i].MusicID < canonicalDrafts[j].MusicID })
 	if len(canonicalDrafts) != len(report.UniqueComplete) {
 		return Manifest{}, fmt.Errorf("staged %d drafts, want all %d unique_complete items", len(canonicalDrafts), len(report.UniqueComplete))

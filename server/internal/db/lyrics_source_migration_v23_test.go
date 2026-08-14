@@ -441,14 +441,14 @@ func TestV23FinalArtifactRejectsDivergentScalarAndDocumentIdentityValues(t *test
 	}
 }
 
-func TestMigrationHistoryNewerThanV28RefusesStartup(t *testing.T) {
-	path := t.TempDir() + "/newer-than-v28.db"
+func TestMigrationHistoryNewerThanLatestRefusesStartup(t *testing.T) {
+	path := t.TempDir() + "/newer-than-latest.db"
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
-		VALUES (29,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+		VALUES (31,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}

@@ -1,11 +1,16 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // staticHandler serves the statically-exported Next.js console as a single-page
@@ -55,8 +60,16 @@ func staticHandler(root string) http.HandlerFunc {
 			}
 			if immutable {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			} else if strings.HasSuffix(name, ".html") {
-				w.Header().Set("Cache-Control", "no-cache")
+			} else {
+				w.Header().Set("Cache-Control", "no-store, must-revalidate")
+				w.Header().Set("Pragma", "no-cache")
+				w.Header().Set("Vary", "Accept-Encoding")
+			}
+			if strings.HasSuffix(name, ".html") {
+				etag, ok := staticFileETag(file, info.Size(), info.ModTime())
+				if ok {
+					w.Header().Set("ETag", etag)
+				}
 			}
 			http.ServeContent(w, r, path.Base(name), info.ModTime(), file)
 			return true
@@ -67,12 +80,27 @@ func staticHandler(root string) http.HandlerFunc {
 		case clean != "/" && serve(clean+".html", strings.HasPrefix(clean, "/_next/static/")): // 2) .html sibling
 		case strings.HasSuffix(upath, "/") && serve(clean+"/index.html", strings.HasPrefix(clean, "/_next/static/")): // 3) dir index
 		default: // 4) SPA fallback
-			w.Header().Set("Cache-Control", "no-cache")
 			if !serve("index.html", false) {
 				http.NotFound(w, r)
 			}
 		}
 	}
+}
+
+func staticFileETag(file *os.File, size int64, modTime time.Time) (string, bool) {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return "", false
+	}
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", false
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return "", false
+	}
+	identity := fmt.Sprintf("%d:%d:%x", size, modTime.UnixNano(), hash.Sum(nil))
+	digest := sha256.Sum256([]byte(identity))
+	return `"` + hex.EncodeToString(digest[:]) + `"`, true
 }
 
 // workspaceTombstoneMiddleware claims the decoded retired workspace prefix

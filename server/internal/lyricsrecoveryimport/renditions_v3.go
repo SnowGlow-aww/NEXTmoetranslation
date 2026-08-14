@@ -151,7 +151,7 @@ func cloneTabPaths(input []model.LyricsSourceTabPath) []model.LyricsSourceTabPat
 func renditionTranslationsFromResult(result lyricsrecovery.SongResult) []lyricsstaging.RenditionTranslation {
 	any := false
 	for _, rendition := range result.Renditions {
-		any = any || rendition.Translations != nil
+		any = any || rendition.Translations != nil || len(rendition.PeerTranslations) != 0
 	}
 	if !any {
 		return nil
@@ -164,6 +164,19 @@ func renditionTranslationsFromResult(result lyricsrecovery.SongResult) []lyricss
 		}
 		if rendition.Translations == nil {
 			translations[index].Translations = nil
+		}
+		translations[index].PeerTranslations = make([]lyricsstaging.RenditionPeerTranslation, len(rendition.PeerTranslations))
+		for peerIndex, peer := range rendition.PeerTranslations {
+			translations[index].PeerTranslations[peerIndex] = lyricsstaging.RenditionPeerTranslation{
+				Side: peer.Side, Locale: peer.Locale,
+				Translations: append([]string(nil), peer.Translations...),
+			}
+			if peer.Translations == nil {
+				translations[index].PeerTranslations[peerIndex].Translations = nil
+			}
+		}
+		if rendition.PeerTranslations == nil {
+			translations[index].PeerTranslations = nil
 		}
 	}
 	return translations
@@ -364,7 +377,7 @@ func exactPublicV3Rendition(
 	if matching == nil || matching.RenditionKey != "vocaloid" ||
 		matching.SourceKind != model.LyricsSourceRenditionVocaloid ||
 		matching.ReasonCode != candidate.VersionReason || matching.Full == nil || matching.Game != nil ||
-		matching.Relation.Kind != model.LyricsSourceRenditionRelationNone {
+		matching.Relation.Kind != model.LyricsSourceRenditionRelationNone || len(matching.PeerTranslations) != 0 {
 		return nil, errors.New("v3 exact-public outcome does not match one Full-only Vocaloid rendition")
 	}
 	return matching, nil

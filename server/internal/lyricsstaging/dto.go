@@ -254,11 +254,18 @@ type Artifact struct {
 // remain closed and checksum-bound for the editable import bridge, while
 // Document is the authoritative provider/component contract and Artifacts may
 // contain more than one immutable rendition.
+type RenditionPeerTranslation struct {
+	Side         string   `json:"side"`
+	Locale       string   `json:"locale"`
+	Translations []string `json:"translations"`
+}
+
 type RenditionTranslation struct {
-	RenditionKey       string   `json:"renditionKey"`
-	Translations       []string `json:"translations,omitempty"`
-	TranslationCredit  string   `json:"translationCredit,omitempty"`
-	ProofreadingCredit string   `json:"proofreadingCredit,omitempty"`
+	RenditionKey       string                     `json:"renditionKey"`
+	Translations       []string                   `json:"translations,omitempty"`
+	PeerTranslations   []RenditionPeerTranslation `json:"peerTranslations,omitempty"`
+	TranslationCredit  string                     `json:"translationCredit,omitempty"`
+	ProofreadingCredit string                     `json:"proofreadingCredit,omitempty"`
 }
 
 type Draft struct {

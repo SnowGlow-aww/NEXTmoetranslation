@@ -28,11 +28,15 @@ import (
 const (
 	defaultJPMasterdataURL         = "https://metadata.pjsk.moe/jp/master"
 	defaultJPMasterdataFallbackURL = "https://raw.githubusercontent.com/{repo}/{branch}/master"
+	DefaultMusicAliasesURL         = "https://moe.exmeaning.com/data/music_alias/music_aliases.json"
 	maxMasterdataWireBytes         = 64 << 20
 	maxMasterdataDecodedBytes      = 128 << 20
 	maxMasterdataRecords           = 500_000
+	maxMusicAliasRecords           = 100_000
+	maxMusicAliasesPerRecord       = 512
+	maxMusicAliasLength            = 4096
 	maxSearchCacheBytes            = 256 << 20
-	searchCacheVersion             = 1
+	searchCacheVersion             = 2
 )
 
 var errBuildSuperseded = errors.New("search index build superseded")
@@ -50,20 +54,22 @@ var productionMinimumSourceRecords = map[string]int{
 }
 
 type Entry struct {
-	ID int    `json:"id"`
-	N  string `json:"n"`
-	G  string `json:"g"`
-	C  int    `json:"c,omitempty"`
-	CN string `json:"cn,omitempty"`
+	ID      int      `json:"id"`
+	N       string   `json:"n"`
+	G       string   `json:"g"`
+	C       int      `json:"c,omitempty"`
+	CN      string   `json:"cn,omitempty"`
+	Aliases []string `json:"a,omitempty"`
 }
 
 type MultilingualEntry struct {
-	ID int    `json:"id"`
-	N  string `json:"n"`
-	G  string `json:"g"`
-	C  int    `json:"c,omitempty"`
-	CN string `json:"cn,omitempty"`
-	EN string `json:"en,omitempty"`
+	ID      int      `json:"id"`
+	N       string   `json:"n"`
+	G       string   `json:"g"`
+	C       int      `json:"c,omitempty"`
+	CN      string   `json:"cn,omitempty"`
+	EN      string   `json:"en,omitempty"`
+	Aliases []string `json:"a,omitempty"`
 }
 
 // Status is safe for readiness and authenticated operational APIs. LastError
@@ -340,6 +346,10 @@ func (b *Builder) buildContext(ctx context.Context, reason string) (resultErr er
 	if err != nil {
 		return fmt.Errorf("load translation snapshot: %w", err)
 	}
+	musicAliases, err := b.fetchMusicAliases(ctx)
+	if err != nil {
+		return fmt.Errorf("load music aliases: %w", err)
+	}
 
 	index := make([]Entry, 0, 4096)
 	multilingual := make([]MultilingualEntry, 0, 4096)
@@ -385,15 +395,19 @@ func (b *Builder) buildContext(ctx context.Context, reason string) (resultErr er
 			if strings.TrimSpace(name) == "" {
 				continue
 			}
-			e := Entry{ID: asInt(item["id"]), N: name, G: sdef.group}
+			id := asInt(item["id"])
+			e := Entry{ID: id, N: name, G: sdef.group}
 			if sdef.extraCharID {
 				e.C = asInt(item["characterId"])
 			}
 			if cn := b.catText(transFor[sdef.group], sdef.transField, name); cn != "" {
 				e.CN = cn
 			}
+			if sdef.group == "music" {
+				e.Aliases = cloneStrings(musicAliases[id])
+			}
 			index = append(index, e)
-			multi := MultilingualEntry{ID: e.ID, N: e.N, G: e.G, C: e.C, CN: e.CN}
+			multi := MultilingualEntry{ID: e.ID, N: e.N, G: e.G, C: e.C, CN: e.CN, Aliases: cloneStrings(e.Aliases)}
 			if en := b.catText(transEN[sdef.group], sdef.transField, name); en != "" {
 				multi.EN = en
 			}
@@ -701,8 +715,11 @@ func validateSearchRepresentations(legacy []Entry, multilingual []MultilingualEn
 		}
 		seen[key] = true
 		represented[entry.G] = true
-		if entry.ID != multi.ID || entry.N != multi.N || entry.G != multi.G || entry.C != multi.C || entry.CN != multi.CN {
+		if entry.ID != multi.ID || entry.N != multi.N || entry.G != multi.G || entry.C != multi.C || entry.CN != multi.CN || !sameStrings(entry.Aliases, multi.Aliases) {
 			return fmt.Errorf("asset representations do not match at entry %d", index)
+		}
+		if err := validateMusicAliases(entry.G, entry.ID, entry.Aliases); err != nil {
+			return fmt.Errorf("entry %d aliases: %w", index, err)
 		}
 	}
 	for _, group := range expectedSearchGroups {
@@ -769,6 +786,101 @@ func searchAssets(legacy, multilingual []byte) map[string][]byte {
 		"v2/data/search-index.json":       multilingual,
 		"v2/en-US/data/search-index.json": multilingual,
 	}
+}
+
+func cloneStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	return append([]string(nil), values...)
+}
+
+func sameStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func validateMusicAliases(group string, musicID int, aliases []string) error {
+	if group != "music" {
+		if len(aliases) != 0 {
+			return errors.New("aliases are only valid for music entries")
+		}
+		return nil
+	}
+	if musicID <= 0 || len(aliases) > maxMusicAliasesPerRecord {
+		return errors.New("alias identity or count is invalid")
+	}
+	seen := make(map[string]struct{}, len(aliases))
+	for _, alias := range aliases {
+		if alias == "" || alias != strings.TrimSpace(alias) || len(alias) > maxMusicAliasLength {
+			return errors.New("alias is empty, padded, or too long")
+		}
+		if strings.ContainsAny(alias, "\r\n\x00") {
+			return errors.New("alias contains forbidden control characters")
+		}
+		if _, duplicate := seen[alias]; duplicate {
+			return errors.New("alias is duplicated")
+		}
+		seen[alias] = struct{}{}
+	}
+	return nil
+}
+
+func (b *Builder) fetchMusicAliases(ctx context.Context) (map[int][]string, error) {
+	if b.cfg == nil {
+		return nil, nil
+	}
+	url := strings.TrimSpace(b.cfg.Get(config.KeyMusicAliasesURL))
+	if url == "" {
+		return nil, nil
+	}
+	data, err := b.fetchJSON(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	root, ok := data.(map[string]any)
+	if !ok {
+		return nil, errors.New("music alias source must be an object")
+	}
+	rawMusics, ok := root["musics"].([]any)
+	if !ok || len(rawMusics) == 0 || len(rawMusics) > maxMusicAliasRecords {
+		return nil, errors.New("music alias source has an invalid musics array")
+	}
+	aliases := make(map[int][]string, len(rawMusics))
+	for index, raw := range rawMusics {
+		entry, ok := raw.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("music alias record %d is not an object", index)
+		}
+		musicID := asInt(entry["music_id"])
+		rawAliases, ok := entry["aliases"].([]any)
+		if !ok {
+			return nil, fmt.Errorf("music alias record %d has an invalid aliases array", index)
+		}
+		if _, duplicate := aliases[musicID]; duplicate {
+			return nil, fmt.Errorf("music alias source contains duplicate music id %d", musicID)
+		}
+		values := make([]string, 0, len(rawAliases))
+		for aliasIndex, rawAlias := range rawAliases {
+			alias, ok := rawAlias.(string)
+			if !ok {
+				return nil, fmt.Errorf("music alias record %d alias %d is not a string", index, aliasIndex)
+			}
+			values = append(values, alias)
+		}
+		if err := validateMusicAliases("music", musicID, values); err != nil {
+			return nil, fmt.Errorf("music alias record %d: %w", index, err)
+		}
+		aliases[musicID] = values
+	}
+	return aliases, nil
 }
 
 func (b *Builder) fetchArray(ctx context.Context, filename, nameField string) ([]map[string]any, error) {

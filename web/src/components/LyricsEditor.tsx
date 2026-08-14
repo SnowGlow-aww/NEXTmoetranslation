@@ -3,14 +3,18 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
+import { LyricsEditionMenu, type LyricsEditionCommand } from "@/components/LyricsEditionMenu";
 import { LyricsLineEditor } from "@/components/lyrics/LyricsLineEditor";
 import { sameImportedLyricsFrozenIdentity } from "@/lib/lyrics-recovery.mjs";
 import { buildLyricsLinesFromSourcePreview } from "@/lib/lyrics-source-import.mjs";
 import { performerRepresentativeColor } from "@/lib/performer-colors.mjs";
 import {
+  isTranslationEditionLabel, selectTranslationEditionKey, translationEditionURLHint,
+} from "@/lib/lyrics-editions.mjs";
+import {
   isRenditionLyricsDocument, lyricsHasPerformerSegmentation, lyricsRenditionByKey, lyricsRenditionKeys,
   lyricsVersionSaveProblems, normalizedLyricsVersions, projectGameLyricsLines, referencedGameFullLineIds,
-  renditionProjectionStatus, resolvedLyricsComponentProvenance,
+  renditionProjectionStatus, resolvedLyricsComponentProvenance, retainedLyricsTranslationTarget,
 } from "@/lib/lyrics-versioning.mjs";
 import {
   editableLyricSegments, lyricGraphemeMidpoint,
@@ -22,7 +26,7 @@ import {
   LyricsPerformerID, LyricsRendition, LyricsRenditionPerformer, LyricsRenditionSide, LyricsSourceCandidate,
   LyricsSourcePreview, ProjectionStatus, RenditionLyricsDocument, SongLyrics, SongLyricsDocument,
   getCatalogMusic, getCatalogPerformers,
-  getLyrics, getProjectionStatus, previewLyricsSource, publishLyrics, saveLyrics,
+  getLyrics, getProjectionStatus, mutateLyricsTranslationEdition, previewLyricsSource, publishLyrics, saveLyrics,
   searchLyricsSource, unpublishLyrics,
 } from "@/lib/api";
 
@@ -108,6 +112,7 @@ function editableLyricsDocument(loaded: SongLyricsDocument): SongLyricsDocument 
   }
   return {
     ...loaded,
+    translationEditions: loaded.translationEditions.map((edition) => ({ ...edition })),
     renditions: loaded.renditions.map((rendition) => ({
       ...rendition,
       performers: rendition.performers.map((performer) => ({ ...performer })),
@@ -149,6 +154,11 @@ function sourceLabel(error: APIError): string {
     source_performer_mapping_failed: "来源中的演唱者证据无法安全映射",
     invalid_source_preview: "来源预览结构无效",
     invalid_lyrics_response: "服务器返回了无法验证的歌词结果",
+    invalid_translation_edition: "歌词译本合同无效",
+    translation_edition_not_found: "服务器上找不到该歌词译本",
+    translation_edition_exists: "该歌词译本 key 已存在，请重试",
+    translation_edition_limit: "这首歌已达到 16 个译本上限",
+    translation_edition_conflict: "歌词译本已被其他编辑者更新",
     invalid_game_projection: "Game 投影引用无效，当前修改不能保存",
     source_unavailable: "歌词来源暂时不可用",
   };
@@ -207,8 +217,18 @@ interface ResolvedLyricsComponentProvenanceRow {
 
 export interface LyricsEditorHandle {
   save: () => Promise<boolean>;
-  discard: () => void;
+  discard: () => boolean;
+  isDirty: () => boolean;
+  snapshot: () => { dirty: boolean; document: SongLyricsDocument | null; generation: number; editionKey: string };
   isEditing: (musicID: number) => boolean;
+  activeTarget: () => {
+    musicId: number;
+    editionKey: string;
+    renditionKey: string;
+    side: "full" | "game";
+    locale: "zh-CN";
+    projectionKind: "full_only" | "game_only" | "exact_projection" | "independent_game" | "invalid";
+  } | null;
   reloadCatalog: () => void;
   exportDraft: () => SongLyricsDocument | null;
   reloadAuthoritative: () => Promise<boolean>;
@@ -223,7 +243,15 @@ interface LyricsEditorProps {
 
 type PendingTransition =
   | { kind: "choose"; item: CatalogMusicItem }
-  | { kind: "publish"; nextPublished: boolean };
+  | { kind: "publish"; nextPublished: boolean }
+  | { kind: "edition-switch"; editionKey: string }
+  | { kind: "edition-command"; command: LyricsEditionCommand };
+
+type EditionWorkflow = {
+  command: LyricsEditionCommand;
+  editionKey: string;
+  label: string;
+};
 
 type PendingAnnotationOperation =
   | { kind: "segment-text"; lineIndex: number; segmentIndex: number; text: string }
@@ -260,6 +288,8 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const [confirmSourceImport, setConfirmSourceImport] = useState(false);
   const [confirmImportRecovery, setConfirmImportRecovery] = useState<SongLyricsDocument | null>(null);
   const [confirmConflictReload, setConfirmConflictReload] = useState(false);
+  const [activeTranslationEditionKey, setActiveTranslationEditionKey] = useState("");
+  const [editionWorkflow, setEditionWorkflow] = useState<EditionWorkflow | null>(null);
   const [activeRenditionKey, setActiveRenditionKey] = useState("");
   const [activeVersion, setActiveVersion] = useState<"full" | "game">("full");
   const [previewLocale, setPreviewLocale] = useState<"ja-JP" | "zh-CN" | "en-US">("zh-CN");
@@ -285,6 +315,12 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   });
 
   const dirty = lyrics != null && JSON.stringify(lyrics) !== baseline;
+  const lyricsRef = useRef<SongLyricsDocument | null>(lyrics);
+  const baselineRef = useRef(baseline);
+  const activeTranslationEditionKeyRef = useRef(activeTranslationEditionKey);
+  lyricsRef.current = lyrics;
+  baselineRef.current = baseline;
+  activeTranslationEditionKeyRef.current = activeTranslationEditionKey;
   const renditionKeys = useMemo(() => (lyrics ? lyricsRenditionKeys(lyrics) : []), [lyrics]);
   const activeRendition = lyrics && isRenditionLyricsDocument(lyrics)
     ? lyricsRenditionByKey(lyrics, activeRenditionKey)
@@ -293,6 +329,10 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const renditionDocument: RenditionLyricsDocument | null = lyrics && isRenditionLyricsDocument(lyrics)
     ? lyrics as RenditionLyricsDocument
     : null;
+  const translationEditions = renditionDocument?.translationEditions || [];
+  const activeTranslationEdition = translationEditions.find((edition) => edition.key === activeTranslationEditionKey)
+    || translationEditions[0]
+    || null;
   const availableVersions = useMemo(
     () => (lyrics ? normalizedLyricsVersions(lyrics, activeRenditionKey) : ["full"]),
     [activeRenditionKey, lyrics],
@@ -306,14 +346,9 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const activePerformerOptions: Array<CatalogPerformerItem | LyricsRenditionPerformer> = activeRendition
     ? activeRendition.performers
     : performers;
-  const independentGameTranslationPersistenceUnsupported = Boolean(
-    activeRendition?.full && activeRendition.game && activeRendition.relation.kind === "none",
-  );
   const gameSideReadOnlyReason = !activeRendition || activeRendition.relation.kind === "exact_projection"
     ? "exact_projection"
-    : independentGameTranslationPersistenceUnsupported
-      ? "independent_game_translation_not_persisted"
-      : null;
+    : null;
   const activeSideReadOnly = activeVersion === "game" && gameSideReadOnlyReason !== null;
   const activeSourceFactsReadOnly = Boolean(activeRendition) || activeSideReadOnly;
   const activeSideSourceMutable = Boolean(lyrics && lyrics.revision === 0 && !activeSourceFactsReadOnly);
@@ -333,6 +368,18 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     : false;
 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (!renditionDocument) {
+      if (activeTranslationEditionKey) setActiveTranslationEditionKey("");
+      return;
+    }
+    const retained = selectTranslationEditionKey(
+      activeTranslationEditionKey || renditionDocument.translationEditionKey,
+      renditionDocument.defaultTranslationEditionKey,
+      renditionDocument.translationEditions,
+    );
+    if (retained !== activeTranslationEditionKey) setActiveTranslationEditionKey(retained);
+  }, [activeTranslationEditionKey, renditionDocument]);
   useEffect(() => {
     if (!lyrics || isLegacyLyricsDocument(lyrics)) {
       if (activeRenditionKey) setActiveRenditionKey("");
@@ -402,8 +449,51 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const requestIsCurrent = useCallback((sequence: number, musicID: number) =>
     lyricsLoadSequence.current === sequence && selectedMusicIDRef.current === musicID, []);
 
+  const replaceEditionURL = useCallback((editionKey: string) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (editionKey) url.searchParams.set("edition", editionKey);
+    else url.searchParams.delete("edition");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  const acceptAuthoritativeDocument = useCallback((
+    loaded: SongLyricsDocument,
+    preferredRenditionKey = "",
+    preferredVersion: "full" | "game" = "full",
+  ) => {
+    const editable = editableLyricsDocument(loaded);
+    const retainedTarget = retainedLyricsTranslationTarget(editable, preferredRenditionKey, preferredVersion);
+    const editableEditionDocument = isRenditionLyricsDocument(editable) ? editable as RenditionLyricsDocument : null;
+    const editionKey = editableEditionDocument
+      ? selectTranslationEditionKey(
+          editableEditionDocument.translationEditionKey,
+          editableEditionDocument.defaultTranslationEditionKey,
+          editableEditionDocument.translationEditions,
+        )
+      : "";
+    documentGenerationRef.current++;
+    setLyrics(editable);
+    setBaseline(JSON.stringify(editable));
+    setActiveTranslationEditionKey(editionKey);
+    setActiveRenditionKey(retainedTarget.renditionKey);
+    setActiveVersion(retainedTarget.version === "game" ? "game" : "full");
+    replaceEditionURL(editionKey);
+    return editable;
+  }, [replaceEditionURL]);
+
   const performChooseMusic = useCallback(async (item: CatalogMusicItem) => {
     if (busyRef.current) return false;
+    const preserveTranslationTarget = selectedMusicIDRef.current === item.musicId;
+    const currentDocument = lyricsRef.current;
+    const currentEditionDocument = currentDocument && isRenditionLyricsDocument(currentDocument)
+      ? currentDocument as RenditionLyricsDocument
+      : null;
+    const preferredEditionKey = preserveTranslationTarget && currentEditionDocument
+      ? activeTranslationEditionKeyRef.current || currentEditionDocument.translationEditionKey
+      : typeof window !== "undefined" ? translationEditionURLHint(window.location.search) : "";
+    const preferredRenditionKey = preserveTranslationTarget ? activeRenditionKey : "";
+    const preferredVersion = preserveTranslationTarget ? activeVersion : "full";
     const sequence = ++lyricsLoadSequence.current;
     selectedMusicIDRef.current = item.musicId;
     setSelectedMusic(item);
@@ -421,7 +511,9 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setConfirmSourceImport(false);
     setConfirmImportRecovery(null);
     setConfirmConflictReload(false);
+    setEditionWorkflow(null);
     setPendingAnnotationOperation(null);
+    setActiveTranslationEditionKey("");
     setActiveRenditionKey("");
     setActiveVersion("full");
     projectionSequence.current++;
@@ -430,14 +522,15 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setProjectionMessage("");
     let loadedSuccessfully = false;
     try {
-      const loaded = await getLyrics(item.musicId);
+      let loaded: SongLyricsDocument;
+      try {
+        loaded = await getLyrics(item.musicId, preferredEditionKey || undefined);
+      } catch (reason) {
+        if (!(preferredEditionKey && reason instanceof APIError && reason.status === 404)) throw reason;
+        loaded = await getLyrics(item.musicId);
+      }
       if (!requestIsCurrent(sequence, item.musicId)) return false;
-      const editable = editableLyricsDocument(loaded);
-      const editableRendition = isRenditionLyricsDocument(editable) ? editable as RenditionLyricsDocument : null;
-      setActiveRenditionKey(editableRendition?.renditions[0]?.key || "");
-      documentGenerationRef.current++;
-      setLyrics(editable);
-      setBaseline(JSON.stringify(editable));
+      acceptAuthoritativeDocument(loaded, preferredRenditionKey, preferredVersion);
       loadedSuccessfully = true;
     } catch (reason) {
       if (!requestIsCurrent(sequence, item.musicId)) return false;
@@ -470,7 +563,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       if (requestIsCurrent(sequence, item.musicId)) setLoading(false);
     }
     return loadedSuccessfully;
-  }, [requestIsCurrent]);
+  }, [acceptAuthoritativeDocument, activeRenditionKey, activeVersion, requestIsCurrent]);
 
   useEffect(() => {
     if (busyRef.current) return;
@@ -492,6 +585,83 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       return;
     }
     void performChooseMusic(item);
+  };
+
+  const loadTranslationEdition = async (requestedEditionKey: string): Promise<boolean> => {
+    const current = lyricsRef.current;
+    if (!current || !isRenditionLyricsDocument(current) || busyRef.current || writeLockedRef.current) return false;
+    const currentEditionDocument = current as RenditionLyricsDocument;
+    const editionKey = selectTranslationEditionKey(
+      requestedEditionKey,
+      currentEditionDocument.defaultTranslationEditionKey,
+      currentEditionDocument.translationEditions,
+    );
+    if (!editionKey) return false;
+    if (editionKey === activeTranslationEditionKeyRef.current && currentEditionDocument.translationEditionKey === editionKey) return true;
+    const sequence = lyricsLoadSequence.current;
+    const musicID = current.musicId;
+    const documentGeneration = documentGenerationRef.current;
+    const preferredRenditionKey = activeRenditionKey;
+    const preferredVersion = activeVersion;
+    busyRef.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const loaded = await getLyrics(musicID, editionKey);
+      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return false;
+      if (!isRenditionLyricsDocument(loaded)) {
+        setError(new APIError(502, { error: "invalid_translation_edition", details: ["译本切换响应必须是 source-v3 文档"] }));
+        return false;
+      }
+      const loadedEditionDocument = loaded as RenditionLyricsDocument;
+      acceptAuthoritativeDocument(loadedEditionDocument, preferredRenditionKey, preferredVersion);
+      sourceImportTokenRef.current = "";
+      setPendingTransition(null);
+      show(`已切换到译本 ${loadedEditionDocument.translationEditionKey}`, "ok");
+      return true;
+    } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return false;
+      setError(reason instanceof APIError ? reason : new APIError(500, { error: "load_failed" }));
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const openEditionWorkflow = (command: LyricsEditionCommand): boolean => {
+    const current = lyricsRef.current;
+    if (!current || !isRenditionLyricsDocument(current) || busyRef.current || writeLockedRef.current) return false;
+    const currentEditionDocument = current as RenditionLyricsDocument;
+    const active = currentEditionDocument.translationEditions.find((edition) => edition.key === activeTranslationEditionKeyRef.current)
+      || currentEditionDocument.translationEditions[0];
+    if (!active) return false;
+    if (command === "set-default" && active.key === currentEditionDocument.defaultTranslationEditionKey) return false;
+    const editionKey = command === "create" || command === "clone"
+      ? `ed-${crypto.randomUUID()}`
+      : active.key;
+    const label = command === "create" ? "新译本" : command === "clone" ? `${active.label} 副本` : active.label;
+    setError(null);
+    setEditionWorkflow({ command, editionKey, label });
+    return true;
+  };
+
+  const requestEditionSwitch = (editionKey: string) => {
+    if (busyRef.current || writeLockedRef.current || editionKey === activeTranslationEditionKeyRef.current) return;
+    if (dirty) {
+      setPendingTransition({ kind: "edition-switch", editionKey });
+      return;
+    }
+    void loadTranslationEdition(editionKey);
+  };
+
+  const requestEditionCommand = (command: LyricsEditionCommand) => {
+    if (busyRef.current || writeLockedRef.current) return;
+    if (dirty) {
+      setPendingTransition({ kind: "edition-command", command });
+      return;
+    }
+    openEditionWorkflow(command);
   };
 
   const updateLyrics = (patch: Partial<SongLyrics> | Partial<RenditionLyricsDocument>) => {
@@ -777,7 +947,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     const preflightProblems = lyricsVersionSaveProblems(lyrics);
     if (preflightProblems.length > 0) {
       setError(new APIError(422, { error: "invalid_game_projection", details: preflightProblems }));
-      show("Game 投影仍引用已删除或失序的 Full 行，未发送保存请求", "err");
+      show("Rendition / projection 或公开署名合同无效，未发送保存请求", "err");
       return null;
     }
     const attempted = lyrics;
@@ -796,6 +966,11 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       documentGenerationRef.current++;
       setLyrics(persisted);
       setBaseline(JSON.stringify(persisted));
+      if (isRenditionLyricsDocument(persisted)) {
+        const persistedEditionDocument = persisted as RenditionLyricsDocument;
+        setActiveTranslationEditionKey(persistedEditionDocument.translationEditionKey);
+        replaceEditionURL(persistedEditionDocument.translationEditionKey);
+      }
       sourceImportTokenRef.current = "";
       setSourcePreview(null);
       setSourcePreviewCandidate(null);
@@ -847,10 +1022,71 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   const save = async () => (await saveDocument()) != null;
 
-  const discard = () => {
-    if (!baseline || busyRef.current) return;
+  const performEditionWorkflow = async () => {
+    const workflow = editionWorkflow;
+    const current = lyricsRef.current;
+    if (!workflow || !current || !isRenditionLyricsDocument(current) || busyRef.current || writeLockedRef.current) return;
+    const currentEditionDocument = current as RenditionLyricsDocument;
+    if (currentEditionDocument.translationEditionKey !== activeTranslationEditionKeyRef.current) {
+      setError(new APIError(409, { error: "translation_edition_conflict", details: ["当前译本身份与已载入文档不一致，请重新载入"] }));
+      return;
+    }
+    if (workflow.command !== "set-default" && !isTranslationEditionLabel(workflow.label)) {
+      setError(new APIError(422, { error: "invalid_translation_edition", details: ["译本名称必须是 1-256 字节的 UTF-8 文本，且不能带首尾空白"] }));
+      return;
+    }
+    const sequence = lyricsLoadSequence.current;
+    const musicID = current.musicId;
+    const documentGeneration = documentGenerationRef.current;
+    const preferredRenditionKey = activeRenditionKey;
+    const preferredVersion = activeVersion;
+    const common = { musicId: current.musicId, revision: current.revision };
+    const mutation = workflow.command === "create"
+      ? { ...common, operation: "create" as const, editionKey: workflow.editionKey, label: workflow.label }
+      : workflow.command === "clone"
+        ? { ...common, operation: "clone" as const, sourceEditionKey: currentEditionDocument.translationEditionKey, editionKey: workflow.editionKey, label: workflow.label }
+        : workflow.command === "rename"
+          ? { ...common, operation: "rename" as const, editionKey: currentEditionDocument.translationEditionKey, label: workflow.label }
+          : { ...common, operation: "set-default" as const, editionKey: currentEditionDocument.translationEditionKey };
+    busyRef.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const materialized = await mutateLyricsTranslationEdition(mutation);
+      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return;
+      if (!isRenditionLyricsDocument(materialized)) {
+        setError(new APIError(502, { error: "invalid_translation_edition", details: ["译本操作响应必须是 source-v3 文档"] }));
+        return;
+      }
+      acceptAuthoritativeDocument(materialized, preferredRenditionKey, preferredVersion);
+      setEditionWorkflow(null);
+      setPendingTransition(null);
+      void loadCatalog(query);
+      const message = workflow.command === "create" ? "空白译本已创建"
+        : workflow.command === "clone" ? "当前服务器译本已克隆"
+          : workflow.command === "rename" ? "译本已重命名"
+            : "默认译本已更新";
+      show(message, "ok");
+    } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return;
+      const apiError = reason instanceof APIError ? reason : new APIError(500, { error: "save_failed" });
+      if (apiError.code === "translation_edition_exists" && (workflow.command === "create" || workflow.command === "clone")) {
+        setEditionWorkflow((currentWorkflow) => currentWorkflow ? { ...currentWorkflow, editionKey: `ed-${crypto.randomUUID()}` } : currentWorkflow);
+      }
+      setError(apiError);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const discard = (): boolean => {
+    const authoritative = baselineRef.current;
+    if (!authoritative || busyRef.current) return false;
+    const restored = JSON.parse(authoritative) as SongLyricsDocument;
     documentGenerationRef.current++;
-    setLyrics(JSON.parse(baseline) as SongLyricsDocument);
+    setLyrics(restored);
+    if (isRenditionLyricsDocument(restored)) setActiveTranslationEditionKey((restored as RenditionLyricsDocument).translationEditionKey);
     sourceImportTokenRef.current = "";
     setSourcePreview(null);
     setSourcePreviewCandidate(null);
@@ -861,11 +1097,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setCandidates([]);
     setSourceSearchCompleted(false);
     setError(null);
+    return true;
   };
 
   const reloadAuthoritative = async (): Promise<boolean> => {
     if (busyRef.current) return false;
     setPendingTransition(null);
+    setEditionWorkflow(null);
     sourceImportTokenRef.current = "";
     setSourcePreview(null);
     setSourcePreviewCandidate(null);
@@ -881,10 +1119,61 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     return performChooseMusic(selectedMusic);
   };
 
+  const loadConflictAuthoritative = async () => {
+    const conflictCurrent = error?.current;
+    if (!conflictCurrent || busyRef.current) return;
+    const sequence = lyricsLoadSequence.current;
+    const musicID = conflictCurrent.musicId;
+    const documentGeneration = documentGenerationRef.current;
+    const preferredEditionKey = activeTranslationEditionKeyRef.current;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      let authoritative = conflictCurrent;
+      if (preferredEditionKey && isRenditionLyricsDocument(conflictCurrent) &&
+          (conflictCurrent as RenditionLyricsDocument).translationEditionKey !== preferredEditionKey) {
+        authoritative = await getLyrics(musicID, preferredEditionKey);
+      }
+      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return;
+      acceptAuthoritativeDocument(authoritative, activeRenditionKey, activeVersion);
+      sourceImportTokenRef.current = "";
+      setSourcePreview(null);
+      setSourcePreviewCandidate(null);
+      setSourceRetry(null);
+      setConfirmSourceImport(false);
+      setCandidates([]);
+      setSourceSearchCompleted(false);
+      setEditionWorkflow(null);
+      setError(null);
+      setConfirmConflictReload(false);
+    } catch (reason) {
+      if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return;
+      show(reason instanceof Error ? reason.message : "服务器版本载入失败", "err");
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     save,
     discard,
+    isDirty: () => lyricsRef.current != null && JSON.stringify(lyricsRef.current) !== baselineRef.current,
+    snapshot: () => ({
+      dirty: lyricsRef.current != null && JSON.stringify(lyricsRef.current) !== baselineRef.current,
+      document: lyricsRef.current ? JSON.parse(JSON.stringify(lyricsRef.current)) as SongLyricsDocument : null,
+      generation: documentGenerationRef.current,
+      editionKey: activeTranslationEditionKeyRef.current,
+    }),
     isEditing: (musicID: number) => selectedMusicIDRef.current === musicID,
+    activeTarget: () => selectedMusicIDRef.current == null ? null : {
+      musicId: selectedMusicIDRef.current,
+      editionKey: activeTranslationEditionKeyRef.current,
+      renditionKey: activeRendition?.key || "",
+      side: activeVersion,
+      locale: "zh-CN",
+      projectionKind,
+    },
     reloadCatalog: () => { void loadCatalog(query); },
     exportDraft: () => lyrics ? JSON.parse(JSON.stringify(lyrics)) as SongLyricsDocument : null,
     reloadAuthoritative,
@@ -1127,17 +1416,20 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   };
 
   const continuePendingTransition = async (saveFirst: boolean) => {
-    if (saveFirst && writeLockedRef.current) return;
     const pending = pendingTransition;
-    if (!pending || (pending.kind === "publish" && writeLockedRef.current)) return;
+    if (!pending) return;
+    const editionTransition = pending.kind === "edition-switch" || pending.kind === "edition-command";
+    if ((saveFirst || pending.kind === "publish" || editionTransition) && writeLockedRef.current) return;
     let document = lyrics;
     if (saveFirst) {
       document = await saveDocument();
       if (!document) return;
-    } else if (pending.kind === "choose" && baseline) {
+    } else if (pending.kind !== "publish" && baseline) {
       lyricsLoadSequence.current++;
+      documentGenerationRef.current++;
       document = JSON.parse(baseline) as SongLyricsDocument;
       setLyrics(document);
+      if (isRenditionLyricsDocument(document)) setActiveTranslationEditionKey((document as RenditionLyricsDocument).translationEditionKey);
       sourceImportTokenRef.current = "";
       setSourcePreview(null);
       setSourcePreviewCandidate(null);
@@ -1148,11 +1440,20 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       setSourceSearchCompleted(false);
       setError(null);
     }
-    setPendingTransition(null);
     if (pending.kind === "choose") {
+      setPendingTransition(null);
       await performChooseMusic(pending.item);
-    } else if (document) {
+    } else if (pending.kind === "publish" && document) {
+      setPendingTransition(null);
       await performPublication(pending.nextPublished, document);
+    } else if (pending.kind === "edition-switch") {
+      const switched = await loadTranslationEdition(pending.editionKey);
+      if (!switched) {
+        setPendingTransition(null);
+        if (writeLockedRef.current) show("实时校对已锁定，译本未切换", "err");
+      }
+    } else if (pending.kind === "edition-command") {
+      if (openEditionWorkflow(pending.command)) setPendingTransition(null);
     }
   };
 
@@ -1261,7 +1562,20 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
         ) : lyrics ? (
           <fieldset className="lyrics-edit-fence" disabled={busy} aria-busy={busy} aria-disabled={writeLocked} onKeyDown={handleEditorKeyDown}>
             <div className="lyrics-editor-head">
-              <div><h2>{selectedMusic.title["zh-CN"] || selectedMusic.title["ja-JP"]}</h2><span>musicId {lyrics.musicId} · revision {lyrics.revision} · {lyrics.status === "published" ? "当前修订已发布" : lyrics.status === "draft-published" ? `草稿（revision ${lyrics.publishedRevision} 仍公开）` : "草稿"}</span></div>
+              <div className="lyrics-editor-head-copy">
+                <div className="lyrics-editor-title-row">
+                  <h2>{selectedMusic.title["zh-CN"] || selectedMusic.title["ja-JP"]}</h2>
+                  {renditionDocument && <LyricsEditionMenu
+                    editions={translationEditions}
+                    activeEditionKey={activeTranslationEditionKey}
+                    defaultEditionKey={renditionDocument.defaultTranslationEditionKey}
+                    disabled={busy || writeLocked}
+                    onSelect={requestEditionSwitch}
+                    onCommand={requestEditionCommand}
+                  />}
+                </div>
+                <span>musicId {lyrics.musicId} · revision {lyrics.revision} · {lyrics.status === "published" ? "当前修订已发布" : lyrics.status === "draft-published" ? `草稿（revision ${lyrics.publishedRevision} 仍公开）` : "草稿"}{activeTranslationEdition ? ` · 译本 ${activeTranslationEdition.label}` : ""}</span>
+              </div>
               <div className="lyrics-actions">
                 {role === "admin" && isLegacyLyricsDocument(lyrics) && <button className="btn btn-secondary" onClick={findSource} disabled={busy || lyrics.revision > 0}>{sourceActivity === "searching" ? "正在查找…" : "查找来源"}</button>}
                 <button className="btn btn-primary" onClick={save} disabled={busy || writeLocked || !dirty}>保存草稿</button>
@@ -1273,7 +1587,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             {renditionDocument ? (
               <div className="lyrics-lock-notice locked" role="status">
                 <strong>Plural source facts 已由固定证据永久锁定</strong>
-                <span>当前编辑器只保存服务端支持的 rendition 简中译文及翻译/校对署名。Full/Game source text、行 ID/顺序、relation、provenance、演唱者、分段、ruby 与英文均不会通过此路由改写；同一 rendition 同时有 Full 与 independent Game（relation none）时，Game 简中因当前服务端不持久化而只读。</span>
+                <span>当前编辑器按 stable rendition key 与 Full/Game side 分开保存简中译文，并保留每个 rendition 的翻译/校对署名。Full/Game source text、行 ID/顺序、relation、provenance、演唱者、分段、ruby 与英文均不会通过此路由改写；exact projection 的 Game 仍跟随 Full。</span>
               </div>
             ) : lyrics.revision === 0 ? (
               <div className="lyrics-lock-notice" role="note">
@@ -1290,7 +1604,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             {renditionDocument ? (
               <div className="lyrics-publication-progress" role="note">
                 <div><strong>Public v3 发布由 recovery batch 管理</strong><span>此页面不会调用 legacy publish/unpublish</span></div>
-                <ul><li className="complete"><span aria-hidden="true">✓</span>可安全保存 Full 与 Game-only 简中译文和独立翻译/校对署名；其他 Game 简中按服务端能力只读</li></ul>
+                <ul><li className="complete"><span aria-hidden="true">✓</span>可按 stable key 独立保存 Full、Game-only 与 independent Game 简中译文；exact projection Game 继续由 Full 推导</li></ul>
               </div>
             ) : (
               <div className="lyrics-publication-progress" role="status" aria-live="polite">
@@ -1327,7 +1641,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
             {versionSaveProblems.length > 0 && (
               <div className="lyrics-error lyrics-version-error" role="alert">
-                <strong>Rendition / projection 关系需要修复后才能保存</strong>
+                <strong>Rendition / projection 或公开署名合同需要修复后才能保存</strong>
                 <span>每个 stable key 的 Full 与 Game 都保持在本 family 内；不会因为文本相同而跨 family 合并。</span>
                 {versionSaveProblems.map((problem) => <span key={problem}>{problem}</span>)}
               </div>
@@ -1378,24 +1692,24 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
             <div className="lyrics-version-switcher">
               <div className="lyrics-version-tabs" role="tablist" aria-label="歌词版本工作区">
                 {availableVersions.includes("full") && <button type="button" role="tab" id="lyrics-version-full-tab" aria-controls="lyrics-version-panel" aria-selected={activeVersion === "full"} tabIndex={activeVersion === "full" ? 0 : -1} className={activeVersion === "full" ? "active" : ""} onClick={() => setActiveVersion("full")}>Full <span>{activeRendition ? "仅简中可编辑" : "可编辑"}</span></button>}
-                {hasGameVersion && <button type="button" role="tab" id="lyrics-version-game-tab" aria-controls="lyrics-version-panel" aria-selected={activeVersion === "game"} tabIndex={activeVersion === "game" ? 0 : -1} className={activeVersion === "game" ? "active" : ""} onClick={() => setActiveVersion("game")}>Game <span>{gameSideReadOnlyReason === "independent_game_translation_not_persisted" ? "简中只读（服务端暂不持久化）" : gameSideReadOnlyReason === "exact_projection" ? "只读 exact projection" : "仅简中可编辑"}</span></button>}
+                {hasGameVersion && <button type="button" role="tab" id="lyrics-version-game-tab" aria-controls="lyrics-version-panel" aria-selected={activeVersion === "game"} tabIndex={activeVersion === "game" ? 0 : -1} className={activeVersion === "game" ? "active" : ""} onClick={() => setActiveVersion("game")}>Game <span>{gameSideReadOnlyReason === "exact_projection" ? "只读 exact projection" : "独立简中可编辑"}</span></button>}
               </div>
               <p>{activeRendition
-                ? activeVersion === "game" && gameSideReadOnlyReason === "independent_game_translation_not_persisted"
-                  ? `${activeRendition.key} 同时包含 Full 与 independent Game（relation none）；当前服务端保存路由不会持久化 Game 简中译文，因此这里只展示服务器内容，避免产生保存后丢失的本地修改。Full 简中仍可编辑。`
-                  : activeVersion === "game" && gameSideReadOnlyReason === "exact_projection"
-                    ? `Game 只引用同一 stable key（${activeRendition.key}）的 Full 行 ID；Game 自有分段和 ruby 原样保留，当前 relation 禁止直接改写 Game 原文。`
-                    : activeVersion === "game" && projectionKind === "game_only"
-                      ? `${activeRendition.key} 是 Game-only rendition，没有 Full peer；当前服务端可持久化 Game 简中译文，source facts 与英文保持只读。`
-                      : `${activeRendition.key} 的 Full side 保留独立 source facts；当前路由只允许修改简中译文和 rendition 署名。`
+                ? activeVersion === "game" && gameSideReadOnlyReason === "exact_projection"
+                  ? `Game 只引用同一 stable key（${activeRendition.key}）的 Full 行 ID；Game 自有分段和 ruby 原样保留，简中译文由 Full 对应行同步。`
+                  : activeVersion === "game" && projectionKind === "game_only"
+                    ? `${activeRendition.key} 是 Game-only rendition，没有 Full peer；Game 简中按该 stable key/side 独立保存，source facts 与英文保持只读。`
+                    : activeVersion === "game"
+                      ? `${activeRendition.key} 的 independent Game 简中按该 stable key/side 独立保存，不会覆盖 Full 或其他 rendition family。`
+                      : `${activeRendition.key} 的 Full 简中按该 stable key/side 独立保存；source facts 与英文保持只读。`
                 : activeVersion === "full"
                   ? "singular v2 Full 保持原有可编辑行为。"
                   : "singular v2 Game 继续作为同一 Full 的只读行 ID 投影，不做有损 v2 coercion。"}</p>
             </div>
 
             <div className="lyrics-metadata">
-              <label>翻译<input value={activeTranslationCredit} onChange={(event) => updateActiveCredits("translation", event.target.value)} placeholder="译者名称；将随公开歌词分发" readOnly={writeLocked || (!activeRendition && activeVersion === "game")} /></label>
-              <label>校对<input value={activeProofreadingCredit} onChange={(event) => updateActiveCredits("proofreading", event.target.value)} placeholder="校对者名称；没有可留空" readOnly={writeLocked || (!activeRendition && activeVersion === "game")} /></label>
+              <label>翻译<input value={activeTranslationCredit} onChange={(event) => updateActiveCredits("translation", event.target.value)} placeholder="译者名称；将随公开歌词分发" maxLength={activeRendition ? 2048 : undefined} readOnly={writeLocked || (!activeRendition && activeVersion === "game")} /></label>
+              <label>校对<input value={activeProofreadingCredit} onChange={(event) => updateActiveCredits("proofreading", event.target.value)} placeholder="校对者名称；没有可留空" maxLength={activeRendition ? 2048 : undefined} readOnly={writeLocked || (!activeRendition && activeVersion === "game")} /></label>
               {legacyLyrics ? <>
                 <label>内部来源备注<input value={legacyLyrics.sourceNote || ""} onChange={(event) => updateLyrics({ sourceNote: event.target.value })} readOnly={writeLocked || activeVersion === "game"} /></label>
                 <label>内部授权备注<input value={legacyLyrics.licenseNote || ""} onChange={(event) => updateLyrics({ licenseNote: event.target.value })} readOnly={writeLocked || activeVersion === "game"} /></label>
@@ -1504,10 +1818,8 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
               </div>
             </div> : <section id="lyrics-version-panel" role="tabpanel" aria-labelledby="lyrics-version-game-tab" className="lyrics-game-preview">
               <header>
-                <div><strong>{gameSideReadOnlyReason === "independent_game_translation_not_persisted" ? "Game 简中只读：当前服务端不持久化" : "Game 只读 exact-projection"}</strong><span>{gameSideReadOnlyReason === "independent_game_translation_not_persisted" && activeRendition ? `${activeRendition.key} · relation none` : activeRendition ? `${activeRendition.key} → ${activeRendition.relation.fullRenditionKey}` : legacyLyrics ? legacyLyrics.gameProjection?.reasonCode || "缺少版本判定" : "缺少稳定 rendition"}</span></div>
-                <p>{gameSideReadOnlyReason === "independent_game_translation_not_persisted"
-                  ? "该 stable key 同时包含 Full 与独立 Game。当前服务端保存路由不会持久化这个 Game side 的简中译文；UI 仅展示服务器返回内容。Full 简中仍可编辑，source facts、英文与 relation 均未改变。"
-                  : "投影严格限制在同一 stable key。Game side 自有的演唱者分段、ruby 与翻译会按原样展示，不会从其他 family 的相同文本推断或合并。"}</p>
+                <div><strong>Game 只读 exact-projection</strong><span>{activeRendition ? `${activeRendition.key} → ${activeRendition.relation.fullRenditionKey}` : legacyLyrics ? legacyLyrics.gameProjection?.reasonCode || "缺少版本判定" : "缺少稳定 rendition"}</span></div>
+                <p>投影严格限制在同一 stable key。Game side 自有的演唱者分段与 ruby 会按原样展示，简中译文按 relation 指向的 Full 行同步，不会从其他 family 的相同文本推断或合并。</p>
               </header>
               {!gameProjection.ok ? <div className="lyrics-error" role="alert">{gameProjection.errors.map((problem) => <span key={problem}>{problem}</span>)}</div> : gameProjection.lines.length === 0 ? <p className="lyrics-muted">当前没有可预览的 Game 行投影。</p> : <ol>
                 {gameProjection.lines.map((line, index) => <li key={line.id} className={line.stanzaBreakBefore ? "lyrics-stanza-start" : undefined}>
@@ -1554,26 +1866,41 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
           <button className="btn btn-ghost" onClick={() => setConfirmImportRecovery(null)}>先保留本地内容</button>
         </div>
       </Modal>
-      <Modal open={confirmConflictReload && error?.code === "revision_conflict" && error.current != null} onClose={() => setConfirmConflictReload(false)} title="载入服务器版本" maxWidth={500}>
+      <Modal open={confirmConflictReload && error?.code === "revision_conflict" && error.current != null} onClose={() => setConfirmConflictReload(false)} title="载入服务器版本" maxWidth={500} closeDisabled={busy}>
         <p className="dirty-guard-copy">载入服务器版本会覆盖当前未保存草稿。建议先使用浏览器的保存页面或复制文本方式保留需要手动合并的内容。</p>
+        <p className="dirty-guard-copy">如果全歌曲 revision 是由其他译本推进，系统会重新读取你当前译本的最新权威文档，并尽量保留当前 rendition 与 Full/Game side。</p>
         <div className="dirty-guard-actions">
-          <button className="btn btn-secondary" onClick={() => {
-            if (!error?.current) return;
-            documentGenerationRef.current++;
-            setLyrics(error.current);
-            setBaseline(JSON.stringify(error.current));
-            sourceImportTokenRef.current = "";
-            setSourcePreview(null);
-            setSourcePreviewCandidate(null);
-            setSourceRetry(null);
-            setConfirmSourceImport(false);
-            setCandidates([]);
-            setSourceSearchCompleted(false);
-            setError(null);
-            setConfirmConflictReload(false);
-          }}>确认载入服务器版本</button>
-          <button className="btn btn-ghost" onClick={() => setConfirmConflictReload(false)}>取消</button>
+          <button className="btn btn-secondary" onClick={() => void loadConflictAuthoritative()} disabled={busy}>确认载入服务器版本</button>
+          <button className="btn btn-ghost" onClick={() => setConfirmConflictReload(false)} disabled={busy}>取消</button>
         </div>
+      </Modal>
+      <Modal
+        open={editionWorkflow != null}
+        onClose={() => setEditionWorkflow(null)}
+        title={editionWorkflow?.command === "create" ? "新建空白译本"
+          : editionWorkflow?.command === "clone" ? "克隆当前译本"
+            : editionWorkflow?.command === "rename" ? "重命名当前译本"
+              : "设为默认译本"}
+        maxWidth={520}
+        closeDisabled={busy}
+      >
+        {editionWorkflow && <div className="lyrics-edition-workflow" aria-busy={busy}>
+          {editionWorkflow.command === "create" && <p className="dirty-guard-copy">将创建不含简中译文的新译本。稳定 source rendition、Full/Game 关系、分段、ruby 与英文仍由服务器按 source-v3 合同物化。</p>}
+          {editionWorkflow.command === "clone" && <p className="dirty-guard-copy">只克隆当前译本在服务器上已保存的内容，不会读取或复制任何未保存的浏览器草稿。</p>}
+          {editionWorkflow.command === "rename" && <p className="dirty-guard-copy">重命名只修改显示名称；稳定译本 key <code>{editionWorkflow.editionKey}</code> 保持不变。</p>}
+          {editionWorkflow.command === "set-default" && <p className="dirty-guard-copy">将 <strong>{activeTranslationEdition?.label || activeTranslationEditionKey}</strong> 设为缺省打开的译本。当前译本 key 和译文内容不会改变。</p>}
+          {error && (error.code.startsWith("translation_edition_") || error.code === "invalid_translation_edition" || error.code === "revision_conflict") && <div className="lyrics-error" role="alert"><strong>{sourceLabel(error)}</strong>{error.details.map((detail) => <span key={detail}>{detail}</span>)}{error.code === "revision_conflict" && error.current && <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setEditionWorkflow(null); setConfirmConflictReload(true); }}>载入服务器版本</button>}</div>}
+          {editionWorkflow.command !== "set-default" && <div className="lyrics-edition-workflow-fields">
+            <label>译本名称<input autoFocus value={editionWorkflow.label} maxLength={256} onChange={(event) => { setEditionWorkflow((current) => current ? { ...current, label: event.target.value } : current); setError(null); }} /></label>
+            <label>稳定 key<input value={editionWorkflow.editionKey} readOnly /></label>
+          </div>}
+          <div className="dirty-guard-actions">
+            <button type="button" className="btn btn-primary" onClick={() => void performEditionWorkflow()} disabled={busy || writeLocked || (editionWorkflow.command !== "set-default" && !isTranslationEditionLabel(editionWorkflow.label)) || (editionWorkflow.command === "rename" && editionWorkflow.label === activeTranslationEdition?.label)}>
+              {editionWorkflow.command === "create" ? "创建空白译本" : editionWorkflow.command === "clone" ? "克隆服务器译本" : editionWorkflow.command === "rename" ? "保存新名称" : "设为默认译本"}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setEditionWorkflow(null)} disabled={busy}>取消</button>
+          </div>
+        </div>}
       </Modal>
       <Modal open={pendingTransition != null} onClose={() => setPendingTransition(null)} title={pendingTransition?.kind === "publish" ? (pendingTransition.nextPublished ? "确认发布歌词" : "确认取消发布") : "处理未保存歌词"} maxWidth={500} closeDisabled={busy}>
         <div aria-busy={busy}>
@@ -1593,9 +1920,12 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
         ) : (
           <>
             <p className="dirty-guard-copy">当前歌词有未保存修改。继续前请选择如何处理。</p>
+            {pendingTransition?.kind === "edition-switch" && <p className="dirty-guard-copy">切换译本会整篇载入服务器权威文档；当前译本的本地草稿不会带到目标译本。</p>}
+            {pendingTransition?.kind === "edition-command" && pendingTransition.command === "clone" && <p className="dirty-guard-copy"><strong>如果选择“放弃并继续”，克隆只会复制服务器上已保存的当前译本，明确不会复制这份未保存草稿。</strong></p>}
+            {pendingTransition?.kind === "edition-command" && pendingTransition.command !== "clone" && <p className="dirty-guard-copy">译本元数据操作使用全歌曲 revision/CAS；继续前必须先同步处理当前译本草稿。</p>}
             <div className="dirty-guard-actions">
               <button className="btn btn-primary" onClick={() => void continuePendingTransition(true)} disabled={busy || writeLocked}>保存并继续</button>
-              <button className="btn btn-secondary" onClick={() => void continuePendingTransition(false)} disabled={busy}>放弃修改</button>
+              <button className="btn btn-secondary" onClick={() => void continuePendingTransition(false)} disabled={busy || ((pendingTransition?.kind === "edition-switch" || pendingTransition?.kind === "edition-command") && writeLocked)}>放弃并继续</button>
               <button className="btn btn-ghost" onClick={() => setPendingTransition(null)} disabled={busy}>取消</button>
             </div>
           </>

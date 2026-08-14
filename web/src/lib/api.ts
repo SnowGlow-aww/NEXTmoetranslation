@@ -54,6 +54,7 @@ export interface TranslationEntry {
   text: string;
   source: string;
   ids?: string[];
+  updatedAt?: number;
   speakerName?: string;
   japanese?: string;
   segmentId?: string;
@@ -65,10 +66,13 @@ export interface TranslationEntry {
 
 export interface EventStorySummary {
   eventId: number;
+  eventName?: string;
+  eventNameJapanese?: string;
   source: string;
   episodeCount: number;
   untranslatedCount: number;
   lastUpdated: number;
+  allOfficialTagged: boolean;
 }
 
 export interface EventStoryEpisode {
@@ -353,14 +357,29 @@ export interface LyricsRendition {
   translationCredits?: LyricsRenditionTranslationCredits;
 }
 
+export interface TranslationEditionSummary {
+  key: string;
+  label: string;
+}
+
 export interface RenditionLyricsDocument {
   musicId: number;
   status: "draft" | "published" | "draft-published";
   revision: number;
   publishedRevision?: number;
   updatedAt: string;
+  translationEditionKey: string;
+  defaultTranslationEditionKey: string;
+  translationEditions: TranslationEditionSummary[];
+  /** Materialized source-v3 content for translationEditionKey only. */
   renditions: LyricsRendition[];
 }
+
+export type LyricsTranslationEditionMutation =
+  | { musicId: number; revision: number; operation: "create"; editionKey: string; label: string }
+  | { musicId: number; revision: number; operation: "clone"; sourceEditionKey: string; editionKey: string; label: string }
+  | { musicId: number; revision: number; operation: "rename"; editionKey: string; label: string }
+  | { musicId: number; revision: number; operation: "set-default"; editionKey: string };
 
 export type SongLyricsDocument = SongLyrics | RenditionLyricsDocument;
 
@@ -1003,12 +1022,23 @@ export const getCatalogMusic = async (query = "", newlyWritten = true): Promise<
 });
 export const getCatalogPerformers = () =>
   apiFetch<{ items: CatalogPerformerItem[] }>("/catalog/characters");
-export const getLyrics = (musicId: number) =>
-  apiFetch<SongLyricsDocument>(`/lyrics/detail?musicId=${musicId}`);
+export const getLyrics = async (musicId: number, editionKey?: string): Promise<SongLyricsDocument> => {
+  const params = new URLSearchParams({ musicId: String(musicId) });
+  if (editionKey) params.set("translationEditionKey", editionKey);
+  const response = await apiFetch<unknown>(`/lyrics/detail?${params}`);
+  const validated = validateSongLyricsMutationResponse(response, { operation: "conflict", musicId, revision: 0 });
+  if (!validated.ok) throw new APIError(502, { error: "invalid_lyrics_response", details: validated.details });
+  const document = validated.value as SongLyricsDocument;
+  if (editionKey && "translationEditionKey" in document && document.translationEditionKey !== editionKey) {
+    throw new APIError(502, { error: "invalid_lyrics_response", details: ["response translationEditionKey does not match the request"] });
+  }
+  return document;
+};
 
 type LyricsMutationExpectation =
-  | { operation: "save"; musicId: number; revision: number; document: SongLyricsDocument }
-  | { operation: "publish" | "unpublish"; musicId: number; revision: number };
+  | { operation: "save"; musicId: number; revision: number; document: SongLyricsDocument; editionKey?: string; conflictEditionKey?: string }
+  | { operation: "edition"; musicId: number; revision: number; editionKey: string; conflictEditionKey?: string }
+  | { operation: "publish" | "unpublish"; musicId: number; revision: number; conflictEditionKey?: never };
 
 async function lyricsMutation(path: string, options: RequestInit, expectation: LyricsMutationExpectation): Promise<SongLyricsDocument> {
   let response: unknown;
@@ -1017,6 +1047,16 @@ async function lyricsMutation(path: string, options: RequestInit, expectation: L
   } catch (reason) {
     if (reason instanceof APIError && reason.code === "invalid_json_response") {
       throw new APIError(502, { error: "invalid_lyrics_response", details: reason.details });
+    }
+    if (reason instanceof APIError && reason.status === 409 && reason.current) {
+      const conflict = validateSongLyricsMutationResponse(reason.current, {
+        operation: "conflict",
+        musicId: expectation.musicId,
+        revision: expectation.revision,
+        ...("conflictEditionKey" in expectation && expectation.conflictEditionKey ? { editionKey: expectation.conflictEditionKey } : {}),
+      });
+      if (!conflict.ok) throw new APIError(502, { error: "invalid_lyrics_response", details: conflict.details });
+      reason.current = conflict.value as SongLyricsDocument;
     }
     throw reason;
   }
@@ -1029,7 +1069,19 @@ export const saveLyrics = (lyrics: SongLyricsDocument, sourceImportToken?: strin
   lyricsMutation("/editor/v1/lyrics/save", {
     method: "PUT",
     body: JSON.stringify(buildLyricsSavePayload(lyrics, sourceImportToken, getClientID())),
-  }, { operation: "save", musicId: lyrics.musicId, revision: lyrics.revision, document: lyrics });
+  }, {
+    operation: "save", musicId: lyrics.musicId, revision: lyrics.revision, document: lyrics,
+    ...("translationEditionKey" in lyrics ? {
+      editionKey: lyrics.translationEditionKey,
+      conflictEditionKey: lyrics.translationEditionKey,
+    } : {}),
+  });
+
+export const mutateLyricsTranslationEdition = (mutation: LyricsTranslationEditionMutation) =>
+  lyricsMutation("/editor/v1/lyrics/translation-editions", {
+    method: "POST",
+    body: JSON.stringify({ ...mutation, clientId: getClientID() }),
+  }, { operation: "edition", musicId: mutation.musicId, revision: mutation.revision, editionKey: mutation.editionKey });
 export const publishLyrics = (musicId: number, revision: number) =>
   lyricsMutation("/editor/v1/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) },
     { operation: "publish", musicId, revision });

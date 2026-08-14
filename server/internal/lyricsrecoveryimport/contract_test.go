@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"moesekai/server/internal/lyricsrootmanifest"
+	"moesekai/server/internal/lyricsstaging"
 	"moesekai/server/internal/model"
 )
 
@@ -87,6 +88,20 @@ func TestTextFreeRecoveryImportManifestRoundTrip(t *testing.T) {
 		if bytes.Contains(lower, forbidden) {
 			t.Fatalf("text-free manifest leaked %q", forbidden)
 		}
+	}
+}
+
+func TestRecoveryImportManifestCloneDeepCopiesPeerTranslations(t *testing.T) {
+	manifest := textFreeManifestFixture(t)
+	manifest.Items[0].Draft = &lyricsstaging.Draft{RenditionTranslations: []lyricsstaging.RenditionTranslation{{
+		RenditionKey: "sekai", PeerTranslations: []lyricsstaging.RenditionPeerTranslation{{
+			Side: "game", Locale: "zh-CN", Translations: []string{"游戏译文"},
+		}},
+	}}}
+	cloned := cloneManifest(manifest)
+	cloned.Items[0].Draft.RenditionTranslations[0].PeerTranslations[0].Translations[0] = "mutated"
+	if got := manifest.Items[0].Draft.RenditionTranslations[0].PeerTranslations[0].Translations[0]; got != "游戏译文" {
+		t.Fatalf("peer translation clone aliased input: %q", got)
 	}
 }
 

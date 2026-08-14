@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const themes = {
@@ -93,6 +94,17 @@ test("source tags and status washes keep 10-11px text readable on their actual s
     assertContrast(theme, "active navigation", palette.active.foreground, palette.active.background, 4.5);
     assertContrast(theme, "active navigation metadata", palette.active.secondary, palette.active.background, 4.5);
   }
+});
+
+test("translation-edition menu inherits warm neutral, dark, focus, and mobile tokens", async () => {
+  const css = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  const editionCSS = css.split(".lyrics-edition-selector")[1].split(".lyrics-error")[0];
+  for (const token of ["var(--surface)", "var(--surface-2)", "var(--surface-3)", "var(--border)", "var(--border-strong)", "var(--text)", "var(--text-secondary)", "var(--text-dim)", "var(--accent)"]) {
+    assert.ok(editionCSS.includes(token), `edition menu must use theme token ${token}`);
+  }
+  assert.doesNotMatch(editionCSS, /#[0-9a-f]{3,8}/i);
+  assert.match(css, /:focus-visible \{[\s\S]*outline: 2px solid color-mix/);
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*lyrics-edition-trigger[\s\S]*min-height: 44px/);
 });
 
 test("primary-button text, control boundaries, and focus indicators remain visible", () => {

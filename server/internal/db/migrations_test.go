@@ -40,6 +40,8 @@ func TestDurableLyricsDiscoveryMigrationChecksumsRemainImmutable(t *testing.T) {
 		26: "ded39b7f7ec1286d02842938a2f429a56b8b38daba8294cd115dcefe6f149953",
 		27: "9de2359101ac9c9a9ff01389804030d1fbc7e85253ff4e5059d2ceceb5f1ca9b",
 		28: "eb21867c6bd48192174450bb5b87041435a63e6c4a0b2080fa7c97e2fdbefb5d",
+		29: "f3dff40248118068ac37d440099ff231fbbd268d899732e224ee82386b0636d0",
+		30: "8a0d9ec76bdbd264be1342afa7ab02decbdb07f345a808259eac5488426e6089",
 	} {
 		if got := migrations[version-1].checksum(); got != want {
 			t.Fatalf("migration v%d checksum=%s want=%s", version, got, want)

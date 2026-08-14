@@ -1,11 +1,18 @@
 import { isRenditionLyricsDocument, lyricsVersionSaveProblems } from "./lyrics-versioning.mjs";
+import {
+  isTranslationEditionKey,
+  validateTranslationEditionSummaries,
+} from "./lyrics-editions.mjs";
 
 const SONG_LYRICS_KEYS = new Set([
   "musicId", "status", "revision", "publishedRevision", "updatedAt", "attribution",
   "translationCredit", "proofreadingCredit", "sourceNote", "sourceUrl", "licenseNote", "sourcePageId", "sourceRevisionId",
   "sourceSha1", "sourceFetchedAt", "lines",
 ]);
-const RENDITION_DOCUMENT_KEYS = new Set(["musicId", "status", "revision", "publishedRevision", "updatedAt", "renditions"]);
+const RENDITION_DOCUMENT_KEYS = new Set([
+  "musicId", "status", "revision", "publishedRevision", "updatedAt", "translationEditionKey",
+  "defaultTranslationEditionKey", "translationEditions", "renditions",
+]);
 const RENDITION_KEYS = new Set([
   "key", "kind", "label", "availableVersions", "performers", "full", "game", "relation",
   "sourceTabPaths", "provenance", "translationCredits",
@@ -26,6 +33,9 @@ const OPTIONAL_SONG_LYRICS_KEYS = [
   "sourcePageId", "sourceRevisionId", "sourceSha1", "sourceFetchedAt",
 ];
 const MAX_LYRICS_METADATA_BYTES = 16 * 1024;
+const MAX_RENDITION_CREDIT_BYTES = 2048;
+const MAX_LEGACY_RUBY_SPANS = 256;
+const MAX_RENDITION_RUBY_SPANS = 8 * 1024;
 
 function record(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -129,7 +139,7 @@ function modeledRendition(rendition) {
   return result;
 }
 
-function modeledSongLyrics(lyrics) {
+function modeledSongLyrics(lyrics, options = {}) {
   if (isRenditionLyricsDocument(lyrics)) {
     return {
       musicId: lyrics?.musicId,
@@ -137,6 +147,13 @@ function modeledSongLyrics(lyrics) {
       revision: lyrics?.revision,
       ...(Object.hasOwn(lyrics || {}, "publishedRevision") ? { publishedRevision: lyrics.publishedRevision } : {}),
       updatedAt: lyrics?.updatedAt,
+      translationEditionKey: lyrics?.translationEditionKey,
+      ...(options.includeEditionSummaries === false ? {} : {
+        defaultTranslationEditionKey: lyrics?.defaultTranslationEditionKey,
+        translationEditions: Array.isArray(lyrics?.translationEditions)
+          ? lyrics.translationEditions.map((summary) => ({ key: summary?.key, label: summary?.label }))
+          : lyrics?.translationEditions,
+      }),
       renditions: Array.isArray(lyrics?.renditions) ? lyrics.renditions.map(modeledRendition) : lyrics?.renditions,
     };
   }
@@ -157,7 +174,7 @@ function modeledSongLyrics(lyrics) {
 }
 
 export function buildLyricsSavePayload(lyrics, sourceImportToken, clientId) {
-  const document = modeledSongLyrics(lyrics);
+  const document = modeledSongLyrics(lyrics, { includeEditionSummaries: false });
   return {
     ...document,
     ...(document.revision === 0 && sourceImportToken ? { sourceImportToken } : {}),
@@ -215,9 +232,9 @@ function rubyReadingIsKana(value) {
   return hasKana;
 }
 
-function validateRuby(ruby, segmentText, path, errors) {
-  if (!Array.isArray(ruby) || ruby.length === 0 || ruby.length > 256) {
-    errors.push(`${path}.ruby must contain 1-256 spans`);
+function validateRuby(ruby, segmentText, path, errors, maximumSpans) {
+  if (!Array.isArray(ruby) || ruby.length === 0 || ruby.length > maximumSpans) {
+    errors.push(`${path}.ruby must contain 1-${maximumSpans} spans`);
     return;
   }
   let text = "";
@@ -315,7 +332,8 @@ function validateLines(lines, errors, options = {}) {
           performerIds.add(performerId);
         }
       }
-      validateRuby(segment.ruby, segment.text, segmentPath, errors);
+      validateRuby(segment.ruby, segment.text, segmentPath, errors,
+        v3 ? MAX_RENDITION_RUBY_SPANS : MAX_LEGACY_RUBY_SPANS);
     }
     if (typeof line.japanese === "string" && japanese !== line.japanese) errors.push(`${path}.segments must concatenate to japanese`);
   }
@@ -390,11 +408,37 @@ function validateRendition(rendition, index, errors) {
     if (!record(rendition.translationCredits)) errors.push(`${path}.translationCredits must be an object`);
     else {
       rejectUnknownKeys(rendition.translationCredits, RENDITION_CREDIT_KEYS, `${path}.translationCredits`, errors);
-      if (Object.keys(rendition.translationCredits).length === 0) errors.push(`${path}.translationCredits must not be empty`);
+      if (Object.keys(rendition.translationCredits).length === 0 ||
+          !["translation", "proofreading"].some((key) => typeof rendition.translationCredits[key] === "string" && rendition.translationCredits[key] !== "")) {
+        errors.push(`${path}.translationCredits must contain at least one non-empty credit`);
+      }
       for (const key of RENDITION_CREDIT_KEYS) {
-        if (Object.hasOwn(rendition.translationCredits, key)) requiredLyricsMetadataString(rendition.translationCredits, key, errors);
+        if (!Object.hasOwn(rendition.translationCredits, key)) continue;
+        const credit = rendition.translationCredits[key];
+        if (typeof credit !== "string") {
+          errors.push(`${path}.translationCredits.${key} must be a string`);
+        } else if (credit !== credit.trim()) {
+          errors.push(`${path}.translationCredits.${key} must not contain surrounding whitespace`);
+        } else if (new TextEncoder().encode(credit).length > MAX_RENDITION_CREDIT_BYTES) {
+          errors.push(`${path}.translationCredits.${key} exceeds the 2048-byte public limit`);
+        }
       }
     }
+  }
+}
+
+function validateTranslationEditionEnvelope(value, errors) {
+  const summaries = validateTranslationEditionSummaries(value.translationEditions);
+  if (!summaries.ok) {
+    errors.push(...summaries.details);
+    return;
+  }
+  const keys = new Set(summaries.value.map((summary) => summary.key));
+  if (!isTranslationEditionKey(value.translationEditionKey) || !keys.has(value.translationEditionKey)) {
+    errors.push("translationEditionKey must identify a listed edition");
+  }
+  if (!isTranslationEditionKey(value.defaultTranslationEditionKey) || !keys.has(value.defaultTranslationEditionKey)) {
+    errors.push("defaultTranslationEditionKey must identify a listed edition");
   }
 }
 
@@ -464,6 +508,7 @@ export function validateSongLyricsMutationResponse(value, expectation) {
   validateEnvelope(value, errors);
 
   if (isRendition) {
+    validateTranslationEditionEnvelope(value, errors);
     if (value.renditions.length === 0 || value.renditions.length > 16) errors.push("renditions must contain 1-16 items");
     const keys = new Set();
     for (let index = 0; index < value.renditions.length; index++) {
@@ -484,37 +529,53 @@ export function validateSongLyricsMutationResponse(value, expectation) {
     validateLines(value.lines, errors);
   }
 
-  if (!record(expectation) || !["save", "publish", "unpublish"].includes(expectation.operation)) {
+  if (!record(expectation) || !["save", "publish", "unpublish", "edition", "conflict"].includes(expectation.operation)) {
     errors.push("response correlation expectation is invalid");
   } else if (!Number.isSafeInteger(expectation.musicId) || expectation.musicId <= 0 || value.musicId !== expectation.musicId) {
     errors.push("response musicId does not match the request");
   } else if (!Number.isSafeInteger(expectation.revision) || expectation.revision < 0) {
     errors.push("request revision correlation is invalid");
-  } else if (expectation.operation === "save") {
-    const revisionMatches = expectation.revision === 0
-      ? value.revision === 1
-      : value.revision === expectation.revision || value.revision === expectation.revision + 1;
-    if (!revisionMatches) errors.push("save response revision does not advance from the requested revision");
-    const documentsMatch = isRendition === isRenditionLyricsDocument(expectation.document);
-    if (!record(expectation.document) || !documentsMatch ||
-        !isRendition && !Array.isArray(expectation.document.lines) ||
-        isRendition && !Array.isArray(expectation.document.renditions)) {
-      errors.push("save response correlation document is invalid");
-    } else if (errors.length === 0) {
-      try {
-        if (JSON.stringify(editableContent(value)) !== JSON.stringify(editableContent(expectation.document))) {
-          errors.push("save response content does not match the submitted document");
-        }
-      } catch {
-        errors.push("save response correlation document is invalid");
+  } else {
+    if (expectation.editionKey !== undefined) {
+      if (!isRendition || !isTranslationEditionKey(expectation.editionKey) || value.translationEditionKey !== expectation.editionKey) {
+        errors.push("response translationEditionKey does not match the request");
       }
+    } else if (expectation.operation === "edition") {
+      errors.push("edition response correlation requires an editionKey");
     }
-  } else if (value.revision !== expectation.revision) {
-    errors.push(`${expectation.operation} response revision does not match the request`);
-  } else if (expectation.operation === "publish" && (value.status !== "published" || value.publishedRevision !== expectation.revision)) {
-    errors.push("publish response does not confirm the requested publication");
-  } else if (expectation.operation === "unpublish" && (value.status !== "draft" || value.publishedRevision !== undefined)) {
-    errors.push("unpublish response does not confirm removal of the publication");
+
+    if (expectation.operation === "save") {
+      const revisionMatches = expectation.revision === 0
+        ? value.revision === 1
+        : value.revision === expectation.revision || value.revision === expectation.revision + 1;
+      if (!revisionMatches) errors.push("save response revision does not advance from the requested revision");
+      const documentsMatch = isRendition === isRenditionLyricsDocument(expectation.document);
+      if (!record(expectation.document) || !documentsMatch ||
+          !isRendition && !Array.isArray(expectation.document.lines) ||
+          isRendition && !Array.isArray(expectation.document.renditions)) {
+        errors.push("save response correlation document is invalid");
+      } else if (errors.length === 0) {
+        try {
+          if (JSON.stringify(editableContent(value)) !== JSON.stringify(editableContent(expectation.document))) {
+            errors.push("save response content does not match the submitted document");
+          }
+        } catch {
+          errors.push("save response correlation document is invalid");
+        }
+      }
+    } else if (expectation.operation === "edition") {
+      if (value.revision !== expectation.revision + 1) {
+        errors.push("edition response revision must advance exactly once from the requested revision");
+      }
+    } else if (expectation.operation === "conflict") {
+      if (value.revision <= expectation.revision) errors.push("conflict current revision must be newer than the request");
+    } else if (value.revision !== expectation.revision) {
+      errors.push(`${expectation.operation} response revision does not match the request`);
+    } else if (expectation.operation === "publish" && (value.status !== "published" || value.publishedRevision !== expectation.revision)) {
+      errors.push("publish response does not confirm the requested publication");
+    } else if (expectation.operation === "unpublish" && (value.status !== "draft" || value.publishedRevision !== undefined)) {
+      errors.push("unpublish response does not confirm removal of the publication");
+    }
   }
 
   return errors.length > 0 ? { ok: false, details: errors } : { ok: true, value: modeledSongLyrics(value) };

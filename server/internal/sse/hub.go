@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,6 +27,9 @@ const (
 	EventSyncProgress       = "sync.progress"
 	EventTranslateProgress  = "translate.progress"
 	EventContentRestored    = "content.restored"
+	EventPresenceSnapshot   = "presence.snapshot"
+	EventPresenceJoined     = "presence.joined"
+	EventPresenceLeft       = "presence.left"
 	EventPing               = "ping"
 )
 
@@ -82,10 +87,16 @@ func NewHub() *Hub {
 // full is disconnected: silently dropping a mutation hint would let that
 // client continue editing from state it cannot know is stale.
 func (h *Hub) Broadcast(event string, data any) {
-	msg := Message{Event: event, Data: data}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for _, c := range h.clients {
+	h.broadcastLocked(Message{Event: event, Data: data}, 0)
+}
+
+func (h *Hub) broadcastLocked(msg Message, excludeID uint64) {
+	for id, c := range h.clients {
+		if id == excludeID {
+			continue
+		}
 		select {
 		case <-c.done:
 			continue
@@ -107,30 +118,59 @@ func (h *Hub) ClientCount() int {
 }
 
 func (h *Hub) add(user string) (*client, error) {
-	return h.addWithAbort(user, nil)
+	client, _, _, err := h.addWithAbort(user, nil)
+	return client, err
 }
 
-func (h *Hub) addWithAbort(user string, abortWrite func()) (*client, error) {
+func (h *Hub) addWithAbort(user string, abortWrite func()) (*client, []string, bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.closed {
-		return nil, errHubClosed
+		return nil, nil, false, errHubClosed
 	}
 	if len(h.clients) >= maxHubClients {
-		return nil, errHubCapacity
+		return nil, nil, false, errHubCapacity
 	}
 	userClients := 0
 	for _, existing := range h.clients {
-		if existing.user == user {
-			userClients++
+		if existing.user != user {
+			continue
 		}
+		select {
+		case <-existing.done:
+			continue
+		default:
+		}
+		userClients++
 	}
 	if userClients >= maxHubClientsPerUser {
-		return nil, errUserHubCapacity
+		return nil, nil, false, errUserHubCapacity
 	}
 	c := &client{id: h.nextID.Add(1), user: user, ch: make(chan Message, clientQueueSize), done: make(chan struct{}), abortWrite: abortWrite}
 	h.clients[c.id] = c
-	return c, nil
+	return c, h.onlineUsersLocked(), userClients == 0, nil
+}
+
+func (h *Hub) onlineUsersLocked() []string {
+	seen := make(map[string]struct{}, len(h.clients))
+	users := make([]string, 0, len(h.clients))
+	for _, c := range h.clients {
+		if c.user == "" {
+			continue
+		}
+		select {
+		case <-c.done:
+			continue
+		default:
+		}
+		if _, ok := seen[c.user]; ok {
+			continue
+		}
+		seen[c.user] = struct{}{}
+		users = append(users, c.user)
+	}
+	sort.Strings(users)
+	return users
 }
 
 // Close promptly disconnects all streams and rejects new ones. It is safe to
@@ -148,11 +188,26 @@ func (h *Hub) Close() {
 
 func (h *Hub) remove(id uint64) {
 	h.mu.Lock()
-	if c, ok := h.clients[id]; ok {
+	c, ok := h.clients[id]
+	if ok {
 		delete(h.clients, id)
 		c.disconnect()
 	}
+	users := h.onlineUsersLocked()
+	closed := h.closed
 	h.mu.Unlock()
+	if ok && c.user != "" && !closed && !containsUser(users, c.user) {
+		h.Broadcast(EventPresenceLeft, map[string]any{"user": c.user, "users": users})
+	}
+}
+
+func containsUser(users []string, user string) bool {
+	for _, candidate := range users {
+		if candidate == user {
+			return true
+		}
+	}
+	return false
 }
 
 // RevokeUser immediately closes every live stream for an account whose token
@@ -169,6 +224,8 @@ func (h *Hub) RevokeUser(user string) {
 
 // Handler streams events to one client over SSE. The caller must wrap this with
 // auth middleware (the username is read from the request context if present).
+// The initial roster snapshot is written privately; joined/left notifications
+// are sent only when a username gains or loses its last active connection.
 func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.Request) bool, expiresAtFn func(*http.Request) time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
@@ -181,7 +238,7 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 			user = usernameFn(r)
 		}
 		controller := http.NewResponseController(w)
-		c, err := h.addWithAbort(user, func() {
+		c, users, firstForUser, err := h.addWithAbort(user, func() {
 			_ = controller.SetWriteDeadline(time.Now())
 		})
 		if err != nil {
@@ -196,11 +253,26 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.
 		defer h.remove(c.id)
 		h.setSSEHeaders(w)
 
+		// Send a private roster snapshot first. Presence contains usernames only.
+		if user != "" && strings.TrimSpace(r.Header.Get("X-SSE-Presence")) == "1" {
+			if !writeEvent(w, Message{Event: EventPresenceSnapshot, Data: map[string]any{"users": users}}) {
+				return
+			}
+			flusher.Flush()
+		}
+
 		// Initial comment + retry hint so the browser reconnects quickly.
 		if _, err := fmt.Fprintf(w, ": connected\nretry: 3000\n\n"); err != nil {
 			return
 		}
 		flusher.Flush()
+		if user != "" && firstForUser {
+			h.mu.Lock()
+			if !h.closed {
+				h.broadcastLocked(Message{Event: EventPresenceJoined, Data: map[string]any{"user": user, "users": h.onlineUsersLocked()}}, c.id)
+			}
+			h.mu.Unlock()
+		}
 
 		// Heartbeat keeps intermediaries from closing an idle connection.
 		ticker := time.NewTicker(25 * time.Second)

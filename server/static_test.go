@@ -27,6 +27,9 @@ func TestStaticConsoleSecurityHeaders(t *testing.T) {
 		recorder.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatalf("security headers = %#v", recorder.Header())
 	}
+	if recorder.Header().Get("Cache-Control") != "no-store, must-revalidate" || recorder.Header().Get("ETag") == "" {
+		t.Fatalf("HTML cache headers = %#v", recorder.Header())
+	}
 }
 
 func TestWorkspaceRoutesAlwaysFailClosed(t *testing.T) {
@@ -131,6 +134,28 @@ func assertWorkspaceErrorHeaders(t *testing.T, recorder *httptest.ResponseRecord
 	assertWorkspaceSecurityHeaders(t, recorder)
 	if recorder.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("workspace error cache=%q", recorder.Header().Get("Cache-Control"))
+	}
+}
+
+func TestStaticHTMLRevalidatesWhenContentChanges(t *testing.T) {
+	root := t.TempDir()
+	index := filepath.Join(root, "index.html")
+	if err := os.WriteFile(index, []byte("v1"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	first := httptest.NewRecorder()
+	staticHandler(root).ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/", nil))
+	firstTag := first.Header().Get("ETag")
+	if firstTag == "" || first.Body.String() != "v1" {
+		t.Fatalf("first response tag=%q body=%q", firstTag, first.Body.String())
+	}
+	if err := os.WriteFile(index, []byte("v2"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	second := httptest.NewRecorder()
+	staticHandler(root).ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/", nil))
+	if second.Body.String() != "v2" || second.Header().Get("ETag") == firstTag {
+		t.Fatalf("updated HTML body=%q tag=%q firstTag=%q", second.Body.String(), second.Header().Get("ETag"), firstTag)
 	}
 }
 

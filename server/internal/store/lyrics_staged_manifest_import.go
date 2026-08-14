@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"moesekai/server/internal/db"
 	"moesekai/server/internal/legacy"
 	"moesekai/server/internal/lyricscompose"
 	"moesekai/server/internal/lyricssource"
@@ -135,6 +136,9 @@ func (s *Store) importStagedLyricsManifest(
 	if err := validateStagedImportRuntimeSchema(ctx, tx); err != nil {
 		return nil, false, err
 	}
+	if err := validatePeerTranslationRuntimeSchema(ctx, tx, stagedManifestHasPeerTranslations(manifest), "staged lyrics import"); err != nil {
+		return nil, false, err
+	}
 	if receipt != nil {
 		if err := insertOrVerifyLyricsIndexEvidenceCollectionTx(ctx, tx, receipt.IndexEvidence, time.Now().UTC()); err != nil {
 			return nil, false, err
@@ -198,9 +202,12 @@ func (s *Store) importStagedLyricsManifest(
 			if !errors.Is(loadErr, ErrLyricsNotFound) {
 				return nil, false, loadErr
 			}
-			matched, provenanceErr := stagedLyricsSourceDocumentMatches(ctx, tx, staged, receipt != nil)
+			exists, matched, provenanceErr := stagedLyricsSourceDocumentMatches(ctx, tx, staged, receipt != nil)
 			if provenanceErr != nil {
 				return nil, false, provenanceErr
+			}
+			if exists && !matched {
+				return nil, false, fmt.Errorf("%w: music %d immutable source-v3 graph or localization drifted", ErrLyricsStagedManifestRebuildRequired, staged.MusicID)
 			}
 			if matched {
 				results[index] = StagedLyricsImportItem{MusicID: staged.MusicID, SourceDocument: cloneSourceDocumentPtr(staged.Document)}
@@ -228,7 +235,7 @@ func (s *Store) importStagedLyricsManifest(
 			if !sameLyricsContent(draft, current.lyrics) {
 				return nil, false, fmt.Errorf("%w: music %d", ErrLyricsStagedManifestConflict, staged.MusicID)
 			}
-			matched, provenanceErr := stagedLyricsSourceDocumentMatches(ctx, tx, staged, receipt != nil)
+			_, matched, provenanceErr := stagedLyricsSourceDocumentMatches(ctx, tx, staged, receipt != nil)
 			if provenanceErr != nil {
 				return nil, false, provenanceErr
 			}
@@ -276,6 +283,17 @@ func (s *Store) importStagedLyricsManifest(
 	return results, true, nil
 }
 
+func stagedManifestHasPeerTranslations(manifest lyricsstaging.Manifest) bool {
+	for _, draft := range manifest.Items {
+		for _, rendition := range draft.RenditionTranslations {
+			if len(rendition.PeerTranslations) != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func validateStagedImportRuntimeSchema(ctx context.Context, tx *sql.Tx) error {
 	var minimumVersion, maximumVersion, count int
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MIN(version),0),COALESCE(MAX(version),0),COUNT(*) FROM schema_migrations`).
@@ -286,6 +304,16 @@ func validateStagedImportRuntimeSchema(ctx context.Context, tx *sql.Tx) error {
 		maximumVersion > lyricsImportMaximumCompatibleRuntimeSchema {
 		return fmt.Errorf("staged lyrics import requires a contiguous schema-v%d through schema-v%d runtime",
 			lyricsstaging.MaximumCatalogRuntimeSchema, lyricsImportMaximumCompatibleRuntimeSchema)
+	}
+	if maximumVersion >= db.LyricsPeerTranslationSchemaVersion {
+		if err := db.ValidateLyricsPeerTranslationSchema(ctx, tx, true, "staged lyrics import"); err != nil {
+			return err
+		}
+	}
+	if maximumVersion >= db.LyricsTranslationEditionSchemaVersion {
+		if err := db.ValidateLyricsTranslationEditionSchema(ctx, tx, true, "staged lyrics import"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -664,24 +692,24 @@ func insertStagedLyricsSourceDocument(ctx context.Context, tx *sql.Tx, staged ly
 	return nil
 }
 
-func stagedLyricsSourceDocumentMatches(ctx context.Context, tx *sql.Tx, staged lyricsstaging.Draft, requireEvidenceLinks bool) (bool, error) {
+func stagedLyricsSourceDocumentMatches(ctx context.Context, tx *sql.Tx, staged lyricsstaging.Draft, requireEvidenceLinks bool) (bool, bool, error) {
 	var documentID int64
 	var storedSHA string
 	if err := tx.QueryRowContext(ctx, `SELECT document_id,document_sha256 FROM song_lyrics_source_documents WHERE music_id=?`, staged.MusicID).
 		Scan(&documentID, &storedSHA); err == sql.ErrNoRows {
-		return false, nil
+		return false, false, nil
 	} else if err != nil {
-		return false, err
+		return false, false, err
 	}
 	if storedSHA != staged.DocumentSHA256 {
-		return false, nil
+		return true, false, nil
 	}
 	var artifactCount int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM song_lyrics_source_artifacts WHERE document_id=?`, documentID).Scan(&artifactCount); err != nil {
-		return false, err
+		return true, false, err
 	}
 	if artifactCount != len(staged.Artifacts) {
-		return false, nil
+		return true, false, nil
 	}
 	for _, artifact := range staged.Artifacts {
 		var storedArtifactSHA, storedRawSHA string
@@ -689,22 +717,22 @@ func stagedLyricsSourceDocumentMatches(ctx context.Context, tx *sql.Tx, staged l
 		if err := tx.QueryRowContext(ctx, `SELECT artifact_sha256,raw_wikitext_sha256,raw_byte_count
 			FROM song_lyrics_source_artifacts WHERE document_id=? AND rendition_key=?`, documentID,
 			artifact.Identity.RenditionKey).Scan(&storedArtifactSHA, &storedRawSHA, &storedRawCount); err == sql.ErrNoRows {
-			return false, nil
+			return true, false, nil
 		} else if err != nil {
-			return false, err
+			return true, false, err
 		}
 		if storedArtifactSHA != artifact.ArtifactSHA256 || storedRawSHA != artifact.RawWikitextSHA256 ||
 			storedRawCount != artifact.RawWikitextByteCount {
-			return false, nil
+			return true, false, nil
 		}
 		if requireEvidenceLinks {
 			var linkCount int
 			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM song_lyrics_source_artifact_index_evidence
 				WHERE document_id=? AND rendition_key=?`, documentID, artifact.Identity.RenditionKey).Scan(&linkCount); err != nil {
-				return false, err
+				return true, false, err
 			}
 			if linkCount != len(artifact.Identity.IndexEvidenceRefs) {
-				return false, nil
+				return true, false, nil
 			}
 			for position, reference := range artifact.Identity.IndexEvidenceRefs {
 				var provider model.LyricsSourceProvider
@@ -713,10 +741,10 @@ func stagedLyricsSourceDocumentMatches(ctx context.Context, tx *sql.Tx, staged l
 					FROM song_lyrics_source_artifact_index_evidence
 					WHERE document_id=? AND rendition_key=? AND position=?`, documentID,
 					artifact.Identity.RenditionKey, position).Scan(&provider, &evidenceID, &digest); err != nil {
-					return false, err
+					return true, false, err
 				}
 				if provider != artifact.Identity.Provider || evidenceID != reference.EvidenceID || digest != reference.SHA256 {
-					return false, nil
+					return true, false, nil
 				}
 			}
 		}
@@ -725,39 +753,39 @@ func stagedLyricsSourceDocumentMatches(ctx context.Context, tx *sql.Tx, staged l
 	var contributionCount int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM song_lyrics_component_contributions WHERE document_id=?`, documentID).
 		Scan(&contributionCount); err != nil {
-		return false, err
+		return true, false, err
 	}
 	if contributionCount != len(refs) {
-		return false, nil
+		return true, false, nil
 	}
 	for component, renditionKey := range refs {
 		digest := sha256.Sum256([]byte(staged.DocumentSHA256 + "\x00" + component + "\x00" + renditionKey))
 		var stored string
 		if err := tx.QueryRowContext(ctx, `SELECT contribution_sha256 FROM song_lyrics_component_contributions
 			WHERE document_id=? AND component=? AND rendition_key=?`, documentID, component, renditionKey).Scan(&stored); err == sql.ErrNoRows {
-			return false, nil
+			return true, false, nil
 		} else if err != nil {
-			return false, err
+			return true, false, err
 		}
 		if stored != hex.EncodeToString(digest[:]) {
-			return false, nil
+			return true, false, nil
 		}
 	}
 	if staged.Document.SchemaVersion == model.LyricsSourceDocumentSchemaVersionV3 {
 		storedTranslations, err := exportLyricsRenditionLocalizationsTx(ctx, tx, documentID, staged.Document)
 		if err != nil {
-			return false, err
+			return true, false, err
 		}
 		storedDigest, err := v3TranslationsDigest(storedTranslations)
 		if err != nil {
-			return false, err
+			return true, false, err
 		}
 		expectedDigest, err := v3TranslationsDigest(staged.RenditionTranslations)
 		if err != nil || storedDigest != expectedDigest {
-			return false, err
+			return true, false, err
 		}
 	}
-	return true, nil
+	return true, true, nil
 }
 
 func validateStoreLyricsSourceDocument(document model.LyricsSourceDocument) error {

@@ -70,6 +70,12 @@ function validRenditionDocument(revision = 1, status = "draft") {
     status,
     revision,
     updatedAt: "2026-08-07T00:00:00Z",
+    translationEditionKey: "main",
+    defaultTranslationEditionKey: "main",
+    translationEditions: [
+      { key: "main", label: "主译本" },
+      { key: "literal", label: "直译版" },
+    ],
     renditions: [
       {
         key: "sekai",
@@ -180,6 +186,9 @@ test("REM save payload keeps stable families and source facts independent while 
 
   const payload = buildLyricsSavePayload(draft, "must-not-forward", "tab-client-id");
 
+  assert.equal(payload.translationEditionKey, "main");
+  assert.equal(Object.hasOwn(payload, "defaultTranslationEditionKey"), false);
+  assert.equal(Object.hasOwn(payload, "translationEditions"), false);
   assert.deepEqual(payload.renditions.map((rendition) => rendition.key), ["sekai", "virtual-singer"]);
   assert.equal(payload.renditions[0].full.lines[0]["zh-CN"], "sekai-full-translation");
   assert.equal(payload.renditions[0].game.lines[0]["zh-CN"], "sekai-full-translation");
@@ -194,6 +203,21 @@ test("REM save payload keeps stable families and source facts independent while 
   assert.equal(Object.hasOwn(payload, "transientSelection"), false);
   assert.equal(Object.hasOwn(payload.renditions[0].full.lines[0], "transientLayout"), false);
   assert.equal(Object.hasOwn(payload.renditions[0].game.lines[0].segments[0], "transientColor"), false);
+});
+
+test("REM save payload keeps rendition/side tabs transient but binds the active translation edition", () => {
+  const draft = validRenditionDocument(1);
+  draft.transientTranslationTarget = { renditionKey: "sekai", side: "game", locale: "zh-CN" };
+  const payload = buildLyricsSavePayload(draft, undefined, "tab-client-id");
+
+  assert.equal(Object.hasOwn(payload, "renditionKey"), false);
+  assert.equal(Object.hasOwn(payload, "side"), false);
+  assert.equal(Object.hasOwn(payload, "locale"), false);
+  assert.equal(Object.hasOwn(payload, "transientTranslationTarget"), false);
+  assert.equal(payload.translationEditionKey, "main");
+  assert.equal(Object.hasOwn(payload, "translationEditions"), false);
+  assert.equal(Object.hasOwn(payload, "defaultTranslationEditionKey"), false);
+  assert.deepEqual(draft.transientTranslationTarget, { renditionKey: "sekai", side: "game", locale: "zh-CN" });
 });
 
 test("strict REM response validation accepts two-family, canonicalized exact-projection, and Game-only documents", () => {
@@ -223,6 +247,76 @@ test("strict REM response validation accepts two-family, canonicalized exact-pro
     operation: "save", musicId: 765, revision: 1, document: request,
   });
   assert.equal(rejectedFabrication.ok, false);
+});
+
+test("source-v3 save and conflict responses are correlated to the active edition identity", () => {
+  const request = validRenditionDocument(4);
+  const response = validRenditionDocument(5);
+  response.defaultTranslationEditionKey = "literal";
+  response.translationEditions[0].label = "主译本（服务器名称）";
+  assert.equal(validateSongLyricsMutationResponse(response, {
+    operation: "save", musicId: 765, revision: 4, document: request, editionKey: "main",
+  }).ok, true, "summary/default metadata must not enter the editable save diff");
+
+  const wrongEdition = validRenditionDocument(5);
+  wrongEdition.translationEditionKey = "literal";
+  assert.equal(validateSongLyricsMutationResponse(wrongEdition, {
+    operation: "save", musicId: 765, revision: 4, document: request, editionKey: "main",
+  }).ok, false);
+
+  const conflict = validRenditionDocument(7);
+  assert.equal(validateSongLyricsMutationResponse(conflict, {
+    operation: "conflict", musicId: 765, revision: 4, editionKey: "main",
+  }).ok, true);
+  conflict.translationEditionKey = "literal";
+  assert.equal(validateSongLyricsMutationResponse(conflict, {
+    operation: "conflict", musicId: 765, revision: 4, editionKey: "main",
+  }).ok, false);
+});
+
+test("source-v3 edition summaries and default references are strict", () => {
+  for (const mutate of [
+    (response) => { response.translationEditions[0].selected = true; },
+    (response) => { response.translationEditions[1].key = "main"; },
+    (response) => { response.translationEditions[0].label = " 主译本"; },
+    (response) => { response.defaultTranslationEditionKey = "missing"; },
+    (response) => { response.translationEditionKey = "missing"; },
+  ]) {
+    const response = validRenditionDocument(2);
+    mutate(response);
+    const result = validateSongLyricsMutationResponse(response, {
+      operation: "edition", musicId: 765, revision: 1, editionKey: "main",
+    });
+    assert.equal(result.ok, false);
+  }
+});
+
+test("strict REM response validation accepts the v3 8192-span ruby boundary", () => {
+  const request = validRenditionDocument(1);
+  const response = validRenditionDocument(2);
+  for (const document of [request, response]) {
+    const fullLine = document.renditions[0].full.lines[0];
+    fullLine.japanese = "a".repeat(257);
+    fullLine.segments = [{ text: fullLine.japanese, performerIds: ["sekai-full"], ruby: Array.from({ length: 257 }, () => ({ text: "a" })) }];
+    const gameLine = document.renditions[0].game.lines[0];
+    gameLine.japanese = fullLine.japanese;
+    gameLine.segments = [{ text: gameLine.japanese, performerIds: ["sekai-game"], ruby: Array.from({ length: 257 }, () => ({ text: "a" })) }];
+  }
+  const result = validateSongLyricsMutationResponse(response, {
+    operation: "save", musicId: 765, revision: 1, document: request,
+  });
+  assert.equal(result.ok, true, result.details?.join("\n"));
+});
+
+test("strict legacy response validation keeps the 256-span ruby boundary", () => {
+  const response = validDocument(2);
+  response.lines[0].japanese = "a".repeat(257);
+  response.lines[0].segments = [{ text: response.lines[0].japanese, performerIds: [21], ruby: Array.from({ length: 257 }, () => ({ text: "a" })) }];
+  const result = validateSongLyricsMutationResponse(response, {
+    operation: "publish", musicId: 10, revision: 2,
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.details.includes("lines[0].segments[0].ruby must contain 1-256 spans"));
 });
 
 test("strict REM ruby validation enforces Han/kana rules and keeps U+3007 plain", () => {
@@ -325,6 +419,30 @@ test("strict response validation rejects malformed performer and ruby payloads e
   assert.equal(result.ok, false);
   assert.ok(result.details.some((detail) => detail.includes("unique positive integers")));
   assert.ok(result.details.some((detail) => detail.includes("reading must be a string")));
+});
+
+test("strict REM response validation enforces trim-stable 2048-byte public credits", () => {
+  for (const mutate of [
+    (response) => { response.renditions[0].translationCredits.translation = " padded"; },
+    (response) => { response.renditions[0].translationCredits.proofreading = "x".repeat(2049); },
+    (response) => { response.renditions[0].translationCredits = {}; },
+    (response) => { response.renditions[0].translationCredits = { translation: "" }; },
+  ]) {
+    const response = validRenditionDocument(2);
+    mutate(response);
+    const result = validateSongLyricsMutationResponse(response, {
+      operation: "save", musicId: 765, revision: 1, document: validRenditionDocument(1),
+    });
+    assert.equal(result.ok, false);
+  }
+
+  const boundaryRequest = validRenditionDocument(1);
+  const boundaryResponse = validRenditionDocument(2);
+  boundaryRequest.renditions[0].translationCredits.translation = "x".repeat(2048);
+  boundaryResponse.renditions[0].translationCredits.translation = "x".repeat(2048);
+  assert.equal(validateSongLyricsMutationResponse(boundaryResponse, {
+    operation: "save", musicId: 765, revision: 1, document: boundaryRequest,
+  }).ok, true);
 });
 
 test("strict response validation requires independent bounded translation and proofreading credits", () => {

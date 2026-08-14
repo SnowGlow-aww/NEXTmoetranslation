@@ -660,6 +660,7 @@ func seedConfigFromEnv(cfg *config.Config) error {
 		config.KeyUpstreamCNAssetsURL:             os.Getenv("UPSTREAM_CN_ASSETS_URL"),
 		config.KeyUpstreamCNAssetsFallbackURL:     os.Getenv("UPSTREAM_CN_ASSETS_FALLBACK_URL"),
 		config.KeyUpstreamFetchConcurrency:        os.Getenv("UPSTREAM_FETCH_CONCURRENCY"),
+		config.KeyMusicAliasesURL:                 envOr("MUSIC_ALIASES_URL", searchindex.DefaultMusicAliasesURL),
 		config.KeySchedulerOn:                     envOr("TRANSLATE_SCHEDULER_ENABLED", "false"),
 		config.KeyLyricsDiscoveryOn:               envOr("LYRICS_DISCOVERY_ENABLED", "false"),
 		config.KeyLyricsFetchRevisionOn:           envOr("LYRICS_FETCH_REVISION_ENABLED", "false"),

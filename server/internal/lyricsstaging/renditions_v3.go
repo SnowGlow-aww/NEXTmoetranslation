@@ -125,6 +125,17 @@ func cloneRenditionTranslations(input []RenditionTranslation) []RenditionTransla
 		if item.Translations == nil {
 			result[index].Translations = nil
 		}
+		result[index].PeerTranslations = make([]RenditionPeerTranslation, len(item.PeerTranslations))
+		for peerIndex, peer := range item.PeerTranslations {
+			result[index].PeerTranslations[peerIndex] = peer
+			result[index].PeerTranslations[peerIndex].Translations = append([]string(nil), peer.Translations...)
+			if peer.Translations == nil {
+				result[index].PeerTranslations[peerIndex].Translations = nil
+			}
+		}
+		if item.PeerTranslations == nil {
+			result[index].PeerTranslations = nil
+		}
 	}
 	return result
 }
@@ -158,6 +169,34 @@ func renditionLineCount(rendition model.LyricsSourceRendition) int {
 	return 0
 }
 
+func renditionPeerLineCount(rendition model.LyricsSourceRendition, side string) (int, bool) {
+	if rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection || rendition.Full == nil {
+		return 0, false
+	}
+	if side == "game" && rendition.Game != nil {
+		return len(rendition.Game.Lines), true
+	}
+	return 0, false
+}
+
+func validateRenditionTranslationLines(musicID int, renditionKey, label string, translations []string, lineCount int) (int, error) {
+	if len(translations) == 0 || len(translations) != lineCount {
+		return 0, fmt.Errorf("staged music %d rendition %q %s do not align with Japanese lines", musicID, renditionKey, label)
+	}
+	total := 0
+	for lineIndex, text := range translations {
+		if text == "" || text != strings.TrimSpace(text) || !utf8.ValidString(text) ||
+			strings.ContainsAny(text, "\r\n\x00") || len(text) > 16<<10 {
+			return 0, fmt.Errorf("staged music %d rendition %q %s %d is invalid", musicID, renditionKey, label, lineIndex+1)
+		}
+		total += len(text)
+		if total > 2<<20 {
+			return 0, fmt.Errorf("staged music %d rendition %q %s exceed the text boundary", musicID, renditionKey, label)
+		}
+	}
+	return total, nil
+}
+
 func validateRenditionTranslations(musicID int, renditions []model.LyricsSourceRendition, translations []RenditionTranslation) error {
 	if translations == nil {
 		return nil
@@ -171,6 +210,7 @@ func validateRenditionTranslations(musicID int, renditions []model.LyricsSourceR
 	}
 	lastKey := ""
 	seen := make(map[string]struct{}, len(translations))
+	totalBytes := 0
 	for _, item := range translations {
 		if item.RenditionKey == "" || item.RenditionKey <= lastKey {
 			return fmt.Errorf("staged music %d rendition translations are not canonically ordered", musicID)
@@ -190,24 +230,44 @@ func validateRenditionTranslations(musicID int, renditions []model.LyricsSourceR
 			!utf8.ValidString(item.TranslationCredit) || !utf8.ValidString(item.ProofreadingCredit) {
 			return fmt.Errorf("staged music %d rendition %q credits are invalid", musicID, item.RenditionKey)
 		}
-		lineCount := renditionLineCount(rendition)
+		totalBytes += len(item.TranslationCredit) + len(item.ProofreadingCredit)
 		if item.Translations != nil {
-			if len(item.Translations) == 0 || len(item.Translations) != lineCount {
-				return fmt.Errorf("staged music %d rendition %q translations do not align with Japanese lines", musicID, item.RenditionKey)
+			lineBytes, err := validateRenditionTranslationLines(
+				musicID, item.RenditionKey, "translations", item.Translations, renditionLineCount(rendition),
+			)
+			if err != nil {
+				return err
 			}
-			total := 0
-			for lineIndex, text := range item.Translations {
-				if text == "" || text != strings.TrimSpace(text) || !utf8.ValidString(text) ||
-					strings.ContainsAny(text, "\r\n\x00") || len(text) > 16<<10 {
-					return fmt.Errorf("staged music %d rendition %q translation %d is invalid", musicID, item.RenditionKey, lineIndex+1)
-				}
-				total += len(text)
-				if total > 2<<20 {
-					return fmt.Errorf("staged music %d rendition %q translations exceed the text boundary", musicID, item.RenditionKey)
-				}
+			totalBytes += lineBytes
+		}
+		if item.PeerTranslations != nil && len(item.PeerTranslations) == 0 {
+			return fmt.Errorf("staged music %d rendition %q peer translations must be omitted or non-empty", musicID, item.RenditionKey)
+		}
+		lastPeerKey := ""
+		for _, peer := range item.PeerTranslations {
+			peerKey := peer.Side + "\x00" + peer.Locale
+			if peer.Side == "" || peer.Locale != "zh-CN" || peerKey <= lastPeerKey {
+				return fmt.Errorf("staged music %d rendition %q peer translations are not canonical", musicID, item.RenditionKey)
 			}
-		} else if item.TranslationCredit != "" || item.ProofreadingCredit != "" {
+			lastPeerKey = peerKey
+			lineCount, allowed := renditionPeerLineCount(rendition, peer.Side)
+			if !allowed {
+				return fmt.Errorf("staged music %d rendition %q has no independently persisted %s peer side", musicID, item.RenditionKey, peer.Side)
+			}
+			lineBytes, err := validateRenditionTranslationLines(
+				musicID, item.RenditionKey, peer.Side+" peer translations", peer.Translations, lineCount,
+			)
+			if err != nil {
+				return err
+			}
+			totalBytes += lineBytes
+		}
+		if item.Translations == nil && len(item.PeerTranslations) == 0 &&
+			(item.TranslationCredit != "" || item.ProofreadingCredit != "") {
 			return fmt.Errorf("staged music %d rendition %q credits exist without translations", musicID, item.RenditionKey)
+		}
+		if totalBytes > 4<<20 {
+			return fmt.Errorf("staged music %d rendition localizations exceed the safe document boundary", musicID)
 		}
 	}
 	for _, rendition := range renditions {

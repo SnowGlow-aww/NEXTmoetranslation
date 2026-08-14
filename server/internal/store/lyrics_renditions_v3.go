@@ -104,7 +104,8 @@ func insertLyricsRenditionLocalizationsTx(ctx context.Context, tx *sql.Tx, docum
 			return fmt.Errorf("v3 localization record %d is out of canonical rendition order: got %q want %q",
 				index, item.RenditionKey, rendition.RenditionKey)
 		}
-		if item.Translations == nil && (item.TranslationCredit != "" || item.ProofreadingCredit != "") {
+		if item.Translations == nil && len(item.PeerTranslations) == 0 &&
+			(item.TranslationCredit != "" || item.ProofreadingCredit != "") {
 			return errors.New("v3 localization credits exist without translations")
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_rendition_localizations
@@ -118,6 +119,23 @@ func insertLyricsRenditionLocalizationsTx(ctx context.Context, tx *sql.Tx, docum
 				(document_id,rendition_key,locale,position,text) VALUES (?,?,?,?,?)`, documentID,
 				item.RenditionKey, "zh-CN", position, text); err != nil {
 				return err
+			}
+		}
+		lastPeerKey := ""
+		for _, peer := range item.PeerTranslations {
+			peerKey := peer.Side + "\x00" + peer.Locale
+			source, allowed := renditionPeerTranslationSide(document, item.RenditionKey, peer.Side)
+			if peer.Locale != "zh-CN" || peerKey <= lastPeerKey || !allowed ||
+				len(peer.Translations) == 0 || len(peer.Translations) != len(source.Lines) {
+				return fmt.Errorf("v3 localization peer record %q/%s/%s is invalid", item.RenditionKey, peer.Side, peer.Locale)
+			}
+			lastPeerKey = peerKey
+			for position, text := range peer.Translations {
+				if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_rendition_side_translation_lines
+					(document_id,rendition_key,side,locale,position,text) VALUES (?,?,?,?,?,?)`, documentID,
+					item.RenditionKey, peer.Side, peer.Locale, position, text); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -187,6 +205,68 @@ func exportLyricsRenditionLocalizationsTx(ctx context.Context, tx *sql.Tx, docum
 	if err := lineRows.Close(); err != nil {
 		return nil, err
 	}
+	peerByKey := make(map[string][]lyricsstaging.RenditionPeerTranslation, len(byKey))
+	var hasPeerTable int
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=29)`).Scan(&hasPeerTable); err != nil {
+		return nil, err
+	}
+	if hasPeerTable == 1 {
+		peerRows, err := tx.QueryContext(ctx, `SELECT rendition_key,side,locale,position,text
+			FROM song_lyrics_rendition_side_translation_lines WHERE document_id=?
+			ORDER BY rendition_key,side,locale,position`, documentID)
+		if err != nil {
+			return nil, err
+		}
+		lastPeerKey := ""
+		for peerRows.Next() {
+			var renditionKey, side, locale, text string
+			var position int
+			if err := peerRows.Scan(&renditionKey, &side, &locale, &position, &text); err != nil {
+				peerRows.Close()
+				return nil, err
+			}
+			if _, found := byKey[renditionKey]; !found {
+				peerRows.Close()
+				return nil, fmt.Errorf("stored v3 peer localization has unknown rendition %q", renditionKey)
+			}
+			source, allowed := renditionPeerTranslationSide(document, renditionKey, side)
+			peerKey := renditionKey + "\x00" + side + "\x00" + locale
+			if locale != "zh-CN" || !allowed || peerKey < lastPeerKey {
+				peerRows.Close()
+				return nil, errors.New("stored v3 peer localization is invalid")
+			}
+			peers := peerByKey[renditionKey]
+			if peerKey != lastPeerKey {
+				peers = append(peers, lyricsstaging.RenditionPeerTranslation{Side: side, Locale: locale})
+			}
+			if len(peers) == 0 || position != len(peers[len(peers)-1].Translations) {
+				peerRows.Close()
+				return nil, errors.New("stored v3 peer localization lines are incomplete")
+			}
+			peers[len(peers)-1].Translations = append(peers[len(peers)-1].Translations, text)
+			if len(peers[len(peers)-1].Translations) > len(source.Lines) {
+				peerRows.Close()
+				return nil, errors.New("stored v3 peer localization has too many lines")
+			}
+			peerByKey[renditionKey] = peers
+			lastPeerKey = peerKey
+		}
+		if err := peerRows.Err(); err != nil {
+			peerRows.Close()
+			return nil, err
+		}
+		if err := peerRows.Close(); err != nil {
+			return nil, err
+		}
+		for renditionKey, peers := range peerByKey {
+			for _, peer := range peers {
+				source, _ := renditionPeerTranslationSide(document, renditionKey, peer.Side)
+				if len(peer.Translations) != len(source.Lines) {
+					return nil, fmt.Errorf("stored v3 peer localization for rendition %q/%s is incomplete", renditionKey, peer.Side)
+				}
+			}
+		}
+	}
 	result := make([]lyricsstaging.RenditionTranslation, 0, len(document.Renditions))
 	for _, rendition := range document.Renditions {
 		item, found := byKey[rendition.RenditionKey]
@@ -200,6 +280,7 @@ func exportLyricsRenditionLocalizationsTx(ctx context.Context, tx *sql.Tx, docum
 		} else {
 			item.Translations = nil
 		}
+		item.PeerTranslations = peerByKey[rendition.RenditionKey]
 		result = append(result, item)
 	}
 	return result, nil
@@ -252,12 +333,25 @@ func sourceV3TranslationCreditPair(item lyricsstaging.RenditionTranslation) (str
 // source-v3 document. It deliberately has no manual-publication state:
 // recovery Public v3 publication remains a separate, batch-bound operation.
 type LyricsRenditionDocument struct {
-	MusicID           int                       `json:"musicId"`
-	Status            string                    `json:"status"`
-	PublishedRevision int                       `json:"publishedRevision,omitempty"`
-	Revision          int                       `json:"revision"`
-	UpdatedAt         string                    `json:"updatedAt"`
-	Renditions        []PublicLyricsV3Rendition `json:"renditions"`
+	MusicID                      int                               `json:"musicId"`
+	Status                       string                            `json:"status"`
+	PublishedRevision            int                               `json:"publishedRevision,omitempty"`
+	Revision                     int                               `json:"revision"`
+	UpdatedAt                    string                            `json:"updatedAt"`
+	TranslationEditionKey        string                            `json:"translationEditionKey"`
+	DefaultTranslationEditionKey string                            `json:"defaultTranslationEditionKey"`
+	TranslationEditions          []LyricsTranslationEditionSummary `json:"translationEditions"`
+	Renditions                   []PublicLyricsV3Rendition         `json:"renditions"`
+}
+
+// LyricsRenditionMutationTarget identifies one editable localization bucket.
+// The editor still commits one document-level revision, but collaboration
+// events and audit records use these targets to describe the actual changed
+// rendition side(s) without trusting the client's currently visible tab.
+type LyricsRenditionMutationTarget struct {
+	RenditionKey string `json:"renditionKey"`
+	Side         string `json:"side"`
+	Locale       string `json:"locale"`
 }
 
 type LyricsRenditionContractError struct {
@@ -273,6 +367,10 @@ type lyricsRenditionLocalizationState struct {
 	Revision     int
 	UpdatedAt    int64
 	Translations []lyricsstaging.RenditionTranslation
+	// SideTranslations contains only explicitly persisted non-primary peers.
+	// The historical primary side remains in Translations for backup and import
+	// compatibility (Full when present, otherwise Game).
+	SideTranslations map[string]map[string][]string
 }
 
 type lyricsRenditionEditorBundle struct {
@@ -294,12 +392,24 @@ type lyricsRenditionEditorBundle struct {
 // document. A source-v3 document must never silently fall back to a second
 // mutable SongLyrics store.
 func (s *Store) GetLyricsDocument(musicID int) (any, error) {
-	plural, pluralErr := s.GetLyricsRenditionDocument(musicID)
+	return s.GetLyricsDocumentWithEdition(musicID, "", false)
+}
+
+func (s *Store) GetLyricsDocumentWithEdition(musicID int, editionKey string, explicit bool) (any, error) {
+	if explicit && !validLyricsTranslationEditionKey(editionKey) {
+		return nil, &LyricsRenditionContractError{Code: "invalid_translation_edition", Details: []string{"translationEditionKey is invalid"}}
+	}
+	plural, pluralErr := s.GetLyricsRenditionDocumentEdition(musicID, editionKey, explicit)
 	if pluralErr == nil {
 		return plural, nil
 	}
 	if !errors.Is(pluralErr, ErrLyricsNotFound) {
 		return nil, pluralErr
+	}
+	if explicit {
+		// A translation-edition selector is valid only for source-v3 documents.
+		// Never accept the parameter and silently return the legacy shape.
+		return nil, ErrLyricsTranslationEditionNotFound
 	}
 	legacy, legacyErr := s.GetLyrics(musicID)
 	if legacyErr != nil {
@@ -309,6 +419,10 @@ func (s *Store) GetLyricsDocument(musicID int) (any, error) {
 }
 
 func (s *Store) GetLyricsRenditionDocument(musicID int) (LyricsRenditionDocument, error) {
+	return s.GetLyricsRenditionDocumentEdition(musicID, "", false)
+}
+
+func (s *Store) GetLyricsRenditionDocumentEdition(musicID int, editionKey string, explicit bool) (LyricsRenditionDocument, error) {
 	tx, err := s.db.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return LyricsRenditionDocument{}, err
@@ -318,7 +432,11 @@ func (s *Store) GetLyricsRenditionDocument(musicID int) (LyricsRenditionDocument
 	if err != nil {
 		return LyricsRenditionDocument{}, err
 	}
-	result, err := buildLyricsRenditionEditorDocument(bundle, bundle.localization)
+	selection, err := loadLyricsTranslationEditionSelection(tx, bundle, editionKey, explicit)
+	if err != nil {
+		return LyricsRenditionDocument{}, err
+	}
+	result, err := buildLyricsTranslationEditionDocument(bundle, selection)
 	if err != nil {
 		return LyricsRenditionDocument{}, err
 	}
@@ -633,11 +751,63 @@ func loadLyricsRenditionLocalizationState(q queryRower, documentID int64, docume
 		if len(lines) != 0 && len(lines) != renditionLineCountForStore(rendition) {
 			return lyricsRenditionLocalizationState{}, fmt.Errorf("source v3 editor localization %q has incomplete translation lines", rendition.RenditionKey)
 		}
-		if len(lines) == 0 && (item.TranslationCredit != "" || item.ProofreadingCredit != "") {
-			return lyricsRenditionLocalizationState{}, fmt.Errorf("source v3 editor localization %q has credits without translation rows", rendition.RenditionKey)
-		}
 		item.Translations = append([]string(nil), lines...)
 		state.Translations = append(state.Translations, item)
+	}
+	peerRows, err := q.Query(`SELECT rendition_key,side,locale,position,text
+		FROM song_lyrics_rendition_side_translation_lines
+		WHERE document_id=? ORDER BY rendition_key,side,locale,position`, documentID)
+	if err != nil {
+		return lyricsRenditionLocalizationState{}, err
+	}
+	state.SideTranslations = map[string]map[string][]string{}
+	for peerRows.Next() {
+		var key, side, locale, text string
+		var position int
+		if err := peerRows.Scan(&key, &side, &locale, &position, &text); err != nil {
+			peerRows.Close()
+			return lyricsRenditionLocalizationState{}, err
+		}
+		if locale != "zh-CN" || side != "full" && side != "game" || position < 0 {
+			peerRows.Close()
+			return lyricsRenditionLocalizationState{}, errors.New("source v3 editor peer translation identity is unsupported")
+		}
+		source, _ := renditionPeerTranslationSide(document, key, side)
+		if source == nil {
+			peerRows.Close()
+			return lyricsRenditionLocalizationState{}, fmt.Errorf("source v3 editor peer translation %q/%s has no authoritative side", key, side)
+		}
+		if state.SideTranslations[key] == nil {
+			state.SideTranslations[key] = map[string][]string{}
+		}
+		if position != len(state.SideTranslations[key][side]) {
+			peerRows.Close()
+			return lyricsRenditionLocalizationState{}, errors.New("source v3 editor peer translation lines are incomplete")
+		}
+		state.SideTranslations[key][side] = append(state.SideTranslations[key][side], text)
+	}
+	if err := peerRows.Err(); err != nil {
+		peerRows.Close()
+		return lyricsRenditionLocalizationState{}, err
+	}
+	if err := peerRows.Close(); err != nil {
+		return lyricsRenditionLocalizationState{}, err
+	}
+	for key, sides := range state.SideTranslations {
+		for side, lines := range sides {
+			source, found := renditionTranslationSide(document, key, side)
+			if !found || len(lines) != len(source.Lines) {
+				return lyricsRenditionLocalizationState{}, fmt.Errorf("source v3 editor peer translation %q/%s is incomplete", key, side)
+			}
+		}
+	}
+	for _, item := range state.Translations {
+		if len(item.Translations) != 0 || len(state.SideTranslations[item.RenditionKey]) != 0 {
+			continue
+		}
+		if item.TranslationCredit != "" || item.ProofreadingCredit != "" {
+			return lyricsRenditionLocalizationState{}, fmt.Errorf("source v3 editor localization %q has credits without translation rows", item.RenditionKey)
+		}
 	}
 	return state, nil
 }
@@ -672,8 +842,15 @@ func buildLyricsRenditionEditorDocument(bundle lyricsRenditionEditorBundle, loca
 				UpdatedAt: localization.UpdatedAt, Revision: localization.Revision,
 			}
 		}
-		publicRendition, err := buildPublicLyricsV3Rendition(
-			rendition, item.Translations, localizationRecord, bundle.bindings, bundle.identities, bundle.contributions,
+		peerTranslations := map[string][]string{}
+		if sides := localization.SideTranslations[rendition.RenditionKey]; sides != nil {
+			for side, translations := range sides {
+				peerTranslations[side] = append([]string(nil), translations...)
+			}
+		}
+		publicRendition, err := buildLyricsV3Rendition(
+			rendition, item.Translations, peerTranslations, localizationRecord,
+			bundle.bindings, bundle.identities, bundle.contributions, false,
 		)
 		if err != nil {
 			return LyricsRenditionDocument{}, err
@@ -687,46 +864,113 @@ func buildLyricsRenditionEditorDocument(bundle lyricsRenditionEditorBundle, loca
 }
 
 func (s *Store) SaveLyricsRenditionMutation(input LyricsRenditionDocument, user string) (LyricsRenditionDocument, bool, error) {
+	result, changed, _, err := s.SaveLyricsRenditionMutationWithTargets(input, user)
+	return result, changed, err
+}
+
+func (s *Store) SaveLyricsRenditionMutationWithTargets(input LyricsRenditionDocument, user string) (LyricsRenditionDocument, bool, []LyricsRenditionMutationTarget, error) {
 	unlock := s.lockLyrics(input.MusicID)
 	defer unlock()
 	tx, err := s.db.Begin()
 	if err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
 	}
 	defer tx.Rollback()
 	bundle, err := loadLyricsRenditionEditorBundle(tx, input.MusicID)
 	if err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
 	}
-	current, err := buildLyricsRenditionEditorDocument(bundle, bundle.localization)
+	selection, err := loadLyricsTranslationEditionSelection(tx, bundle, input.TranslationEditionKey, input.TranslationEditionKey != "")
+	if errors.Is(err, ErrLyricsTranslationEditionNotFound) {
+		return LyricsRenditionDocument{}, false, nil, &LyricsRenditionContractError{Code: "translation_edition_not_found"}
+	}
 	if err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	current, err := buildLyricsTranslationEditionDocument(bundle, selection)
+	if err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	if err := normalizeLyricsTranslationEditionEnvelope(&input, current); err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
 	}
 	if input.Revision != current.Revision {
 		copy := current
-		return LyricsRenditionDocument{}, false, &LyricsRenditionContractError{Code: "revision_conflict", Current: &copy}
+		return LyricsRenditionDocument{}, false, nil, &LyricsRenditionContractError{Code: "revision_conflict", Current: &copy}
 	}
 	if err := validateLyricsRenditionImmutableEnvelope(input, current); err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
 	}
-	requested, err := lyricsRenditionEditorTranslations(input, current, bundle.localization.HasRows)
+	requestedSides, requestedPeerBytes, err := lyricsRenditionEditorSideTranslations(input)
 	if err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
 	}
-	stored, err := lyricsRenditionEditorTranslations(current, current, bundle.localization.HasRows)
+	storedSides, storedPeerBytes, err := lyricsRenditionEditorSideTranslations(current)
 	if err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
 	}
-	if reflect.DeepEqual(requested, stored) {
-		return current, false, nil
+	requested, err := lyricsRenditionEditorTranslations(
+		input, current, selection.localization.HasRows || len(requestedSides) > 0, requestedPeerBytes, true,
+	)
+	if err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	stored, err := lyricsRenditionEditorTranslations(
+		current, current, selection.localization.HasRows || len(storedSides) > 0, storedPeerBytes, false,
+	)
+	if err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	if reflect.DeepEqual(requested, stored) && equalLyricsRenditionSideTranslations(requestedSides, storedSides) {
+		return current, false, nil, nil
+	}
+	mutationTargets := lyricsRenditionMutationTargets(input, current)
+	if len(mutationTargets) == 0 {
+		return LyricsRenditionDocument{}, false, nil, errors.New("source v3 editor changed without a localization target")
 	}
 	nextRevision := current.Revision + 1
 	now := time.Now().Unix()
-	if currentUpdatedAt := lyricsRenditionEditorUpdatedAt(bundle, bundle.localization); now < currentUpdatedAt {
+	if currentUpdatedAt := lyricsRenditionEditorUpdatedAt(bundle, selection.localization); now < currentUpdatedAt {
 		now = currentUpdatedAt
 	}
+	if selection.authoritative {
+		if err := replaceMaterializedLyricsTranslationEditionTx(tx, bundle, selection.key, input, user, now); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if _, err := tx.Exec(`UPDATE song_lyrics_translation_edition_state
+			SET revision=?,updated_at=?,updated_by=? WHERE document_id=?`, nextRevision, now, user, bundle.documentID); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if err := rewriteLegacyLyricsTranslationMirrorTx(tx, bundle, selection.defaultKey, nextRevision, now, user); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		targetsJSON, err := json.Marshal(mutationTargets)
+		if err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if _, err := tx.Exec(`INSERT INTO audit_log(ts,user,action,detail) VALUES (?,?,'lyrics.rendition.save',?)`,
+			now, user, fmt.Sprintf("musicId=%d revision=%d editionKey=%s targets=%s", input.MusicID, nextRevision, selection.key, targetsJSON)); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		nextSelection, err := loadLyricsTranslationEditionSelection(tx, bundle, selection.key, true)
+		if err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		result, err := buildLyricsTranslationEditionDocument(bundle, nextSelection)
+		if err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		s.NotifyChange()
+		return result, true, mutationTargets, nil
+	}
 	if _, err := tx.Exec(`DELETE FROM song_lyrics_rendition_translation_lines WHERE document_id=?`, bundle.documentID); err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	if _, err := tx.Exec(`DELETE FROM song_lyrics_rendition_side_translation_lines WHERE document_id=?`, bundle.documentID); err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
 	}
 	for _, item := range requested {
 		if _, err := tx.Exec(`INSERT INTO song_lyrics_rendition_localizations
@@ -737,30 +981,49 @@ func (s *Store) SaveLyricsRenditionMutation(input LyricsRenditionDocument, user 
 			updated_at=excluded.updated_at,updated_by=excluded.updated_by,revision=excluded.revision`,
 			bundle.documentID, item.RenditionKey, "zh-CN", item.TranslationCredit, item.ProofreadingCredit,
 			now, user, nextRevision); err != nil {
-			return LyricsRenditionDocument{}, false, err
+			return LyricsRenditionDocument{}, false, nil, err
 		}
 		for position, text := range item.Translations {
 			if _, err := tx.Exec(`INSERT INTO song_lyrics_rendition_translation_lines
 				(document_id,rendition_key,locale,position,text) VALUES (?,?,?,?,?)`,
 				bundle.documentID, item.RenditionKey, "zh-CN", position, text); err != nil {
-				return LyricsRenditionDocument{}, false, err
+				return LyricsRenditionDocument{}, false, nil, err
 			}
 		}
 	}
-	if _, err := tx.Exec(`INSERT INTO audit_log(ts,user,action,detail) VALUES (?,?,'lyrics.rendition.save',?)`,
-		now, user, fmt.Sprintf("musicId=%d revision=%d", input.MusicID, nextRevision)); err != nil {
-		return LyricsRenditionDocument{}, false, err
+	for renditionKey, sides := range requestedSides {
+		for side, translations := range sides {
+			for position, text := range translations {
+				if _, err := tx.Exec(`INSERT INTO song_lyrics_rendition_side_translation_lines
+					(document_id,rendition_key,side,locale,position,text) VALUES (?,?,?,?,?,?)`,
+					bundle.documentID, renditionKey, side, "zh-CN", position, text); err != nil {
+					return LyricsRenditionDocument{}, false, nil, err
+				}
+			}
+		}
 	}
-	nextState := lyricsRenditionLocalizationState{HasRows: true, Revision: nextRevision, UpdatedAt: now, Translations: requested}
-	result, err := buildLyricsRenditionEditorDocument(bundle, nextState)
+	targetsJSON, err := json.Marshal(mutationTargets)
 	if err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	if _, err := tx.Exec(`INSERT INTO audit_log(ts,user,action,detail) VALUES (?,?,'lyrics.rendition.save',?)`,
+		now, user, fmt.Sprintf("musicId=%d revision=%d targets=%s", input.MusicID, nextRevision, targetsJSON)); err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	nextState := lyricsRenditionLocalizationState{
+		HasRows: true, Revision: nextRevision, UpdatedAt: now, Translations: requested,
+		SideTranslations: requestedSides,
+	}
+	selection.localization = nextState
+	result, err := buildLyricsTranslationEditionDocument(bundle, selection)
+	if err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
 	}
 	if err := tx.Commit(); err != nil {
-		return LyricsRenditionDocument{}, false, err
+		return LyricsRenditionDocument{}, false, nil, err
 	}
 	s.NotifyChange()
-	return result, true, nil
+	return result, true, mutationTargets, nil
 }
 
 func validateLyricsRenditionImmutableEnvelope(input, current LyricsRenditionDocument) error {
@@ -805,13 +1068,67 @@ func validateLyricsRenditionImmutableEnvelope(input, current LyricsRenditionDocu
 	return nil
 }
 
-func lyricsRenditionEditorTranslations(input, current LyricsRenditionDocument, preserveRows bool) ([]lyricsstaging.RenditionTranslation, error) {
+func lyricsRenditionMutationTargets(input, current LyricsRenditionDocument) []LyricsRenditionMutationTarget {
+	if len(input.Renditions) != len(current.Renditions) {
+		return nil
+	}
+	targets := make([]LyricsRenditionMutationTarget, 0, len(input.Renditions))
+	for index := range input.Renditions {
+		requested := input.Renditions[index]
+		stored := current.Renditions[index]
+		if requested.Key != stored.Key {
+			return nil
+		}
+		if lyricsRenditionSideTranslationChanged(requested.Full, stored.Full) {
+			targets = append(targets, LyricsRenditionMutationTarget{
+				RenditionKey: requested.Key, Side: "full", Locale: "zh-CN",
+			})
+		}
+		// An exact-projection Game has no independently persisted localization;
+		// its Chinese text follows the Full line-ID mapping and is therefore not
+		// reported as a second mutation target.
+		if requested.Relation.Kind != model.LyricsSourceRenditionRelationExactProjection &&
+			lyricsRenditionSideTranslationChanged(requested.Game, stored.Game) {
+			targets = append(targets, LyricsRenditionMutationTarget{
+				RenditionKey: requested.Key, Side: "game", Locale: "zh-CN",
+			})
+		}
+		if !reflect.DeepEqual(requested.TranslationCredits, stored.TranslationCredits) {
+			targets = append(targets, LyricsRenditionMutationTarget{
+				RenditionKey: requested.Key, Side: "credits", Locale: "zh-CN",
+			})
+		}
+	}
+	return targets
+}
+
+func lyricsRenditionSideTranslationChanged(requested, stored *PublicLyricsV3Side) bool {
+	if requested == nil || stored == nil {
+		return requested != stored
+	}
+	if len(requested.Lines) != len(stored.Lines) {
+		return true
+	}
+	for index := range requested.Lines {
+		if requested.Lines[index].Chinese != stored.Lines[index].Chinese {
+			return true
+		}
+	}
+	return false
+}
+
+func lyricsRenditionEditorTranslations(
+	input, current LyricsRenditionDocument,
+	preserveRows bool,
+	peerBytes int,
+	validateRequestedLocalization bool,
+) ([]lyricsstaging.RenditionTranslation, error) {
 	if len(input.Renditions) != len(current.Renditions) || len(input.Renditions) == 0 {
 		return nil, &LyricsRenditionContractError{Code: "source_drift", Details: []string{"plural rendition set changed"}}
 	}
 	result := make([]lyricsstaging.RenditionTranslation, len(input.Renditions))
 	hasLocalization := preserveRows
-	totalBytes := 0
+	totalBytes := peerBytes
 	for index := range input.Renditions {
 		rendition := input.Renditions[index]
 		currentRendition := current.Renditions[index]
@@ -826,9 +1143,12 @@ func lyricsRenditionEditorTranslations(input, current LyricsRenditionDocument, p
 				return nil, &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"translationCredits must not be empty"}}
 			}
 		}
-		if len(item.TranslationCredit) > maxLyricsMetadataBytes || len(item.ProofreadingCredit) > maxLyricsMetadataBytes ||
-			!utf8.ValidString(item.TranslationCredit) || !utf8.ValidString(item.ProofreadingCredit) {
-			return nil, &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"rendition credits exceed safe limits"}}
+		if !utf8.ValidString(item.TranslationCredit) || !utf8.ValidString(item.ProofreadingCredit) ||
+			validateRequestedLocalization && (item.TranslationCredit != strings.TrimSpace(item.TranslationCredit) ||
+				item.ProofreadingCredit != strings.TrimSpace(item.ProofreadingCredit) ||
+				len(item.TranslationCredit) > maxLyricsRenditionCreditBytes ||
+				len(item.ProofreadingCredit) > maxLyricsRenditionCreditBytes) {
+			return nil, &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"rendition credits must be trim-stable and within the 2048-byte public limit"}}
 		}
 		totalBytes += len(item.TranslationCredit) + len(item.ProofreadingCredit)
 		var target, currentTarget *PublicLyricsV3Side
@@ -854,28 +1174,24 @@ func lyricsRenditionEditorTranslations(input, current LyricsRenditionDocument, p
 		if item.TranslationCredit != "" || item.ProofreadingCredit != "" {
 			hasLocalization = true
 		}
-		if rendition.Full != nil && rendition.Game != nil {
-			if rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
-				fullByID := make(map[string]string, len(rendition.Full.Lines))
-				for _, line := range rendition.Full.Lines {
-					fullByID[line.ID] = line.Chinese
+		if rendition.Full != nil && rendition.Game != nil && rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
+			fullByID := make(map[string]string, len(rendition.Full.Lines))
+			for _, line := range rendition.Full.Lines {
+				fullByID[line.ID] = line.Chinese
+			}
+			if len(rendition.Relation.LineIDs) != len(rendition.Game.Lines) {
+				return nil, &LyricsRenditionContractError{Code: "invalid_game_projection", Details: []string{"exact projection line count changed"}}
+			}
+			for lineIndex, lineID := range rendition.Relation.LineIDs {
+				translation, found := fullByID[lineID]
+				if !found || rendition.Game.Lines[lineIndex].Chinese != translation {
+					return nil, &LyricsRenditionContractError{Code: "invalid_game_projection", Details: []string{"exact projection Game translation must follow its Full line IDs"}}
 				}
-				if len(rendition.Relation.LineIDs) != len(rendition.Game.Lines) {
-					return nil, &LyricsRenditionContractError{Code: "invalid_game_projection", Details: []string{"exact projection line count changed"}}
-				}
-				for lineIndex, lineID := range rendition.Relation.LineIDs {
-					translation, found := fullByID[lineID]
-					if !found || rendition.Game.Lines[lineIndex].Chinese != translation {
-						return nil, &LyricsRenditionContractError{Code: "invalid_game_projection", Details: []string{"exact projection Game translation must follow its Full line IDs"}}
-					}
-				}
-			} else if currentRendition.Game == nil || !samePublicV3ChineseLines(rendition.Game.Lines, currentRendition.Game.Lines) {
-				return nil, &LyricsRenditionContractError{Code: "source_drift", Details: []string{"independent Game translation is not persisted by the current rendition localization schema"}}
 			}
 		}
 		result[index] = item
 	}
-	if totalBytes > maxLyricsDocumentBytes {
+	if validateRequestedLocalization && totalBytes > maxLyricsDocumentBytes {
 		return nil, &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"rendition localizations exceed the safe document size"}}
 	}
 	if !hasLocalization {
@@ -884,14 +1200,30 @@ func lyricsRenditionEditorTranslations(input, current LyricsRenditionDocument, p
 	return result, nil
 }
 
-func samePublicV3ChineseLines(left, right []PublicLyricsV3Line) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index].Chinese != right[index].Chinese {
-			return false
+func lyricsRenditionEditorSideTranslations(input LyricsRenditionDocument) (map[string]map[string][]string, int, error) {
+	result := map[string]map[string][]string{}
+	totalBytes := 0
+	for _, rendition := range input.Renditions {
+		if rendition.Full == nil || rendition.Game == nil || rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
+			continue
+		}
+		lines := make([]string, len(rendition.Game.Lines))
+		hasTranslation := false
+		for index, line := range rendition.Game.Lines {
+			if len(line.Chinese) > maxLyricsLineTextBytes || !utf8.ValidString(line.Chinese) {
+				return nil, 0, &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"rendition Game translation exceeds the safe per-line limit"}}
+			}
+			lines[index] = line.Chinese
+			totalBytes += len(line.Chinese)
+			hasTranslation = hasTranslation || line.Chinese != ""
+		}
+		if hasTranslation {
+			result[rendition.Key] = map[string][]string{"game": lines}
 		}
 	}
-	return true
+	return result, totalBytes, nil
+}
+
+func equalLyricsRenditionSideTranslations(left, right map[string]map[string][]string) bool {
+	return reflect.DeepEqual(left, right)
 }

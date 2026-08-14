@@ -2,6 +2,7 @@ package lyricsstaging
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -81,6 +82,148 @@ func TestManifestV3SupportsMultipleProviderArtifactsAndComponentContributions(t 
 	if err := ValidateDraft(draft); err != nil {
 		t.Fatalf("multi-provider draft: %v", err)
 	}
+}
+
+func TestRecoveryPeerDraftAcceptsIndependentGamePeerTranslationsAndRejectsExactProjection(t *testing.T) {
+	document, artifacts := recoveryPeerTranslationFixture(t, model.LyricsSourceRenditionRelationNone)
+	translations := []RenditionTranslation{{
+		RenditionKey: document.Renditions[0].RenditionKey,
+		Translations: []string{"主译文"},
+		PeerTranslations: []RenditionPeerTranslation{{
+			Side: "game", Locale: "zh-CN", Translations: []string{"游戏译文"},
+		}},
+	}}
+	draft, err := BuildRecoveryPeerDraft(
+		42, "多版本试验曲", strings.Repeat("a", 64), 42, []int{}, document, artifacts, translations,
+	)
+	if err != nil {
+		t.Fatalf("independent Game peer translations: %v", err)
+	}
+	translations[0].PeerTranslations[0].Translations[0] = "mutated"
+	if got := draft.RenditionTranslations[0].PeerTranslations[0].Translations[0]; got != "游戏译文" {
+		t.Fatalf("peer translation clone=%q", got)
+	}
+	if err := ValidateDraft(draft); err != nil {
+		t.Fatalf("validate independent Game peer draft: %v", err)
+	}
+
+	exactDocument, exactArtifacts := recoveryPeerTranslationFixture(t, model.LyricsSourceRenditionRelationExactProjection)
+	if _, err := BuildRecoveryPeerDraft(
+		42, "多版本试验曲", strings.Repeat("a", 64), 42, []int{}, exactDocument, exactArtifacts,
+		[]RenditionTranslation{{
+			RenditionKey: exactDocument.Renditions[0].RenditionKey,
+			Translations: []string{"主译文"},
+			PeerTranslations: []RenditionPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"禁止的派生译文"},
+			}},
+		}},
+	); err == nil || !strings.Contains(err.Error(), "no independently persisted game peer side") {
+		t.Fatalf("exact projection peer translation error=%v", err)
+	}
+}
+
+func TestRecoveryPeerDraftRejectsPrimaryAndPeerTranslationsOverDocumentBoundary(t *testing.T) {
+	document, artifacts := recoveryPeerTranslationFixture(t, model.LyricsSourceRenditionRelationNone)
+	rendition := &document.Renditions[0]
+	fullTemplate := rendition.Full.Lines[0]
+	gameTemplate := rendition.Game.Lines[0]
+	rendition.Full.Lines = make([]model.LyricsSourceFullLine, 128)
+	rendition.Game.Lines = make([]model.LyricsSourceFullLine, 128)
+	translations := make([]string, 128)
+	peerTranslations := make([]string, 128)
+	chunk := strings.Repeat("x", 16<<10)
+	for index := 0; index < 128; index++ {
+		rendition.Full.Lines[index] = fullTemplate
+		rendition.Full.Lines[index].ID = fmt.Sprintf("full-%06d", index+1)
+		rendition.Game.Lines[index] = gameTemplate
+		rendition.Game.Lines[index].ID = fmt.Sprintf("game-%06d", index+1)
+		translations[index] = chunk
+		peerTranslations[index] = chunk
+	}
+	if err := model.ValidateLyricsSourceDocument(document); err != nil {
+		t.Fatalf("expanded staging document: %v", err)
+	}
+	_, err := BuildRecoveryPeerDraft(
+		42, "多版本试验曲", strings.Repeat("a", 64), 42, []int{}, document, artifacts,
+		[]RenditionTranslation{{
+			RenditionKey: document.Renditions[0].RenditionKey,
+			Translations: translations, TranslationCredit: "x",
+			PeerTranslations: []RenditionPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: peerTranslations,
+			}},
+		}},
+	)
+	if err == nil || !strings.Contains(err.Error(), "safe document boundary") {
+		t.Fatalf("aggregate staging boundary error=%v", err)
+	}
+}
+
+func recoveryPeerTranslationFixture(
+	t *testing.T,
+	relationKind model.LyricsSourceRenditionRelationKind,
+) (model.LyricsSourceDocument, []Artifact) {
+	t.Helper()
+	identity := model.LyricsSourceFixedIdentity{
+		Provider: model.LyricsSourceProviderSekaipedia, Origin: model.LyricsSourceOriginSekaipedia,
+		PageID: 42, RevisionID: 420, RevisionTimestamp: "2026-08-14T00:00:00Z",
+		SHA1: strings.Repeat("b", 40), Title: "多版本试验曲",
+		CanonicalURL: "https://www.sekaipedia.org/wiki/Test?oldid=420",
+		FetchedAt:    "2026-08-14T00:01:00Z", Categories: []string{}, Section: "Lyrics",
+		RenditionKey: "fixture-source", CompositionRenditionKey: "sekai",
+		VersionReason: model.LyricsSourceVersionReasonTaggedFullAndGame,
+		IndexEvidenceRefs: []model.LyricsSourceIndexEvidenceRef{{
+			EvidenceID: "revision:sekaipedia:42:420:" + strings.Repeat("c", 64),
+			SHA256:     strings.Repeat("d", 64),
+		}},
+	}
+	full := model.LyricsSourceFull{
+		Version:    model.LyricsSourceVersion{Kind: "sekai", Label: "Full Version"},
+		Performers: []model.LyricsSourcePerformer{}, RubyGeneratorVersion: "sekaipedia-ruby-kana-v2",
+		Lines: []model.LyricsSourceFullLine{{
+			ID: "full-000001", Text: "主歌词", Segments: []model.LyricsSourceSegment{{
+				Text: "主歌词", PerformerIDs: []string{}, Ruby: []model.LyricsSourceRubySpan{{Text: "主歌词"}},
+			}}, TrailingPerformerIDs: []string{},
+		}},
+	}
+	game := full
+	game.Version.Label = "Game Version"
+	game.Lines = []model.LyricsSourceFullLine{{
+		ID: "game-000001", Text: "游戏歌词", Segments: []model.LyricsSourceSegment{{
+			Text: "游戏歌词", PerformerIDs: []string{}, Ruby: []model.LyricsSourceRubySpan{{Text: "游戏歌词"}},
+		}}, TrailingPerformerIDs: []string{},
+	}}
+	ref := model.LyricsSourceComponentRef{RenditionKey: identity.RenditionKey}
+	relation := model.LyricsSourceRenditionRelation{Kind: relationKind}
+	if relationKind == model.LyricsSourceRenditionRelationExactProjection {
+		game = *model.CloneLyricsSourceFull(&full)
+		game.Version.Label = "Game Version"
+		game.Lines[0].ID = "game-000001"
+		relation.FullRenditionKey = "sekai"
+		relation.LineIDs = []string{"full-000001"}
+	}
+	document := model.LyricsSourceDocument{
+		SchemaVersion:   model.LyricsSourceDocumentSchemaVersionV3,
+		FixedIdentities: []model.LyricsSourceFixedIdentity{identity},
+		Renditions: []model.LyricsSourceRendition{{
+			RenditionKey: "sekai", SourceKind: model.LyricsSourceRenditionSekai,
+			SourceTabPaths:        []model.LyricsSourceTabPath{{"Full Version"}, {"Game Version"}},
+			ReasonCode:            model.LyricsSourceVersionReasonTaggedFullAndGame,
+			FullPerformerEvidence: model.LyricsSourcePerformerEvidenceNone,
+			GamePerformerEvidence: model.LyricsSourcePerformerEvidenceNone,
+			Full:                  &full, Game: &game, Relation: relation,
+			Provenance: model.LyricsSourceRenditionProvenance{
+				FullText: &ref, GameText: &ref, RelationEvidence: ref, VersionEvidence: ref,
+			},
+		}},
+	}
+	if err := model.ValidateLyricsSourceDocument(document); err != nil {
+		t.Fatalf("peer translation source fixture: %v", err)
+	}
+	artifact, err := NewRecoveryArtifact(identity, []byte("固定日文证据"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return document, []Artifact{artifact}
 }
 
 func TestManifestV3PreservesSubsecondFullTextFetchedAt(t *testing.T) {

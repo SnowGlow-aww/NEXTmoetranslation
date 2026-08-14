@@ -449,6 +449,8 @@ func preflightTranslationContentJSONContext(ctx context.Context, path string, bo
 			counts["segments"] + counts["publications"] + counts["sourceDocuments"] + counts["sourceArtifacts"] +
 			counts["sourceIndexEvidence"] + counts["sourceArtifactEvidence"] + counts["sourceContributions"] +
 			counts["renditionLocalizations"] + counts["renditionTranslationLines"] +
+			counts["translationEditionStates"] + counts["translationEditions"] +
+			counts["translationEditionLocalizations"] + counts["translationEditionLines"] +
 			counts["recoveryBatches"] + counts["recoveryItems"] + counts["recoverySourceEvidence"] +
 			counts["recoveryArtifacts"] + counts["recoveryArtifactEvidence"] + counts["recoveryContributions"] +
 			counts["availabilityDocuments"], 0, total, nil
@@ -617,6 +619,8 @@ func lyricsContentCount(content store.LyricsContentExport) int {
 		len(content.SourceDocuments) + len(content.SourceArtifacts) + len(content.SourceIndexEvidence) +
 		len(content.SourceArtifactEvidence) + len(content.SourceContributions) +
 		len(content.RenditionLocalizations) + len(content.RenditionTranslationLines) +
+		len(content.TranslationEditionStates) + len(content.TranslationEditions) +
+		len(content.TranslationEditionLocalizations) + len(content.TranslationEditionLines) +
 		len(content.RecoveryBatches) + len(content.RecoveryItems) + len(content.RecoverySourceEvidence) +
 		len(content.RecoveryArtifacts) + len(content.RecoveryArtifactEvidence) +
 		len(content.RecoveryContributions) + len(content.AvailabilityDocuments)

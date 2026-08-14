@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -97,16 +98,39 @@ func (s *Server) handleLyricsDetail(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		writeContractError(w, http.StatusBadRequest, "invalid_query", []string{"query parameters are malformed"}, nil)
+		return
+	}
 	musicID, ok := positiveIntQuery(w, r, "musicId")
 	if !ok {
 		return
 	}
-	result, err := s.store.GetLyricsDocument(musicID)
-	if err == store.ErrLyricsNotFound {
+	editionValues, explicitEdition := query["translationEditionKey"]
+	if explicitEdition && len(editionValues) != 1 {
+		writeContractError(w, http.StatusBadRequest, "invalid_query", []string{"translationEditionKey must be provided once"}, nil)
+		return
+	}
+	editionKey := ""
+	if explicitEdition {
+		editionKey = editionValues[0]
+	}
+	result, err := s.store.GetLyricsDocumentWithEdition(musicID, editionKey, explicitEdition)
+	if errors.Is(err, store.ErrLyricsNotFound) {
 		writeContractError(w, http.StatusNotFound, "not_found", nil, nil)
 		return
 	}
+	if errors.Is(err, store.ErrLyricsTranslationEditionNotFound) {
+		writeContractError(w, http.StatusNotFound, "translation_edition_not_found", nil, nil)
+		return
+	}
 	if err != nil {
+		var contractErr *store.LyricsRenditionContractError
+		if errors.As(err, &contractErr) {
+			writeContractError(w, http.StatusBadRequest, contractErr.Code, contractErr.Details, nil)
+			return
+		}
 		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
 	}
@@ -135,13 +159,13 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 		if !decodeJSONBody(w, data, &request) {
 			return
 		}
-		result, changed, err := s.store.SaveLyricsRenditionMutation(request.LyricsRenditionDocument, currentUser(r))
+		result, changed, targets, err := s.store.SaveLyricsRenditionMutationWithTargets(request.LyricsRenditionDocument, currentUser(r))
 		if err != nil {
 			writeLyricsError(w, err)
 			return
 		}
 		if changed {
-			s.broadcastLyricsDocumentUpdated(result.MusicID, result.Revision, request.ClientID)
+			s.broadcastLyricsRenditionUpdated(result, targets, request.ClientID, currentUser(r))
 		}
 		writeJSON(w, http.StatusOK, result)
 		return
@@ -251,8 +275,31 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if changed {
-		s.broadcastLyricsUpdated(result, request.ClientID)
+		s.broadcastLyricsUpdated(result, request.ClientID, currentUser(r))
 	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleLyricsTranslationEditions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var request struct {
+		store.LyricsTranslationEditionMutation
+		ClientID string `json:"clientId"`
+	}
+	if !decodeBody(w, r, &request) {
+		return
+	}
+	result, err := s.store.MutateLyricsTranslationEdition(request.LyricsTranslationEditionMutation, currentUser(r))
+	if err != nil {
+		writeLyricsError(w, err)
+		return
+	}
+	// Edition metadata and the revision/default mirror are song-level state.
+	// Every open edition must reconcile instead of only the returned edition.
+	s.broadcastLyricsDocumentUpdated(result.MusicID, result.Revision, request.ClientID, currentUser(r))
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -359,19 +406,34 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if changed {
-		s.broadcastLyricsUpdated(result, request.ClientID)
+		s.broadcastLyricsUpdated(result, request.ClientID, currentUser(r))
 	}
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (s *Server) broadcastLyricsUpdated(lyrics model.SongLyrics, clientID string) {
-	s.broadcastLyricsDocumentUpdated(lyrics.MusicID, lyrics.Revision, clientID)
+func (s *Server) broadcastLyricsUpdated(lyrics model.SongLyrics, clientID, user string) {
+	s.broadcastLyricsDocumentUpdated(lyrics.MusicID, lyrics.Revision, clientID, user)
 }
 
-func (s *Server) broadcastLyricsDocumentUpdated(musicID, revision int, clientID string) {
+func (s *Server) broadcastLyricsDocumentUpdated(musicID, revision int, clientID, user string) {
 	s.broadcast(sse.EventLyricsUpdated, map[string]any{
-		"musicId": musicID, "revision": revision, "clientId": clientID,
+		"musicId": musicID, "revision": revision, "clientId": clientID, "user": user,
 	})
+}
+
+func (s *Server) broadcastLyricsRenditionUpdated(saved store.LyricsRenditionDocument, targets []store.LyricsRenditionMutationTarget, clientID, user string) {
+	payload := map[string]any{
+		"musicId": saved.MusicID, "revision": saved.Revision, "clientId": clientID, "user": user,
+	}
+	if saved.TranslationEditionKey != "" {
+		payload["editionKey"] = saved.TranslationEditionKey
+	}
+	if len(targets) == 1 {
+		payload["renditionKey"] = targets[0].RenditionKey
+		payload["side"] = targets[0].Side
+		payload["locale"] = targets[0].Locale
+	}
+	s.broadcast(sse.EventLyricsUpdated, payload)
 }
 
 func (s *Server) handleLyricsSourceSearch(w http.ResponseWriter, r *http.Request) {

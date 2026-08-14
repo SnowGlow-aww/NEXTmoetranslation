@@ -47,6 +47,26 @@ func TestV3OneRenditionVocaloidRebindsFixedIdentity(t *testing.T) {
 	}
 }
 
+func TestRenditionTranslationsFromResultPreservesIndependentGamePeer(t *testing.T) {
+	result := lyricsrecovery.SongResult{Renditions: []lyricsrecovery.SongResultRendition{{
+		RenditionKey: "sekai", Translations: []string{"主译文"},
+		PeerTranslations: []lyricsrecovery.SongResultPeerTranslation{{
+			Side: "game", Locale: "zh-CN", Translations: []string{"游戏译文"},
+		}},
+	}}}
+	got := renditionTranslationsFromResult(result)
+	if len(got) != 1 || got[0].RenditionKey != "sekai" ||
+		!reflect.DeepEqual(got[0].Translations, []string{"主译文"}) || len(got[0].PeerTranslations) != 1 ||
+		got[0].PeerTranslations[0].Side != "game" || got[0].PeerTranslations[0].Locale != "zh-CN" ||
+		!reflect.DeepEqual(got[0].PeerTranslations[0].Translations, []string{"游戏译文"}) {
+		t.Fatalf("mapped peer translations=%+v", got)
+	}
+	result.Renditions[0].PeerTranslations[0].Translations[0] = "mutated"
+	if got[0].PeerTranslations[0].Translations[0] != "游戏译文" {
+		t.Fatal("mapped peer translations alias the recovery result")
+	}
+}
+
 func TestMatchesV3SelectedAcquisitionBindsAcquisitionID(t *testing.T) {
 	selected := lyricsevidencepack.EvidenceRef{
 		Provider: model.LyricsSourceProviderSekaipedia, AcquisitionID: strings.Repeat("a", 64),
@@ -93,6 +113,11 @@ func TestExactPublicV3RenditionRejectsFlattenedOrAmbiguousResults(t *testing.T) 
 		},
 		"wrong family": func(result *lyricsrecovery.SongResult) {
 			result.Renditions[0].RenditionKey = "sekai"
+		},
+		"peer translation": func(result *lyricsrecovery.SongResult) {
+			result.Renditions[0].PeerTranslations = []lyricsrecovery.SongResultPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"forbidden"},
+			}}
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

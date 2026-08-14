@@ -17,17 +17,28 @@ import {
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
 } from "@/lib/api";
 import {
-  CATEGORY_LABELS, FIELD_LABELS, SOURCE_LABELS, SOURCE_ORDER,
+  CATEGORY_LABELS, FIELD_LABELS, SOURCE_LABELS,
   EVENT_STORY_TITLE_MARKER, buildEventStoryEntries, eventStoryEntryLabel, parseEventStoryEntryKey,
   buildMoesekaiUrl,
 } from "@/lib/labels";
-import { useWebSocket } from "@/lib/ws";
+import {
+  lyricsUpdateMatchesEditorTarget, lyricsUpdateTargetLabel, normalizeLyricsUpdateEvent,
+} from "@/lib/lyrics-collaboration.mjs";
+import { useSSE } from "@/lib/sse";
 
 interface Progress { label: string; current: number; total: number }
+type ReconciliationReason = "restore" | "gap" | "remote";
 interface ContentConflict {
-  reason: "restore" | "gap";
+  reason: ReconciliationReason;
   draft: string | null;
   reloadFailed: boolean;
+  detail?: string;
+}
+
+interface PendingAction {
+  token: number;
+  contextGeneration: number;
+  action: () => void;
 }
 
 const EVENT_TXT_DRAFT_STORAGE_PREFIX = "moesekai-event-txt-draft-v1";
@@ -156,7 +167,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [locale, setLocale] = useState<Locale>("zh-CN");
   const [lyricsDirty, setLyricsDirty] = useState(false);
   const [pendingActionLabel, setPendingActionLabel] = useState("");
-  const pendingActionRef = useRef<(() => void) | null>(null);
+  const [pendingActionBusy, setPendingActionBusy] = useState(false);
+  const pendingActionBusyRef = useRef(false);
+  const pendingActionTokenRef = useRef(0);
+  const pendingActionRef = useRef<PendingAction | null>(null);
   const lyricsEditorRef = useRef<LyricsEditorHandle>(null);
   const lyricsSourceReviewRef = useRef<LyricsSourceReviewHandle>(null);
 
@@ -167,11 +181,18 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [entries, setEntries] = useState<TranslationEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [sortMode, setSortMode] = useState<"kana" | "id-desc" | "time-desc">("kana");
+  const [eventNameQuery, setEventNameQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [eventTxtDraft, setEventTxtDraft] = useState<EventStoryTxtDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
+  const [realtimeState, setRealtimeState] = useState<"connecting" | "connected" | "reconnecting" | "offline">("connecting");
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [remoteHighlights, setRemoteHighlights] = useState<Record<string, { user: string; until: number }>>({});
+  const [remoteConflict, setRemoteConflict] = useState<{ key: string; user: string } | null>(null);
+  const remoteHighlightTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const editRef = useRef<HTMLTextAreaElement>(null);
   const translationWorkspaceRef = useRef<HTMLDivElement>(null);
   const translationEntryListRef = useRef<HTMLDivElement>(null);
@@ -181,18 +202,19 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [restoreGeneration, setRestoreGeneration] = useState(0);
   const [writesLocked, setWritesLocked] = useState(true);
   const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [initialHTMLTag, setInitialHTMLTag] = useState("");
   const writeFenceRef = useRef(true);
   const reconciliationGenerationRef = useRef(0);
   const contentEventGenerationRef = useRef(0);
   const sseConnectedRef = useRef(false);
   const preservedConflictDraftRef = useRef<string | null>(null);
-  const reconcileContentRef = useRef<(reason: "restore" | "gap", draft?: string | null) => Promise<boolean>>(async () => false);
+  const reconcileContentRef = useRef<(reason: ReconciliationReason, draft?: string | null, detail?: string) => Promise<boolean>>(async () => false);
+  const reconcileRetryRef = useRef<{ reason: ReconciliationReason; draft: string | null; detail?: string; attempt: number } | null>(null);
+  const reconcileRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [translationTopHeight, setTranslationTopHeight] = useState(420);
-  const [isTranslationResizing, setIsTranslationResizing] = useState(false);
-  const translationResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const [enterSaves, setEnterSaves] = usePref("ui.saveShortcut", false);
   const hiddenBadges = useHiddenBadges();
 
@@ -254,12 +276,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       }
       const data = await getEntries(category, field, undefined, locale);
       if (loadGenerationRef.current !== generation) return true;
-      data.sort((a, b) => {
-        const d = (SOURCE_ORDER[a.source] ?? 5) - (SOURCE_ORDER[b.source] ?? 5);
-        return d !== 0 ? d : a.key.localeCompare(b.key, undefined, { numeric: true });
-      });
       setEntries(data);
-      if (data.length) { setSelectedKey(data[0].key); setEditValue(data[0].text); }
+      const first = [...data].sort((a, b) => {
+        const kana = a.key.localeCompare(b.key, "ja", { usage: "sort", sensitivity: "base" });
+        return kana !== 0 ? kana : a.key.localeCompare(b.key, undefined, { numeric: true });
+      })[0];
+      if (first) { setSelectedKey(first.key); setEditValue(first.text); }
       return true;
     } catch (e) {
       if (loadGenerationRef.current === generation) show(e instanceof Error ? e.message : "加载失败", "err");
@@ -272,15 +294,42 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   useEffect(() => { void loadEntries(); }, [loadEntries]);
 
   // ---- Derived ----
+  const sortedEntries = useMemo(() => {
+    const next = [...entries];
+    next.sort((a, b) => {
+      if (sortMode === "time-desc") {
+        const time = (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+        if (time !== 0) return time;
+      } else if (sortMode === "id-desc") {
+        const aID = Number(a.ids?.[0] ?? Number.NaN);
+        const bID = Number(b.ids?.[0] ?? Number.NaN);
+        if (Number.isFinite(aID) && Number.isFinite(bID) && aID !== bID) return bID - aID;
+        if (Number.isFinite(aID) !== Number.isFinite(bID)) return Number.isFinite(bID) ? 1 : -1;
+      }
+      const kana = a.key.localeCompare(b.key, "ja", { usage: "sort", sensitivity: "base" });
+      return kana !== 0 ? kana : a.key.localeCompare(b.key, undefined, { numeric: true });
+    });
+    return next;
+  }, [entries, sortMode]);
+
+  const filteredEventStories = useMemo(() => {
+    const q = eventNameQuery.trim().toLowerCase();
+    if (!q) return eventStories;
+    return eventStories.filter((story) =>
+      `${story.eventName || ""}\n${story.eventNameJapanese || ""}\n${story.eventId}`.toLowerCase().includes(q),
+    );
+  }, [eventNameQuery, eventStories]);
+
   const filtered = useMemo(() => {
-    if (!query) return entries;
-    const q = query.toLowerCase();
-    return entries.filter((e) =>
+    const q = query.trim().toLowerCase();
+    const source = isEventStory ? entries : sortedEntries;
+    if (!q) return source;
+    return source.filter((e) =>
       isEventStory
         ? `${e.japanese || eventStoryEntryLabel(e.key)}\n${e.text}`.toLowerCase().includes(q)
         : e.key.toLowerCase().includes(q) || e.text.toLowerCase().includes(q),
     );
-  }, [entries, query, isEventStory]);
+  }, [entries, isEventStory, query, sortedEntries]);
 
   const selectedIndex = useMemo(
     () => (selectedKey ? filtered.findIndex((e) => e.key === selectedKey) : -1),
@@ -290,6 +339,9 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const entryDirty = selectedEntry != null && editValue !== selectedEntry.text;
   const eventTxtDraftDirty = isEventStory && (eventTxtDraft?.translations.length ?? 0) > 0;
   const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty || eventTxtDraftDirty;
+  const currentHasUnsavedChanges = () => isLyrics
+    ? lyricsEditorRef.current?.isDirty() ?? lyricsDirty
+    : entryDirty || eventTxtDraftDirty;
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -306,10 +358,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     setWritesLocked(locked);
   };
 
+  const invalidatePendingAction = () => {
+    pendingActionTokenRef.current++;
+    pendingActionRef.current = null;
+    pendingActionBusyRef.current = false;
+    setPendingActionBusy(false);
+    setPendingActionLabel("");
+  };
+
   const captureUnsavedDraft = (): string | null => {
-    if (!hasUnsavedChanges) return null;
+    const lyricsSnapshot = isLyrics ? lyricsEditorRef.current?.snapshot() ?? null : null;
+    const dirtyNow = isLyrics ? lyricsSnapshot?.dirty ?? lyricsDirty : entryDirty || eventTxtDraftDirty;
+    if (!dirtyNow) return null;
     const payload = isLyrics
-      ? { kind: "lyrics", document: lyricsEditorRef.current?.exportDraft() ?? null }
+      ? { kind: "lyrics", editionKey: lyricsSnapshot?.editionKey || "", document: lyricsSnapshot?.document ?? null }
       : {
           kind: "translation", category, field, locale, key: selectedKey,
           staleText: editValue, previouslyLoadedText: selectedEntry?.text ?? "",
@@ -318,34 +380,58 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     return JSON.stringify({ exportedAt: new Date().toISOString(), ...payload }, null, 2);
   };
 
-  const reconcileContent = async (reason: "restore" | "gap", preservedDraft?: string | null): Promise<boolean> => {
+  const reconcileContent = async (
+    reason: ReconciliationReason,
+    preservedDraft?: string | null,
+    detail?: string,
+  ): Promise<boolean> => {
     const reconciliation = ++reconciliationGenerationRef.current;
+    if (reconcileRetryTimerRef.current) {
+      clearTimeout(reconcileRetryTimerRef.current);
+      reconcileRetryTimerRef.current = null;
+    }
     const contentEventGeneration = contentEventGenerationRef.current;
     setWriteFence(true);
     clearLoadedProducerState();
-    pendingActionRef.current = null;
-    setPendingActionLabel("");
+    invalidatePendingAction();
     const draft = preservedDraft === undefined
       ? (contentConflict?.draft ?? preservedConflictDraftRef.current ?? captureUnsavedDraft())
       : preservedDraft;
+    const conflictDetail = detail ?? contentConflict?.detail;
     if (draft) preservedConflictDraftRef.current = draft;
     contextGenerationRef.current++;
+    const failReconcile = (message: string) => {
+      if (draft) {
+        setContentConflict({ reason, draft, reloadFailed: true, ...(conflictDetail ? { detail: conflictDetail } : {}) });
+        show(message, "err");
+      }
+    };
+    const retryReconcileLater = () => {
+      const previous = reconcileRetryRef.current;
+      const attempt = previous?.reason === reason && previous.draft === draft && previous.detail === conflictDetail ? previous.attempt + 1 : 0;
+      const delay = Math.min(15_000, 1_000 * (2 ** Math.min(attempt, 4)));
+      reconcileRetryRef.current = { reason, draft, ...(conflictDetail ? { detail: conflictDetail } : {}), attempt };
+      reconcileRetryTimerRef.current = setTimeout(() => {
+        reconcileRetryTimerRef.current = null;
+        if (sseConnectedRef.current) void reconcileContent(reason, draft, conflictDetail);
+      }, delay);
+    };
     if (!sseConnectedRef.current) {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("实时连接尚未恢复，写入仍已锁定", "err");
+      failReconcile("实时连接尚未恢复，写入仍已锁定");
+      retryReconcileLater();
       return false;
     }
     let producerBefore: EditorGateStatus;
     try {
       producerBefore = await getEditorGateStatus();
     } catch {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("无法读取内容代次，写入仍已锁定", "err");
+      failReconcile("实时校对暂时无法读取服务器状态，正在自动重试");
+      retryReconcileLater();
       return false;
     }
     if (producerBefore.running) {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("服务器内容任务仍在运行，写入仍已锁定", "err");
+      failReconcile("服务器内容任务仍在运行，写入仍已锁定");
+      retryReconcileLater();
       return false;
     }
     const lyricsReload = isLyrics
@@ -359,47 +445,48 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     ]);
     if (reconciliationGenerationRef.current !== reconciliation) return false;
     if (contentEventGenerationRef.current !== contentEventGeneration) {
-      return reconcileContent(reason, draft);
+      return reconcileContent(reason, draft, conflictDetail);
     }
     if (!sidebarLoaded || !entriesLoaded || !lyricsLoaded || !reviewLoaded) {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("无法完成权威数据校对，写入仍已锁定", "err");
+      failReconcile("权威数据暂时未完整载入，正在自动重试");
+      retryReconcileLater();
       return false;
     }
     let producerAfter: EditorGateStatus;
     try {
       producerAfter = await getEditorGateStatus();
     } catch {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("无法确认内容代次，写入仍已锁定", "err");
+      failReconcile("实时校对暂时无法确认服务器状态，正在自动重试");
+      retryReconcileLater();
       return false;
     }
     if (reconciliationGenerationRef.current !== reconciliation) return false;
     if (contentEventGenerationRef.current !== contentEventGeneration) {
-      return reconcileContent(reason, draft);
+      return reconcileContent(reason, draft, conflictDetail);
     }
     if (producerAfter.running) {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("校对期间服务器内容任务已启动，写入仍已锁定", "err");
+      failReconcile("校对期间服务器内容任务已启动，写入仍已锁定");
+      retryReconcileLater();
       return false;
     }
     if (producerBefore.instanceId !== producerAfter.instanceId ||
         producerBefore.revision !== producerAfter.revision ||
         producerBefore.completedGeneration !== producerAfter.completedGeneration) {
-      return reconcileContent(reason, draft);
+      return reconcileContent(reason, draft, conflictDetail);
     }
     if (!sseConnectedRef.current) {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("校对期间实时连接已断开，写入仍已锁定", "err");
+      failReconcile("校对期间实时连接已断开，写入仍已锁定");
+      retryReconcileLater();
       return false;
     }
     if (!acceptLoadedProducerState(producerAfter)) {
-      setContentConflict({ reason, draft, reloadFailed: true });
-      show("内容代次无效，写入仍已锁定", "err");
+      failReconcile("内容代次无效，写入仍已锁定");
+      retryReconcileLater();
       return false;
     }
+    reconcileRetryRef.current = null;
     if (draft) {
-      setContentConflict({ reason, draft, reloadFailed: false });
+      setContentConflict({ reason, draft, reloadFailed: false, ...(conflictDetail ? { detail: conflictDetail } : {}) });
       return true;
     }
     preservedConflictDraftRef.current = null;
@@ -423,7 +510,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     setEventTxtDraft(null);
     preservedConflictDraftRef.current = null;
     setContentConflict({ ...conflict, draft: null, reloadFailed: true });
-    void reconcileContent(conflict.reason, null);
+    void reconcileContent(conflict.reason, null, conflict.detail);
   };
 
   const exportConflictDraft = (conflict: ContentConflict) => {
@@ -438,11 +525,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   };
 
   const runOrGuard = (label: string, action: () => void) => {
-    if (!hasUnsavedChanges) {
+    if (pendingActionBusyRef.current) return;
+    if (!currentHasUnsavedChanges()) {
       action();
       return;
     }
-    pendingActionRef.current = action;
+    const token = ++pendingActionTokenRef.current;
+    pendingActionRef.current = { token, contextGeneration: contextGenerationRef.current, action };
     setPendingActionLabel(label);
   };
 
@@ -452,19 +541,56 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       return;
     }
     runOrGuard(label, () => {
+      if (writeFenceRef.current) {
+        show("保存等待期间实时校对已锁定，上游操作未执行", "err");
+        return;
+      }
       setWriteFence(true);
       clearLoadedProducerState();
       void Promise.resolve().then(action).finally(() => reconcileContentRef.current("gap"));
     });
   };
 
-  // ---- Realtime WebSocket ----
-  useWebSocket((event, data) => {
+  const highlightRemoteRow = useCallback((key: string, user: string) => {
+    const currentTimer = remoteHighlightTimersRef.current[key];
+    if (currentTimer) clearTimeout(currentTimer);
+    setRemoteHighlights((prev) => ({ ...prev, [key]: { user, until: Date.now() + 10_000 } }));
+    remoteHighlightTimersRef.current[key] = setTimeout(() => {
+      setRemoteHighlights((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      delete remoteHighlightTimersRef.current[key];
+    }, 10_000);
+  }, []);
+
+  useEffect(() => () => {
+    Object.values(remoteHighlightTimersRef.current).forEach(clearTimeout);
+  }, []);
+
+  // ---- Realtime SSE ----
+  useSSE((event, data) => {
     const d = data as Record<string, unknown>;
     if (event === "entry.updated" || event === "entry.locale.updated" ||
         event === "eventstory.updated" || event === "eventstory.locale.updated" ||
         event === "lyrics.updated" || event === "content.restored") {
       contentEventGenerationRef.current++;
+    }
+    if (event === "presence.snapshot" || event === "presence.joined" || event === "presence.left") {
+      const users = Array.isArray(d.users)
+        ? d.users.map((value) => String(value)).filter(Boolean)
+        : [];
+      if (users.length > 0 || event === "presence.snapshot") {
+        setOnlineUsers(Array.from(new Set(users)).sort((a, b) => a.localeCompare(b)));
+      } else if (event === "presence.joined") {
+        const remoteUser = String(d.user || "");
+        if (remoteUser) setOnlineUsers((prev) => Array.from(new Set([...prev, remoteUser])).sort((a, b) => a.localeCompare(b)));
+      } else {
+        const remoteUser = String(d.user || "");
+        if (remoteUser) setOnlineUsers((prev) => prev.filter((candidate) => candidate !== remoteUser));
+      }
+      return;
     }
     if (event === "gate.status" && d && typeof d === "object") {
       sseConnectedRef.current = true;
@@ -482,14 +608,19 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (event === "sse.disconnected") {
       reconciliationGenerationRef.current++;
       sseConnectedRef.current = false;
+      setRealtimeState("reconnecting");
+      setOnlineUsers([]);
       clearLoadedProducerState();
       setWriteFence(true);
+      if (!contentConflict) void reconcileContentRef.current("gap");
     } else if (event === "sse.reconnected") {
       sseConnectedRef.current = true;
+      setRealtimeState("connected");
     } else if (event === "sse.missed-events") {
       sseConnectedRef.current = true;
+      setRealtimeState("connected");
       void reconcileContent("gap").then((reconciled) => {
-        if (reconciled) show("实时连接已恢复", "ok");
+        if (reconciled) show(d.initial === true ? "实时连接已建立" : "实时连接已恢复", "ok");
       });
     } else if (event === "sync.progress" || event === "translate.progress") {
       setProgress({ label: String(d.detail ?? ""), current: Number(d.current ?? 0), total: Number(d.total ?? 0) });
@@ -498,20 +629,45 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       const updateLocale = String(d.locale || "zh-CN");
       if (updateLocale === locale && d.category === category && d.field === field && d.clientId !== clientID) {
         const nextText = String(d.text);
-        if (d.key === selectedKey && selectedEntry && !entryDirty) setEditValue(nextText);
+        const remoteUser = String(d.user || "协作者");
+        highlightRemoteRow(String(d.key), remoteUser);
+        if (d.key === selectedKey && selectedEntry && entryDirty) {
+          setRemoteConflict({ key: String(d.key), user: remoteUser });
+        } else if (d.key === selectedKey) {
+          setEditValue(nextText);
+          setRemoteConflict(null);
+        }
         setEntries((prev) => prev.map((e) => (e.key === d.key ? { ...e, text: nextText, source: String(d.source) } : e)));
-        show(`${d.user} 修改了一条翻译`, "ok");
+        show(`${remoteUser} 修改了一条翻译`, "ok");
       }
     } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
       const updateLocale = String(d.locale || "zh-CN");
       if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.clientId !== clientID) {
+        const remoteUser = String(d.user || "协作者");
+        if (d.segmentId) highlightRemoteRow(String(d.segmentId), remoteUser);
         runOrGuard("同步协作者更新", loadEntries);
       }
     } else if (event === "lyrics.updated") {
-      const musicID = Number(d.musicId);
-      if (isLyrics && d.clientId !== clientID) {
-        if (lyricsEditorRef.current?.isEditing(musicID)) {
-          runOrGuard("同步协作者更新", () => setRestoreGeneration((value) => value + 1));
+      const update = normalizeLyricsUpdateEvent(d);
+      if (isLyrics && update && update.clientId !== clientID) {
+        const activeTarget = lyricsEditorRef.current?.activeTarget() ?? null;
+        if (activeTarget?.musicId === update.musicId) {
+          const targetMatches = lyricsUpdateMatchesEditorTarget(update, activeTarget);
+          const targetLabel = lyricsUpdateTargetLabel(update);
+          const remoteUser = String(d.user || "协作者");
+          const lyricsSnapshot = lyricsEditorRef.current?.snapshot() ?? null;
+          if (lyricsSnapshot?.dirty ?? lyricsDirty) {
+            const detail = targetMatches
+              ? `${remoteUser} 更新了你当前查看的${targetLabel ? ` ${targetLabel}` : "歌词目标"}；本地未保存草稿已冻结。`
+              : `${remoteUser} 更新了同一歌曲的${targetLabel ? ` ${targetLabel}` : "其他歌词目标"}；共享 revision 已变化，本地未保存草稿已冻结。`;
+            const draft = lyricsSnapshot?.document
+              ? JSON.stringify({ exportedAt: new Date().toISOString(), kind: "lyrics", editionKey: lyricsSnapshot.editionKey, document: lyricsSnapshot.document }, null, 2)
+              : captureUnsavedDraft();
+            void reconcileContent("remote", draft, detail);
+          } else {
+            setRestoreGeneration((value) => value + 1);
+            show(`${remoteUser} 更新了${targetLabel ? ` ${targetLabel}` : "当前歌曲歌词"}，正在载入服务器版本`, "ok");
+          }
         } else {
           lyricsEditorRef.current?.reloadCatalog();
         }
@@ -520,6 +676,47 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       void reconcileContent("restore");
     }
   }, true);
+
+  useEffect(() => {
+    if (realtimeState === "connecting") {
+      const timer = setTimeout(() => setRealtimeState("offline"), 5000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [realtimeState]);
+
+  useEffect(() => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const checkForUpdate = async () => {
+      try {
+        const probeURL = new URL(window.location.href);
+        probeURL.searchParams.set("__nexttrans_probe", String(Date.now()));
+        const response = await fetch(probeURL.toString(), {
+          cache: "no-store",
+          headers: { Accept: "text/html" },
+        });
+        if (!response.ok) return;
+        const etag = response.headers.get("ETag");
+        const current = initialHTMLTag || window.sessionStorage.getItem("nexttrans-html-etag");
+        if (etag && current && etag !== current) {
+          setUpdateAvailable(true);
+        } else if (etag && !current) {
+          window.sessionStorage.setItem("nexttrans-html-etag", etag);
+          setInitialHTMLTag(etag);
+        }
+      } catch {
+        // A temporary probe failure must not interrupt editing.
+      } finally {
+        if (!stopped) timer = setTimeout(checkForUpdate, 60_000);
+      }
+    };
+    void checkForUpdate();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [initialHTMLTag]);
 
   useEffect(() => {
     if (selectedKey && editRef.current) {
@@ -711,66 +908,56 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     }
   }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, show, username, keepTranslationEntryVisible]);
 
-  const startTranslationResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!translationWorkspaceRef.current) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    translationResizeRef.current = { startY: event.clientY, startHeight: translationTopHeight };
-    setIsTranslationResizing(true);
-  };
-
-  const moveTranslationResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    const resize = translationResizeRef.current;
-    const workspace = translationWorkspaceRef.current;
-    if (!resize || !workspace) return;
-    const bounds = workspace.getBoundingClientRect();
-    const min = 220;
-    const max = Math.max(min, bounds.height - 220);
-    const next = Math.min(max, Math.max(min, resize.startHeight + event.clientY - resize.startY));
-    setTranslationTopHeight(next);
-  };
-
-  const stopTranslationResize = () => {
-    translationResizeRef.current = null;
-    setIsTranslationResizing(false);
-  };
-
   const closePendingAction = () => {
-    pendingActionRef.current = null;
-    setPendingActionLabel("");
+    if (pendingActionBusyRef.current) return;
+    invalidatePendingAction();
   };
 
   const continuePendingAction = async (saveFirst: boolean) => {
-    if (saveFirst && writeFenceRef.current) return;
-    const action = pendingActionRef.current;
-    if (!action) return;
-    if (saveFirst) {
-      if (isEventStory && eventTxtDraftDirty && !entryDirty) {
-        closePendingAction();
-        action();
-        return;
+    if (pendingActionBusyRef.current || (saveFirst && writeFenceRef.current)) return;
+    const pending = pendingActionRef.current;
+    if (!pending) return;
+    pendingActionBusyRef.current = true;
+    setPendingActionBusy(true);
+    const pendingIsCurrent = () => pendingActionRef.current?.token === pending.token &&
+      pendingActionTokenRef.current === pending.token &&
+      contextGenerationRef.current === pending.contextGeneration;
+    try {
+      if (saveFirst) {
+        if (isEventStory && eventTxtDraftDirty && !entryDirty) {
+          if (!pendingIsCurrent()) return;
+          invalidatePendingAction();
+          pending.action();
+          return;
+        }
+        const importedCountBeforeSave = eventTxtDraft?.translations.length ?? 0;
+        const selectedImportedBeforeSave = Boolean(selectedEntry?.segmentId && eventTxtDraft?.translations.some((translation) => translation.segmentId === selectedEntry.segmentId));
+        const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);
+        if (!saved || !pendingIsCurrent()) return;
+        if (isEventStory && importedCountBeforeSave - (selectedImportedBeforeSave ? 1 : 0) > 0) {
+          invalidatePendingAction();
+          show("当前条目已保存；TXT 草稿仍有剩余条目，请继续逐条保存，未保存部分不会被丢弃", "ok");
+          return;
+        }
+      } else if (isLyrics) {
+        if (!lyricsEditorRef.current?.discard()) return;
+      } else {
+        if (eventTxtDraft && !clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale)) {
+          show("无法清理 TXT 本地草稿，放弃操作已取消", "err");
+          return;
+        }
+        setEventTxtDraft(null);
+        if (selectedEntry) setEditValue(selectedEntry.text);
       }
-      const importedCountBeforeSave = eventTxtDraft?.translations.length ?? 0;
-      const selectedImportedBeforeSave = Boolean(selectedEntry?.segmentId && eventTxtDraft?.translations.some((translation) => translation.segmentId === selectedEntry.segmentId));
-      const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);
-      if (!saved) return;
-      if (isEventStory && importedCountBeforeSave - (selectedImportedBeforeSave ? 1 : 0) > 0) {
-        closePendingAction();
-        show("当前条目已保存；TXT 草稿仍有剩余条目，请继续逐条保存，未保存部分不会被丢弃", "ok");
-        return;
+      if (!pendingIsCurrent()) return;
+      invalidatePendingAction();
+      pending.action();
+    } finally {
+      if (pendingIsCurrent()) {
+        pendingActionBusyRef.current = false;
+        setPendingActionBusy(false);
       }
-    } else if (isLyrics) {
-      lyricsEditorRef.current?.discard();
-    } else {
-      if (eventTxtDraft && !clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale)) {
-        show("无法清理 TXT 本地草稿，放弃操作已取消", "err");
-        return;
-      }
-      setEventTxtDraft(null);
-      if (selectedEntry) setEditValue(selectedEntry.text);
     }
-    closePendingAction();
-    action();
   };
 
   const onTextareaKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -880,6 +1067,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const currentField = categories.find((c) => c.name === category)?.fields?.find((f) => f.name === field);
   const currentStory = isEventStory ? eventStories.find((s) => String(s.eventId) === field) : undefined;
+  const visibleEventStoryCount = eventStories.filter((story) => !story.allOfficialTagged).length;
 
   const appClass = `app${sidebarOpen ? "" : " sidebar-collapsed"}`;
 
@@ -941,19 +1129,23 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             </div>
           ))}
 
-          {eventStories.length > 0 && (
+          {visibleEventStoryCount > 0 && (
             <div className="field-group">
-              <div className="field-group-title">活动剧情 ({eventStories.length})</div>
-              {eventStories.map((s) => {
+              <div className="field-group-title">活动剧情 ({filteredEventStories.filter((s) => !s.allOfficialTagged).length}/{visibleEventStoryCount})</div>
+              <input className="sidebar-filter" aria-label="按活动名称筛选" placeholder="按活动名称筛选…" value={eventNameQuery} onChange={(event) => setEventNameQuery(event.target.value)} />
+              {filteredEventStories.filter((s) => !s.allOfficialTagged).map((s) => {
                 const active = category === "eventStory" && field === String(s.eventId);
                 const done = s.untranslatedCount === 0;
                 const badgeKey = `eventStory:${s.eventId}`;
                 const hideBadge = hiddenBadges.has(badgeKey);
                 return (
                   <button type="button" key={s.eventId} className={`field-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => selectField("eventStory", String(s.eventId))}>
-                    <span>
-                      <span className={`story-dot ${done ? "done" : "pending"}`} title={done ? "已翻译" : "有未翻译内容"} />
-                      Event #{s.eventId}
+                    <span className="field-item-copy">
+                      <span>
+                        <span className={`story-dot ${done ? "done" : "pending"}`} title={done ? "已翻译" : "有未翻译内容"} />
+                        {s.eventName || s.eventNameJapanese || `Event #${s.eventId}`}
+                      </span>
+                      <small>#{s.eventId}{s.eventName && s.eventNameJapanese && s.eventName !== s.eventNameJapanese ? ` · ${s.eventNameJapanese}` : ""}</small>
                     </span>
                     {!hideBadge && (
                       s.untranslatedCount > 0
@@ -979,6 +1171,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       </aside>
 
       <main className="main">
+        {updateAvailable && (
+          <div className="update-available-banner" role="status" aria-live="polite">
+            页面已有新版本，刷新后会自动加载最新 assets；当前未保存内容不会自动替换。
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>立即刷新</button>
+          </div>
+        )}
         {writesLocked && (
           <div className="connection-fence" role="status" aria-live="assertive">
             实时事件可能有缺口，正在载入服务器权威数据。校对完成前所有内容写入均已锁定。
@@ -1004,7 +1202,18 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         ) : (
           <>
             <div className="main-header">
-              <h2>{CATEGORY_LABELS[category] || category} / {isEventStory ? `Event #${field}` : (FIELD_LABELS[field] || field)}</h2>
+              <div>
+                <h2>{CATEGORY_LABELS[category] || category} / {isEventStory ? (currentStory?.eventName || currentStory?.eventNameJapanese || `Event #${field}`) : (FIELD_LABELS[field] || field)}</h2>
+                <div className="realtime-meta" role="status" aria-live="polite">
+                  <span className={`realtime-status ${realtimeState}`}>
+                    <span className="realtime-status-dot" aria-hidden="true" />
+                    {realtimeState === "connected" ? "实时已连接" : realtimeState === "reconnecting" ? "实时重连中" : realtimeState === "connecting" ? "正在连接实时服务" : "实时服务离线"}
+                  </span>
+                  <span className="online-users" title={onlineUsers.length ? onlineUsers.join("、") : "当前没有其他在线用户"}>
+                    在线 {onlineUsers.length} 人{onlineUsers.length > 0 && `：${onlineUsers.join("、")}`}
+                  </span>
+                </div>
+              </div>
               <span className="count">
                 {selectedIndex >= 0 ? `${selectedIndex + 1} / ` : ""}{filtered.length} 条
                 {currentField && ` （共 ${currentField.total}）`}
@@ -1044,13 +1253,19 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
             <div className="search-bar">
               <input aria-label="搜索当前翻译" placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
+              {!isEventStory && (
+                <label className="sort-selector">
+                  <span>排序</span>
+                  <select aria-label="翻译条目排序" value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
+                    <option value="kana">五十音</option>
+                    <option value="id-desc">编号倒序</option>
+                    <option value="time-desc">更新时间倒序</option>
+                  </select>
+                </label>
+              )}
             </div>
 
-            <div
-              className={`translation-workspace${isTranslationResizing ? " resizing" : ""}`}
-              ref={translationWorkspaceRef}
-              style={{ gridTemplateRows: `${translationTopHeight}px 10px minmax(0, 1fr)` }}
-            >
+            <div className="translation-workspace" ref={translationWorkspaceRef}>
               <section className="translation-editor-pane" aria-label="当前翻译编辑区">
                 {selectedEntry && (
                 <div className="proof-panel">
@@ -1073,6 +1288,15 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate(1)} disabled={selectedIndex >= filtered.length - 1}>下一条 ↓</button>
                       </div>
                     </div>
+                    {remoteConflict?.key === selectedEntry.key && (
+                      <div className="remote-conflict-banner" role="alert">
+                        {remoteConflict.user} 刚刚修改了这一行；已保留你的本地草稿，请确认后再保存。
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+                          setEditValue(selectedEntry.text);
+                          setRemoteConflict(null);
+                        }}>采用远端版本</button>
+                      </div>
+                    )}
                     <textarea
                       ref={editRef}
                       className="proof-textarea"
@@ -1100,26 +1324,6 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                 )}
               </section>
 
-              <div
-                className="translation-resizer"
-                role="separator"
-                aria-orientation="horizontal"
-                aria-label="调整编辑区与翻译列表的高度"
-                tabIndex={0}
-                onPointerDown={startTranslationResize}
-                onPointerMove={moveTranslationResize}
-                onPointerUp={stopTranslationResize}
-                onPointerCancel={stopTranslationResize}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                    event.preventDefault();
-                    const delta = event.key === "ArrowUp" ? -40 : 40;
-                    setTranslationTopHeight((value) => Math.max(220, Math.min(1200, value + delta)));
-                  }
-                }}
-              >
-                <span aria-hidden="true" />
-              </div>
 
               <div className="translation-entry-list" ref={translationEntryListRef}>
                 {loading ? (
@@ -1136,7 +1340,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       <tr
                         key={entry.key}
                         data-key={entry.key}
-                        className={`entry-row ${selectedKey === entry.key ? "active" : ""}`}
+                        className={`entry-row ${selectedKey === entry.key ? "active" : ""}${remoteHighlights[entry.key] ? " remote-highlight" : ""}`}
                         onClick={() => selectEntry(entry)}
                         onKeyDown={(event) => {
                           if (event.target !== event.currentTarget) return;
@@ -1144,6 +1348,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         }}
                         tabIndex={0}
                         aria-selected={selectedKey === entry.key}
+                        title={remoteHighlights[entry.key] ? `${remoteHighlights[entry.key].user} 刚刚修改了这一行` : undefined}
                       >
                         <td className="col-source" onClick={(e) => e.stopPropagation()}>
                           <select
@@ -1179,16 +1384,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       {/* Settings & Admin modals */}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} guardProducerMutation={guardProducerMutation} />
       {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} guardProducerMutation={guardProducerMutation} />}
-      <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460}>
-        <p className="dirty-guard-copy">当前内容有未保存修改。继续前请选择如何处理。</p>
-        <div className="dirty-guard-actions">
-          <button className="btn btn-primary" onClick={() => void continuePendingAction(true)} disabled={writesLocked}>保存并继续</button>
-          <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)}>放弃修改</button>
-          <button className="btn btn-ghost" onClick={closePendingAction}>取消</button>
+      <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460} closeDisabled={pendingActionBusy}>
+        <div aria-busy={pendingActionBusy}>
+          {pendingActionBusy && <p className="dirty-guard-copy" role="status" aria-live="polite">正在保存或放弃本地修改，请等待当前操作完成…</p>}
+          <p className="dirty-guard-copy">当前内容有未保存修改。继续前请选择如何处理。</p>
+          <div className="dirty-guard-actions">
+            <button className="btn btn-primary" onClick={() => void continuePendingAction(true)} disabled={writesLocked || pendingActionBusy}>保存并继续</button>
+            <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)} disabled={pendingActionBusy}>放弃修改</button>
+            <button className="btn btn-ghost" onClick={closePendingAction} disabled={pendingActionBusy}>取消</button>
+          </div>
         </div>
       </Modal>
-      <Modal open={contentConflict != null} onClose={() => {}} title={contentConflict?.reason === "restore" ? "恢复数据与本地草稿冲突" : "实时事件缺口校对"} maxWidth={560} dismissible={false}>
+      <Modal open={contentConflict != null} onClose={() => {}} title={contentConflict?.reason === "restore" ? "恢复数据与本地草稿冲突" : contentConflict?.reason === "remote" ? "协作者更新与本地歌词草稿冲突" : "实时事件缺口校对"} maxWidth={560} dismissible={false}>
         {contentConflict && <>
+          {contentConflict.detail && <p className="dirty-guard-copy">{contentConflict.detail}</p>}
           <p className="dirty-guard-copy">
             {contentConflict.reloadFailed
               ? "服务器权威数据尚未完整载入。写入保持锁定，请重试；本地草稿不会由此流程写回服务器。"
@@ -1199,7 +1408,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           <div className="dirty-guard-actions">
             {contentConflict.draft && <button className="btn btn-secondary" onClick={() => exportConflictDraft(contentConflict)}>仅导出旧草稿</button>}
             {contentConflict.reloadFailed ? (
-              <button className="btn btn-primary" onClick={() => void reconcileContent(contentConflict.reason, contentConflict.draft)}>重试权威载入</button>
+              <button className="btn btn-primary" onClick={() => void reconcileContent(contentConflict.reason, contentConflict.draft, contentConflict.detail)}>重试权威载入</button>
             ) : <>
               {contentConflict.draft && <button className="btn btn-primary" onClick={() => { exportConflictDraft(contentConflict); resolveContentConflict(contentConflict); }}>导出后手动合并</button>}
               <button className="btn btn-ghost" onClick={() => resolveContentConflict(contentConflict)}>舍弃旧缓冲区并继续</button>

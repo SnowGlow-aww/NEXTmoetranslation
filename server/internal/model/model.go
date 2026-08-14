@@ -65,10 +65,11 @@ type Category map[string]map[string]Entry
 
 // EntryWithKey is an entry returned to the console API with its jp key.
 type EntryWithKey struct {
-	Key    string   `json:"key"`
-	Text   string   `json:"text"`
-	Source string   `json:"source"`
-	Ids    []string `json:"ids,omitempty"`
+	Key       string   `json:"key"`
+	Text      string   `json:"text"`
+	Source    string   `json:"source"`
+	Ids       []string `json:"ids,omitempty"`
+	UpdatedAt int64    `json:"updatedAt,omitempty"`
 }
 
 // CategoryLocaleSnapshot is an authenticated, point-in-time editing view of a
@@ -141,8 +142,11 @@ type EventStoryDetail struct {
 
 type EventStorySummary struct {
 	EventID           int    `json:"eventId"`
+	EventName         string `json:"eventName,omitempty"`
+	EventNameJapanese string `json:"eventNameJapanese,omitempty"`
 	Source            string `json:"source"`
 	EpisodeCount      int    `json:"episodeCount"`
 	UntranslatedCount int    `json:"untranslatedCount"`
 	LastUpdated       int64  `json:"lastUpdated"`
+	AllOfficialTagged bool   `json:"allOfficialTagged,omitempty"`
 }

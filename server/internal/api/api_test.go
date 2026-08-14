@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -154,6 +155,19 @@ func TestJSONMutationBodiesRejectNestedDuplicateKeys(t *testing.T) {
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusBadRequest {
 		t.Fatalf("nested duplicate-key body status=%d, want 400", response.StatusCode)
+	}
+}
+
+func TestLyricsPluralSaveRejectsClientClaimedMutationTarget(t *testing.T) {
+	h := setupLegacyAPI(t)
+	response := authorizedRequest(t, h, http.MethodPut, "/api/lyrics/save", map[string]any{
+		"musicId": 765, "status": "draft", "revision": 1, "updatedAt": "2026-08-14T00:00:00Z",
+		"renditions": []any{}, "clientId": "tab", "renditionKey": "sekai", "side": "game", "locale": "zh-CN",
+	})
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("client-claimed lyrics target status=%d body=%s", response.StatusCode, body)
 	}
 }
 

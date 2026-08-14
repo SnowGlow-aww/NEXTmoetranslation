@@ -12,19 +12,39 @@ test("LyricsEditor selects stable rendition families without merging equal text"
   assert.match(editor, /每个 stable key 都保留自己的 Full \/ Game、relation、演唱者分段、ruby、翻译与翻译\/校对署名/);
   assert.match(editor, /即使文本相同也不会与其他 family 合并/);
   assert.match(editor, /projectGameLyricsLines\(lyrics, activeRenditionKey\)/);
-  assert.match(editor, /const independentGameTranslationPersistenceUnsupported = Boolean\(\s*activeRendition\?\.full && activeRendition\.game && activeRendition\.relation\.kind === "none"/);
   assert.match(editor, /const gameSideReadOnlyReason = !activeRendition \|\| activeRendition\.relation\.kind === "exact_projection"/);
   assert.match(editor, /const activeSideReadOnly = activeVersion === "game" && gameSideReadOnlyReason !== null/);
-  assert.match(editor, /Game <span>\{gameSideReadOnlyReason === "independent_game_translation_not_persisted" \? "简中只读（服务端暂不持久化）" : gameSideReadOnlyReason === "exact_projection" \? "只读 exact projection" : "仅简中可编辑"\}<\/span>/);
-  assert.match(editor, /Full 与 independent Game（relation none）/);
-  assert.match(editor, /当前服务端保存路由不会持久化 Game 简中译文/);
+  assert.match(editor, /Game <span>\{gameSideReadOnlyReason === "exact_projection" \? "只读 exact projection" : "独立简中可编辑"\}<\/span>/);
+  assert.match(editor, /independent Game 简中按该 stable key\/side 独立保存/);
   assert.match(editor, /projectionKind === "game_only"/);
-  assert.match(editor, /当前服务端可持久化 Game 简中译文/);
+  assert.match(editor, /Game 简中按该 stable key\/side 独立保存/);
+  assert.match(editor, /const saved = await saveLyrics\(lyrics, importToken \|\| undefined\)/);
+  assert.doesNotMatch(editor, /renditionKey: activeRendition\.key, side: activeVersion/);
+  assert.match(editor, /activeTarget: \(\) => selectedMusicIDRef\.current == null \? null/);
+  assert.match(editor, /renditionKey: activeRendition\?\.key \|\| ""/);
+  assert.match(editor, /side: activeVersion/);
+  assert.match(editor, /projectionKind,/);
   assert.match(editor, /Full <span>\{activeRendition \? "仅简中可编辑" : "可编辑"\}<\/span>/);
   assert.match(editor, /writeLocked \|\| activeSideReadOnly/);
   assert.match(editor, /value=\{activeTranslationCredit\}[\s\S]*updateActiveCredits\("translation"/);
   assert.match(editor, /value=\{activeProofreadingCredit\}[\s\S]*updateActiveCredits\("proofreading"/);
+  assert.match(editor, /maxLength=\{activeRendition \? 2048 : undefined\}/);
+  assert.match(editor, /snapshot: \(\) => \(\{/);
+  assert.match(editor, /isDirty: \(\) => lyricsRef\.current != null/);
+  assert.match(editor, /discard: \(\) => boolean/);
   assert.doesNotMatch(editor, /gameProjection\?\.lines/);
+});
+
+test("authoritative conflict reload retains the current stable rendition side", async () => {
+  const editor = await readFile(new URL("../src/components/LyricsEditor.tsx", import.meta.url), "utf8");
+  const conflictStart = editor.indexOf('<Modal open={confirmConflictReload');
+  const conflictReload = editor.slice(conflictStart, editor.indexOf('open={editionWorkflow', conflictStart));
+
+  assert.match(conflictReload, /loadConflictAuthoritative\(\)/);
+  assert.match(editor, /loadConflictAuthoritative[\s\S]*getLyrics\(musicID, preferredEditionKey\)[\s\S]*acceptAuthoritativeDocument\(authoritative, activeRenditionKey, activeVersion\)/);
+  assert.match(editor, /acceptAuthoritativeDocument[\s\S]*retainedLyricsTranslationTarget\(editable, preferredRenditionKey, preferredVersion\)/);
+  assert.match(editor, /setActiveRenditionKey\(retainedTarget\.renditionKey\)/);
+  assert.match(editor, /setActiveVersion\(retainedTarget\.version === "game" \? "game" : "full"\)/);
 });
 
 test("save and publish preflight block dangling Game references before network mutation", async () => {
@@ -33,7 +53,7 @@ test("save and publish preflight block dangling Game references before network m
   const saveRequest = editor.indexOf("await saveLyrics(lyrics, importToken || undefined)");
 
   assert.ok(savePreflight >= 0 && savePreflight < saveRequest);
-  assert.match(editor, /未发送保存请求/);
+  assert.match(editor, /Rendition \/ projection 或公开署名合同无效，未发送保存请求/);
   assert.match(editor, /referencedGameFullLineIds\(lyrics, activeRenditionKey\)\.includes\(removedLineID\)/);
   assert.match(editor, /Game 投影需要先修复，未打开发布操作/);
   assert.match(editor, /每个 stable key 的 Full 与 Game 都保持在本 family 内/);

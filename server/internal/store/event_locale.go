@@ -127,38 +127,7 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 }
 
 func (s *EventStore) ListLocale(locale string) ([]model.EventStorySummary, error) {
-	if locale == model.LocaleChinese {
-		return s.List()
-	}
-	rows, err := s.db.Query(`SELECT stories.event_id, stories.source,
-		(SELECT COUNT(*) FROM event_story_episodes e WHERE e.event_id=stories.event_id),
-		CASE WHEN ?='ja-JP' THEN
-			(SELECT COUNT(*) FROM event_story_segments seg
-			 JOIN event_story_episodes episode
-			 ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no AND episode.scenario_id=seg.scenario_id
-			 WHERE seg.event_id=stories.event_id AND seg.source_text='')
-		ELSE
-			(SELECT COUNT(*) FROM event_story_segments seg
-			 JOIN event_story_episodes episode
-			 ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no AND episode.scenario_id=seg.scenario_id
-			 LEFT JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id AND loc.locale=?
-			 WHERE seg.event_id=stories.event_id AND (loc.segment_id IS NULL OR loc.text=''))
-		END,
-		COALESCE((SELECT last_updated FROM event_story_locale_meta lm WHERE lm.event_id=stories.event_id AND lm.locale=?), stories.last_updated)
-		FROM event_stories stories ORDER BY stories.event_id`, locale, locale, locale)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []model.EventStorySummary
-	for rows.Next() {
-		var summary model.EventStorySummary
-		if err := rows.Scan(&summary.EventID, &summary.Source, &summary.EpisodeCount, &summary.UntranslatedCount, &summary.LastUpdated); err != nil {
-			return nil, err
-		}
-		result = append(result, summary)
-	}
-	return result, rows.Err()
+	return s.listSummaries(locale)
 }
 
 func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user string) error {

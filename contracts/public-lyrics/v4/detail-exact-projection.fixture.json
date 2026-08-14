@@ -1,0 +1,192 @@
+{
+  "version": 4,
+  "musicId": 12,
+  "revision": 1,
+  "updatedAt": "2026-07-31T02:00:00Z",
+  "state": "complete",
+  "defaultTranslationEditionKey": "main",
+  "translationEditions": [
+    {
+      "key": "main",
+      "label": "默认译本",
+      "renditions": [
+        {
+          "renditionKey": "sekai",
+          "full": {
+            "translations": [
+              "歌唱",
+              "前进吧"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "renditions": [
+    {
+      "key": "sekai",
+      "kind": "sekai",
+      "label": "SEKAI Version",
+      "availableVersions": [
+        "full",
+        "game"
+      ],
+      "performers": [],
+      "full": {
+        "version": {
+          "kind": "sekai",
+          "label": "SEKAI Version"
+        },
+        "lines": [
+          {
+            "id": "full-000001",
+            "order": 0,
+            "japanese": "歌う",
+            "segments": [
+              {
+                "text": "歌う",
+                "performerIds": [],
+                "ruby": [
+                  {
+                    "text": "歌",
+                    "reading": "うた"
+                  },
+                  {
+                    "text": "う"
+                  }
+                ]
+              }
+            ],
+            "trailingPerformerIds": []
+          },
+          {
+            "id": "full-000003",
+            "order": 1,
+            "japanese": "進もう",
+            "segments": [
+              {
+                "text": "進もう",
+                "performerIds": [],
+                "ruby": [
+                  {
+                    "text": "進",
+                    "reading": "すす"
+                  },
+                  {
+                    "text": "もう"
+                  }
+                ]
+              }
+            ],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "game": {
+        "version": {
+          "kind": "sekai",
+          "label": "SEKAI Version"
+        },
+        "lines": [
+          {
+            "id": "game-000001",
+            "order": 0,
+            "japanese": "歌う",
+            "segments": [
+              {
+                "text": "歌う",
+                "performerIds": [],
+                "ruby": [
+                  {
+                    "text": "歌",
+                    "reading": "うた"
+                  },
+                  {
+                    "text": "う"
+                  }
+                ]
+              }
+            ],
+            "trailingPerformerIds": []
+          },
+          {
+            "id": "game-000002",
+            "order": 1,
+            "japanese": "進もう",
+            "segments": [
+              {
+                "text": "進もう",
+                "performerIds": [],
+                "ruby": [
+                  {
+                    "text": "進",
+                    "reading": "すす"
+                  },
+                  {
+                    "text": "もう"
+                  }
+                ]
+              }
+            ],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "relation": {
+        "kind": "exact_projection",
+        "fullRenditionKey": "sekai",
+        "lineIds": [
+          "full-000001",
+          "full-000003"
+        ]
+      },
+      "sourceTabPaths": [
+        [
+          "Full Version"
+        ],
+        [
+          "Game Version",
+          "SEKAI"
+        ]
+      ],
+      "provenance": [
+        {
+          "component": "renditions/sekai/full_text",
+          "provider": "sekaipedia",
+          "title": "SEKAI Version",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        {
+          "component": "renditions/sekai/game_text",
+          "provider": "sekaipedia",
+          "title": "SEKAI Version",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        {
+          "component": "renditions/sekai/relation",
+          "provider": "sekaipedia",
+          "title": "SEKAI Version",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        {
+          "component": "renditions/sekai/version",
+          "provider": "sekaipedia",
+          "title": "SEKAI Version",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ]
+    }
+  ]
+}

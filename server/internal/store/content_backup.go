@@ -229,32 +229,77 @@ type LyricsRenditionLocalizationBackupRecord struct {
 type LyricsRenditionTranslationLineBackupRecord struct {
 	DocumentID   int64  `json:"documentId"`
 	RenditionKey string `json:"renditionKey"`
+	// Side is omitted for the historical primary-side representation (Full when
+	// present, otherwise Game). Independent peer-side translations use an
+	// explicit "full" or "game" value so old content backups remain readable.
+	Side     string `json:"side,omitempty"`
+	Locale   string `json:"locale"`
+	Position int    `json:"position"`
+	Text     string `json:"text"`
+}
+
+type LyricsTranslationEditionStateBackupRecord struct {
+	DocumentID        int64  `json:"documentId"`
+	DefaultEditionKey string `json:"defaultEditionKey"`
+	Revision          int    `json:"revision"`
+	UpdatedAt         int64  `json:"updatedAt"`
+	UpdatedBy         string `json:"updatedBy"`
+}
+
+type LyricsTranslationEditionBackupRecord struct {
+	DocumentID int64  `json:"documentId"`
+	EditionKey string `json:"editionKey"`
+	Label      string `json:"label"`
+	CreatedAt  int64  `json:"createdAt"`
+	CreatedBy  string `json:"createdBy"`
+}
+
+type LyricsTranslationEditionLocalizationBackupRecord struct {
+	DocumentID         int64  `json:"documentId"`
+	EditionKey         string `json:"editionKey"`
+	RenditionKey       string `json:"renditionKey"`
+	Locale             string `json:"locale"`
+	TranslationCredit  string `json:"translationCredit"`
+	ProofreadingCredit string `json:"proofreadingCredit"`
+	UpdatedAt          int64  `json:"updatedAt"`
+	UpdatedBy          string `json:"updatedBy"`
+}
+
+type LyricsTranslationEditionLineBackupRecord struct {
+	DocumentID   int64  `json:"documentId"`
+	EditionKey   string `json:"editionKey"`
+	RenditionKey string `json:"renditionKey"`
+	Side         string `json:"side"`
 	Locale       string `json:"locale"`
 	Position     int    `json:"position"`
 	Text         string `json:"text"`
 }
 
 type LyricsContentExport struct {
-	Music                     []CatalogMusicBackupRecord                   `json:"music"`
-	Performers                []CatalogPerformerBackupRecord               `json:"performers"`
-	Documents                 []LyricsDocumentBackupRecord                 `json:"documents"`
-	Lines                     []LyricsLineBackupRecord                     `json:"lines"`
-	Segments                  []LyricsSegmentBackupRecord                  `json:"segments"`
-	Publications              []LyricsPublicationBackupRecord              `json:"publications"`
-	SourceDocuments           []LyricsSourceDocumentBackupRecord           `json:"sourceDocuments,omitempty"`
-	SourceArtifacts           []LyricsSourceArtifactBackupRecord           `json:"sourceArtifacts,omitempty"`
-	SourceIndexEvidence       []LyricsSourceIndexEvidenceBackupRecord      `json:"sourceIndexEvidence,omitempty"`
-	SourceArtifactEvidence    []LyricsSourceArtifactEvidenceBackupRecord   `json:"sourceArtifactEvidence,omitempty"`
-	SourceContributions       []LyricsSourceContributionBackupRecord       `json:"sourceContributions,omitempty"`
-	RenditionLocalizations    []LyricsRenditionLocalizationBackupRecord    `json:"renditionLocalizations,omitempty"`
-	RenditionTranslationLines []LyricsRenditionTranslationLineBackupRecord `json:"renditionTranslationLines,omitempty"`
-	RecoveryBatches           []LyricsRecoveryBatchBackupRecord            `json:"recoveryBatches,omitempty"`
-	RecoveryItems             []LyricsRecoveryItemBackupRecord             `json:"recoveryItems,omitempty"`
-	RecoverySourceEvidence    []LyricsRecoverySourceEvidenceBackupRecord   `json:"recoverySourceEvidence,omitempty"`
-	RecoveryArtifacts         []LyricsRecoveryArtifactBackupRecord         `json:"recoveryArtifacts,omitempty"`
-	RecoveryArtifactEvidence  []LyricsRecoveryArtifactEvidenceBackupRecord `json:"recoveryArtifactEvidence,omitempty"`
-	RecoveryContributions     []LyricsRecoveryContributionBackupRecord     `json:"recoveryContributions,omitempty"`
-	AvailabilityDocuments     []LyricsAvailabilityDocumentBackupRecord     `json:"availabilityDocuments,omitempty"`
+	Music                           []CatalogMusicBackupRecord                         `json:"music"`
+	Performers                      []CatalogPerformerBackupRecord                     `json:"performers"`
+	Documents                       []LyricsDocumentBackupRecord                       `json:"documents"`
+	Lines                           []LyricsLineBackupRecord                           `json:"lines"`
+	Segments                        []LyricsSegmentBackupRecord                        `json:"segments"`
+	Publications                    []LyricsPublicationBackupRecord                    `json:"publications"`
+	SourceDocuments                 []LyricsSourceDocumentBackupRecord                 `json:"sourceDocuments,omitempty"`
+	SourceArtifacts                 []LyricsSourceArtifactBackupRecord                 `json:"sourceArtifacts,omitempty"`
+	SourceIndexEvidence             []LyricsSourceIndexEvidenceBackupRecord            `json:"sourceIndexEvidence,omitempty"`
+	SourceArtifactEvidence          []LyricsSourceArtifactEvidenceBackupRecord         `json:"sourceArtifactEvidence,omitempty"`
+	SourceContributions             []LyricsSourceContributionBackupRecord             `json:"sourceContributions,omitempty"`
+	RenditionLocalizations          []LyricsRenditionLocalizationBackupRecord          `json:"renditionLocalizations,omitempty"`
+	RenditionTranslationLines       []LyricsRenditionTranslationLineBackupRecord       `json:"renditionTranslationLines,omitempty"`
+	TranslationEditionStates        []LyricsTranslationEditionStateBackupRecord        `json:"translationEditionStates,omitempty"`
+	TranslationEditions             []LyricsTranslationEditionBackupRecord             `json:"translationEditions,omitempty"`
+	TranslationEditionLocalizations []LyricsTranslationEditionLocalizationBackupRecord `json:"translationEditionLocalizations,omitempty"`
+	TranslationEditionLines         []LyricsTranslationEditionLineBackupRecord         `json:"translationEditionLines,omitempty"`
+	RecoveryBatches                 []LyricsRecoveryBatchBackupRecord                  `json:"recoveryBatches,omitempty"`
+	RecoveryItems                   []LyricsRecoveryItemBackupRecord                   `json:"recoveryItems,omitempty"`
+	RecoverySourceEvidence          []LyricsRecoverySourceEvidenceBackupRecord         `json:"recoverySourceEvidence,omitempty"`
+	RecoveryArtifacts               []LyricsRecoveryArtifactBackupRecord               `json:"recoveryArtifacts,omitempty"`
+	RecoveryArtifactEvidence        []LyricsRecoveryArtifactEvidenceBackupRecord       `json:"recoveryArtifactEvidence,omitempty"`
+	RecoveryContributions           []LyricsRecoveryContributionBackupRecord           `json:"recoveryContributions,omitempty"`
+	AvailabilityDocuments           []LyricsAvailabilityDocumentBackupRecord           `json:"availabilityDocuments,omitempty"`
 }
 
 type LegacyEventRestore struct {
@@ -490,6 +535,24 @@ func (s *Store) exportLyricsContentSnapshot(ctx context.Context, afterDocuments 
 		RecoveryContributions:     []LyricsRecoveryContributionBackupRecord{},
 		AvailabilityDocuments:     []LyricsAvailabilityDocumentBackupRecord{},
 	}
+	translationLinesQuery := `SELECT document_id,rendition_key,'' AS side,locale,position,text
+		FROM song_lyrics_rendition_translation_lines
+		ORDER BY document_id,rendition_key,side,locale,position`
+	var hasPeerTranslationSchema, hasTranslationEditionSchema int
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=29)`).Scan(&hasPeerTranslationSchema); err != nil {
+		return result, fmt.Errorf("inspect lyrics peer-translation schema: %w", err)
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=30)`).Scan(&hasTranslationEditionSchema); err != nil {
+		return result, fmt.Errorf("inspect lyrics translation-edition schema: %w", err)
+	}
+	if hasPeerTranslationSchema == 1 {
+		translationLinesQuery = `SELECT document_id,rendition_key,'' AS side,locale,position,text
+			FROM song_lyrics_rendition_translation_lines
+			UNION ALL
+			SELECT document_id,rendition_key,side,locale,position,text
+			FROM song_lyrics_rendition_side_translation_lines
+			ORDER BY document_id,rendition_key,side,locale,position`
+	}
 	queries := []struct {
 		query string
 		scan  func(*sql.Rows) error
@@ -650,15 +713,68 @@ func (s *Store) exportLyricsContentSnapshot(ctx context.Context, afterDocuments 
 			result.RenditionLocalizations = append(result.RenditionLocalizations, record)
 			return nil
 		}},
-		{`SELECT document_id,rendition_key,locale,position,text
-			FROM song_lyrics_rendition_translation_lines ORDER BY document_id,rendition_key,locale,position`, func(rows *sql.Rows) error {
+		{translationLinesQuery, func(rows *sql.Rows) error {
 			var record LyricsRenditionTranslationLineBackupRecord
-			if err := rows.Scan(&record.DocumentID, &record.RenditionKey, &record.Locale, &record.Position, &record.Text); err != nil {
+			if err := rows.Scan(&record.DocumentID, &record.RenditionKey, &record.Side, &record.Locale, &record.Position, &record.Text); err != nil {
 				return err
 			}
 			result.RenditionTranslationLines = append(result.RenditionTranslationLines, record)
 			return nil
 		}},
+	}
+	if hasTranslationEditionSchema == 1 {
+		queries = append(queries,
+			struct {
+				query string
+				scan  func(*sql.Rows) error
+			}{`SELECT document_id,default_edition_key,revision,updated_at,updated_by
+				FROM song_lyrics_translation_edition_state ORDER BY document_id`, func(rows *sql.Rows) error {
+				var record LyricsTranslationEditionStateBackupRecord
+				if err := rows.Scan(&record.DocumentID, &record.DefaultEditionKey, &record.Revision, &record.UpdatedAt, &record.UpdatedBy); err != nil {
+					return err
+				}
+				result.TranslationEditionStates = append(result.TranslationEditionStates, record)
+				return nil
+			}},
+			struct {
+				query string
+				scan  func(*sql.Rows) error
+			}{`SELECT document_id,edition_key,label,created_at,created_by
+				FROM song_lyrics_translation_editions ORDER BY document_id,edition_key`, func(rows *sql.Rows) error {
+				var record LyricsTranslationEditionBackupRecord
+				if err := rows.Scan(&record.DocumentID, &record.EditionKey, &record.Label, &record.CreatedAt, &record.CreatedBy); err != nil {
+					return err
+				}
+				result.TranslationEditions = append(result.TranslationEditions, record)
+				return nil
+			}},
+			struct {
+				query string
+				scan  func(*sql.Rows) error
+			}{`SELECT document_id,edition_key,rendition_key,locale,translation_credit,proofreading_credit,updated_at,updated_by
+				FROM song_lyrics_translation_edition_localizations ORDER BY document_id,edition_key,rendition_key,locale`, func(rows *sql.Rows) error {
+				var record LyricsTranslationEditionLocalizationBackupRecord
+				if err := rows.Scan(&record.DocumentID, &record.EditionKey, &record.RenditionKey, &record.Locale,
+					&record.TranslationCredit, &record.ProofreadingCredit, &record.UpdatedAt, &record.UpdatedBy); err != nil {
+					return err
+				}
+				result.TranslationEditionLocalizations = append(result.TranslationEditionLocalizations, record)
+				return nil
+			}},
+			struct {
+				query string
+				scan  func(*sql.Rows) error
+			}{`SELECT document_id,edition_key,rendition_key,side,locale,position,text
+				FROM song_lyrics_translation_edition_lines ORDER BY document_id,edition_key,rendition_key,side,locale,position`, func(rows *sql.Rows) error {
+				var record LyricsTranslationEditionLineBackupRecord
+				if err := rows.Scan(&record.DocumentID, &record.EditionKey, &record.RenditionKey, &record.Side,
+					&record.Locale, &record.Position, &record.Text); err != nil {
+					return err
+				}
+				result.TranslationEditionLines = append(result.TranslationEditionLines, record)
+				return nil
+			}},
+		)
 	}
 	for queryIndex, item := range queries {
 		if err := ctx.Err(); err != nil {
@@ -749,9 +865,6 @@ func rejectNativeSourceV3ContentRestoreTarget(ctx context.Context, tx *sql.Tx) e
 }
 
 func importTranslationContentTx(ctx context.Context, tx *sql.Tx, entries []EntryLocalizationRecord, events EventContentExport, lyrics LyricsContentExport) error {
-	if err := rejectNativeSourceV3ContentRestoreTarget(ctx, tx); err != nil {
-		return err
-	}
 	catalogPerformers := newCatalogPerformerAliases()
 	sortedPerformers := append([]CatalogPerformerBackupRecord(nil), lyrics.Performers...)
 	sort.Slice(sortedPerformers, func(left, right int) bool {
@@ -880,6 +993,9 @@ func importTranslationContentTx(ctx context.Context, tx *sql.Tx, entries []Entry
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if err := suspendLyricsSourceDocumentDeleteGuardsTx(ctx, tx); err != nil {
+		return err
+	}
 	for _, statement := range []string{
 		`DELETE FROM entry_localizations`,
 		`DELETE FROM event_story_locale_meta`,
@@ -889,6 +1005,11 @@ func importTranslationContentTx(ctx context.Context, tx *sql.Tx, entries []Entry
 		`DELETE FROM song_lyrics_publications`,
 		`DELETE FROM song_lyric_segments`,
 		`DELETE FROM song_lyric_lines`,
+		`DELETE FROM song_lyrics_translation_edition_lines`,
+		`DELETE FROM song_lyrics_translation_edition_localizations`,
+		`DELETE FROM song_lyrics_translation_edition_state`,
+		`DELETE FROM song_lyrics_translation_editions`,
+		`DELETE FROM song_lyrics_rendition_side_translation_lines`,
 		`DELETE FROM song_lyrics_rendition_translation_lines`,
 		`DELETE FROM song_lyrics_rendition_localizations`,
 		`DELETE FROM song_lyrics`,
@@ -1025,9 +1146,58 @@ func importTranslationContentTx(ctx context.Context, tx *sql.Tx, entries []Entry
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_rendition_translation_lines
-			(document_id,rendition_key,locale,position,text) VALUES (?,?,?,?,?)`, record.DocumentID,
-			record.RenditionKey, record.Locale, record.Position, record.Text); err != nil {
+		if record.Side == "" {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_rendition_translation_lines
+				(document_id,rendition_key,locale,position,text) VALUES (?,?,?,?,?)`, record.DocumentID,
+				record.RenditionKey, record.Locale, record.Position, record.Text); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_rendition_side_translation_lines
+			(document_id,rendition_key,side,locale,position,text) VALUES (?,?,?,?,?,?)`, record.DocumentID,
+			record.RenditionKey, record.Side, record.Locale, record.Position, record.Text); err != nil {
+			return err
+		}
+	}
+	for _, record := range lyrics.TranslationEditions {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_translation_editions
+			(document_id,edition_key,label,created_at,created_by) VALUES (?,?,?,?,?)`, record.DocumentID,
+			record.EditionKey, record.Label, record.CreatedAt, record.CreatedBy); err != nil {
+			return err
+		}
+	}
+	for _, record := range lyrics.TranslationEditionStates {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_translation_edition_state
+			(document_id,default_edition_key,revision,updated_at,updated_by) VALUES (?,?,?,?,?)`, record.DocumentID,
+			record.DefaultEditionKey, record.Revision, record.UpdatedAt, record.UpdatedBy); err != nil {
+			return err
+		}
+	}
+	for _, record := range lyrics.TranslationEditionLocalizations {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_translation_edition_localizations
+			(document_id,edition_key,rendition_key,locale,translation_credit,proofreading_credit,updated_at,updated_by)
+			VALUES (?,?,?,?,?,?,?,?)`, record.DocumentID, record.EditionKey, record.RenditionKey, record.Locale,
+			record.TranslationCredit, record.ProofreadingCredit, record.UpdatedAt, record.UpdatedBy); err != nil {
+			return err
+		}
+	}
+	for _, record := range lyrics.TranslationEditionLines {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO song_lyrics_translation_edition_lines
+			(document_id,edition_key,rendition_key,side,locale,position,text) VALUES (?,?,?,?,?,?,?)`, record.DocumentID,
+			record.EditionKey, record.RenditionKey, record.Side, record.Locale, record.Position, record.Text); err != nil {
 			return err
 		}
 	}
@@ -1104,7 +1274,35 @@ func importTranslationContentTx(ctx context.Context, tx *sql.Tx, entries []Entry
 			return err
 		}
 	}
-	return supersedeStalePendingLyricsSourceReviewsTx(ctx, tx, time.Now().UTC())
+	if err := supersedeStalePendingLyricsSourceReviewsTx(ctx, tx, time.Now().UTC()); err != nil {
+		return err
+	}
+	return restoreLyricsSourceDocumentDeleteGuardsTx(ctx, tx)
+}
+
+func suspendLyricsSourceDocumentDeleteGuardsTx(ctx context.Context, tx *sql.Tx) error {
+	for _, name := range []string{"song_lyrics_source_v3_reject_delete", "song_lyrics_source_documents_immutable_delete"} {
+		if _, err := tx.ExecContext(ctx, `DROP TRIGGER IF EXISTS `+name); err != nil {
+			return fmt.Errorf("suspend lyrics source document delete guard %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+func restoreLyricsSourceDocumentDeleteGuardsTx(ctx context.Context, tx *sql.Tx) error {
+	for _, statement := range []string{
+		`CREATE TRIGGER song_lyrics_source_documents_immutable_delete BEFORE DELETE ON song_lyrics_source_documents
+		 WHEN EXISTS (SELECT 1 FROM song_lyrics WHERE music_id=OLD.music_id)
+		 BEGIN SELECT RAISE(ABORT, 'song lyrics source documents are immutable'); END`,
+		`CREATE TRIGGER song_lyrics_source_v3_reject_delete BEFORE DELETE ON song_lyrics_source_documents
+		 WHEN OLD.schema_version=3
+		 BEGIN SELECT RAISE(ABORT, 'source v3 documents are immutable'); END`,
+	} {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("restore lyrics source document delete guard: %w", err)
+		}
+	}
+	return nil
 }
 
 func canonicalizeCatalogMusicBackupRecord(record *CatalogMusicBackupRecord) error {
@@ -1299,6 +1497,9 @@ func validateRestoredLyricsSourceProvenance(lyrics LyricsContentExport, document
 		provenanceByMusic[record.MusicID] = true
 	}
 	if err := validateRenditionLocalizationBackup(lyrics, sourceRecordsByID, allSourceDocumentsByID); err != nil {
+		return err
+	}
+	if err := validateTranslationEditionBackup(lyrics, allSourceDocumentsByID); err != nil {
 		return err
 	}
 	type sourceArtifactIdentity struct {
@@ -1514,6 +1715,71 @@ func restoredPublicLyricsSourceBundles(lyrics LyricsContentExport) (map[int]*pub
 	return byMusicID, nil
 }
 
+func renditionTranslationSide(document model.LyricsSourceDocument, renditionKey, side string) (*model.LyricsSourceFull, bool) {
+	for index := range document.Renditions {
+		rendition := &document.Renditions[index]
+		if rendition.RenditionKey != renditionKey {
+			continue
+		}
+		switch side {
+		case "full":
+			return rendition.Full, rendition.Full != nil
+		case "game":
+			return rendition.Game, rendition.Game != nil
+		default:
+			return nil, false
+		}
+	}
+	return nil, false
+}
+
+func renditionPrimaryTranslationSide(document model.LyricsSourceDocument, renditionKey string) string {
+	if _, found := renditionTranslationSide(document, renditionKey, "full"); found {
+		return "full"
+	}
+	if _, found := renditionTranslationSide(document, renditionKey, "game"); found {
+		return "game"
+	}
+	return ""
+}
+
+func renditionPeerTranslationSide(document model.LyricsSourceDocument, renditionKey, side string) (*model.LyricsSourceFull, bool) {
+	for index := range document.Renditions {
+		rendition := &document.Renditions[index]
+		if rendition.RenditionKey != renditionKey || side == renditionPrimaryTranslationSide(document, renditionKey) ||
+			rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
+			continue
+		}
+		if side == "full" && rendition.Full != nil {
+			return rendition.Full, true
+		}
+		if side == "game" && rendition.Game != nil {
+			return rendition.Game, true
+		}
+	}
+	return nil, false
+}
+
+func canonicalBackupTranslationSide(document model.LyricsSourceDocument, renditionKey, side string) (string, error) {
+	primary := renditionPrimaryTranslationSide(document, renditionKey)
+	if primary == "" {
+		return "", fmt.Errorf("lyrics rendition %q has no authoritative side", renditionKey)
+	}
+	if side == "" {
+		return primary, nil
+	}
+	if side != "full" && side != "game" {
+		return "", fmt.Errorf("lyrics rendition %q translation side %q is invalid", renditionKey, side)
+	}
+	if side == primary {
+		return "", fmt.Errorf("lyrics rendition %q primary translation side %q must use the historical representation", renditionKey, side)
+	}
+	if _, found := renditionPeerTranslationSide(document, renditionKey, side); !found {
+		return "", fmt.Errorf("lyrics rendition %q has no independently persisted %s peer side", renditionKey, side)
+	}
+	return side, nil
+}
+
 func renditionLocalizationBackupDigest(
 	lyrics LyricsContentExport,
 	documentID int64,
@@ -1523,7 +1789,11 @@ func renditionLocalizationBackupDigest(
 		return "", nil
 	}
 	parents := make(map[string]LyricsRenditionLocalizationBackupRecord, len(document.Renditions))
-	lines := make(map[string]map[int]string, len(document.Renditions))
+	type sideKey struct {
+		renditionKey string
+		side         string
+	}
+	lines := make(map[sideKey]map[int]string, len(document.Renditions))
 	for _, record := range lyrics.RenditionLocalizations {
 		if record.DocumentID != documentID || record.Locale != "zh-CN" {
 			continue
@@ -1537,13 +1807,18 @@ func renditionLocalizationBackupDigest(
 		if record.DocumentID != documentID || record.Locale != "zh-CN" {
 			continue
 		}
-		if lines[record.RenditionKey] == nil {
-			lines[record.RenditionKey] = map[int]string{}
+		side, err := canonicalBackupTranslationSide(document, record.RenditionKey, record.Side)
+		if err != nil {
+			return "", err
 		}
-		if _, duplicate := lines[record.RenditionKey][record.Position]; duplicate {
-			return "", fmt.Errorf("lyrics rendition translation line %d/%s/%d is duplicated", documentID, record.RenditionKey, record.Position)
+		key := sideKey{renditionKey: record.RenditionKey, side: side}
+		if lines[key] == nil {
+			lines[key] = map[int]string{}
 		}
-		lines[record.RenditionKey][record.Position] = record.Text
+		if _, duplicate := lines[key][record.Position]; duplicate {
+			return "", fmt.Errorf("lyrics rendition translation line %d/%s/%s/%d is duplicated", documentID, record.RenditionKey, side, record.Position)
+		}
+		lines[key][record.Position] = record.Text
 	}
 	var translations []lyricsstaging.RenditionTranslation
 	if len(parents) > 0 {
@@ -1558,7 +1833,8 @@ func renditionLocalizationBackupDigest(
 				TranslationCredit:  parent.TranslationCredit,
 				ProofreadingCredit: parent.ProofreadingCredit,
 			}
-			lineMap := lines[rendition.RenditionKey]
+			primarySide := renditionPrimaryTranslationSide(document, rendition.RenditionKey)
+			lineMap := lines[sideKey{renditionKey: rendition.RenditionKey, side: primarySide}]
 			if len(lineMap) > 0 {
 				item.Translations = make([]string, len(lineMap))
 				for position := range item.Translations {
@@ -1572,7 +1848,44 @@ func renditionLocalizationBackupDigest(
 			translations[index] = item
 		}
 	}
-	body, err := json.Marshal(translations)
+	peerLines := make([]LyricsRenditionTranslationLineBackupRecord, 0)
+	for key, positions := range lines {
+		if key.side == renditionPrimaryTranslationSide(document, key.renditionKey) {
+			continue
+		}
+		for position := 0; position < len(positions); position++ {
+			text, found := positions[position]
+			if !found {
+				return "", fmt.Errorf("lyrics rendition translation lines %d/%s/%s are not contiguous", documentID, key.renditionKey, key.side)
+			}
+			peerLines = append(peerLines, LyricsRenditionTranslationLineBackupRecord{
+				DocumentID: documentID, RenditionKey: key.renditionKey, Side: key.side,
+				Locale: "zh-CN", Position: position, Text: text,
+			})
+		}
+	}
+	sort.Slice(peerLines, func(left, right int) bool {
+		if peerLines[left].RenditionKey != peerLines[right].RenditionKey {
+			return peerLines[left].RenditionKey < peerLines[right].RenditionKey
+		}
+		if peerLines[left].Side != peerLines[right].Side {
+			return peerLines[left].Side < peerLines[right].Side
+		}
+		return peerLines[left].Position < peerLines[right].Position
+	})
+	var body []byte
+	var err error
+	if len(peerLines) == 0 {
+		// Preserve the historical checksum for backups that only contain the
+		// primary rendition side.
+		body, err = json.Marshal(translations)
+	} else {
+		body, err = json.Marshal(struct {
+			Version      int                                          `json:"version"`
+			Translations []lyricsstaging.RenditionTranslation         `json:"translations"`
+			PeerLines    []LyricsRenditionTranslationLineBackupRecord `json:"peerLines"`
+		}{Version: 2, Translations: translations, PeerLines: peerLines})
+	}
 	if err != nil {
 		return "", err
 	}
@@ -1606,6 +1919,7 @@ func validateRenditionLocalizationBackup(
 	type localizationKey struct {
 		documentID   int64
 		renditionKey string
+		side         string
 		locale       string
 	}
 	parents := make(map[localizationKey]LyricsRenditionLocalizationBackupRecord, len(lyrics.RenditionLocalizations))
@@ -1619,7 +1933,7 @@ func validateRenditionLocalizationBackup(
 	haveParentKey := false
 	for _, record := range lyrics.RenditionLocalizations {
 		document, exists := documents[record.DocumentID]
-		key := localizationKey{record.DocumentID, record.RenditionKey, record.Locale}
+		key := localizationKey{documentID: record.DocumentID, renditionKey: record.RenditionKey, locale: record.Locale}
 		if !exists || document.SchemaVersion != model.LyricsSourceDocumentSchemaVersionV3 ||
 			record.RenditionKey == "" || record.Locale != "zh-CN" || record.TranslationCredit != strings.TrimSpace(record.TranslationCredit) ||
 			record.ProofreadingCredit != strings.TrimSpace(record.ProofreadingCredit) || len(record.TranslationCredit) > 2048 ||
@@ -1660,21 +1974,31 @@ func validateRenditionLocalizationBackup(
 	lastLinePosition := -1
 	haveLineKey := false
 	for _, record := range lyrics.RenditionTranslationLines {
-		key := localizationKey{record.DocumentID, record.RenditionKey, record.Locale}
-		if _, exists := parents[key]; !exists || record.Position < 0 ||
+		document, found := documents[record.DocumentID]
+		if !found {
+			return fmt.Errorf("lyrics rendition translation line %d/%s/%s/%s/%d is invalid", record.DocumentID, record.RenditionKey, record.Side, record.Locale, record.Position)
+		}
+		side, sideErr := canonicalBackupTranslationSide(document, record.RenditionKey, record.Side)
+		if sideErr != nil {
+			return fmt.Errorf("lyrics rendition translation line %d/%s/%s/%s/%d: %w", record.DocumentID, record.RenditionKey, record.Side, record.Locale, record.Position, sideErr)
+		}
+		parentKey := localizationKey{documentID: record.DocumentID, renditionKey: record.RenditionKey, locale: record.Locale}
+		_, parentFound := parents[parentKey]
+		key := localizationKey{documentID: record.DocumentID, renditionKey: record.RenditionKey, side: side, locale: record.Locale}
+		if record.Side != "" && record.Side != side || !parentFound || record.Position < 0 ||
 			!utf8.ValidString(record.Text) || len(record.Text) > maxLyricsLineTextBytes {
-			return fmt.Errorf("lyrics rendition translation line %d/%s/%s/%d is invalid", record.DocumentID, record.RenditionKey, record.Locale, record.Position)
+			return fmt.Errorf("lyrics rendition translation line %d/%s/%s/%s/%d is invalid", record.DocumentID, record.RenditionKey, record.Side, record.Locale, record.Position)
 		}
 		if positions[key] == nil {
 			positions[key] = map[int]bool{}
 		}
 		if positions[key][record.Position] {
-			return fmt.Errorf("lyrics rendition translation line %d/%s/%s/%d is duplicated", record.DocumentID, record.RenditionKey, record.Locale, record.Position)
+			return fmt.Errorf("lyrics rendition translation line %d/%s/%s/%s/%d is duplicated", record.DocumentID, record.RenditionKey, side, record.Locale, record.Position)
 		}
 		if haveLineKey {
 			if lessRenditionLocalizationKey(key, lastLineKey) || key == lastLineKey && record.Position <= lastLinePosition {
-				return fmt.Errorf("lyrics rendition translation lines are not canonically ordered at %d/%s/%s/%d",
-					record.DocumentID, record.RenditionKey, record.Locale, record.Position)
+				return fmt.Errorf("lyrics rendition translation lines are not canonically ordered at %d/%s/%s/%s/%d",
+					record.DocumentID, record.RenditionKey, side, record.Locale, record.Position)
 			}
 		}
 		lastLineKey, lastLinePosition, haveLineKey = key, record.Position, true
@@ -1682,24 +2006,38 @@ func validateRenditionLocalizationBackup(
 	}
 	for key, parent := range parents {
 		document := documents[key.documentID]
-		var rendition model.LyricsSourceRendition
-		for _, candidate := range document.Renditions {
-			if candidate.RenditionKey == key.renditionKey {
-				rendition = candidate
-				break
+		primarySide := renditionPrimaryTranslationSide(document, key.renditionKey)
+		primaryKey := localizationKey{documentID: key.documentID, renditionKey: key.renditionKey, side: primarySide, locale: key.locale}
+		primarySource, found := renditionTranslationSide(document, key.renditionKey, primarySide)
+		if !found {
+			return fmt.Errorf("lyrics rendition localization %d/%s has no primary side", key.documentID, key.renditionKey)
+		}
+		count := len(positions[primaryKey])
+		if count != 0 && count != len(primarySource.Lines) {
+			return fmt.Errorf("lyrics rendition localization %d/%s has incomplete translation lines for the primary side", key.documentID, key.renditionKey)
+		}
+		hasTranslationLines := count != 0
+		if !hasTranslationLines {
+			for positionKey := range positions {
+				if positionKey.documentID == key.documentID && positionKey.renditionKey == key.renditionKey &&
+					positionKey.locale == key.locale && positionKey.side != primarySide {
+					hasTranslationLines = true
+					break
+				}
 			}
 		}
-		lineCount := renditionLineCountForStore(rendition)
-		count := len(positions[key])
-		if count != 0 && count != lineCount {
-			return fmt.Errorf("lyrics rendition localization %d/%s has incomplete translation lines", key.documentID, key.renditionKey)
-		}
-		if count == 0 && (parent.TranslationCredit != "" || parent.ProofreadingCredit != "") {
+		if !hasTranslationLines && (parent.TranslationCredit != "" || parent.ProofreadingCredit != "") {
 			return fmt.Errorf("lyrics rendition localization %d/%s has credits without translation lines", key.documentID, key.renditionKey)
 		}
-		for position := 0; position < count; position++ {
-			if !positions[key][position] {
-				return fmt.Errorf("lyrics rendition localization %d/%s has a non-contiguous translation position", key.documentID, key.renditionKey)
+	}
+	for key, present := range positions {
+		source, found := renditionTranslationSide(documents[key.documentID], key.renditionKey, key.side)
+		if !found || len(present) != len(source.Lines) {
+			return fmt.Errorf("lyrics rendition localization %d/%s/%s has incomplete translation lines", key.documentID, key.renditionKey, key.side)
+		}
+		for position := 0; position < len(present); position++ {
+			if !present[position] {
+				return fmt.Errorf("lyrics rendition localization %d/%s/%s has a non-contiguous translation position", key.documentID, key.renditionKey, key.side)
 			}
 		}
 	}
@@ -1723,9 +2061,181 @@ func validateRenditionLocalizationBackup(
 	return nil
 }
 
+func validateTranslationEditionBackup(lyrics LyricsContentExport, documents map[int64]model.LyricsSourceDocument) error {
+	type editionIdentity struct {
+		documentID int64
+		editionKey string
+	}
+	type localizationIdentity struct {
+		documentID   int64
+		editionKey   string
+		renditionKey string
+	}
+	type sideIdentity struct {
+		documentID   int64
+		editionKey   string
+		renditionKey string
+		side         string
+	}
+	states := make(map[int64]LyricsTranslationEditionStateBackupRecord, len(lyrics.TranslationEditionStates))
+	lastStateDocumentID := int64(0)
+	for _, record := range lyrics.TranslationEditionStates {
+		document, found := documents[record.DocumentID]
+		if !found || document.SchemaVersion != model.LyricsSourceDocumentSchemaVersionV3 || record.DocumentID <= lastStateDocumentID ||
+			!validLyricsTranslationEditionKey(record.DefaultEditionKey) || record.Revision <= 0 || record.UpdatedAt <= 0 ||
+			len(record.UpdatedBy) > 128 || !utf8.ValidString(record.UpdatedBy) {
+			return fmt.Errorf("lyrics translation edition state for document %d is invalid", record.DocumentID)
+		}
+		states[record.DocumentID] = record
+		lastStateDocumentID = record.DocumentID
+	}
+	editions := make(map[int64]map[string]LyricsTranslationEditionBackupRecord)
+	lastEditionKey := ""
+	for _, record := range lyrics.TranslationEditions {
+		identityKey := fmt.Sprintf("%020d\x00%s", record.DocumentID, record.EditionKey)
+		if identityKey <= lastEditionKey || states[record.DocumentID].DocumentID == 0 ||
+			!validLyricsTranslationEditionKey(record.EditionKey) || validateLyricsTranslationEditionLabel(record.Label) != nil ||
+			record.CreatedAt <= 0 || len(record.CreatedBy) > 128 || !utf8.ValidString(record.CreatedBy) {
+			return fmt.Errorf("lyrics translation edition %d/%s is invalid", record.DocumentID, record.EditionKey)
+		}
+		if editions[record.DocumentID] == nil {
+			editions[record.DocumentID] = map[string]LyricsTranslationEditionBackupRecord{}
+		}
+		if _, duplicate := editions[record.DocumentID][record.EditionKey]; duplicate {
+			return fmt.Errorf("lyrics translation edition %d/%s is duplicated", record.DocumentID, record.EditionKey)
+		}
+		editions[record.DocumentID][record.EditionKey] = record
+		lastEditionKey = identityKey
+	}
+	parents := make(map[localizationIdentity]LyricsTranslationEditionLocalizationBackupRecord, len(lyrics.TranslationEditionLocalizations))
+	lastLocalizationKey := ""
+	for _, record := range lyrics.TranslationEditionLocalizations {
+		identityKey := fmt.Sprintf("%020d\x00%s\x00%s\x00%s", record.DocumentID, record.EditionKey, record.RenditionKey, record.Locale)
+		document, found := documents[record.DocumentID]
+		_, editionFound := editions[record.DocumentID][record.EditionKey]
+		if identityKey <= lastLocalizationKey || !found || !editionFound || record.Locale != "zh-CN" ||
+			record.TranslationCredit != strings.TrimSpace(record.TranslationCredit) ||
+			record.ProofreadingCredit != strings.TrimSpace(record.ProofreadingCredit) ||
+			len(record.TranslationCredit) > 2048 || len(record.ProofreadingCredit) > 2048 ||
+			!utf8.ValidString(record.TranslationCredit) || !utf8.ValidString(record.ProofreadingCredit) ||
+			record.UpdatedAt <= 0 || len(record.UpdatedBy) > 128 || !utf8.ValidString(record.UpdatedBy) {
+			return fmt.Errorf("lyrics translation edition localization %d/%s/%s is invalid", record.DocumentID, record.EditionKey, record.RenditionKey)
+		}
+		if _, editable := translationEditionEditableSide(document, record.RenditionKey, translationEditionEditableSidesForKey(document, record.RenditionKey)); !editable {
+			return fmt.Errorf("lyrics translation edition localization %d/%s/%s has no source rendition", record.DocumentID, record.EditionKey, record.RenditionKey)
+		}
+		identity := localizationIdentity{documentID: record.DocumentID, editionKey: record.EditionKey, renditionKey: record.RenditionKey}
+		if _, duplicate := parents[identity]; duplicate {
+			return fmt.Errorf("lyrics translation edition localization %d/%s/%s is duplicated", record.DocumentID, record.EditionKey, record.RenditionKey)
+		}
+		parents[identity] = record
+		lastLocalizationKey = identityKey
+	}
+	lines := make(map[sideIdentity][]string)
+	lastLineKey := ""
+	for _, record := range lyrics.TranslationEditionLines {
+		identityKey := fmt.Sprintf("%020d\x00%s\x00%s\x00%s\x00%s\x00%020d", record.DocumentID, record.EditionKey,
+			record.RenditionKey, record.Side, record.Locale, record.Position)
+		document, found := documents[record.DocumentID]
+		parent := localizationIdentity{documentID: record.DocumentID, editionKey: record.EditionKey, renditionKey: record.RenditionKey}
+		source, editable := translationEditionEditableSide(document, record.RenditionKey, record.Side)
+		key := sideIdentity{documentID: record.DocumentID, editionKey: record.EditionKey, renditionKey: record.RenditionKey, side: record.Side}
+		if identityKey <= lastLineKey || !found || !editable || record.Locale != "zh-CN" || parents[parent].DocumentID == 0 ||
+			record.Position != len(lines[key]) || record.Position >= len(source.Lines) || len(record.Text) > maxLyricsLineTextBytes || !utf8.ValidString(record.Text) {
+			return fmt.Errorf("lyrics translation edition line %d/%s/%s/%s/%d is invalid", record.DocumentID, record.EditionKey,
+				record.RenditionKey, record.Side, record.Position)
+		}
+		lines[key] = append(lines[key], record.Text)
+		lastLineKey = identityKey
+	}
+	for documentID, state := range states {
+		document := documents[documentID]
+		set := editions[documentID]
+		if len(set) == 0 || len(set) > maxLyricsTranslationEditions || set[state.DefaultEditionKey].DocumentID == 0 {
+			return fmt.Errorf("lyrics translation edition set for document %d is invalid", documentID)
+		}
+		for editionKey := range set {
+			for _, rendition := range document.Renditions {
+				parentKey := localizationIdentity{documentID: documentID, editionKey: editionKey, renditionKey: rendition.RenditionKey}
+				if parents[parentKey].DocumentID == 0 {
+					return fmt.Errorf("lyrics translation edition %d/%s does not cover rendition %s", documentID, editionKey, rendition.RenditionKey)
+				}
+				for _, side := range translationEditionEditableSides(rendition) {
+					source, _ := translationEditionEditableSide(document, rendition.RenditionKey, side)
+					if len(lines[sideIdentity{documentID: documentID, editionKey: editionKey, renditionKey: rendition.RenditionKey, side: side}]) != len(source.Lines) {
+						return fmt.Errorf("lyrics translation edition %d/%s does not cover %s/%s", documentID, editionKey, rendition.RenditionKey, side)
+					}
+				}
+			}
+		}
+		legacyParents := make(map[string]LyricsRenditionLocalizationBackupRecord)
+		for _, record := range lyrics.RenditionLocalizations {
+			if record.DocumentID == documentID {
+				legacyParents[record.RenditionKey] = record
+			}
+		}
+		legacyLines := make(map[string]map[string][]string)
+		for _, record := range lyrics.RenditionTranslationLines {
+			if record.DocumentID != documentID {
+				continue
+			}
+			side := record.Side
+			if side == "" {
+				side = renditionPrimaryTranslationSide(document, record.RenditionKey)
+			}
+			if legacyLines[record.RenditionKey] == nil {
+				legacyLines[record.RenditionKey] = map[string][]string{}
+			}
+			values := legacyLines[record.RenditionKey][side]
+			if record.Position != len(values) {
+				return fmt.Errorf("lyrics default translation mirror %d/%s/%s is not contiguous", documentID, record.RenditionKey, side)
+			}
+			legacyLines[record.RenditionKey][side] = append(values, record.Text)
+		}
+		for _, rendition := range document.Renditions {
+			legacy := legacyParents[rendition.RenditionKey]
+			current := parents[localizationIdentity{documentID: documentID, editionKey: state.DefaultEditionKey, renditionKey: rendition.RenditionKey}]
+			if legacy.DocumentID == 0 || legacy.Revision != state.Revision || legacy.UpdatedAt != state.UpdatedAt ||
+				legacy.UpdatedBy != state.UpdatedBy || legacy.TranslationCredit != current.TranslationCredit ||
+				legacy.ProofreadingCredit != current.ProofreadingCredit {
+				return fmt.Errorf("lyrics default translation mirror metadata for document %d/%s does not match", documentID, rendition.RenditionKey)
+			}
+			for _, side := range translationEditionEditableSides(rendition) {
+				editionValues := lines[sideIdentity{documentID: documentID, editionKey: state.DefaultEditionKey, renditionKey: rendition.RenditionKey, side: side}]
+				legacyValues := legacyLines[rendition.RenditionKey][side]
+				if len(editionValues) != len(legacyValues) {
+					return fmt.Errorf("lyrics default translation mirror lines for document %d/%s/%s do not match", documentID, rendition.RenditionKey, side)
+				}
+				for index := range editionValues {
+					if editionValues[index] != legacyValues[index] {
+						return fmt.Errorf("lyrics default translation mirror line for document %d/%s/%s/%d does not match", documentID, rendition.RenditionKey, side, index)
+					}
+				}
+			}
+		}
+	}
+	if len(states) == 0 && (len(lyrics.TranslationEditions) != 0 || len(lyrics.TranslationEditionLocalizations) != 0 || len(lyrics.TranslationEditionLines) != 0) {
+		return errors.New("lyrics translation edition rows exist without state")
+	}
+	return nil
+}
+
+func translationEditionEditableSidesForKey(document model.LyricsSourceDocument, renditionKey string) string {
+	for _, rendition := range document.Renditions {
+		if rendition.RenditionKey == renditionKey {
+			sides := translationEditionEditableSides(rendition)
+			if len(sides) != 0 {
+				return sides[0]
+			}
+		}
+	}
+	return ""
+}
+
 func lessRenditionLocalizationKey(left, right struct {
 	documentID   int64
 	renditionKey string
+	side         string
 	locale       string
 }) bool {
 	if left.documentID != right.documentID {
@@ -1733,6 +2243,9 @@ func lessRenditionLocalizationKey(left, right struct {
 	}
 	if left.renditionKey != right.renditionKey {
 		return left.renditionKey < right.renditionKey
+	}
+	if left.side != right.side {
+		return left.side < right.side
 	}
 	return left.locale < right.locale
 }

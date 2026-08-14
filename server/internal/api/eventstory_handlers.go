@@ -34,6 +34,11 @@ func (s *Server) handleEventStories(w http.ResponseWriter, r *http.Request) {
 	if stories == nil {
 		stories = []model.EventStorySummary{}
 	}
+	if !explicit {
+		for i := range stories {
+			stories[i].AllOfficialTagged = false
+		}
+	}
 	writeJSON(w, http.StatusOK, stories)
 }
 

@@ -445,6 +445,92 @@ func TestSongResultV2UpconversionPreservesFullGameAndGameOnlyShapes(t *testing.T
 	}
 }
 
+func TestSongResultV3CapturesIndependentGamePeerTranslations(t *testing.T) {
+	fixture := recoveryV3ReplayFixture(t)
+	rendition := fixture.Composition.Renditions[0]
+	rendition.Relation = model.LyricsSourceRenditionRelation{Kind: model.LyricsSourceRenditionRelationNone}
+	fixture.Composition.Renditions[0] = rendition
+	fixture.Providers[0].Fixed = &lyricssource.FixedRevision{
+		RenditionKey: "full-sekai",
+		Extraction: lyricssource.Extraction{Lines: []lyricssource.StructuredLine{
+			{Japanese: rendition.Full.Lines[0].Text},
+			{Japanese: rendition.Full.Lines[1].Text},
+			{Japanese: rendition.Full.Lines[2].Text},
+		}},
+		Translations: []string{"完整一", "完整二", "完整三"},
+	}
+	const gameOutcome = "outcome-sekaipedia-42-peer-sekai-game"
+	gameEvidence := lyricsevidencepack.EvidenceRef{
+		Provider: model.LyricsSourceProviderVocaloidFandom, AcquisitionID: strings.Repeat("b", 64),
+		EvidenceID: "revision:sekaipedia:42:422:" + strings.Repeat("c", 64),
+		SHA256:     strings.Repeat("d", 64), EnvelopeSHA256: strings.Repeat("e", 64),
+	}
+	fixture.Providers = append(fixture.Providers, ProviderReplay{
+		Artifact: lyricsoutcomeartifact.Artifact{
+			Provider: model.LyricsSourceProviderVocaloidFandom, OutcomeID: gameOutcome,
+			ArtifactSHA256: strings.Repeat("f", 64),
+		},
+		Fixed: &lyricssource.FixedRevision{
+			RenditionKey: "game-sekai",
+			Extraction: lyricssource.Extraction{Lines: []lyricssource.StructuredLine{
+				{Japanese: rendition.Game.Lines[0].Text},
+				{Japanese: rendition.Game.Lines[1].Text},
+			}},
+			Translations: []string{"游戏一", "游戏二"},
+		},
+		EvidenceRefs: []lyricsevidencepack.EvidenceRef{gameEvidence},
+	})
+	fixture.Composition.Renditions[0].Provenance.GameText = &model.LyricsSourceComponentRef{RenditionKey: gameOutcome}
+	fixture.Selected = append(fixture.Selected, gameEvidence)
+	sort.Slice(fixture.Selected, func(left, right int) bool {
+		return fixture.Selected[left].EvidenceID < fixture.Selected[right].EvidenceID
+	})
+	for renditionIndex := range fixture.RenditionComponents {
+		if fixture.RenditionComponents[renditionIndex].RenditionKey != rendition.RenditionKey {
+			continue
+		}
+		for componentIndex := range fixture.RenditionComponents[renditionIndex].Components {
+			component := &fixture.RenditionComponents[renditionIndex].Components[componentIndex]
+			if component.Component == model.LyricsSourceRenditionComponentGameText ||
+				component.Component == model.LyricsSourceRenditionComponentRelation {
+				component.OutcomeID = gameOutcome
+				component.Evidence = []lyricsevidencepack.EvidenceRef{gameEvidence}
+			}
+		}
+	}
+	result, err := NewSongResult(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := result.Renditions[0]
+	if !reflect.DeepEqual(got.Translations, []string{"完整一", "完整二", "完整三"}) ||
+		len(got.PeerTranslations) != 1 || got.PeerTranslations[0].Side != "game" ||
+		got.PeerTranslations[0].Locale != "zh-CN" ||
+		!reflect.DeepEqual(got.PeerTranslations[0].Translations, []string{"游戏一", "游戏二"}) {
+		t.Fatalf("independent Game translations=%+v", got)
+	}
+	body, err := MarshalSongResult(result)
+	if err != nil || !bytes.Contains(body, []byte(`"peerTranslations":[{"side":"game","locale":"zh-CN","translations":["游戏一","游戏二"]}]`)) {
+		t.Fatalf("peer translations canonical body=%s err=%v", body, err)
+	}
+	decoded, err := DecodeSongResult(body)
+	if err != nil || !reflect.DeepEqual(decoded.Renditions[0].PeerTranslations, got.PeerTranslations) {
+		t.Fatalf("peer translation round trip=%+v err=%v", decoded.Renditions, err)
+	}
+	unknown := bytes.Replace(body, []byte(`"side":"game"`), []byte(`"side":"game","unknown":true`), 1)
+	duplicate := bytes.Replace(body, []byte(`"side":"game"`), []byte(`"side":"game","side":"game"`), 1)
+	empty := bytes.Replace(body,
+		[]byte(`"peerTranslations":[{"side":"game","locale":"zh-CN","translations":["游戏一","游戏二"]}]`),
+		[]byte(`"peerTranslations":[]`), 1)
+	for name, hostile := range map[string][]byte{"unknown nested field": unknown, "duplicate nested field": duplicate, "explicit empty peers": empty} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeSongResult(hostile); err == nil {
+				t.Fatal("non-canonical peer translation JSON was accepted")
+			}
+		})
+	}
+}
+
 func TestSongResultV3RejectsInvalidPeerRenditionAndEvidenceShapes(t *testing.T) {
 	base, err := NewSongResult(recoveryV3ReplayFixture(t))
 	if err != nil {
@@ -527,6 +613,16 @@ func TestSongResultV3RejectsInvalidPeerRenditionAndEvidenceShapes(t *testing.T) 
 		},
 		"coverage state disagrees with renditions": func(result *SongResult) {
 			result.State = lyricsrootmanifest.CoverageGameOnly
+		},
+		"exact projection peer translation": func(result *SongResult) {
+			result.Renditions[0].PeerTranslations = []SongResultPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"非法一", "非法二"},
+			}}
+		},
+		"invalid peer locale": func(result *SongResult) {
+			result.Renditions[1].PeerTranslations = []SongResultPeerTranslation{{
+				Side: "game", Locale: "en-US", Translations: []string{"非法一", "非法二", "非法三"},
+			}}
 		},
 	}
 	for name, mutate := range tests {

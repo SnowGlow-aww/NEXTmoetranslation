@@ -219,7 +219,7 @@ func (s *Server) handleLyricsSourceReviewImport(w http.ResponseWriter, r *http.R
 		return
 	}
 	if changed {
-		s.broadcastLyricsUpdated(lyrics, "")
+		s.broadcastLyricsUpdated(lyrics, "", currentUser(r))
 	}
 	writeJSON(w, http.StatusOK, lyricsSourceReviewImportResponse{ReviewID: request.ReviewID, Lyrics: lyrics, Changed: changed})
 }

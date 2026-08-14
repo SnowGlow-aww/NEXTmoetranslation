@@ -1054,7 +1054,13 @@ func buildPublicLyricsV3Detail(item LyricsRecoveryItemBackupRecord, sourceRecord
 		if _, found := renditionKeys[record.RenditionKey]; !found {
 			return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 translation line %q is outside the source rendition set", record.RenditionKey)
 		}
-		linesByKey[record.RenditionKey] = append(linesByKey[record.RenditionKey], record)
+		side, err := canonicalBackupTranslationSide(document, record.RenditionKey, record.Side)
+		if err != nil {
+			return PublicLyricsV3DetailDocument{}, err
+		}
+		if side == renditionPrimaryTranslationSide(document, record.RenditionKey) {
+			linesByKey[record.RenditionKey] = append(linesByKey[record.RenditionKey], record)
+		}
 	}
 	state, err := publicLyricsRecoveryState(item.State)
 	if err != nil {
@@ -1077,7 +1083,7 @@ func buildPublicLyricsV3Detail(item LyricsRecoveryItemBackupRecord, sourceRecord
 		}
 		texts := make([]string, len(translated))
 		for index, line := range translated {
-			if line.Position != index || line.RenditionKey != rendition.RenditionKey || line.Locale != "zh-CN" {
+			if line.Position != index || line.RenditionKey != rendition.RenditionKey || line.Locale != "zh-CN" || line.Side != "" && line.Side != renditionPrimaryTranslationSide(document, rendition.RenditionKey) {
 				return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 rendition %q translation lines are incomplete", rendition.RenditionKey)
 			}
 			texts[index] = line.Text
@@ -1085,14 +1091,43 @@ func buildPublicLyricsV3Detail(item LyricsRecoveryItemBackupRecord, sourceRecord
 		if len(texts) != 0 && len(texts) != renditionLineCountForStore(rendition) {
 			return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 rendition %q translation lines do not cover the authoritative side", rendition.RenditionKey)
 		}
-		if len(texts) == 0 && localized && (localization.TranslationCredit != "" || localization.ProofreadingCredit != "") {
-			return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 rendition %q credits exist without translations", rendition.RenditionKey)
-		}
 		var localizationPtr *LyricsRenditionLocalizationBackupRecord
 		if localized {
 			localizationPtr = &localization
 		}
-		publicRendition, err := buildPublicLyricsV3Rendition(rendition, texts, localizationPtr, bindings, identities, contributions)
+		peerTranslations := map[string][]string{}
+		for _, side := range []string{"full", "game"} {
+			if side == renditionPrimaryTranslationSide(document, rendition.RenditionKey) {
+				continue
+			}
+			var peer []LyricsRenditionTranslationLineBackupRecord
+			for _, line := range translationLines {
+				if line.DocumentID == sourceRecord.DocumentID && line.RenditionKey == rendition.RenditionKey && line.Locale == "zh-CN" && line.Side == side {
+					peer = append(peer, line)
+				}
+			}
+			sort.Slice(peer, func(left, right int) bool { return peer[left].Position < peer[right].Position })
+			if len(peer) == 0 {
+				continue
+			}
+			source, found := renditionPeerTranslationSide(document, rendition.RenditionKey, side)
+			if !found || len(peer) != len(source.Lines) {
+				return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 rendition %q %s translation lines are incomplete", rendition.RenditionKey, side)
+			}
+			values := make([]string, len(peer))
+			for index, line := range peer {
+				if line.Position != index {
+					return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 rendition %q %s translation positions are incomplete", rendition.RenditionKey, side)
+				}
+				values[index] = line.Text
+			}
+			peerTranslations[side] = values
+		}
+		if len(texts) == 0 && len(peerTranslations) == 0 && localized &&
+			(localization.TranslationCredit != "" || localization.ProofreadingCredit != "") {
+			return PublicLyricsV3DetailDocument{}, fmt.Errorf("public v3 rendition %q credits exist without translations", rendition.RenditionKey)
+		}
+		publicRendition, err := buildPublicLyricsV3Rendition(rendition, texts, peerTranslations, localizationPtr, bindings, identities, contributions)
 		if err != nil {
 			return PublicLyricsV3DetailDocument{}, err
 		}
@@ -1101,7 +1136,11 @@ func buildPublicLyricsV3Detail(item LyricsRecoveryItemBackupRecord, sourceRecord
 	return result, validatePublicLyricsV3Detail(result)
 }
 
-func buildPublicLyricsV3Rendition(rendition model.LyricsSourceRendition, translations []string, localization *LyricsRenditionLocalizationBackupRecord, bindings []model.LyricsSourceRenditionComponentBinding, identities map[string]model.LyricsSourceFixedIdentity, contributions map[string]string) (PublicLyricsV3Rendition, error) {
+func buildPublicLyricsV3Rendition(rendition model.LyricsSourceRendition, translations []string, sideTranslations map[string][]string, localization *LyricsRenditionLocalizationBackupRecord, bindings []model.LyricsSourceRenditionComponentBinding, identities map[string]model.LyricsSourceFixedIdentity, contributions map[string]string) (PublicLyricsV3Rendition, error) {
+	return buildLyricsV3Rendition(rendition, translations, sideTranslations, localization, bindings, identities, contributions, true)
+}
+
+func buildLyricsV3Rendition(rendition model.LyricsSourceRendition, translations []string, sideTranslations map[string][]string, localization *LyricsRenditionLocalizationBackupRecord, bindings []model.LyricsSourceRenditionComponentBinding, identities map[string]model.LyricsSourceFixedIdentity, contributions map[string]string, validatePublicCredits bool) (PublicLyricsV3Rendition, error) {
 	result := PublicLyricsV3Rendition{Key: rendition.RenditionKey, Kind: rendition.SourceKind, SourceTabPaths: clonePublicV3TabPaths(rendition.SourceTabPaths), Relation: PublicLyricsV3Relation{Kind: rendition.Relation.Kind, FullRenditionKey: rendition.Relation.FullRenditionKey, LineIDs: append([]string(nil), rendition.Relation.LineIDs...)}, Performers: publicV3Performers(rendition.Full, rendition.Game)}
 	if rendition.Full != nil {
 		result.AvailableVersions = append(result.AvailableVersions, "full")
@@ -1113,7 +1152,10 @@ func buildPublicLyricsV3Rendition(rendition model.LyricsSourceRendition, transla
 		if result.Label == "" {
 			result.Label = rendition.Game.Version.Label
 		}
-		gameTranslations := []string(nil)
+		gameTranslations := append([]string(nil), sideTranslations["game"]...)
+		if rendition.Full == nil {
+			gameTranslations = append([]string(nil), translations...)
+		}
 		if rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
 			var err error
 			gameTranslations, err = publicV3ProjectionTranslations(
@@ -1158,7 +1200,16 @@ func buildPublicLyricsV3Rendition(rendition model.LyricsSourceRendition, transla
 		}
 		result.Provenance = append(result.Provenance, PublicLyricsV3ComponentAttribution{Component: binding.ComponentKey, Provider: identity.Provider, Title: identity.Title, RevisionID: identity.RevisionID, RevisionURL: identity.CanonicalURL, LicenseName: licenseName, LicenseURL: licenseURL})
 	}
-	return result, validatePublicLyricsV3Rendition(result)
+	if validatePublicCredits {
+		return result, validatePublicLyricsV3Rendition(result)
+	}
+	credits := result.TranslationCredits
+	result.TranslationCredits = nil
+	if err := validatePublicLyricsV3Rendition(result); err != nil {
+		return PublicLyricsV3Rendition{}, err
+	}
+	result.TranslationCredits = credits
+	return result, nil
 }
 
 func publicV3ProjectionTranslations(

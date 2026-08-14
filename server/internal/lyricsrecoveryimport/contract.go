@@ -423,6 +423,26 @@ func cloneManifest(manifest Manifest) Manifest {
 	return manifest
 }
 
+func cloneStagingRenditionTranslations(input []lyricsstaging.RenditionTranslation) []lyricsstaging.RenditionTranslation {
+	if input == nil {
+		return nil
+	}
+	result := make([]lyricsstaging.RenditionTranslation, len(input))
+	for index, item := range input {
+		result[index] = item
+		result[index].Translations = append([]string(nil), item.Translations...)
+		result[index].PeerTranslations = make([]lyricsstaging.RenditionPeerTranslation, len(item.PeerTranslations))
+		for peerIndex, peer := range item.PeerTranslations {
+			result[index].PeerTranslations[peerIndex] = peer
+			result[index].PeerTranslations[peerIndex].Translations = append([]string(nil), peer.Translations...)
+		}
+		if item.PeerTranslations == nil {
+			result[index].PeerTranslations = nil
+		}
+	}
+	return result
+}
+
 func cloneItems(items []Item) []Item {
 	if items == nil {
 		return nil
@@ -437,6 +457,12 @@ func cloneItems(items []Item) []Item {
 		}
 		if item.Draft != nil {
 			draft := *item.Draft
+			draft.AssociationMusicIDs = append([]int(nil), item.Draft.AssociationMusicIDs...)
+			draft.Source.Categories = append([]string(nil), item.Draft.Source.Categories...)
+			draft.Artifacts = append([]lyricsstaging.Artifact(nil), item.Draft.Artifacts...)
+			draft.Document.FixedIdentities = append([]model.LyricsSourceFixedIdentity(nil), item.Draft.Document.FixedIdentities...)
+			draft.Document.Renditions = model.CloneLyricsSourceRenditions(item.Draft.Document.Renditions)
+			draft.RenditionTranslations = cloneStagingRenditionTranslations(item.Draft.RenditionTranslations)
 			result[index].Draft = &draft
 		}
 		if item.Availability != nil {

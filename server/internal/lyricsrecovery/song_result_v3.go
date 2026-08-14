@@ -15,6 +15,12 @@ import (
 
 const maxSongResultRenditions = 16
 
+type SongResultPeerTranslation struct {
+	Side         string   `json:"side"`
+	Locale       string   `json:"locale"`
+	Translations []string `json:"translations"`
+}
+
 type SongResultRendition struct {
 	RenditionKey          string                                   `json:"renditionKey"`
 	SourceKind            model.LyricsSourceRenditionKind          `json:"sourceKind"`
@@ -29,6 +35,7 @@ type SongResultRendition struct {
 	PrivateReview         *model.LyricsSourcePrivateReview         `json:"privateReview,omitempty"`
 	Components            []RenditionComponentEvidenceRef          `json:"components"`
 	Translations          []string                                 `json:"translations,omitempty"`
+	PeerTranslations      []SongResultPeerTranslation              `json:"peerTranslations,omitempty"`
 }
 
 func (result SongResult) MarshalJSON() ([]byte, error) {
@@ -107,7 +114,7 @@ func newSongResultV3(replay ReplayResult) (SongResult, error) {
 			return SongResult{}, err
 		}
 		hasFull = hasFull || full != nil
-		translations, err := songResultRenditionTranslations(rendition, replay.Providers)
+		translations, peerTranslations, err := songResultRenditionTranslations(rendition, replay.Providers)
 		if err != nil {
 			return SongResult{}, err
 		}
@@ -118,9 +125,10 @@ func newSongResultV3(replay ReplayResult) (SongResult, error) {
 			FullPerformerEvidence: rendition.FullPerformerEvidence,
 			GamePerformerEvidence: rendition.GamePerformerEvidence,
 			Full:                  full, Game: game, Relation: cloneSongResultRelation(rendition.Relation),
-			PrivateReview: cloneSongResultPrivateReview(rendition.PrivateReview),
-			Components:    cloneRenditionComponentEvidence([]RenditionComponentEvidence{evidence})[0].Components,
-			Translations:  translations,
+			PrivateReview:    cloneSongResultPrivateReview(rendition.PrivateReview),
+			Components:       cloneRenditionComponentEvidence([]RenditionComponentEvidence{evidence})[0].Components,
+			Translations:     translations,
+			PeerTranslations: peerTranslations,
 		}
 	}
 	if len(evidenceByKey) != len(result.Renditions) {
@@ -165,7 +173,7 @@ func normalizedSongResultV3Full(input *model.LyricsSourceFull) (*model.LyricsSou
 func songResultRenditionTranslations(
 	rendition model.LyricsSourceRendition,
 	providers []ProviderReplay,
-) ([]string, error) {
+) ([]string, []SongResultPeerTranslation, error) {
 	sourceKey := ""
 	authoritative := rendition.Full
 	if authoritative != nil && rendition.Provenance.FullText != nil {
@@ -174,6 +182,45 @@ func songResultRenditionTranslations(
 		authoritative = rendition.Game
 		sourceKey = rendition.Provenance.GameText.RenditionKey
 	}
+	primarySide := "game"
+	if rendition.Full != nil {
+		primarySide = "full"
+	}
+	translations, err := songResultTranslationsForSide(
+		sourceKey, primarySide, string(rendition.SourceKind), authoritative, providers, true,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	if rendition.Full == nil || rendition.Game == nil ||
+		rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
+		return translations, nil, nil
+	}
+	if rendition.Provenance.GameText == nil {
+		return nil, nil, errors.New("lyrics recovery v3 independent Game translation source is incomplete")
+	}
+	peer, err := songResultTranslationsForSide(
+		rendition.Provenance.GameText.RenditionKey, "game", string(rendition.SourceKind), rendition.Game, providers, false,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	if peer == nil {
+		return translations, nil, nil
+	}
+	return translations, []SongResultPeerTranslation{{
+		Side: "game", Locale: "zh-CN", Translations: peer,
+	}}, nil
+}
+
+func songResultTranslationsForSide(
+	sourceKey string,
+	side string,
+	renditionKind string,
+	authoritative *model.LyricsSourceFull,
+	providers []ProviderReplay,
+	required bool,
+) ([]string, error) {
 	if sourceKey == "" || authoritative == nil || len(authoritative.Lines) == 0 {
 		return nil, errors.New("lyrics recovery v3 translation source is incomplete")
 	}
@@ -183,6 +230,12 @@ func songResultRenditionTranslations(
 		}
 		if provider.Fixed == nil || len(provider.Fixed.Translations) == 0 {
 			return nil, nil
+		}
+		if provider.Fixed.RenditionKey != side+"-"+renditionKind {
+			if required {
+				return nil, errors.New("lyrics recovery v3 translation owner differs from the authoritative side")
+			}
+			continue
 		}
 		if len(provider.Fixed.Translations) != len(authoritative.Lines) ||
 			len(provider.Fixed.Extraction.Lines) != len(authoritative.Lines) {
@@ -199,7 +252,10 @@ func songResultRenditionTranslations(
 		}
 		return translations, nil
 	}
-	return nil, errors.New("lyrics recovery v3 translation source is outside the provider prefix")
+	if required {
+		return nil, errors.New("lyrics recovery v3 translation source is outside the provider prefix")
+	}
+	return nil, nil
 }
 
 func validateSongResultV3(result SongResult, requireDigest bool) error {
@@ -271,6 +327,9 @@ func validateSongResultV3(result SongResult, requireDigest bool) error {
 		if err := validateSongResultTranslations(rendition.Translations, lineCount); err != nil {
 			return err
 		}
+		if err := validateSongResultPeerTranslations(rendition); err != nil {
+			return err
+		}
 		for _, component := range rendition.Components {
 			outcome, found := outcomes[component.OutcomeID]
 			if !found || component.Evidence == nil || len(component.Evidence) == 0 {
@@ -323,6 +382,28 @@ func validateSongResultV3(result SongResult, requireDigest bool) error {
 		}
 	default:
 		return errors.New("lyrics recovery song result v3 has an unsupported state")
+	}
+	return nil
+}
+
+func validateSongResultPeerTranslations(rendition SongResultRendition) error {
+	if rendition.PeerTranslations == nil {
+		return nil
+	}
+	if len(rendition.PeerTranslations) == 0 || rendition.Full == nil || rendition.Game == nil ||
+		rendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection {
+		return errors.New("lyrics recovery song result v3 peer translations have no independently persisted side")
+	}
+	lastKey := ""
+	for _, peer := range rendition.PeerTranslations {
+		key := peer.Side + "\x00" + peer.Locale
+		if peer.Side != "game" || peer.Locale != "zh-CN" || key <= lastKey {
+			return errors.New("lyrics recovery song result v3 peer translations are not canonical")
+		}
+		lastKey = key
+		if err := validateSongResultTranslations(peer.Translations, len(rendition.Game.Lines)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -642,6 +723,14 @@ func cloneSongResultRenditions(input []SongResultRendition) []SongResultRenditio
 			result[index].Components[componentIndex].Evidence = cloneEvidenceRefs(component.Evidence)
 		}
 		result[index].Translations = cloneStringsPreservingNil(rendition.Translations)
+		result[index].PeerTranslations = make([]SongResultPeerTranslation, len(rendition.PeerTranslations))
+		for peerIndex, peer := range rendition.PeerTranslations {
+			result[index].PeerTranslations[peerIndex] = peer
+			result[index].PeerTranslations[peerIndex].Translations = cloneStringsPreservingNil(peer.Translations)
+		}
+		if rendition.PeerTranslations == nil {
+			result[index].PeerTranslations = nil
+		}
 	}
 	return result
 }

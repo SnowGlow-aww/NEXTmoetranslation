@@ -1,6 +1,6 @@
 import type {
-  LyricLine,
   LyricsAvailableVersion,
+  LyricsEditorLine,
   LyricsRendition,
   LyricsRenditionProjectionStatus,
   RenditionLyricsDocument,
@@ -10,7 +10,7 @@ import type {
 
 export interface LyricsGameProjectionResult {
   ok: boolean;
-  lines: LyricLine[];
+  lines: LyricsEditorLine[];
   lineIds: string[];
   errors: string[];
 }
@@ -33,6 +33,11 @@ export function isRenditionLyricsDocument(document: unknown): document is Rendit
 export function lyricsRenditionKeys(document: Partial<SongLyricsDocument> | null | undefined): string[];
 export function lyricsRenditionByKey(document: Partial<SongLyricsDocument> | null | undefined, renditionKey: string): LyricsRendition | null;
 export function normalizedLyricsVersions(document: Partial<SongLyricsDocument> | null | undefined, renditionKey?: string): LyricsAvailableVersion[];
+export function retainedLyricsTranslationTarget(
+  document: Partial<SongLyricsDocument> | null | undefined,
+  preferredRenditionKey?: string,
+  preferredVersion?: LyricsAvailableVersion,
+): { renditionKey: string; version: LyricsAvailableVersion };
 export function renditionProjectionStatus(document: Partial<SongLyricsDocument> | null | undefined, renditionKey?: string): LyricsRenditionProjectionStatus;
 export function projectGameLyricsLines(document: Partial<SongLyricsDocument> | null | undefined, renditionKey?: string): LyricsGameProjectionResult;
 export function lyricsVersionSaveProblems(document: Partial<SongLyricsDocument> | null | undefined): string[];

@@ -111,6 +111,7 @@ async function cancelBody(response) {
 export async function runFetchSSE({
   url,
   signal,
+  headers = {},
   getSession,
   onEvent,
   onOpen = () => {},
@@ -141,7 +142,7 @@ export async function runFetchSSE({
     let response;
     try {
       response = await fetchImpl(url, {
-        headers: { Accept: "text/event-stream", Authorization: `Bearer ${session.token}` },
+        headers: { Accept: "text/event-stream", Authorization: `Bearer ${session.token}`, ...headers },
         cache: "no-store",
         signal: attemptController.signal,
       });

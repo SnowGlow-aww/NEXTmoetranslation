@@ -5,7 +5,10 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"moesekai/server/internal/db"
@@ -593,18 +596,187 @@ func (s *EventStore) Detail(eventID int) (model.EventStoryDetail, error) {
 	return detail, nil
 }
 
+type eventDisplayName struct {
+	Japanese  string
+	Localized string
+}
+
+func (s *EventStore) eventDisplayNames(locale string) (map[int]eventDisplayName, error) {
+	rows, err := s.db.Query(`SELECT e.jp_key, e.cn_text, e.ids_json, COALESCE(l.text, '')
+		FROM entries e
+		LEFT JOIN entry_localizations l
+		  ON l.category=e.category AND l.field=e.field AND l.jp_key=e.jp_key AND l.locale=?
+		WHERE e.category='events' AND e.field='name'`, locale)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[int]eventDisplayName{}
+	for rows.Next() {
+		var japanese, chinese, idsJSON, localized string
+		if err := rows.Scan(&japanese, &chinese, &idsJSON, &localized); err != nil {
+			return nil, err
+		}
+		var rawIDs []any
+		if idsJSON != "" {
+			if err := json.Unmarshal([]byte(idsJSON), &rawIDs); err != nil {
+				continue
+			}
+		}
+		name := localized
+		if locale == model.LocaleJapanese {
+			name = japanese
+		} else if name == "" {
+			name = chinese
+		}
+		for _, rawID := range rawIDs {
+			var id int
+			switch value := rawID.(type) {
+			case string:
+				id, _ = strconv.Atoi(value)
+			case float64:
+				id = int(value)
+			}
+			if id > 0 {
+				result[id] = eventDisplayName{Japanese: japanese, Localized: name}
+			}
+		}
+	}
+	return result, rows.Err()
+}
+
+func (s *EventStore) eventOfficialTagState() (map[int]bool, error) {
+	rows, err := s.db.Query(`SELECT event_id FROM event_stories ORDER BY event_id`)
+	if err != nil {
+		return nil, err
+	}
+	var eventIDs []int
+	for rows.Next() {
+		var eventID int
+		if err := rows.Scan(&eventID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		eventIDs = append(eventIDs, eventID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+
+	result := make(map[int]bool, len(eventIDs))
+	for _, eventID := range eventIDs {
+		var episodeCount int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM event_story_episodes WHERE event_id=?`, eventID).Scan(&episodeCount); err != nil {
+			return nil, err
+		}
+		canonical, err := currentEventCanonicalSegmentIDs(s.db, eventID)
+		if err != nil || len(canonical) != episodeCount {
+			// Missing or invalid canonical coverage must fail open: never hide an
+			// event when the source set is incomplete or cannot be verified.
+			result[eventID] = false
+			continue
+		}
+		var segmentIDs []string
+		for _, ids := range canonical {
+			for segmentID := range ids {
+				segmentIDs = append(segmentIDs, segmentID)
+			}
+		}
+		if len(segmentIDs) == 0 {
+			result[eventID] = false
+			continue
+		}
+
+		placeholders := make([]string, len(segmentIDs))
+		args := make([]any, len(segmentIDs))
+		for i, segmentID := range segmentIDs {
+			placeholders[i] = "?"
+			args[i] = segmentID
+		}
+		rows, err := s.db.Query(`SELECT seg.kind, ep.title_source, line.source
+			FROM event_story_segments seg
+			JOIN event_story_episodes ep
+			  ON ep.event_id=seg.event_id AND ep.episode_no=seg.episode_no AND ep.scenario_id=seg.scenario_id
+			LEFT JOIN event_story_lines line
+			  ON line.event_id=seg.event_id AND line.episode_no=seg.episode_no AND line.jp_key=seg.jp_key
+			WHERE seg.segment_id IN (`+strings.Join(placeholders, ",")+")", args...)
+		if err != nil {
+			return nil, err
+		}
+		total, official := 0, 0
+		for rows.Next() {
+			var kind string
+			var titleSource, lineSource sql.NullString
+			if err := rows.Scan(&kind, &titleSource, &lineSource); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			total++
+			source := "unknown"
+			if kind == "title" && titleSource.Valid {
+				source = titleSource.String
+			} else if kind != "title" && lineSource.Valid {
+				source = lineSource.String
+			}
+			if source == model.SourceCN {
+				official++
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
+		result[eventID] = total == len(segmentIDs) && total > 0 && total == official
+	}
+	return result, nil
+}
+
 // List returns summaries of all event stories, ordered by event id. The
 // untranslated count mirrors UntranslatedTargets: talk lines with empty cn_text
 // plus jp-pending titles (non-empty title text whose source is unset/unknown).
 func (s *EventStore) List() ([]model.EventStorySummary, error) {
-	rows, err := s.db.Query(`SELECT es.event_id, es.source, es.last_updated,
+	return s.listSummaries(model.LocaleChinese)
+}
+
+func (s *EventStore) listSummaries(locale string) ([]model.EventStorySummary, error) {
+	names, err := s.eventDisplayNames(locale)
+	if err != nil {
+		return nil, err
+	}
+	official, err := s.eventOfficialTagState()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query(`SELECT es.event_id, es.source,
 		(SELECT COUNT(*) FROM event_story_episodes e WHERE e.event_id = es.event_id),
-		(SELECT COUNT(*) FROM event_story_lines l
-		   WHERE l.event_id = es.event_id AND l.cn_text = '')
-		+ (SELECT COUNT(*) FROM event_story_episodes e
-		   WHERE e.event_id = es.event_id AND e.title <> ''
-		     AND (e.title_source = '' OR e.title_source = 'unknown' OR e.title_source = 'jp_pending'))
-		FROM event_stories es ORDER BY es.event_id`)
+		CASE WHEN ?='ja-JP' THEN
+			(SELECT COUNT(*) FROM event_story_segments seg
+				JOIN event_story_episodes episode
+				 ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no AND episode.scenario_id=seg.scenario_id
+				WHERE seg.event_id=es.event_id AND seg.source_text='')
+		WHEN ?='zh-CN' THEN
+			(SELECT COUNT(*) FROM event_story_lines l
+				WHERE l.event_id = es.event_id AND l.cn_text = '')
+				+ (SELECT COUNT(*) FROM event_story_episodes e
+					WHERE e.event_id = es.event_id AND e.title <> ''
+					  AND (e.title_source = '' OR e.title_source = 'unknown' OR e.title_source = 'jp_pending'))
+		ELSE
+			(SELECT COUNT(*) FROM event_story_segments seg
+				JOIN event_story_episodes episode
+				 ON episode.event_id=seg.event_id AND episode.episode_no=seg.episode_no AND episode.scenario_id=seg.scenario_id
+				LEFT JOIN event_story_segment_localizations loc ON loc.segment_id=seg.segment_id AND loc.locale=?
+				WHERE seg.event_id=es.event_id AND (loc.segment_id IS NULL OR loc.text=''))
+		END,
+		COALESCE((SELECT last_updated FROM event_story_locale_meta lm WHERE lm.event_id=es.event_id AND lm.locale=?), es.last_updated),
+		es.last_updated
+		FROM event_stories es ORDER BY es.event_id`, locale, locale, locale, locale)
 	if err != nil {
 		return nil, err
 	}
@@ -612,9 +784,15 @@ func (s *EventStore) List() ([]model.EventStorySummary, error) {
 	var out []model.EventStorySummary
 	for rows.Next() {
 		var sum model.EventStorySummary
-		if err := rows.Scan(&sum.EventID, &sum.Source, &sum.LastUpdated, &sum.EpisodeCount, &sum.UntranslatedCount); err != nil {
+		var legacyLastUpdated int64
+		if err := rows.Scan(&sum.EventID, &sum.Source, &sum.EpisodeCount, &sum.UntranslatedCount, &sum.LastUpdated, &legacyLastUpdated); err != nil {
 			return nil, err
 		}
+		if name, ok := names[sum.EventID]; ok {
+			sum.EventName = name.Localized
+			sum.EventNameJapanese = name.Japanese
+		}
+		sum.AllOfficialTagged = official[sum.EventID]
 		out = append(out, sum)
 	}
 	return out, rows.Err()

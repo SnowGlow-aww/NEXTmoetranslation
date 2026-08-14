@@ -386,6 +386,8 @@ func TestTranslationContentPreflightCountsRecoveryAndRenditionLyricsGraph(t *tes
 	body := []byte(`{"music":[{}],"performers":[],"documents":[],"lines":[],"segments":[],"publications":[],` +
 		`"sourceDocuments":[],"sourceArtifacts":[],"sourceIndexEvidence":[],"sourceArtifactEvidence":[],"sourceContributions":[],` +
 		`"renditionLocalizations":[{}],"renditionTranslationLines":[{}],` +
+		`"translationEditionStates":[{}],"translationEditions":[{}],` +
+		`"translationEditionLocalizations":[{}],"translationEditionLines":[{}],` +
 		`"recoveryBatches":[{}],"recoveryItems":[{}],"recoverySourceEvidence":[{}],` +
 		`"recoveryArtifacts":[{}],"recoveryArtifactEvidence":[{}],"recoveryContributions":[{}],` +
 		`"availabilityDocuments":[{}]}`)
@@ -393,14 +395,18 @@ func TestTranslationContentPreflightCountsRecoveryAndRenditionLyricsGraph(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 10 || scenarios != 0 || total != 10 {
-		t.Fatalf("recovery/rendition lyrics preflight count=%d scenarios=%d total=%d", count, scenarios, total)
+	if count != 14 || scenarios != 0 || total != 14 {
+		t.Fatalf("recovery/rendition/edition lyrics preflight count=%d scenarios=%d total=%d", count, scenarios, total)
 	}
 	if got := lyricsContentCount(store.LyricsContentExport{
-		RenditionLocalizations:    make([]store.LyricsRenditionLocalizationBackupRecord, 2),
-		RenditionTranslationLines: make([]store.LyricsRenditionTranslationLineBackupRecord, 3),
-	}); got != 5 {
-		t.Fatalf("lyrics content rendition record count=%d want=5", got)
+		RenditionLocalizations:          make([]store.LyricsRenditionLocalizationBackupRecord, 2),
+		RenditionTranslationLines:       make([]store.LyricsRenditionTranslationLineBackupRecord, 3),
+		TranslationEditionStates:        make([]store.LyricsTranslationEditionStateBackupRecord, 1),
+		TranslationEditions:             make([]store.LyricsTranslationEditionBackupRecord, 1),
+		TranslationEditionLocalizations: make([]store.LyricsTranslationEditionLocalizationBackupRecord, 1),
+		TranslationEditionLines:         make([]store.LyricsTranslationEditionLineBackupRecord, 1),
+	}); got != 9 {
+		t.Fatalf("lyrics content rendition/edition record count=%d want=9", got)
 	}
 }
 

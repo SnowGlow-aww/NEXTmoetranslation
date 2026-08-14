@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -16,6 +17,150 @@ import (
 	"moesekai/server/internal/lyricsstaging"
 	"moesekai/server/internal/model"
 )
+
+func TestV3LocalizationImportExportPreservesPeerOnlyAndCredits(t *testing.T) {
+	s := setupLyricsStore(t)
+	document, evidenceByIdentity := renditionV3PersistenceDocument(t)
+	translations := []lyricsstaging.RenditionTranslation{
+		{
+			RenditionKey: document.Renditions[0].RenditionKey,
+			PeerTranslations: []lyricsstaging.RenditionPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"peer-only-1", "peer-only-2"},
+			}},
+			TranslationCredit: "peer-translator", ProofreadingCredit: "peer-proofreader",
+		},
+		{RenditionKey: document.Renditions[1].RenditionKey},
+	}
+	if err := insertRenditionV3PersistenceGraph(t, s, document, evidenceByIdentity, translations); err != nil {
+		t.Fatal(err)
+	}
+	var documentID int64
+	if err := s.db.QueryRow(`SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10`).Scan(&documentID); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := exportLyricsRenditionLocalizationsTx(context.Background(), tx, documentID, document)
+	_ = tx.Rollback()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0].Translations != nil || len(got[0].PeerTranslations) != 1 ||
+		got[0].TranslationCredit != "peer-translator" || got[0].ProofreadingCredit != "peer-proofreader" {
+		t.Fatalf("peer-only localization=%+v", got[0])
+	}
+	loaded, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("load peer-only editor document: %v", err)
+	}
+	rendered := loaded.Renditions[0]
+	if rendered.Full == nil || rendered.Game == nil || rendered.TranslationCredits == nil ||
+		rendered.TranslationCredits.Translation != "peer-translator" ||
+		rendered.TranslationCredits.Proofreading != "peer-proofreader" ||
+		len(rendered.Game.Lines) != 2 || rendered.Game.Lines[0].Chinese != "peer-only-1" ||
+		rendered.Game.Lines[1].Chinese != "peer-only-2" || rendered.Full.Lines[0].Chinese != "" {
+		t.Fatalf("peer-only editor document=%+v", rendered)
+	}
+	backup, err := s.ExportLyricsContent()
+	if err != nil {
+		t.Fatalf("export peer-only content backup: %v", err)
+	}
+	if len(backup.RenditionTranslationLines) != 2 || backup.RenditionTranslationLines[0].Side != "game" ||
+		backup.RenditionTranslationLines[1].Side != "game" {
+		t.Fatalf("peer-only backup translation lines=%+v", backup.RenditionTranslationLines)
+	}
+}
+
+func TestV3LocalizationExportWithoutPeerTableSupportsHistoricalRuntime(t *testing.T) {
+	s := setupLyricsStore(t)
+	document, evidenceByIdentity := renditionV3PersistenceDocument(t)
+	translations := []lyricsstaging.RenditionTranslation{
+		{RenditionKey: document.Renditions[0].RenditionKey, Translations: []string{"main-1", "main-2"}},
+		{RenditionKey: document.Renditions[1].RenditionKey, Translations: []string{"main-3"}},
+	}
+	if err := insertRenditionV3PersistenceGraph(t, s, document, evidenceByIdentity, translations); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`DROP TABLE song_lyrics_rendition_side_translation_lines`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version=29`); err != nil {
+		t.Fatal(err)
+	}
+	var documentID int64
+	if err := s.db.QueryRow(`SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10`).Scan(&documentID); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := exportLyricsRenditionLocalizationsTx(context.Background(), tx, documentID, document)
+	_ = tx.Rollback()
+	if err != nil || !reflect.DeepEqual(got, translations) {
+		t.Fatalf("historical no-peer export=%+v err=%v", got, err)
+	}
+	backup, err := s.ExportLyricsContent()
+	if err != nil {
+		t.Fatalf("historical v28 content backup: %v", err)
+	}
+	if len(backup.RenditionTranslationLines) != 3 {
+		t.Fatalf("historical v28 backup translation lines=%+v", backup.RenditionTranslationLines)
+	}
+	for _, line := range backup.RenditionTranslationLines {
+		if line.Side != "" {
+			t.Fatalf("historical v28 backup invented peer side: %+v", line)
+		}
+	}
+}
+
+func TestV3LocalizationImportExportRoundTripPreservesIndependentGamePeer(t *testing.T) {
+	s := setupLyricsStore(t)
+	document, evidenceByIdentity := renditionV3PersistenceDocument(t)
+	translations := []lyricsstaging.RenditionTranslation{
+		{
+			RenditionKey: document.Renditions[0].RenditionKey,
+			Translations: []string{"sekai-main-1", "sekai-main-2"},
+			PeerTranslations: []lyricsstaging.RenditionPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"sekai-game-1", "sekai-game-2"},
+			}},
+		},
+		{RenditionKey: document.Renditions[1].RenditionKey, Translations: []string{"vocaloid-main-1"}},
+	}
+	if err := insertRenditionV3PersistenceGraph(t, s, document, evidenceByIdentity, translations); err != nil {
+		t.Fatal(err)
+	}
+	var documentID int64
+	if err := s.db.QueryRow(`SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10`).Scan(&documentID); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := exportLyricsRenditionLocalizationsTx(context.Background(), tx, documentID, document)
+	if err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || len(got[0].PeerTranslations) != 1 ||
+		got[0].PeerTranslations[0].Side != "game" || got[0].PeerTranslations[0].Locale != "zh-CN" ||
+		!reflect.DeepEqual(got[0].PeerTranslations[0].Translations, []string{"sekai-game-1", "sekai-game-2"}) {
+		t.Fatalf("exported independent Game peer=%+v", got)
+	}
+	var peerRows int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_rendition_side_translation_lines WHERE document_id=?`, documentID).Scan(&peerRows); err != nil {
+		t.Fatal(err)
+	}
+	if peerRows != 2 {
+		t.Fatalf("peer row count=%d", peerRows)
+	}
+}
 
 func TestRenditionV3ContentBackupRoundTripPreservesOrderCreditsAndGraph(t *testing.T) {
 	source, translations := setupRenditionV3PersistenceStore(t)
@@ -47,7 +192,7 @@ func TestRenditionV3ContentBackupRoundTripPreservesOrderCreditsAndGraph(t *testi
 	assertRenditionV3BackupShape(t, roundTrip, translations)
 }
 
-func TestRenditionV3ContentBackupRejectsExistingNativeSourceV3RestoreTargetWithoutMutation(t *testing.T) {
+func TestRenditionV3ContentBackupCanAtomicallyReplaceExistingNativeSourceV3Content(t *testing.T) {
 	destination, _ := setupRenditionV3PersistenceStore(t)
 	before, err := destination.ExportLyricsContent()
 	if err != nil {
@@ -57,9 +202,8 @@ func TestRenditionV3ContentBackupRejectsExistingNativeSourceV3RestoreTargetWitho
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := destination.ImportTranslationContent(nil, EventContentExport{}, before); err == nil ||
-		!strings.Contains(err.Error(), "content restore cannot replace immutable source-v3 lyrics") {
-		t.Fatalf("existing source-v3 restore error=%v", err)
+	if err := destination.ImportTranslationContent(nil, EventContentExport{}, before); err != nil {
+		t.Fatalf("replace existing source-v3 content: %v", err)
 	}
 	after, err := destination.ExportLyricsContent()
 	if err != nil {
@@ -70,7 +214,7 @@ func TestRenditionV3ContentBackupRejectsExistingNativeSourceV3RestoreTargetWitho
 		t.Fatal(err)
 	}
 	if !bytes.Equal(beforeJSON, afterJSON) {
-		t.Fatalf("rejected source-v3 restore mutated content: before=%x after=%x", sha256.Sum256(beforeJSON), sha256.Sum256(afterJSON))
+		t.Fatalf("source-v3 replacement was not byte-stable: before=%x after=%x", sha256.Sum256(beforeJSON), sha256.Sum256(afterJSON))
 	}
 }
 
@@ -150,6 +294,37 @@ func TestRenditionV3ContentBackupRejectsLocalizationOmissionsDuplicatesAndReorde
 				content.RenditionTranslationLines[0].Text = strings.Repeat("x", maxLyricsLineTextBytes+1)
 			},
 			want: "is invalid",
+		},
+		{
+			name: "explicit primary side",
+			edit: func(content *LyricsContentExport) {
+				content.RenditionTranslationLines[0].Side = "full"
+			},
+			want: "must use the historical representation",
+		},
+		{
+			name: "exact projection peer side",
+			edit: func(content *LyricsContentExport) {
+				var document model.LyricsSourceDocument
+				if err := json.Unmarshal([]byte(content.SourceDocuments[0].DocumentJSON), &document); err != nil {
+					t.Fatal(err)
+				}
+				for _, rendition := range document.Renditions {
+					if rendition.Relation.Kind != model.LyricsSourceRenditionRelationExactProjection {
+						continue
+					}
+					for _, existing := range content.RenditionTranslationLines {
+						if existing.RenditionKey == rendition.RenditionKey {
+							line := existing
+							line.Side = "game"
+							content.RenditionTranslationLines = append(content.RenditionTranslationLines, line)
+							return
+						}
+					}
+				}
+				t.Fatal("fixture has no exact projection localization")
+			},
+			want: "no independently persisted game peer side",
 		},
 	}
 	for _, test := range cases {

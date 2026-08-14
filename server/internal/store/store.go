@@ -273,7 +273,7 @@ func (s *Store) GetCategories() ([]model.CategoryInfo, error) {
 
 // GetEntries returns entries for a category/field with optional source filter.
 func (s *Store) GetEntries(category, field, source string) ([]model.EntryWithKey, error) {
-	query := `SELECT jp_key, cn_text, source, ids_json FROM entries WHERE category = ? AND field = ?`
+	query := `SELECT jp_key, cn_text, source, ids_json, updated_at FROM entries WHERE category = ? AND field = ?`
 	args := []any{category, field}
 	if source != "" {
 		query += ` AND source = ?`
@@ -288,10 +288,11 @@ func (s *Store) GetEntries(category, field, source string) ([]model.EntryWithKey
 	var result []model.EntryWithKey
 	for rows.Next() {
 		var key, text, src, idsJSON string
-		if err := rows.Scan(&key, &text, &src, &idsJSON); err != nil {
+		var updatedAt int64
+		if err := rows.Scan(&key, &text, &src, &idsJSON, &updatedAt); err != nil {
 			return nil, err
 		}
-		ewk := model.EntryWithKey{Key: key, Text: text, Source: src}
+		ewk := model.EntryWithKey{Key: key, Text: text, Source: src, UpdatedAt: updatedAt}
 		if idsJSON != "" {
 			_ = json.Unmarshal([]byte(idsJSON), &ewk.Ids)
 		}

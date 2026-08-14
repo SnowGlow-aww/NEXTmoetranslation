@@ -13,6 +13,25 @@ test("the full-screen app layout keeps the lyrics workspace stretched with indep
   assert.match(css, /\.lyrics-editor \{[\s\S]*min-height: 0;[\s\S]*height: 100%;[\s\S]*overflow-y: auto;/);
 });
 
+test("translation console exposes deterministic sort modes and activity-name filtering", async () => {
+  const [consoleSource, api, model] = await Promise.all([
+    read("src/components/Console.tsx"), read("src/lib/api.ts"), read("../server/internal/model/model.go"),
+  ]);
+  assert.match(consoleSource, /sortMode.*kana.*id-desc.*time-desc/);
+  assert.match(consoleSource, /option value="kana">五十音/);
+  assert.match(consoleSource, /option value="id-desc">编号倒序/);
+  assert.match(consoleSource, /option value="time-desc">更新时间倒序/);
+  assert.match(consoleSource, /按活动名称筛选/);
+  assert.match(consoleSource, /story\.eventName|story\.eventNameJapanese/);
+  assert.match(consoleSource, /!s\.allOfficialTagged/);
+  assert.match(consoleSource, /filteredEventStories\.filter\(\(s\) => !s\.allOfficialTagged\)/);
+  assert.match(api, /eventName\?: string/);
+  assert.match(api, /eventNameJapanese\?: string/);
+  assert.match(api, /allOfficialTagged: boolean/);
+  assert.match(model, /EventName.*eventName/);
+  assert.match(model, /AllOfficialTagged.*allOfficialTagged/);
+});
+
 test("Chinese and English console requests always carry an explicit locale", async () => {
   const api = await read("src/lib/api.ts");
   assert.match(api, /function addLocale[\s\S]*if \(locale\) params\.set\("locale", locale\)/);
@@ -22,23 +41,22 @@ test("Chinese and English console requests always carry an explicit locale", asy
   assert.doesNotMatch(api, /locale !== "zh-CN"/);
 });
 
-test("translation review uses a resizable fixed editor and scrolls only the lower entry list", async () => {
+test("translation review keeps a fixed editor above an independently scrolling lower list", async () => {
   const [consoleSource, css] = await Promise.all([
     read("src/components/Console.tsx"),
     read("src/app/globals.css"),
   ]);
   assert.match(consoleSource, /const translationWorkspaceRef = useRef<HTMLDivElement>\(null\)/);
   assert.match(consoleSource, /const translationEntryListRef = useRef<HTMLDivElement>\(null\)/);
-  assert.match(consoleSource, /className={`translation-workspace\$\{isTranslationResizing/);
-  assert.match(consoleSource, /style=\{\{ gridTemplateRows: `\$\{translationTopHeight\}px 10px minmax\(0, 1fr\)` \}\}/);
-  assert.match(consoleSource, /role="separator"[\s\S]*onPointerDown=\{startTranslationResize\}[\s\S]*onPointerMove=\{moveTranslationResize\}/);
+  assert.match(consoleSource, /className="translation-workspace" ref=\{translationWorkspaceRef\}/);
+  assert.doesNotMatch(consoleSource, /translation-resizer|startTranslationResize|moveTranslationResize|isTranslationResizing|translationTopHeight/);
   assert.match(consoleSource, /const keepTranslationEntryVisible = useCallback[\s\S]*translationEntryListRef\.current[\s\S]*container\.scrollTo\(\{ top: nextTop/);
   assert.match(consoleSource, /setTimeout\(\(\) => keepTranslationEntryVisible\(next\.key\), 40\)/);
   assert.doesNotMatch(consoleSource, /scrollIntoView/);
-  assert.match(css, /\.translation-workspace \{[\s\S]*display: grid;[\s\S]*overflow: hidden;/);
+  assert.match(css, /\.translation-workspace \{[\s\S]*display: grid;[\s\S]*grid-template-rows: 420px minmax\(0, 1fr\);[\s\S]*overflow: hidden;/);
   assert.match(css, /\.translation-editor-pane \{[\s\S]*overflow-y: auto;/);
   assert.match(css, /\.translation-entry-list \{[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
-  assert.match(css, /\.translation-resizer \{[\s\S]*cursor: row-resize;[\s\S]*touch-action: none;/);
+  assert.doesNotMatch(css, /translation-resizer|row-resize/);
 });
 
 test("locale changes expose save discard and cancel dirty choices", async () => {
@@ -123,11 +141,45 @@ test("console generations fence loads and saves while tab identity reconciles re
   assert.match(consoleSource, /const saveCategory = category/);
   assert.match(consoleSource, /d\.clientId !== clientID/);
   assert.doesNotMatch(consoleSource, /d\.user !== username/);
-  assert.match(consoleSource, /selectedEntry && !entryDirty/);
+  assert.match(consoleSource, /selectedEntry && entryDirty/);
+  assert.match(consoleSource, /setRemoteConflict/);
+  assert.match(consoleSource, /highlightRemoteRow/);
+  assert.match(consoleSource, /remote-highlight/);
+  assert.match(consoleSource, /event === "presence\.snapshot" \|\| event === "presence\.joined" \|\| event === "presence\.left"/);
+  assert.match(consoleSource, /setOnlineUsers/);
+  assert.match(consoleSource, /nexttrans-html-etag/);
+  assert.match(consoleSource, /页面已有新版本/);
   assert.match(consoleSource, /event === "content\.restored"/);
   assert.match(consoleSource, /setRestoreGeneration/);
   assert.match(consoleSource, /const captured = captureContext\(\)/);
   assert.match(consoleSource, /if \(!contextIsCurrent\(captured\)\) return/);
+});
+
+test("lyrics collaboration reads an imperative dirty snapshot before parent effects can report it", async () => {
+  const [consoleSource, editor] = await Promise.all([
+    read("src/components/Console.tsx"), read("src/components/LyricsEditor.tsx"),
+  ]);
+  assert.match(editor, /snapshot: \(\) => \(\{[\s\S]*dirty: lyricsRef\.current != null/);
+  assert.match(editor, /document: lyricsRef\.current \? JSON\.parse\(JSON\.stringify\(lyricsRef\.current\)\)/);
+  assert.match(editor, /editionKey: activeTranslationEditionKeyRef\.current/);
+  assert.match(consoleSource, /const lyricsSnapshot = lyricsEditorRef\.current\?\.snapshot\(\) \?\? null/);
+  assert.match(consoleSource, /kind: "lyrics", editionKey: lyricsSnapshot\?\.editionKey \|\| ""/);
+  assert.match(consoleSource, /if \(lyricsSnapshot\?\.dirty \?\? lyricsDirty\)/);
+  assert.match(consoleSource, /共享 revision 已变化，本地未保存草稿已冻结/);
+  assert.match(consoleSource, /const captureUnsavedDraft[\s\S]*lyricsEditorRef\.current\?\.snapshot\(\)/);
+});
+
+test("parent dirty actions stay non-cancelable and generation-fenced while awaiting save", async () => {
+  const consoleSource = await read("src/components/Console.tsx");
+  assert.match(consoleSource, /const \[pendingActionBusy, setPendingActionBusy\] = useState\(false\)/);
+  assert.match(consoleSource, /pendingActionBusyRef\.current = true/);
+  assert.match(consoleSource, /pendingActionRef\.current\?\.token === pending\.token/);
+  assert.match(consoleSource, /contextGenerationRef\.current === pending\.contextGeneration/);
+  assert.match(consoleSource, /if \(!saved \|\| !pendingIsCurrent\(\)\) return/);
+  assert.match(consoleSource, /if \(!lyricsEditorRef\.current\?\.discard\(\)\) return/);
+  assert.match(consoleSource, /closeDisabled=\{pendingActionBusy\}/);
+  assert.match(consoleSource, /disabled=\{pendingActionBusy\}>放弃修改/);
+  assert.match(consoleSource, /disabled=\{pendingActionBusy\}>取消/);
 });
 
 test("restore conflicts never offer save-first and stale drafts can only be exported or discarded", async () => {
@@ -145,25 +197,35 @@ test("restore conflicts never offer save-first and stale drafts can only be expo
 
 test("SSE gaps lock writes until authoritative reconciliation completes", async () => {
   const [consoleSource, ws, editor] = await Promise.all([
-    read("src/components/Console.tsx"), read("src/lib/ws.ts"),
+    read("src/components/Console.tsx"), read("src/lib/sse.ts"),
     read("src/components/LyricsEditor.tsx"),
   ]);
-  assert.ok(ws.includes('"sse.disconnected"'), 'missing ws sse.disconnected event');
-  assert.ok(ws.includes('"sse.reconnected"'), 'missing ws sse.reconnected event');
-  assert.ok(ws.includes('"sse.missed-events"'), 'missing ws sse.missed-events event');
+  assert.ok(ws.includes('"sse.disconnected"'), 'missing transport sse.disconnected event');
+  assert.ok(ws.includes('"sse.reconnected"'), 'missing transport sse.reconnected event');
+  assert.ok(ws.includes('"sse.missed-events"'), 'missing transport sse.missed-events event');
+  assert.ok(ws.includes('"presence.snapshot"'), 'missing presence snapshot event');
   assert.match(consoleSource, /useState\(true\)[\s\S]*const writeFenceRef = useRef\(true\)/);
   assert.match(consoleSource, /event === "sse\.disconnected"[\s\S]*setWriteFence\(true\)/);
+  assert.match(consoleSource, /event === "sse\.disconnected"[\s\S]*reconcileContentRef\.current\("gap"\)/);
   assert.match(consoleSource, /event === "sse\.disconnected"[\s\S]*reconciliationGenerationRef\.current\+\+/);
   assert.match(consoleSource, /event === "sse\.missed-events"[\s\S]*reconcileContent\("gap"\)/);
+  const reconnectBranch = consoleSource.slice(
+    consoleSource.indexOf('event === "sse.reconnected"'),
+    consoleSource.indexOf('event === "sse.missed-events"'),
+  );
+  assert.doesNotMatch(reconnectBranch, /show\(/, "transport reconnect must not announce success before reconciliation");
+  assert.match(consoleSource, /reconcileContent\("gap"\)\.then\(\(reconciled\) => \{[\s\S]*if \(reconciled\) show\(/);
+  assert.match(consoleSource, /d\.initial === true \? "实时连接已建立" : "实时连接已恢复"/);
   assert.match(consoleSource, /Promise\.all\(\[[\s\S]*reloadSidebar\(\), loadEntries\(\), lyricsReload/);
   assert.match(consoleSource, /preservedConflictDraftRef\.current \?\? captureUnsavedDraft\(\)/);
-  assert.match(consoleSource, /contentEventGenerationRef\.current !== contentEventGeneration[\s\S]*reconcileContent\(reason, draft\)/);
+  assert.match(consoleSource, /contentEventGenerationRef\.current !== contentEventGeneration[\s\S]*reconcileContent\(reason, draft, conflictDetail\)/);
   assert.match(consoleSource, /setWriteFence\(false\)/);
   assert.match(consoleSource, /writeLocked={writesLocked}/);
   assert.match(editor, /disabled={busy \|\| writeLocked}/);
   assert.match(editor, /writeLockedRef\.current = writeLocked/);
   assert.match(editor, /if \(busyRef\.current \|\| writeLockedRef\.current\) return/);
-  assert.match(editor, /if \(saveFirst && writeLockedRef\.current\) return;[\s\S]*pending\.kind === "publish" && writeLockedRef\.current/);
+  assert.match(editor, /const editionTransition = pending\.kind === "edition-switch" \|\| pending\.kind === "edition-command"/);
+  assert.match(editor, /\(saveFirst \|\| pending\.kind === "publish" \|\| editionTransition\) && writeLockedRef\.current/);
   assert.match(editor, /reloadAuthoritative[\s\S]*setPendingTransition\(null\)/);
 });
 
@@ -185,13 +247,14 @@ test("stale conflict resolution revalidates proof and live SSE before releasing 
   const consoleSource = await read("src/components/Console.tsx");
   const reconcile = consoleSource.slice(consoleSource.indexOf("const reconcileContent = async"), consoleSource.indexOf("reconcileContentRef.current = reconcileContent"));
   const resolve = consoleSource.slice(consoleSource.indexOf("const resolveContentConflict"), consoleSource.indexOf("const exportConflictDraft"));
-  const sseHandler = consoleSource.slice(consoleSource.indexOf("useWebSocket((event, data)"), consoleSource.indexOf("  }, true);", consoleSource.indexOf("useWebSocket((event, data)")));
+  const sseHandler = consoleSource.slice(consoleSource.indexOf("useSSE((event, data)"), consoleSource.indexOf("  }, true);", consoleSource.indexOf("useSSE((event, data)")));
 
   assert.equal((reconcile.match(/if \(!sseConnectedRef\.current\)/g) || []).length, 2);
-  assert.match(reconcile, /if \(!sseConnectedRef\.current\)[\s\S]*setContentConflict\(\{ reason, draft, reloadFailed: true \}\)/);
-  assert.match(reconcile, /producerBefore = await getEditorGateStatus\(\)[\s\S]*producerAfter = await getEditorGateStatus\(\)[\s\S]*acceptLoadedProducerState\(producerAfter\)/);
+  assert.match(reconcile, /const failReconcile = \(message: string\)/);
+  assert.match(reconcile, /if \(!sseConnectedRef\.current\)[\s\S]*failReconcile\("实时连接尚未恢复/);
+  assert.match(reconcile, /producerBefore = await getEditorGateStatus\(\)[\s\S]*producerAfter = await getEditorGateStatus\(\)[\s\S]*retryReconcileLater\(\)[\s\S]*acceptLoadedProducerState\(producerAfter\)/);
   assert.match(resolve, /setContentConflict\(\{ \.\.\.conflict, draft: null, reloadFailed: true \}\)/);
-  assert.match(resolve, /reconcileContent\(conflict\.reason, null\)/);
+  assert.match(resolve, /reconcileContent\(conflict\.reason, null, conflict\.detail\)/);
   assert.doesNotMatch(resolve, /setWriteFence\(false\)|setContentConflict\(null\)/);
   assert.match(sseHandler, /event === "sse\.disconnected"[\s\S]*sseConnectedRef\.current = false[\s\S]*setWriteFence\(true\)/);
   assert.match(sseHandler, /event === "sse\.reconnected"[\s\S]*sseConnectedRef\.current = true/);
@@ -206,12 +269,13 @@ test("realtime fence blocks writes without blocking local logout discard or canc
   const localGuard = consoleSource.slice(consoleSource.indexOf("const runOrGuard"), consoleSource.indexOf("const guardProducerMutation"));
   assert.doesNotMatch(localGuard, /writeFenceRef\.current/);
   assert.match(consoleSource, /runOrGuard\("退出登录"/);
-  assert.match(consoleSource, /if \(saveFirst && writeFenceRef\.current\) return/);
-  assert.match(consoleSource, /onClick=\{\(\) => void continuePendingAction\(false\)\}>放弃修改/);
-  assert.match(consoleSource, /onClick=\{closePendingAction\}>取消/);
-  assert.match(consoleSource, /const guardProducerMutation[\s\S]*if \(writeFenceRef\.current\)/);
-  assert.match(editor, /if \(saveFirst && writeLockedRef\.current\) return/);
-  assert.match(editor, /onClick=\{\(\) => void continuePendingTransition\(false\)\} disabled=\{busy\}>放弃修改/);
+  assert.match(consoleSource, /pendingActionBusyRef\.current \|\| \(saveFirst && writeFenceRef\.current\)/);
+  assert.match(consoleSource, /onClick=\{\(\) => void continuePendingAction\(false\)\} disabled=\{pendingActionBusy\}>放弃修改/);
+  assert.match(consoleSource, /onClick=\{closePendingAction\} disabled=\{pendingActionBusy\}>取消/);
+  assert.equal((consoleSource.slice(consoleSource.indexOf("const guardProducerMutation"), consoleSource.indexOf("const highlightRemoteRow")).match(/if \(writeFenceRef\.current\)/g) || []).length, 2);
+  assert.match(consoleSource, /保存等待期间实时校对已锁定，上游操作未执行/);
+  assert.match(editor, /\(saveFirst \|\| pending\.kind === "publish" \|\| editionTransition\) && writeLockedRef\.current/);
+  assert.match(editor, /onClick=\{\(\) => void continuePendingTransition\(false\)\}[\s\S]{0,220}>放弃并继续/);
   assert.match(editor, /onClick=\{\(\) => setPendingTransition\(null\)\} disabled=\{busy\}>取消/);
   assert.match(editor, /<fieldset className="lyrics-edit-fence" disabled=\{busy\}/);
 });
@@ -257,11 +321,11 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.match(api, /JSON\.stringify\(buildLyricsSavePayload\(lyrics, sourceImportToken, getClientID\(\)\)\)/);
   assert.match(editor, /sourceImportTokenRef\.current = ""/);
   assert.match(editor, /performChooseMusic[\s\S]*sourceImportTokenRef\.current = ""/);
-  assert.match(editor, /const discard = \(\) => \{[\s\S]*sourceImportTokenRef\.current = ""/);
+  assert.match(editor, /const discard = \(\): boolean => \{[\s\S]*sourceImportTokenRef\.current = ""/);
   assert.match(editor, /const previewSource = async[\s\S]*sourceImportTokenRef\.current = ""/);
   assert.match(editor, /const reloadAuthoritative = async[\s\S]*sourceImportTokenRef\.current = ""/);
   assert.match(editor, /exportDraft: \(\) => lyrics \? JSON\.parse\(JSON\.stringify\(lyrics\)\) as SongLyricsDocument : null/);
-  const conflictReloadHandler = editor.slice(editor.indexOf('if (!error?.current) return;'));
+  const conflictReloadHandler = editor.slice(editor.indexOf("const loadConflictAuthoritative = async"));
   assert.match(conflictReloadHandler, /sourceImportTokenRef\.current = ""/);
   assert.match(editor, /const TERMINAL_SOURCE_IMPORT_CODES = new Set/);
   assert.match(editor, /if \(error\.status >= 500\) return false/);
@@ -339,6 +403,18 @@ test("lyrics mutations validate and correlate 2xx responses before clearing loca
   assert.doesNotMatch(terminalHandler, /setBaseline\(/);
 });
 
+test("translation entry payloads carry last-update metadata for client-side sorting", async () => {
+  const [store, localization, model, api] = await Promise.all([
+    read("../server/internal/store/store.go"), read("../server/internal/store/localization.go"),
+    read("../server/internal/model/model.go"), read("src/lib/api.ts"),
+  ]);
+  assert.match(store, /SELECT jp_key, cn_text, source, ids_json, updated_at/);
+  assert.match(localization, /COALESCE\(l\.updated_at, e\.updated_at\)/);
+  assert.match(localization, /SELECT jp_key, text, source, updated_at/);
+  assert.match(model, /UpdatedAt int64.*updatedAt/);
+  assert.match(api, /updatedAt\?: number/);
+});
+
 test("entry saves opt into and strictly correlate the additive response contract", async () => {
   const api = await read("src/lib/api.ts");
   assert.match(api, /\/editor\/v1\/entry\?response=correlated-v1/);
@@ -387,24 +463,33 @@ test("lyrics transitions guard dirty publication and ignore stale song loads", a
   assert.match(editor, /if \(busyRef\.current\) return/);
 });
 
-test("lyrics collaboration sends tab identity and reloads only peer updates for the selected document", async () => {
-  const [api, sse, consoleSource, editor] = await Promise.all([
+test("lyrics collaboration consumes server-derived rendition targets and freezes dirty shared revisions", async () => {
+  const [api, sse, consoleSource, editor, collaboration] = await Promise.all([
     read("src/lib/api.ts"), read("src/lib/sse.ts"), read("src/components/Console.tsx"),
-    read("src/components/LyricsEditor.tsx"),
+    read("src/components/LyricsEditor.tsx"), read("src/lib/lyrics-collaboration.mjs"),
   ]);
   assert.match(api, /JSON\.stringify\(buildLyricsSavePayload\(lyrics, sourceImportToken, getClientID\(\)\)\)/);
   assert.match(api, /musicId, revision, clientId: getClientID\(\)/);
   assert.match(sse, /"lyrics\.updated"/);
   assert.match(consoleSource, /event === "lyrics\.updated"/);
-  assert.match(consoleSource, /d\.clientId !== clientID/);
-  assert.match(consoleSource, /isEditing\(musicID\)/);
-  assert.match(consoleSource, /runOrGuard\("同步协作者更新"/);
-  assert.match(editor, /selectedMusicIDRef\.current === musicID/);
+  assert.match(consoleSource, /normalizeLyricsUpdateEvent\(d\)/);
+  assert.match(consoleSource, /update\.clientId !== clientID/);
+  assert.match(consoleSource, /lyricsEditorRef\.current\?\.activeTarget\(\)/);
+  assert.match(consoleSource, /lyricsUpdateMatchesEditorTarget\(update, activeTarget\)/);
+  assert.match(consoleSource, /const lyricsSnapshot = lyricsEditorRef\.current\?\.snapshot\(\) \?\? null;[\s\S]*if \(lyricsSnapshot\?\.dirty \?\? lyricsDirty\)[\s\S]*reconcileContent\("remote", draft, detail\)/);
+  assert.doesNotMatch(consoleSource, /runOrGuard\("同步协作者更新", \(\) => setRestoreGeneration/);
+  assert.match(consoleSource, /setRestoreGeneration\(\(value\) => value \+ 1\)/);
+  assert.match(consoleSource, /reloadCatalog\(\)/);
+  assert.match(editor, /activeTarget: \(\) => selectedMusicIDRef\.current == null \? null/);
+  assert.match(editor, /renditionKey: activeRendition\?\.key \|\| ""/);
+  assert.match(editor, /side: activeVersion/);
+  assert.match(editor, /projectionKind,/);
+  assert.match(collaboration, /target\.side === "game" && target\.projectionKind === "exact_projection" && update\.side === "full"/);
+  assert.match(collaboration, /const TARGET_SIDES = new Set\(\["full", "game", "credits"\]\)/);
+  assert.match(collaboration, /malformed additive targets|return \{ musicId, revision, clientId \}/);
   assert.match(api, /let clientID = ""/);
   assert.match(api, /if \(!clientID\) clientID = crypto\.randomUUID\(\)/);
   assert.doesNotMatch(api, /sessionStorage/);
-  assert.match(consoleSource, /lyricsEditorRef\.current\?\.reloadCatalog\(\)/);
-  assert.match(editor, /reloadCatalog: \(\) =>/);
 });
 
 test("backup restore requires typed confirmation and enters the shared dirty guard", async () => {
@@ -423,7 +508,7 @@ test("settings and admin upstream producers enter the shared write and dirty fen
     read("src/components/Console.tsx"), read("src/components/AdminModal.tsx"), read("src/components/SettingsModal.tsx"),
   ]);
   assert.match(consoleSource, /<SettingsModal[\s\S]*guardProducerMutation={guardProducerMutation}/);
-  assert.match(consoleSource, /setWriteFence\(true\)[\s\S]*Promise\.resolve\(\)\.then\(action\)\.finally\(\(\) => reconcileContentRef\.current\("gap"\)\)/);
+  assert.match(consoleSource, /runOrGuard\(label, \(\) => \{[\s\S]*if \(writeFenceRef\.current\)[\s\S]*setWriteFence\(true\)[\s\S]*Promise\.resolve\(\)\.then\(action\)\.finally\(\(\) => reconcileContentRef\.current\("gap"\)\)/);
   assert.match(consoleSource, /guardProducerMutation\("运行 AI 剧情翻译", doAIStory\)/);
   assert.match(consoleSource, /guardProducerMutation\("重新获取剧情", retryStory\)/);
   assert.match(consoleSource, /guardProducerMutation\("重排序对话", reorderStory\)/);

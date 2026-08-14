@@ -14,8 +14,11 @@ const catalogPaginationSource = await readFile(new URL("../src/lib/catalog-pagin
 const catalogPaginationURL = `data:text/javascript;base64,${Buffer.from(catalogPaginationSource).toString("base64")}`;
 const lyricsVersioningSource = await readFile(new URL("../src/lib/lyrics-versioning.mjs", import.meta.url), "utf8");
 const lyricsVersioningURL = `data:text/javascript;base64,${Buffer.from(lyricsVersioningSource).toString("base64")}`;
+const lyricsEditionsSource = await readFile(new URL("../src/lib/lyrics-editions.mjs", import.meta.url), "utf8");
+const lyricsEditionsURL = `data:text/javascript;base64,${Buffer.from(lyricsEditionsSource).toString("base64")}`;
 const lyricsSaveSource = (await readFile(new URL("../src/lib/lyrics-save.mjs", import.meta.url), "utf8"))
-  .replaceAll('"./lyrics-versioning.mjs"', JSON.stringify(lyricsVersioningURL));
+  .replaceAll('"./lyrics-versioning.mjs"', JSON.stringify(lyricsVersioningURL))
+  .replaceAll('"./lyrics-editions.mjs"', JSON.stringify(lyricsEditionsURL));
 const lyricsSaveURL = `data:text/javascript;base64,${Buffer.from(lyricsSaveSource).toString("base64")}`;
 const apiCompiled = ts.transpileModule(apiSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },

@@ -624,6 +624,71 @@ func TestImportStagedSekaipediaAuthoritativeVocaloidPersistsTimestampSegmentatio
 	}
 }
 
+func TestStagedLyricsSourceDocumentMatchDetectsExistingSourceV3LocalizationDrift(t *testing.T) {
+	s := setupLyricsStore(t)
+	document, evidenceByIdentity := renditionV3PersistenceDocument(t)
+	translations := []lyricsstaging.RenditionTranslation{
+		{
+			RenditionKey: document.Renditions[0].RenditionKey,
+			Translations: []string{"主译文一", "主译文二"},
+			PeerTranslations: []lyricsstaging.RenditionPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"游戏译文一", "游戏译文二"},
+			}},
+		},
+		{RenditionKey: document.Renditions[1].RenditionKey, Translations: []string{"虚拟歌手译文"}},
+	}
+	artifacts := make([]lyricsstaging.Artifact, len(document.FixedIdentities))
+	for index, identity := range document.FixedIdentities {
+		artifact, err := lyricsstaging.NewRecoveryArtifact(identity, evidenceByIdentity[index][0].Raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		artifacts[index] = artifact
+	}
+	draft, err := lyricsstaging.BuildRecoveryPeerDraft(
+		10, "新曲", recoveryRenditionTestCatalogFingerprint(t, s, 10), 10, []int{}, document, artifacts, translations,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := insertStagedV3Draft(ctx, tx, draft, "staged-replay-test", strings.Repeat("b", 64), time.Now().Unix(), false); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	tx, err = s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exists, matched, err := stagedLyricsSourceDocumentMatches(context.Background(), tx, draft, false)
+	_ = tx.Rollback()
+	if err != nil || !exists || !matched {
+		t.Fatalf("exact source-v3 replay exists=%t matched=%t err=%v", exists, matched, err)
+	}
+
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_side_translation_lines
+		SET text='篡改的 Game 译文' WHERE side='game' AND position=0`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err = s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exists, matched, err = stagedLyricsSourceDocumentMatches(context.Background(), tx, draft, false)
+	_ = tx.Rollback()
+	if err != nil || !exists || matched {
+		t.Fatalf("drifted source-v3 replay exists=%t matched=%t err=%v", exists, matched, err)
+	}
+}
+
 func TestImportStagedLyricsManifestEvidenceReceiptAndCommitHookShareOneTransaction(t *testing.T) {
 	s, _, manifest, receipt := setupStagedManifestImportStore(t, []stagedImportSong{{
 		musicID: 10, title: "合成試験曲", text: "初音歌う", sourceID: "miku",

@@ -884,7 +884,8 @@ func digestRecoveryProtectedTable(ctx context.Context, database sqliteDigestQuer
 				"main."+quoteSQLiteIdentifier(tableName)+".music_id)", scope.batchSHA256)
 	case "song_lyrics_source_documents":
 		return true, digestSQLiteTableWhere(ctx, database, hasher, tableName, "manifest_batch_sha256<>?", scope.batchSHA256)
-	case "song_lyrics_rendition_localizations", "song_lyrics_rendition_translation_lines":
+	case "song_lyrics_rendition_localizations", "song_lyrics_rendition_translation_lines",
+		"song_lyrics_rendition_side_translation_lines":
 		return true, digestSQLiteTableWhere(ctx, database, hasher, tableName,
 			"NOT EXISTS (SELECT 1 FROM song_lyrics_source_documents AS document WHERE document.document_id="+
 				"main."+quoteSQLiteIdentifier(tableName)+".document_id AND document.manifest_batch_sha256=?)", scope.batchSHA256)

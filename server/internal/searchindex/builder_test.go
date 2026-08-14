@@ -120,6 +120,165 @@ func TestLegacySearchIndexGolden(t *testing.T) {
 	}
 }
 
+func TestMusicAliasesJoinByStableMusicID(t *testing.T) {
+	documents := completeMasterdataDocuments()
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/music_aliases.json" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"generated_at":"2026-08-13T00:00:00Z","musics":[{"music_id":2,"title":"music","aliases":["Song Alias","歌名别称"]},{"music_id":999,"title":"extra","aliases":["ignored"]}]}`)
+			return
+		}
+		if document, ok := documents[r.URL.Path]; ok {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, document)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer upstream.Close()
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "alias-search.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	dataStore := store.New(database)
+	events := store.NewEventStore(database)
+	cfg, err := config.New(database, "search-master-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyUpstreamJPMasterdataURL, upstream.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyUpstreamJPMasterdataFallbackURL, upstream.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Set(config.KeyMusicAliasesURL, upstream.URL+"/music_aliases.json"); err != nil {
+		t.Fatal(err)
+	}
+	fileService := filesvc.New(dataStore, events, files.NewGenerator(dataStore, events, ""))
+	builder := New(dataStore, fileService, cfg, time.Hour, time.Hour)
+	allowSingleRecordFixture(builder)
+	if err := builder.buildContext(t.Context(), "aliases"); err != nil {
+		t.Fatal(err)
+	}
+
+	var legacy []Entry
+	legacyResponse := httptest.NewRecorder()
+	fileService.Handler().ServeHTTP(legacyResponse, httptest.NewRequest(http.MethodGet, "/files/data/search-index.json", nil))
+	if legacyResponse.Code != http.StatusOK {
+		t.Fatalf("legacy search-index status = %d: %s", legacyResponse.Code, legacyResponse.Body.String())
+	}
+	if err := json.Unmarshal(legacyResponse.Body.Bytes(), &legacy); err != nil {
+		t.Fatal(err)
+	}
+	var musicEntry, eventEntry Entry
+	for _, entry := range legacy {
+		switch entry.G {
+		case "music":
+			musicEntry = entry
+		case "events":
+			eventEntry = entry
+		}
+	}
+	if !sameStrings(musicEntry.Aliases, []string{"Song Alias", "歌名别称"}) {
+		t.Fatalf("music aliases = %#v", musicEntry.Aliases)
+	}
+	if len(eventEntry.Aliases) != 0 {
+		t.Fatalf("non-music aliases = %#v", eventEntry.Aliases)
+	}
+
+	var multilingual []MultilingualEntry
+	multiResponse := httptest.NewRecorder()
+	fileService.Handler().ServeHTTP(multiResponse, httptest.NewRequest(http.MethodGet, "/files/v2/data/search-index.json", nil))
+	if multiResponse.Code != http.StatusOK {
+		t.Fatalf("multilingual search-index status = %d: %s", multiResponse.Code, multiResponse.Body.String())
+	}
+	if err := json.Unmarshal(multiResponse.Body.Bytes(), &multilingual); err != nil {
+		t.Fatal(err)
+	}
+	if len(multilingual) != len(legacy) {
+		t.Fatalf("multilingual length = %d, legacy length = %d", len(multilingual), len(legacy))
+	}
+	if err := validateSearchRepresentations(legacy, multilingual); err != nil {
+		t.Fatalf("shared search representations invalid: %v", err)
+	}
+}
+
+func TestMusicAliasFailurePreservesCompleteSearchIndex(t *testing.T) {
+	documents := completeMasterdataDocuments()
+	var aliasSource atomic.Value
+	aliasSource.Store(`{"musics":[{"music_id":2,"title":"music","aliases":["first"]}]}`)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/music_aliases.json" {
+			_, _ = io.WriteString(w, aliasSource.Load().(string))
+			return
+		}
+		_, _ = io.WriteString(w, documents[r.URL.Path])
+	}))
+	defer upstream.Close()
+
+	database, err := db.Open(filepath.Join(t.TempDir(), "alias-failure-search.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	dataStore := store.New(database)
+	events := store.NewEventStore(database)
+	cfg, err := config.New(database, "search-master-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cfg.Set(config.KeyUpstreamJPMasterdataURL, upstream.URL)
+	_ = cfg.Set(config.KeyUpstreamJPMasterdataFallbackURL, upstream.URL)
+	_ = cfg.Set(config.KeyMusicAliasesURL, upstream.URL+"/music_aliases.json")
+	fileService := filesvc.New(dataStore, events, files.NewGenerator(dataStore, events, ""))
+	builder := New(dataStore, fileService, cfg, time.Hour, time.Hour)
+	allowSingleRecordFixture(builder)
+	if err := builder.buildContext(t.Context(), "initial"); err != nil {
+		t.Fatal(err)
+	}
+	before := httptest.NewRecorder()
+	fileService.Handler().ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/files/data/search-index.json", nil))
+	if before.Code != http.StatusOK {
+		t.Fatalf("initial search-index status = %d", before.Code)
+	}
+	aliasSource.Store(`{"musics":[{"music_id":2,"title":"music","aliases":["bad","bad"]}]}`)
+	if err := builder.buildContext(t.Context(), "malformed-aliases"); err == nil {
+		t.Fatal("malformed aliases unexpectedly built")
+	}
+	after := httptest.NewRecorder()
+	fileService.Handler().ServeHTTP(after, httptest.NewRequest(http.MethodGet, "/files/data/search-index.json", nil))
+	if after.Code != http.StatusOK || !bytes.Equal(after.Body.Bytes(), before.Body.Bytes()) {
+		t.Fatalf("malformed alias source replaced complete index: status=%d body=%s", after.Code, after.Body.String())
+	}
+}
+
+func TestCachedSearchIndexVersionMustMatch(t *testing.T) {
+	directory := t.TempDir()
+	database, err := db.Open(filepath.Join(directory, "cache-version-search.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	dataStore := store.New(database)
+	events := store.NewEventStore(database)
+	fileService := filesvc.New(dataStore, events, files.NewGenerator(dataStore, events, ""))
+	builder := New(dataStore, fileService, nil, time.Hour, time.Hour)
+	allowSingleRecordFixture(builder)
+	builder.SetCachePath(filepath.Join(directory, "search-index-cache.json"))
+	legacy, _ := json.Marshal([]Entry{{ID: 1, N: "event", G: "events"}})
+	multilingual, _ := json.Marshal([]MultilingualEntry{{ID: 1, N: "event", G: "events"}})
+	body, _ := json.Marshal(cacheEnvelope{Version: searchCacheVersion - 1, Legacy: legacy, Multilingual: multilingual})
+	if err := os.WriteFile(builder.cachePath, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.loadCache(t.Context()); err == nil || !strings.Contains(err.Error(), "unsupported cache version") {
+		t.Fatalf("previous cache version accepted: %v", err)
+	}
+}
+
 func TestPartialSourceSuccessPreservesCompleteSearchIndex(t *testing.T) {
 	documents := map[string]string{
 		"/events.json": `[{"id":1,"name":"event"}]`, "/musics.json": `[{"id":2,"title":"music"}]`,

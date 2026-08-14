@@ -158,7 +158,7 @@ function BadgeFilterCard() {
 
   const allKeys = [
     ...categories.flatMap((c) => c.fields.map((f) => `${c.name}:${f.name}`)),
-    ...eventStories.map((s) => `eventStory:${s.eventId}`),
+    ...eventStories.filter((s) => !s.allOfficialTagged).map((s) => `eventStory:${s.eventId}`),
   ];
   const allHidden = allKeys.length > 0 && allKeys.every((k) => hidden.has(k));
 
@@ -189,12 +189,12 @@ function BadgeFilterCard() {
             );
           })
         )}
-        {eventStories.map((s) => {
+        {eventStories.filter((s) => !s.allOfficialTagged).map((s) => {
           const key = `eventStory:${s.eventId}`;
           return (
             <label className="badge-filter-item" key={key}>
               <input type="checkbox" checked={hidden.has(key)} onChange={() => toggle(key)} />
-              <span>活动剧情 / Event #{s.eventId}</span>
+              <span>活动剧情 / {s.eventName || s.eventNameJapanese || `Event #${s.eventId}`}</span>
             </label>
           );
         })}

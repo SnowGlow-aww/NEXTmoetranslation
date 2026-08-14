@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -109,6 +110,264 @@ func TestLyricsRenditionEditorLoadSaveConflictAndImmutableFacts(t *testing.T) {
 
 }
 
+func TestLyricsRenditionEditorPersistsIndependentGameTranslationBySide(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	var renditionKey, fullBefore string
+	var gameLineCount int
+	for renditionIndex := range requested.Renditions {
+		rendition := &requested.Renditions[renditionIndex]
+		if rendition.Full == nil || rendition.Game == nil || rendition.Relation.Kind != model.LyricsSourceRenditionRelationNone {
+			continue
+		}
+		renditionKey = rendition.Key
+		fullBefore = rendition.Full.Lines[0].Chinese
+		gameLineCount = len(rendition.Game.Lines)
+		for lineIndex := range rendition.Game.Lines {
+			rendition.Game.Lines[lineIndex].Chinese = fmt.Sprintf("independent-game-%d", lineIndex+1)
+		}
+		break
+	}
+	if renditionKey == "" {
+		t.Fatal("fixture has no Full + independent Game rendition")
+	}
+	saved, changed, targets, err := s.SaveLyricsRenditionMutationWithTargets(requested, "game-editor")
+	if err != nil || !changed || saved.Revision != current.Revision+1 {
+		t.Fatalf("saved=%+v changed=%v targets=%+v err=%v", saved, changed, targets, err)
+	}
+	if !reflect.DeepEqual(targets, []LyricsRenditionMutationTarget{{
+		RenditionKey: renditionKey, Side: "game", Locale: "zh-CN",
+	}}) {
+		t.Fatalf("independent Game mutation targets=%+v", targets)
+	}
+	var savedRendition *PublicLyricsV3Rendition
+	for index := range saved.Renditions {
+		if saved.Renditions[index].Key == renditionKey {
+			savedRendition = &saved.Renditions[index]
+			break
+		}
+	}
+	if savedRendition == nil || savedRendition.Full.Lines[0].Chinese != fullBefore ||
+		savedRendition.Game.Lines[0].Chinese != "independent-game-1" {
+		t.Fatalf("saved independent Game rendition=%+v", savedRendition)
+	}
+	var peerCount int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_rendition_side_translation_lines
+		WHERE rendition_key=? AND side='game' AND locale='zh-CN'`, renditionKey).Scan(&peerCount); err != nil {
+		t.Fatal(err)
+	}
+	if peerCount != gameLineCount {
+		t.Fatalf("peer translation rows=%d want=%d", peerCount, gameLineCount)
+	}
+	exported, err := s.ExportLyricsContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var exportedPeer int
+	for _, line := range exported.RenditionTranslationLines {
+		if line.RenditionKey == renditionKey && line.Side == "game" {
+			exportedPeer++
+		}
+	}
+	if exportedPeer != gameLineCount {
+		t.Fatalf("exported peer rows=%d want=%d", exportedPeer, gameLineCount)
+	}
+	restored := setupLyricsStore(t)
+	if err := restored.ImportTranslationContent(nil, EventContentExport{}, exported); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := restored.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rendition := range reloaded.Renditions {
+		if rendition.Key == renditionKey && rendition.Game.Lines[0].Chinese != "independent-game-1" {
+			t.Fatalf("restored independent Game=%+v", rendition.Game.Lines)
+		}
+	}
+}
+
+func TestLyricsRenditionEditorRejectsPrimaryAndPeerTranslationsOverDocumentBoundaryWithoutMutation(t *testing.T) {
+	s := setupLyricsStore(t)
+	document, evidenceByIdentity := renditionV3PersistenceDocument(t)
+	rendition := &document.Renditions[0]
+	if rendition.Full == nil || rendition.Game == nil || rendition.Relation.Kind != model.LyricsSourceRenditionRelationNone {
+		t.Fatal("fixture has no Full + independent Game rendition")
+	}
+	fullTemplate := rendition.Full.Lines[0]
+	gameTemplate := rendition.Game.Lines[0]
+	rendition.Full.Lines = make([]model.LyricsSourceFullLine, 129)
+	rendition.Game.Lines = make([]model.LyricsSourceFullLine, 129)
+	for index := 0; index < 129; index++ {
+		rendition.Full.Lines[index] = fullTemplate
+		rendition.Full.Lines[index].ID = fmt.Sprintf("full-%06d", index+1)
+		rendition.Game.Lines[index] = gameTemplate
+		rendition.Game.Lines[index].ID = fmt.Sprintf("game-%06d", index+1)
+	}
+	if err := model.ValidateLyricsSourceDocument(document); err != nil {
+		t.Fatalf("expanded rendition document: %v", err)
+	}
+	translations := []lyricsstaging.RenditionTranslation{
+		{RenditionKey: document.Renditions[0].RenditionKey, Translations: make([]string, 129)},
+		{RenditionKey: document.Renditions[1].RenditionKey, Translations: []string{""}},
+	}
+	if err := insertRenditionV3PersistenceGraph(t, s, document, evidenceByIdentity, translations); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	chunk := strings.Repeat("x", maxLyricsLineTextBytes)
+	for index := range requested.Renditions[0].Full.Lines {
+		requested.Renditions[0].Full.Lines[index].Chinese = chunk
+		requested.Renditions[0].Game.Lines[index].Chinese = chunk
+	}
+	var beforeRevision int
+	if err := s.db.QueryRow(`SELECT revision FROM song_lyrics_rendition_localizations ORDER BY rendition_key LIMIT 1`).Scan(&beforeRevision); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = s.SaveLyricsRenditionMutation(requested, "oversized-editor")
+	var contractErr *LyricsRenditionContractError
+	if !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" ||
+		!strings.Contains(strings.Join(contractErr.Details, "\n"), "safe document size") {
+		t.Fatalf("aggregate size error=%#v", err)
+	}
+	var afterRevision int
+	if err := s.db.QueryRow(`SELECT revision FROM song_lyrics_rendition_localizations ORDER BY rendition_key LIMIT 1`).Scan(&afterRevision); err != nil {
+		t.Fatal(err)
+	}
+	if afterRevision != beforeRevision {
+		t.Fatalf("failed aggregate validation changed revision %d -> %d", beforeRevision, afterRevision)
+	}
+
+	var documentID int64
+	if err := s.db.QueryRow(`SELECT document_id FROM song_lyrics_source_documents WHERE music_id=?`, 10).Scan(&documentID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_translation_lines SET text=?
+		WHERE document_id=? AND rendition_key=?`, chunk, documentID, document.Renditions[0].RenditionKey); err != nil {
+		t.Fatal(err)
+	}
+	for position := range rendition.Game.Lines {
+		if _, err := s.db.Exec(`INSERT INTO song_lyrics_rendition_side_translation_lines
+			(document_id,rendition_key,side,locale,position,text) VALUES (?,?,?,?,?,?)`,
+			documentID, document.Renditions[0].RenditionKey, "game", "zh-CN", position, chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	historical, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("load historical oversized localization for repair: %v", err)
+	}
+	repair := cloneLyricsRenditionEditorDocument(t, historical)
+	for index := range repair.Renditions[0].Full.Lines {
+		repair.Renditions[0].Full.Lines[index].Chinese = ""
+		repair.Renditions[0].Game.Lines[index].Chinese = ""
+	}
+	repaired, changed, err := s.SaveLyricsRenditionMutation(repair, "oversized-repair-editor")
+	if err != nil || !changed || repaired.Revision != historical.Revision+1 ||
+		repaired.Renditions[0].Full.Lines[0].Chinese != "" || repaired.Renditions[0].Game.Lines[0].Chinese != "" {
+		t.Fatalf("repair historical aggregate saved=%+v changed=%v err=%v", repaired, changed, err)
+	}
+}
+
+func TestLyricsRenditionEditorRejectsUnpublishableCreditsWithoutMutation(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		credit string
+	}{
+		{name: "surrounding whitespace", credit: " 译者"},
+		{name: "over public byte limit", credit: strings.Repeat("x", maxLyricsRenditionCreditBytes+1)},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			s, _ := setupRenditionV3PersistenceStore(t)
+			current, err := s.GetLyricsRenditionDocument(10)
+			if err != nil {
+				t.Fatal(err)
+			}
+			requested := cloneLyricsRenditionEditorDocument(t, current)
+			requested.Renditions[0].TranslationCredits.Translation = testCase.credit
+			_, changed, err := s.SaveLyricsRenditionMutation(requested, "credits-editor")
+			var contractErr *LyricsRenditionContractError
+			if changed || !errors.As(err, &contractErr) || contractErr.Code != "segment_mismatch" ||
+				!strings.Contains(strings.Join(contractErr.Details, "\n"), "2048-byte public limit") {
+				t.Fatalf("changed=%v error=%#v", changed, err)
+			}
+			reloaded, err := s.GetLyricsRenditionDocument(10)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if reloaded.Revision != current.Revision ||
+				reloaded.Renditions[0].TranslationCredits.Translation != current.Renditions[0].TranslationCredits.Translation {
+				t.Fatalf("failed credit validation mutated document: current=%+v reloaded=%+v", current, reloaded)
+			}
+		})
+	}
+}
+
+func TestLyricsRenditionEditorCanRepairHistoricalUnpublishableCredits(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations
+		SET translation_credit=? WHERE rendition_key=(SELECT rendition_key FROM song_lyrics_rendition_localizations ORDER BY rendition_key LIMIT 1)`,
+		" historical translator "); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Renditions[0].TranslationCredits == nil ||
+		current.Renditions[0].TranslationCredits.Translation != " historical translator " {
+		t.Fatalf("historical credit fixture=%+v", current.Renditions[0].TranslationCredits)
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	requested.Renditions[0].TranslationCredits.Translation = "repaired translator"
+	saved, changed, err := s.SaveLyricsRenditionMutation(requested, "credits-repair-editor")
+	if err != nil || !changed || saved.Revision != current.Revision+1 ||
+		saved.Renditions[0].TranslationCredits.Translation != "repaired translator" {
+		t.Fatalf("saved=%+v changed=%v err=%v", saved, changed, err)
+	}
+}
+
+func TestLyricsRenditionEditorMutationTargetsUseActualDocumentDiff(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	creditsOnly := cloneLyricsRenditionEditorDocument(t, current)
+	creditsOnly.Renditions[0].TranslationCredits.Translation = "credits-only"
+	_, changed, targets, err := s.SaveLyricsRenditionMutationWithTargets(creditsOnly, "credits-editor")
+	if err != nil || !changed || !reflect.DeepEqual(targets, []LyricsRenditionMutationTarget{{
+		RenditionKey: creditsOnly.Renditions[0].Key, Side: "credits", Locale: "zh-CN",
+	}}) {
+		t.Fatalf("credits-only changed=%v targets=%+v err=%v", changed, targets, err)
+	}
+
+	current, err = s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	multiple := cloneLyricsRenditionEditorDocument(t, current)
+	multiple.Renditions[0].Full.Lines[0].Chinese = "full-and-credits"
+	multiple.Renditions[0].TranslationCredits.Translation = "full-and-credits"
+	_, changed, targets, err = s.SaveLyricsRenditionMutationWithTargets(multiple, "multi-editor")
+	want := []LyricsRenditionMutationTarget{
+		{RenditionKey: multiple.Renditions[0].Key, Side: "full", Locale: "zh-CN"},
+		{RenditionKey: multiple.Renditions[0].Key, Side: "credits", Locale: "zh-CN"},
+	}
+	if err != nil || !changed || !reflect.DeepEqual(targets, want) {
+		t.Fatalf("multi-target changed=%v targets=%+v want=%+v err=%v", changed, targets, want, err)
+	}
+}
+
 func TestLyricsRenditionEditorSaveDoesNotMoveUpdatedAtBackward(t *testing.T) {
 	s, _ := setupRenditionV3PersistenceStore(t)
 	futureUpdatedAt := time.Now().Add(24 * time.Hour).Truncate(time.Second).Unix()
@@ -141,6 +400,50 @@ func TestLyricsRenditionEditorSaveDoesNotMoveUpdatedAtBackward(t *testing.T) {
 	}
 	if backwardRows != 0 {
 		t.Fatalf("localization rows moved backward=%d", backwardRows)
+	}
+}
+
+func TestLyricsRenditionEditorFirstLocalizationCanStartFromIndependentGameOnly(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	if _, err := s.db.Exec(`DELETE FROM song_lyrics_rendition_localizations`); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	var renditionKey string
+	for index := range requested.Renditions {
+		rendition := &requested.Renditions[index]
+		if rendition.Full == nil || rendition.Game == nil || rendition.Relation.Kind != model.LyricsSourceRenditionRelationNone {
+			continue
+		}
+		renditionKey = rendition.Key
+		for lineIndex := range rendition.Game.Lines {
+			rendition.Game.Lines[lineIndex].Chinese = fmt.Sprintf("first-game-%d", lineIndex+1)
+		}
+		break
+	}
+	if renditionKey == "" {
+		t.Fatal("fixture has no independent Game rendition")
+	}
+	saved, changed, targets, err := s.SaveLyricsRenditionMutationWithTargets(requested, "first-game-editor")
+	if err != nil || !changed || saved.Revision != 2 || !reflect.DeepEqual(targets, []LyricsRenditionMutationTarget{{
+		RenditionKey: renditionKey, Side: "game", Locale: "zh-CN",
+	}}) {
+		t.Fatalf("first Game save=%+v changed=%v targets=%+v err=%v", saved, changed, targets, err)
+	}
+	var parents, peerLines int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_rendition_localizations`).Scan(&parents); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_rendition_side_translation_lines
+		WHERE rendition_key=? AND side='game' AND locale='zh-CN'`, renditionKey).Scan(&peerLines); err != nil {
+		t.Fatal(err)
+	}
+	if parents != len(saved.Renditions) || peerLines == 0 {
+		t.Fatalf("first Game persistence parents=%d peerLines=%d", parents, peerLines)
 	}
 }
 
@@ -339,6 +642,69 @@ func TestRecoveryImportedV3EditorReadsRecoveryGraphSavesAndSurvivesBackup(t *tes
 	if !restoredFound || len(restoredDetail.Renditions) == 0 || restoredDetail.Renditions[0].Full == nil ||
 		restoredDetail.Renditions[0].Full.Lines[0].Chinese != "恢复后的简中" {
 		t.Fatalf("public v3 candidate after backup lost localization found=%v detail=%+v", restoredFound, restoredDetail)
+	}
+}
+
+func TestRecoveryImportedV3PeerOnlyCreditsReachEditorBackupAndPublicCandidate(t *testing.T) {
+	fixture := setupRecoveryRenditionV3EditorFixture(t)
+	translations := []lyricsstaging.RenditionTranslation{
+		{
+			RenditionKey: fixture.document.Renditions[0].RenditionKey,
+			PeerTranslations: []lyricsstaging.RenditionPeerTranslation{{
+				Side: "game", Locale: "zh-CN", Translations: []string{"仅游戏一", "仅游戏二"},
+			}},
+			TranslationCredit: "游戏译者", ProofreadingCredit: "游戏校对",
+		},
+		{RenditionKey: fixture.document.Renditions[1].RenditionKey},
+	}
+	ctx := context.Background()
+	tx, err := fixture.store.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documentID int64
+	if err := tx.QueryRowContext(ctx, `SELECT document_id FROM song_lyrics_source_documents WHERE music_id=?`, 10).Scan(&documentID); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := insertLyricsRenditionLocalizationsTx(ctx, tx, documentID, fixture.document, translations, "recovery-import", time.Date(2026, time.August, 8, 12, 0, 0, 0, time.UTC).Unix()); err != nil {
+		_ = tx.Rollback()
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := fixture.store.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("load recovery peer-only editor document: %v", err)
+	}
+	rendered := loaded.Renditions[0]
+	if rendered.TranslationCredits == nil || rendered.TranslationCredits.Translation != "游戏译者" ||
+		rendered.Game == nil || rendered.Game.Lines[0].Chinese != "仅游戏一" ||
+		rendered.Full == nil || rendered.Full.Lines[0].Chinese != "" {
+		t.Fatalf("recovery peer-only editor rendition=%+v", rendered)
+	}
+	candidate, err := fixture.store.RecoveryPublicLyricsV3(fixture.batchSHA)
+	if err != nil {
+		t.Fatalf("build recovery peer-only Public v3 candidate: %v", err)
+	}
+	public := candidate.Details[10].Renditions[0]
+	if public.TranslationCredits == nil || public.TranslationCredits.Translation != "游戏译者" ||
+		public.Game == nil || public.Game.Lines[1].Chinese != "仅游戏二" ||
+		public.Full == nil || public.Full.Lines[0].Chinese != "" {
+		t.Fatalf("recovery peer-only Public v3 rendition=%+v", public)
+	}
+	backup, err := fixture.store.ExportLyricsContent()
+	if err != nil {
+		t.Fatalf("export recovery peer-only backup: %v", err)
+	}
+	restored := setupLyricsStore(t)
+	if err := restored.ImportTranslationContent(nil, EventContentExport{}, backup); err != nil {
+		t.Fatalf("restore recovery peer-only backup: %v", err)
+	}
+	if _, err := restored.RecoveryPublicLyricsV3(fixture.batchSHA); err != nil {
+		t.Fatalf("build restored recovery peer-only Public v3 candidate: %v", err)
 	}
 }
 

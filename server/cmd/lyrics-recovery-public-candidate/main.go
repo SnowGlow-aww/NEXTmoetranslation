@@ -16,7 +16,7 @@ import (
 	"moesekai/server/internal/store"
 )
 
-const recoveryPublicCandidateMaximumCompatibleRuntimeSchema = 28
+const recoveryPublicCandidateMaximumCompatibleRuntimeSchema = 30
 
 type options struct {
 	databasePath            string
@@ -39,7 +39,7 @@ func run(ctx context.Context, arguments []string, output io.Writer) error {
 	var opts options
 	flags := flag.NewFlagSet("lyrics-recovery-public-candidate", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&opts.databasePath, "database", "", "existing standalone recovery SQLite database with contiguous schema v27 through v28")
+	flags.StringVar(&opts.databasePath, "database", "", "existing standalone recovery SQLite database with contiguous schema v27 through v30")
 	flags.StringVar(&opts.batchSHA256, "batch-sha256", "", "exact lowercase recovery batch SHA-256")
 	flags.StringVar(&opts.outputDirectory, "output-directory", "", "new immutable local strict Public v3 candidate directory")
 	flags.StringVar(&opts.v2CompatOutputDirectory, "v2-compat-output-directory", "", "optional separate immutable lossless Public v2 compatibility directory")
@@ -80,17 +80,22 @@ func run(ctx context.Context, arguments []string, output io.Writer) error {
 			_ = snapshot.Close()
 		}
 	}()
-	var minimumVersion, maximumVersion, versionCount int
-	if err := snapshot.Database.QueryRowContext(ctx,
-		`SELECT COALESCE(MIN(version),0),COALESCE(MAX(version),0),COUNT(*) FROM schema_migrations`).
-		Scan(&minimumVersion, &maximumVersion, &versionCount); err != nil {
-		return fmt.Errorf("read recovery Public candidate schema: %w", err)
+	runtimeSchema, err := snapshot.Database.ValidateKnownMigrationPrefix(
+		ctx, lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion, recoveryPublicCandidateMaximumCompatibleRuntimeSchema,
+	)
+	if err != nil {
+		return fmt.Errorf("recovery Public candidate database must have an exact known schema v%d through v%d prefix: %w",
+			lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion, recoveryPublicCandidateMaximumCompatibleRuntimeSchema, err)
 	}
-	if minimumVersion != 1 || versionCount != maximumVersion ||
-		maximumVersion < lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion ||
-		maximumVersion > recoveryPublicCandidateMaximumCompatibleRuntimeSchema {
-		return fmt.Errorf("recovery Public candidate database must have a contiguous schema v%d through v%d history",
-			lyricsrecoveryimport.ImportReceiptRuntimeSchemaVersion, recoveryPublicCandidateMaximumCompatibleRuntimeSchema)
+	if runtimeSchema >= db.LyricsPeerTranslationSchemaVersion {
+		if err := db.ValidateLyricsPeerTranslationSchema(ctx, snapshot.Database, true, "recovery Public candidate"); err != nil {
+			return err
+		}
+	}
+	if runtimeSchema >= db.LyricsTranslationEditionSchemaVersion {
+		if err := db.ValidateLyricsTranslationEditionSchema(ctx, snapshot.Database, true, "recovery Public candidate"); err != nil {
+			return err
+		}
 	}
 	if err := snapshot.Database.ValidateLyricsStorageOwnership(ctx); err != nil {
 		return fmt.Errorf("validate recovery Public candidate lyrics storage ownership: %w", err)

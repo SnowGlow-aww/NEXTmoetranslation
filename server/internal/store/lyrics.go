@@ -24,14 +24,15 @@ var (
 )
 
 const (
-	maxLyricsLines           = 5000
-	maxLyricsSegmentsPerLine = 100
-	maxLyricsRubyPerSegment  = 256
-	maxLyricsPerformers      = 64
-	maxLyricsLineTextBytes   = 16 << 10
-	maxLyricsMetadataBytes   = 16 << 10
-	maxLyricsURLBytes        = 2 << 10
-	maxLyricsDocumentBytes   = 4 << 20
+	maxLyricsLines                = 5000
+	maxLyricsSegmentsPerLine      = 100
+	maxLyricsRubyPerSegment       = 256
+	maxLyricsPerformers           = 64
+	maxLyricsLineTextBytes        = 16 << 10
+	maxLyricsMetadataBytes        = 16 << 10
+	maxLyricsRenditionCreditBytes = 2 << 10
+	maxLyricsURLBytes             = 2 << 10
+	maxLyricsDocumentBytes        = 4 << 20
 )
 
 var managedLyricsSourceHosts = map[string]struct{}{

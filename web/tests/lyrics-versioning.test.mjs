@@ -8,6 +8,7 @@ import {
   lyricsVersionSaveProblems,
   normalizedLyricsVersions,
   projectGameLyricsLines,
+  retainedLyricsTranslationTarget,
   referencedGameFullLineIds,
   removedReferencedFullLineIds,
   renditionProjectionStatus,
@@ -219,7 +220,24 @@ test("REM keeps two equal-text families independent by stable key", () => {
   assert.deepEqual(lyricsVersionSaveProblems(candidate), []);
 });
 
-test("Full | Game exact projection retains the Game side's own translations, segmentation, and ruby", () => {
+test("REM authoritative reload retains a still-valid stable rendition side and falls back deterministically", () => {
+  const candidate = remDocument();
+
+  assert.deepEqual(retainedLyricsTranslationTarget(candidate, "sekai", "game"), {
+    renditionKey: "sekai", version: "game",
+  });
+  assert.deepEqual(retainedLyricsTranslationTarget(candidate, "virtual-singer", "full"), {
+    renditionKey: "virtual-singer", version: "game",
+  });
+  assert.deepEqual(retainedLyricsTranslationTarget(candidate, "removed-family", "game"), {
+    renditionKey: "sekai", version: "game",
+  });
+  assert.deepEqual(retainedLyricsTranslationTarget({ lines: [] }, "sekai", "game"), {
+    renditionKey: "", version: "full",
+  });
+});
+
+test("Full | Game exact projection preserves Game source facts while previewing current Full translations", () => {
   const candidate = remDocument();
   const projected = projectGameLyricsLines(candidate, "sekai");
   const rendition = lyricsRenditionByKey(candidate, "sekai");
@@ -227,12 +245,21 @@ test("Full | Game exact projection retains the Game side's own translations, seg
   assert.equal(renditionProjectionStatus(candidate, "sekai"), "exact_projection");
   assert.deepEqual(referencedGameFullLineIds(candidate, "sekai"), ["sekai-line-1"]);
   assert.equal(projected.ok, true);
-  assert.equal(projected.lines[0], rendition.game.lines[0]);
+  assert.notEqual(projected.lines[0], rendition.game.lines[0]);
   assert.notEqual(projected.lines[0], rendition.full.lines[0]);
-  assert.equal(projected.lines[0]["zh-CN"], "sekai-game");
+  assert.equal(projected.lines[0]["zh-CN"], "sekai-full");
+  assert.equal(projected.lines[0]["en-US"], "sekai-full-en");
+  assert.equal(rendition.game.lines[0]["zh-CN"], "sekai-game", "authoritative Game source facts are not mutated");
   assert.deepEqual(projected.lines[0].segments[0].performerIds, ["sekai-b"]);
   assert.equal(projected.lines[0].id, "game-sekai-line-1", "Game keeps its own stable line ID");
   assert.equal(projected.lines[0].segments[0].ruby[0].reading, "ウタ");
+
+  candidate.renditions[0].full.lines[0]["zh-CN"] = "未保存的 Full 简中";
+  candidate.renditions[0].full.lines[0]["en-US"] = "Unsaved Full English";
+  const liveProjected = projectGameLyricsLines(candidate, "sekai");
+  assert.equal(liveProjected.lines[0]["zh-CN"], "未保存的 Full 简中");
+  assert.equal(liveProjected.lines[0]["en-US"], "Unsaved Full English");
+  assert.deepEqual(liveProjected.lines[0].segments, rendition.game.lines[0].segments);
 
   const crossFamily = structuredClone(candidate);
   crossFamily.renditions[0].relation.fullRenditionKey = "virtual-singer";

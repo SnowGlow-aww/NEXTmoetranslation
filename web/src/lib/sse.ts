@@ -15,6 +15,9 @@ export type SSEEvent =
   | "sync.progress"
   | "translate.progress"
   | "content.restored"
+  | "presence.snapshot"
+  | "presence.joined"
+  | "presence.left"
   | "sse.disconnected"
   | "sse.reconnected"
   | "sse.missed-events"
@@ -29,7 +32,7 @@ const SSE_BASE = process.env.NEXT_PUBLIC_API_BASE
 
 const SSE_EVENTS = new Set<SSEEvent>([
   "entry.updated", "entry.locale.updated", "eventstory.updated", "eventstory.locale.updated", "lyrics.updated", "sync.progress",
-  "translate.progress", "content.restored", "ping",
+  "translate.progress", "content.restored", "presence.snapshot", "presence.joined", "presence.left", "ping",
 ]);
 
 function sessionVersion(): string {
@@ -62,6 +65,7 @@ export function useSSE(handler: SSEHandler, enabled: boolean) {
       await ensureSessionMigrated(controller.signal);
       await runFetchSSE({
         url: `${SSE_BASE}/sse`,
+        headers: { "X-SSE-Presence": "1" },
         signal: controller.signal,
         getSession: (signal: AbortSignal) => withSessionIdentityLock("shared", () => {
           const current = getSessionEnvelope();

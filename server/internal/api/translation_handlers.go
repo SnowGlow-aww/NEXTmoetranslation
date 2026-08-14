@@ -67,6 +67,11 @@ func (s *Server) handleEntries(w http.ResponseWriter, r *http.Request) {
 	if entries == nil {
 		entries = []model.EntryWithKey{}
 	}
+	if !explicit {
+		for i := range entries {
+			entries[i].UpdatedAt = 0
+		}
+	}
 	writeJSON(w, http.StatusOK, entries)
 }
 

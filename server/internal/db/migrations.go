@@ -3171,6 +3171,14 @@ ALTER TABLE song_lyrics ADD COLUMN proofreading_credit TEXT NOT NULL DEFAULT '';
 	version: 28,
 	name:    "embedded_lyrics_editor_seed_ledger",
 	sql:     migrationV28EmbeddedLyricsEditorSeedSQL,
+}, {
+	version: 29,
+	name:    "lyrics_translation_versions",
+	sql:     migrationV29LyricsTranslationVersionsSQL,
+}, {
+	version: 30,
+	name:    "lyrics_translation_editions",
+	sql:     migrationV30LyricsTranslationEditionsSQL,
 }}
 
 func validateLyricsDiscoveryIntegerTypes(tx *sql.Tx) error {
@@ -3213,6 +3221,59 @@ func validateLyricsDiscoveryIntegerTypes(tx *sql.Tx) error {
 		}
 	}
 	return nil
+}
+
+// ValidateKnownMigrationPrefix verifies an existing schema_migrations ledger
+// without applying migrations. It is intended for immutable/read-only command
+// paths that must accept a reviewed historical prefix while still rejecting
+// gaps, unknown versions, and altered migration identities.
+func (d *DB) ValidateKnownMigrationPrefix(ctx context.Context, minimumVersion, maximumVersion int) (int, error) {
+	if ctx == nil {
+		return 0, errors.New("migration prefix validation requires context")
+	}
+	if minimumVersion < 1 || maximumVersion < minimumVersion || maximumVersion > len(migrations) {
+		return 0, errors.New("migration prefix validation range is invalid")
+	}
+	var exists int
+	if err := d.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'`).Scan(&exists); err != nil {
+		return 0, err
+	}
+	if exists != 1 {
+		return 0, errors.New("schema_migrations ledger is missing")
+	}
+	rows, err := d.QueryContext(ctx, `SELECT version,name,checksum FROM schema_migrations ORDER BY version`)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	expectedVersion := 1
+	for rows.Next() {
+		var version int
+		var name, checksum string
+		if err := rows.Scan(&version, &name, &checksum); err != nil {
+			return 0, err
+		}
+		if version < 1 || version > len(migrations) {
+			return 0, fmt.Errorf("database migration version %d is newer than this binary", version)
+		}
+		if version != expectedVersion {
+			return 0, fmt.Errorf("database migration history is not a contiguous prefix: expected version %d, found %d", expectedVersion, version)
+		}
+		want := migrations[version-1]
+		if name != want.name || checksum != want.checksum() {
+			return 0, fmt.Errorf("migration %d checksum mismatch", version)
+		}
+		expectedVersion++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	actualVersion := expectedVersion - 1
+	if actualVersion < minimumVersion || actualVersion > maximumVersion {
+		return actualVersion, fmt.Errorf("database migration prefix version %d is outside supported range %d through %d",
+			actualVersion, minimumVersion, maximumVersion)
+	}
+	return actualVersion, nil
 }
 
 func (d *DB) pendingMigrations() ([]migration, error) {

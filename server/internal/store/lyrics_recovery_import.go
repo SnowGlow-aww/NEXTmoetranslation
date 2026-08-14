@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"moesekai/server/internal/db"
 	"moesekai/server/internal/lyricscompose"
 	"moesekai/server/internal/lyricsevidencepack"
 	"moesekai/server/internal/lyricsrecoveryimport"
@@ -25,11 +26,12 @@ import (
 
 const (
 	// lyricsRecoveryImportRuntimeSchema remains the immutable schema version
-	// encoded by the existing recovery/staging input contracts. Schema v28 is
-	// an additive editor-seed ledger that does not change those inputs or their
-	// catalog identity, so reviewed imports may also run on a contiguous v28 DB.
+	// encoded by the existing recovery/staging input contracts. Schema v28 adds
+	// the editor-seed ledger, v29 adds peer-side translation storage, and v30 adds
+	// lazily materialized translation editions. None changes those inputs or their
+	// catalog identity, so reviewed imports may run on any contiguous v27-v30 database.
 	lyricsRecoveryImportRuntimeSchema          = 27
-	lyricsImportMaximumCompatibleRuntimeSchema = 28
+	lyricsImportMaximumCompatibleRuntimeSchema = 30
 )
 
 var (
@@ -105,6 +107,9 @@ func (s *Store) ImportRecoveryLyricsManifestWithCommitHook(
 	}
 	defer tx.Rollback()
 	if err := validateRecoveryImportRuntimeSchema(ctx, tx); err != nil {
+		return nil, false, err
+	}
+	if err := validatePeerTranslationRuntimeSchema(ctx, tx, recoveryManifestHasPeerTranslations(manifest), "recovery lyrics import"); err != nil {
 		return nil, false, err
 	}
 	catalog, err := loadStagedImportCatalog(ctx, tx)
@@ -289,6 +294,24 @@ func (s *Store) ImportRecoveryLyricsManifestWithCommitHook(
 	return results, true, nil
 }
 
+func recoveryManifestHasPeerTranslations(manifest lyricsrecoveryimport.Manifest) bool {
+	for _, item := range manifest.Items {
+		if item.Draft == nil {
+			continue
+		}
+		for _, rendition := range item.Draft.RenditionTranslations {
+			if len(rendition.PeerTranslations) != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func validatePeerTranslationRuntimeSchema(ctx context.Context, tx *sql.Tx, required bool, operation string) error {
+	return db.ValidateLyricsPeerTranslationSchema(ctx, tx, required, operation)
+}
+
 func validateRecoveryImportRuntimeSchema(ctx context.Context, tx *sql.Tx) error {
 	var minimumVersion, maximumVersion, count int
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MIN(version),0),COALESCE(MAX(version),0),COUNT(*) FROM schema_migrations`).
@@ -299,6 +322,16 @@ func validateRecoveryImportRuntimeSchema(ctx context.Context, tx *sql.Tx) error 
 		maximumVersion > lyricsImportMaximumCompatibleRuntimeSchema {
 		return fmt.Errorf("recovery lyrics import requires a contiguous schema-v%d through schema-v%d runtime",
 			lyricsRecoveryImportRuntimeSchema, lyricsImportMaximumCompatibleRuntimeSchema)
+	}
+	if maximumVersion >= db.LyricsPeerTranslationSchemaVersion {
+		if err := db.ValidateLyricsPeerTranslationSchema(ctx, tx, true, "recovery lyrics import"); err != nil {
+			return err
+		}
+	}
+	if maximumVersion >= db.LyricsTranslationEditionSchemaVersion {
+		if err := db.ValidateLyricsTranslationEditionSchema(ctx, tx, true, "recovery lyrics import"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
