@@ -97,7 +97,7 @@ func (s *Store) importApprovedLyricsSourceSnapshot(ctx context.Context, reviewID
 		return model.SongLyrics{}, false, loadErr
 	}
 
-	return s.saveLyricsMutationLocked(model.SongLyrics{MusicID: initial.musicID}, actor, lyricsSaveVerifiedImport, nil,
+	return s.saveLyricsMutationLocked(model.SongLyrics{MusicID: initial.musicID}, actor, lyricsSaveVerifiedImport, nil, nil,
 		func(tx *sql.Tx, input *model.SongLyrics) error {
 			current, err := loadApprovedLyricsSourceImport(ctx, tx, reviewID)
 			if err != nil {

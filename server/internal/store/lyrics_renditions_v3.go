@@ -687,6 +687,25 @@ func buildLyricsRenditionEditorDocument(bundle lyricsRenditionEditorBundle, loca
 }
 
 func (s *Store) SaveLyricsRenditionMutation(input LyricsRenditionDocument, user string) (LyricsRenditionDocument, bool, error) {
+	return s.saveLyricsRenditionMutation(input, user, nil)
+}
+
+// SaveLyricsRenditionMutationWithBeforeCommit runs beforeCommit inside the
+// authoritative rendition save transaction. Callback errors roll back both
+// the rendition mutation and any callback writes.
+func (s *Store) SaveLyricsRenditionMutationWithBeforeCommit(
+	input LyricsRenditionDocument,
+	user string,
+	beforeCommit func(*sql.Tx, LyricsRenditionDocument, bool) error,
+) (LyricsRenditionDocument, bool, error) {
+	return s.saveLyricsRenditionMutation(input, user, beforeCommit)
+}
+
+func (s *Store) saveLyricsRenditionMutation(
+	input LyricsRenditionDocument,
+	user string,
+	beforeCommit func(*sql.Tx, LyricsRenditionDocument, bool) error,
+) (LyricsRenditionDocument, bool, error) {
 	unlock := s.lockLyrics(input.MusicID)
 	defer unlock()
 	tx, err := s.db.Begin()
@@ -718,6 +737,14 @@ func (s *Store) SaveLyricsRenditionMutation(input LyricsRenditionDocument, user 
 		return LyricsRenditionDocument{}, false, err
 	}
 	if reflect.DeepEqual(requested, stored) {
+		if beforeCommit != nil {
+			if err := beforeCommit(tx, current, false); err != nil {
+				return LyricsRenditionDocument{}, false, err
+			}
+			if err := tx.Commit(); err != nil {
+				return LyricsRenditionDocument{}, false, err
+			}
+		}
 		return current, false, nil
 	}
 	nextRevision := current.Revision + 1
@@ -755,6 +782,11 @@ func (s *Store) SaveLyricsRenditionMutation(input LyricsRenditionDocument, user 
 	result, err := buildLyricsRenditionEditorDocument(bundle, nextState)
 	if err != nil {
 		return LyricsRenditionDocument{}, false, err
+	}
+	if beforeCommit != nil {
+		if err := beforeCommit(tx, result, true); err != nil {
+			return LyricsRenditionDocument{}, false, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return LyricsRenditionDocument{}, false, err

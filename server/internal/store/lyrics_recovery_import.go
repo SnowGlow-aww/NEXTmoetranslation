@@ -25,11 +25,11 @@ import (
 
 const (
 	// lyricsRecoveryImportRuntimeSchema remains the immutable schema version
-	// encoded by the existing recovery/staging input contracts. Schema v28 is
-	// an additive editor-seed ledger that does not change those inputs or their
-	// catalog identity, so reviewed imports may also run on a contiguous v28 DB.
+	// encoded by the existing recovery/staging input contracts. Schemas v28 and
+	// v29 add editor seed/collaboration ledgers without changing those inputs or
+	// their catalog identity, so reviewed imports may run on a contiguous v29 DB.
 	lyricsRecoveryImportRuntimeSchema          = 27
-	lyricsImportMaximumCompatibleRuntimeSchema = 28
+	lyricsImportMaximumCompatibleRuntimeSchema = 29
 )
 
 var (

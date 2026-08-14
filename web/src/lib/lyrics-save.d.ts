@@ -18,3 +18,8 @@ export function validateSongLyricsMutationResponse(
   value: unknown,
   expectation: LyricsMutationExpectation,
 ): SongLyricsMutationValidationResult;
+
+export function validateSongLyricsCheckpointResponse(
+  value: unknown,
+  musicId: number,
+): SongLyricsMutationValidationResult;

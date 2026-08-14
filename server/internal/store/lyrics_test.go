@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,88 @@ import (
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/model"
 )
+
+func TestSaveLyricsMutationBeforeCommitSharesAtomicTransaction(t *testing.T) {
+	t.Run("callback failure rolls back authority and callback writes", func(t *testing.T) {
+		s := setupLyricsStore(t)
+		if _, err := s.db.Exec(`CREATE TABLE atomic_probe (value TEXT NOT NULL)`); err != nil {
+			t.Fatal(err)
+		}
+		sentinel := errors.New("reject shared commit")
+		_, _, err := s.SaveLyricsMutationWithBeforeCommit(validLyrics(), "editor", func(tx *sql.Tx, saved model.SongLyrics, changed bool) error {
+			if !changed || saved.Revision != 1 || saved.Status != "draft" || saved.UpdatedAt == "" {
+				t.Fatalf("callback saved=%+v changed=%t", saved, changed)
+			}
+			if _, err := tx.Exec(`INSERT INTO atomic_probe(value) VALUES ('collab-ledger')`); err != nil {
+				return err
+			}
+			return sentinel
+		})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("save error=%v want sentinel", err)
+		}
+		if _, err := s.GetLyrics(10); !errors.Is(err, ErrLyricsNotFound) {
+			t.Fatalf("authoritative lyrics survived rollback: %v", err)
+		}
+		var probes, audits int
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM atomic_probe`).Scan(&probes); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action='lyrics.save'`).Scan(&audits); err != nil {
+			t.Fatal(err)
+		}
+		if probes != 0 || audits != 0 {
+			t.Fatalf("rollback probes=%d audits=%d", probes, audits)
+		}
+	})
+
+	t.Run("callback success commits authority and callback writes", func(t *testing.T) {
+		s := setupLyricsStore(t)
+		if _, err := s.db.Exec(`CREATE TABLE atomic_probe (value TEXT NOT NULL)`); err != nil {
+			t.Fatal(err)
+		}
+		saved, changed, err := s.SaveLyricsMutationWithBeforeCommit(validLyrics(), "editor", func(tx *sql.Tx, saved model.SongLyrics, changed bool) error {
+			_, err := tx.Exec(`INSERT INTO atomic_probe(value) VALUES (?)`, fmt.Sprintf("revision=%d changed=%t", saved.Revision, changed))
+			return err
+		})
+		if err != nil || !changed || saved.Revision != 1 {
+			t.Fatalf("saved=%+v changed=%t err=%v", saved, changed, err)
+		}
+		var value string
+		if err := s.db.QueryRow(`SELECT value FROM atomic_probe`).Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := s.GetLyrics(10)
+		if err != nil || loaded.Revision != 1 || value != "revision=1 changed=true" {
+			t.Fatalf("loaded=%+v value=%q err=%v", loaded, value, err)
+		}
+	})
+}
+
+func TestSaveLyricsMutationBeforeCommitRunsForNoOp(t *testing.T) {
+	s := setupLyricsStore(t)
+	saved, _, err := s.SaveLyricsMutation(validLyrics(), "editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`CREATE TABLE atomic_probe (value TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	replayed, changed, err := s.SaveLyricsMutationWithBeforeCommit(saved, "editor", func(tx *sql.Tx, final model.SongLyrics, changed bool) error {
+		if changed || final.Revision != saved.Revision {
+			t.Fatalf("no-op callback final=%+v changed=%t", final, changed)
+		}
+		_, err := tx.Exec(`INSERT INTO atomic_probe(value) VALUES ('no-op-checkpoint')`)
+		return err
+	})
+	if err != nil || changed || replayed.Revision != saved.Revision {
+		t.Fatalf("replay=%+v changed=%t err=%v", replayed, changed, err)
+	}
+	var probes int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM atomic_probe`).Scan(&probes); err != nil || probes != 1 {
+		t.Fatalf("probes=%d err=%v", probes, err)
+	}
+}
 
 func setupLyricsStore(t *testing.T) *Store {
 	t.Helper()

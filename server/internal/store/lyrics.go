@@ -160,7 +160,19 @@ func (s *Store) SaveLyrics(input model.SongLyrics, user string) (model.SongLyric
 
 // SaveLyricsMutation reports whether the successful call committed a change.
 func (s *Store) SaveLyricsMutation(input model.SongLyrics, user string) (model.SongLyrics, bool, error) {
-	return s.saveLyricsMutation(input, user, lyricsSaveOrdinary, nil)
+	return s.saveLyricsMutation(input, user, lyricsSaveOrdinary, nil, nil)
+}
+
+// SaveLyricsMutationWithBeforeCommit runs beforeCommit inside the same SQLite
+// transaction as the authoritative lyrics mutation. The callback receives the
+// final document that will be returned and whether authoritative content
+// changed. Returning an error rolls back both the save and callback writes.
+func (s *Store) SaveLyricsMutationWithBeforeCommit(
+	input model.SongLyrics,
+	user string,
+	beforeCommit func(*sql.Tx, model.SongLyrics, bool) error,
+) (model.SongLyrics, bool, error) {
+	return s.saveLyricsMutation(input, user, lyricsSaveOrdinary, nil, beforeCommit)
 }
 
 // SaveImportedLyricsMutation permits complete source provenance on the first
@@ -168,20 +180,26 @@ func (s *Store) SaveLyricsMutation(input model.SongLyrics, user string) (model.S
 // provenance-bearing saves require the canonical lowercase 40-hex MediaWiki
 // SHA1 representation.
 func (s *Store) SaveImportedLyricsMutation(input model.SongLyrics, user string) (model.SongLyrics, bool, error) {
-	return s.saveLyricsMutation(input, user, lyricsSaveVerifiedImport, nil)
+	return s.saveLyricsMutation(input, user, lyricsSaveVerifiedImport, nil, nil)
 }
 
 // SaveImportedLyricsMutationWithCommit runs afterCommit immediately after the
 // first-save transaction commits and before synchronous change notifications.
 // The callback must be fast and must not call back into lyrics mutations.
 func (s *Store) SaveImportedLyricsMutationWithCommit(input model.SongLyrics, user string, afterCommit func()) (model.SongLyrics, bool, error) {
-	return s.saveLyricsMutation(input, user, lyricsSaveVerifiedImport, afterCommit)
+	return s.saveLyricsMutation(input, user, lyricsSaveVerifiedImport, afterCommit, nil)
 }
 
-func (s *Store) saveLyricsMutation(input model.SongLyrics, user string, mode lyricsSaveMode, afterCommit func()) (model.SongLyrics, bool, error) {
+func (s *Store) saveLyricsMutation(
+	input model.SongLyrics,
+	user string,
+	mode lyricsSaveMode,
+	afterCommit func(),
+	beforeCommit func(*sql.Tx, model.SongLyrics, bool) error,
+) (model.SongLyrics, bool, error) {
 	unlock := s.lockLyrics(input.MusicID)
 	defer unlock()
-	return s.saveLyricsMutationLocked(input, user, mode, afterCommit, nil)
+	return s.saveLyricsMutationLocked(input, user, mode, afterCommit, beforeCommit, nil)
 }
 
 func prepareLyricsMutationInput(input model.SongLyrics) (model.SongLyrics, model.SongLyrics, int64, error) {
@@ -209,7 +227,14 @@ func rejectLegacyLyricsMutationForSourceV3(q queryRower, musicID int) error {
 	return nil
 }
 
-func (s *Store) saveLyricsMutationLocked(input model.SongLyrics, user string, mode lyricsSaveMode, afterCommit func(), prepareFirstSave func(*sql.Tx, *model.SongLyrics) error) (model.SongLyrics, bool, error) {
+func (s *Store) saveLyricsMutationLocked(
+	input model.SongLyrics,
+	user string,
+	mode lyricsSaveMode,
+	afterCommit func(),
+	beforeCommit func(*sql.Tx, model.SongLyrics, bool) error,
+	prepareFirstSave func(*sql.Tx, *model.SongLyrics) error,
+) (model.SongLyrics, bool, error) {
 	var requested, normalized model.SongLyrics
 	var sourceFetchedAt int64
 	var err error
@@ -302,6 +327,14 @@ func (s *Store) saveLyricsMutationLocked(input model.SongLyrics, user string, mo
 			}
 		}
 		if sameLyricsContent(normalized, current.lyrics) {
+			if beforeCommit != nil {
+				if err := beforeCommit(tx, current.lyrics, false); err != nil {
+					return model.SongLyrics{}, false, err
+				}
+				if err := tx.Commit(); err != nil {
+					return model.SongLyrics{}, false, err
+				}
+			}
 			return current.lyrics, false, nil
 		}
 	}
@@ -357,9 +390,6 @@ func (s *Store) saveLyricsMutationLocked(input model.SongLyrics, user string, mo
 		now, user, fmt.Sprintf("musicId=%d revision=%d", normalized.MusicID, nextRevision)); err != nil {
 		return model.SongLyrics{}, false, err
 	}
-	if err := tx.Commit(); err != nil {
-		return model.SongLyrics{}, false, err
-	}
 	normalized.Status = "draft"
 	if loadErr == nil && current.lyrics.PublishedRevision > 0 {
 		normalized.Status = "draft-published"
@@ -367,6 +397,14 @@ func (s *Store) saveLyricsMutationLocked(input model.SongLyrics, user string, mo
 	}
 	normalized.Revision = nextRevision
 	normalized.UpdatedAt = formatTimestamp(now)
+	if beforeCommit != nil {
+		if err := beforeCommit(tx, normalized, true); err != nil {
+			return model.SongLyrics{}, false, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return model.SongLyrics{}, false, err
+	}
 	if afterCommit != nil {
 		afterCommit()
 	}

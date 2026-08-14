@@ -74,11 +74,21 @@ type Manager struct {
 	wg              sync.WaitGroup
 	now             func() time.Time
 	editorGate      *editorgate.Gate
+	afterRestore    func()
 }
 
 func (m *Manager) SetEditorGate(gate *editorgate.Gate) {
 	m.mu.Lock()
 	m.editorGate = gate
+	m.mu.Unlock()
+}
+
+// SetAfterRestore registers a fast callback that runs only after a restore has
+// committed successfully. Realtime document services use it to retire any
+// pre-restore in-memory sessions before stale clients can write again.
+func (m *Manager) SetAfterRestore(afterRestore func()) {
+	m.mu.Lock()
+	m.afterRestore = afterRestore
 	m.mu.Unlock()
 }
 
@@ -412,6 +422,12 @@ func (m *Manager) RestoreFromAsContext(parent context.Context, target, actor str
 	if err := m.applyRestoreCandidate(ctx, candidate, actor); err != nil {
 		log.Printf("[backup] restore from %s failed: %v", target, err)
 		return result, err
+	}
+	m.mu.Lock()
+	afterRestore := m.afterRestore
+	m.mu.Unlock()
+	if afterRestore != nil {
+		afterRestore()
 	}
 	log.Printf("[backup] restore from %s ok: %d categories, %d entries, %d event stories",
 		target, result.Categories, result.Entries, result.EventStories)

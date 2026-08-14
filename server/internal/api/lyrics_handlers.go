@@ -141,6 +141,11 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if changed {
+			if s.collab != nil {
+				if resetErr := s.resetLyricsCollaboration(result.MusicID); resetErr != nil {
+					s.reportLyricsInvariant("[lyrics] collaboration rendition reset failed musicId=%d: %v", result.MusicID, resetErr)
+				}
+			}
 			s.broadcastLyricsDocumentUpdated(result.MusicID, result.Revision, request.ClientID)
 		}
 		writeJSON(w, http.StatusOK, result)
@@ -251,6 +256,11 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if changed {
+		if s.collab != nil {
+			if resetErr := s.resetLyricsCollaboration(result.MusicID); resetErr != nil {
+				s.reportLyricsInvariant("[lyrics] collaboration reset failed musicId=%d: %v", result.MusicID, resetErr)
+			}
+		}
 		s.broadcastLyricsUpdated(result, request.ClientID)
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -359,6 +369,11 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if changed {
+		if s.collab != nil {
+			if resetErr := s.resetLyricsCollaboration(result.MusicID); resetErr != nil {
+				s.reportLyricsInvariant("[lyrics] collaboration publication reset failed musicId=%d: %v", result.MusicID, resetErr)
+			}
+		}
 		s.broadcastLyricsUpdated(result, request.ClientID)
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -366,6 +381,15 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 
 func (s *Server) broadcastLyricsUpdated(lyrics model.SongLyrics, clientID string) {
 	s.broadcastLyricsDocumentUpdated(lyrics.MusicID, lyrics.Revision, clientID)
+}
+
+func (s *Server) resetLyricsCollaboration(musicID int) error {
+	if s.collab == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return s.collab.ReplaceFromAuthoritative(ctx, musicID)
 }
 
 func (s *Server) broadcastLyricsDocumentUpdated(musicID, revision int, clientID string) {

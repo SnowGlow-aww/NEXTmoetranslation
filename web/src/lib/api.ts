@@ -18,7 +18,11 @@ import {
   type Session,
 } from "./session";
 import { collectCatalogPages } from "./catalog-pagination.mjs";
-import { buildLyricsSavePayload, validateSongLyricsMutationResponse } from "./lyrics-save.mjs";
+import {
+  buildLyricsSavePayload,
+  validateSongLyricsCheckpointResponse,
+  validateSongLyricsMutationResponse,
+} from "./lyrics-save.mjs";
 
 export {
   clearSession,
@@ -146,6 +150,12 @@ export interface ProjectionStatus {
   pending: boolean;
   lastSuccessAt?: string;
   lastError?: string;
+}
+
+export interface LyricsCollaborationTicket {
+  ticket: string;
+  room: string;
+  expiresAt: string;
 }
 
 export interface LoginResponse {
@@ -1006,6 +1016,28 @@ export const getCatalogPerformers = () =>
 export const getLyrics = (musicId: number) =>
   apiFetch<SongLyricsDocument>(`/lyrics/detail?musicId=${musicId}`);
 
+function isStrictLyricsCollaborationTicket(value: unknown): value is LyricsCollaborationTicket {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const ticket = value as Record<string, unknown>;
+  const keys = Object.keys(ticket);
+  return keys.length === 3 && keys.every((key) => ["ticket", "room", "expiresAt"].includes(key)) &&
+    typeof ticket.ticket === "string" && ticket.ticket.length > 0 &&
+    typeof ticket.room === "string" && /^[A-Za-z0-9._~-]+$/.test(ticket.room) &&
+    typeof ticket.expiresAt === "string" && Number.isFinite(Date.parse(ticket.expiresAt));
+}
+
+export const issueLyricsCollabTicket = async (musicId: number, signal?: AbortSignal): Promise<LyricsCollaborationTicket> => {
+  const response = await apiFetch<unknown>(`/editor/v1/lyrics/${musicId}/collab-ticket`, {
+    method: "POST",
+    body: JSON.stringify({}),
+    signal,
+  }, true);
+  if (!isStrictLyricsCollaborationTicket(response)) {
+    throw new APIError(502, { error: "invalid_lyrics_collaboration_ticket" });
+  }
+  return response;
+};
+
 type LyricsMutationExpectation =
   | { operation: "save"; musicId: number; revision: number; document: SongLyricsDocument }
   | { operation: "publish" | "unpublish"; musicId: number; revision: number };
@@ -1030,6 +1062,23 @@ export const saveLyrics = (lyrics: SongLyricsDocument, sourceImportToken?: strin
     method: "PUT",
     body: JSON.stringify(buildLyricsSavePayload(lyrics, sourceImportToken, getClientID())),
   }, { operation: "save", musicId: lyrics.musicId, revision: lyrics.revision, document: lyrics });
+export const checkpointLyrics = async (musicId: number): Promise<SongLyricsDocument> => {
+  let response: unknown;
+  try {
+    response = await apiFetch<unknown>(`/editor/v1/lyrics/${musicId}/checkpoint`, {
+      method: "POST",
+      body: JSON.stringify({ clientId: getClientID() }),
+    }, true);
+  } catch (reason) {
+    if (reason instanceof APIError && reason.code === "invalid_json_response") {
+      throw new APIError(502, { error: "invalid_lyrics_response", details: reason.details });
+    }
+    throw reason;
+  }
+  const validated = validateSongLyricsCheckpointResponse(response, musicId);
+  if (!validated.ok) throw new APIError(502, { error: "invalid_lyrics_response", details: validated.details });
+  return validated.value as SongLyricsDocument;
+};
 export const publishLyrics = (musicId: number, revision: number) =>
   lyricsMutation("/editor/v1/lyrics/publish", { method: "POST", body: JSON.stringify({ musicId, revision, clientId: getClientID() }) },
     { operation: "publish", musicId, revision });

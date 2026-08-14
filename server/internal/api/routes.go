@@ -83,6 +83,11 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/editor/v1/lyrics/save", s.auth.RequireAuth(s.strictContentMutation(s.handleLyricsSave)))
 	mux.HandleFunc("/api/editor/v1/lyrics/publish", s.auth.RequireAdmin(s.strictContentMutation(s.handleLyricsPublish)))
 	mux.HandleFunc("/api/editor/v1/lyrics/unpublish", s.auth.RequireAdmin(s.strictContentMutation(s.handleLyricsUnpublish)))
+	if s.collab != nil {
+		mux.HandleFunc("/api/editor/v1/lyrics/{musicId}/collab-ticket", s.auth.RequireAuth(s.strictEditorMutation(s.handleLyricsCollabTicket)))
+		mux.HandleFunc("/api/editor/v1/lyrics/{musicId}/checkpoint", s.auth.RequireAuth(s.strictContentMutation(s.handleLyricsCheckpoint)))
+		mux.Handle("/yjs/lyrics/{musicId}", s.collab)
+	}
 	mux.HandleFunc("/api/editor/v1/backup/push", s.auth.RequireAdmin(s.strictEditorMutation(s.handleBackupPush)))
 
 	// Realtime: SSE stream authenticated with the normal session bearer JWT.

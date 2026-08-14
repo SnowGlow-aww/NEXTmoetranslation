@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,80 @@ import (
 	"moesekai/server/internal/lyricsstaging"
 	"moesekai/server/internal/model"
 )
+
+func TestSaveLyricsRenditionMutationBeforeCommitSharesAtomicTransaction(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	requested.Renditions[0].Full.Lines[0].Chinese = "atomic rendition update"
+	if _, err := s.db.Exec(`CREATE TABLE atomic_rendition_probe (value TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := errors.New("reject rendition checkpoint")
+	_, _, err = s.SaveLyricsRenditionMutationWithBeforeCommit(requested, "editor", func(tx *sql.Tx, saved LyricsRenditionDocument, changed bool) error {
+		if !changed || saved.Revision != current.Revision+1 {
+			t.Fatalf("callback saved revision=%d changed=%t", saved.Revision, changed)
+		}
+		if _, err := tx.Exec(`INSERT INTO atomic_rendition_probe(value) VALUES ('collab-ledger')`); err != nil {
+			return err
+		}
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("save error=%v want sentinel", err)
+	}
+	afterRollback, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var probes int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM atomic_rendition_probe`).Scan(&probes); err != nil {
+		t.Fatal(err)
+	}
+	if afterRollback.Revision != current.Revision || probes != 0 {
+		t.Fatalf("rollback revision=%d want=%d probes=%d", afterRollback.Revision, current.Revision, probes)
+	}
+
+	saved, changed, err := s.SaveLyricsRenditionMutationWithBeforeCommit(requested, "editor", func(tx *sql.Tx, saved LyricsRenditionDocument, changed bool) error {
+		_, err := tx.Exec(`INSERT INTO atomic_rendition_probe(value) VALUES (?)`, fmt.Sprintf("revision=%d changed=%t", saved.Revision, changed))
+		return err
+	})
+	if err != nil || !changed || saved.Revision != current.Revision+1 {
+		t.Fatalf("saved revision=%d changed=%t err=%v", saved.Revision, changed, err)
+	}
+	var value string
+	if err := s.db.QueryRow(`SELECT value FROM atomic_rendition_probe`).Scan(&value); err != nil || value != "revision=2 changed=true" {
+		t.Fatalf("probe=%q err=%v", value, err)
+	}
+}
+
+func TestSaveLyricsRenditionMutationBeforeCommitRunsForNoOp(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`CREATE TABLE atomic_rendition_probe (value TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	replayed, changed, err := s.SaveLyricsRenditionMutationWithBeforeCommit(current, "editor", func(tx *sql.Tx, saved LyricsRenditionDocument, changed bool) error {
+		if changed || saved.Revision != current.Revision {
+			t.Fatalf("no-op callback revision=%d changed=%t", saved.Revision, changed)
+		}
+		_, err := tx.Exec(`INSERT INTO atomic_rendition_probe(value) VALUES ('no-op-checkpoint')`)
+		return err
+	})
+	if err != nil || changed || replayed.Revision != current.Revision {
+		t.Fatalf("replay revision=%d changed=%t err=%v", replayed.Revision, changed, err)
+	}
+	var probes int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM atomic_rendition_probe`).Scan(&probes); err != nil || probes != 1 {
+		t.Fatalf("probes=%d err=%v", probes, err)
+	}
+}
 
 func TestLyricsRenditionEditorLoadSaveConflictAndImmutableFacts(t *testing.T) {
 	s, _ := setupRenditionV3PersistenceStore(t)

@@ -21,6 +21,7 @@ import (
 
 	"moesekai/server/internal/auth"
 	"moesekai/server/internal/backup"
+	"moesekai/server/internal/collab"
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/editorgate"
 	"moesekai/server/internal/filesvc"
@@ -92,6 +93,7 @@ type Server struct {
 		Broadcast(event string, data any)
 		BroadcastGateStatus()
 	}
+	collab *collab.Service
 }
 
 func (s *Server) SetWsHub(w interface {
@@ -99,6 +101,10 @@ func (s *Server) SetWsHub(w interface {
 	BroadcastGateStatus()
 }) {
 	s.wsHub = w
+}
+
+func (s *Server) SetCollab(service *collab.Service) {
+	s.collab = service
 }
 
 func (s *Server) SetSearchStatus(provider interface {

@@ -20,6 +20,7 @@ import (
 	"moesekai/server/internal/api"
 	"moesekai/server/internal/auth"
 	"moesekai/server/internal/backup"
+	"moesekai/server/internal/collab"
 	"moesekai/server/internal/config"
 	"moesekai/server/internal/db"
 	"moesekai/server/internal/editorgate"
@@ -315,9 +316,21 @@ func main() {
 	})
 	// Backup manager: daily + manual backup/restore to S3 and/or GitHub.
 	backupMgr := backup.NewManager(cfg, gen, st, es, filepath.Join(dataDir, "backup-work"))
+	collabService, err := collab.New(database, st, authSvc, editorGate, allowOrigin)
+	if err != nil {
+		fatal("init lyrics collaboration", err)
+	}
+	backupMgr.SetAfterRestore(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := collabService.RetireAll(ctx); err != nil {
+			log.Printf("[collab] post-restore retirement failed: %v", err)
+		}
+	})
 
 	apiServer := api.NewServer(st, es, authSvc, cfg, hub, tr, watcher, backupMgr, editorGate)
 	apiServer.SetWsHub(wsHub)
+	apiServer.SetCollab(collabService)
 	apiServer.SetProjectionStatus(fileService)
 	apiServer.SetSearchStatus(idx)
 
@@ -409,6 +422,9 @@ func main() {
 			}
 			if lyricsDiscoveryWorker != nil {
 				lyricsDiscoveryWorker.Drain()
+			}
+			if err := collabService.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				log.Printf("shutdown lyrics collaboration: %v", err)
 			}
 			return httpServer.Shutdown(ctx)
 		},

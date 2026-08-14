@@ -125,7 +125,8 @@ test("console generations fence loads and saves while tab identity reconciles re
   assert.doesNotMatch(consoleSource, /d\.user !== username/);
   assert.match(consoleSource, /selectedEntry && !entryDirty/);
   assert.match(consoleSource, /event === "content\.restored"/);
-  assert.match(consoleSource, /setRestoreGeneration/);
+  assert.doesNotMatch(consoleSource, /setRestoreGeneration/);
+  assert.match(consoleSource, /lyricsEditorRef\.current\?\.reloadAuthoritative\(\)/);
   assert.match(consoleSource, /const captured = captureContext\(\)/);
   assert.match(consoleSource, /if \(!contextIsCurrent\(captured\)\) return/);
 });
@@ -244,12 +245,12 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.doesNotMatch(songLyricsType, /translationCredit\?:|proofreadingCredit\?:|importToken|sourceImportToken/);
   assert.match(editor, /const sourceImportTokenRef = useRef\(""\)/);
   assert.doesNotMatch(editor, /useState[^\n]*sourceImportToken|setSourceImportToken/);
-  assert.match(editor, /const findSource = async \(\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current\) return/);
-  assert.match(editor, /const previewSource = async \(candidate: LyricsSourceCandidate\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current\) return/);
+  assert.match(editor, /const findSource = async \(\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current \|\| writeLockedRef\.current\) return/);
+  assert.match(editor, /const previewSource = async \(candidate: LyricsSourceCandidate\) => \{[\s\S]*if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| role !== "admin" \|\| busyRef\.current \|\| writeLockedRef\.current\) return/);
   assert.match(editor, /if \(!lyrics \|\| isRenditionLyricsDocument\(lyrics\) \|\| lyrics\.revision !== 0 \|\| !sourcePreview \|\| role !== "admin"/);
   assert.match(editor, /sourceImportTokenRef\.current = preview\.importToken/);
   assert.match(editor, /const importToken = lyrics\.revision === 0 \? sourceImportTokenRef\.current : ""/);
-  assert.match(editor, /const saved = await saveLyrics\(lyrics, importToken \|\| undefined\)/);
+  assert.match(editor, /const saved = importToken[\s\S]*\? await saveLyrics\(lyrics, importToken\)[\s\S]*: await checkpointLyrics\(musicID\)/);
   assert.match(editor, /const authoritative = await getLyrics\(musicID\)/);
   assert.match(editor, /sameImportedLyricsFrozenIdentity\(attempted, authoritative\)/);
   assert.match(editor, /首次保存可能已成功/);
@@ -313,7 +314,7 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.ok(editor.includes('<pre tabIndex={0} aria-label={`固定修订'));
   assert.match(editor, /lyrics\.revision === 0 && sourceActivity === "searching"/);
   assert.match(editor, /sourceRetry\.kind === "search"/);
-  assert.match(editor, /disabled={busy \|\| lyrics\.revision > 0}>\{sourceActivity === "searching" \? "正在查找…" : "查找来源"\}/);
+  assert.match(editor, /disabled={busy \|\| writeLocked \|\| lyrics\.revision > 0}>\{sourceActivity === "searching" \? "正在查找…" : "查找来源"\}/);
   assert.doesNotMatch(editor, /sourceURL/);
 });
 
@@ -387,7 +388,7 @@ test("lyrics transitions guard dirty publication and ignore stale song loads", a
   assert.match(editor, /if \(busyRef\.current\) return/);
 });
 
-test("lyrics collaboration sends tab identity and reloads only peer updates for the selected document", async () => {
+test("lyrics collaboration sends tab identity without REST-overwriting the active Yjs document", async () => {
   const [api, sse, consoleSource, editor] = await Promise.all([
     read("src/lib/api.ts"), read("src/lib/sse.ts"), read("src/components/Console.tsx"),
     read("src/components/LyricsEditor.tsx"),
@@ -397,13 +398,17 @@ test("lyrics collaboration sends tab identity and reloads only peer updates for 
   assert.match(sse, /"lyrics\.updated"/);
   assert.match(consoleSource, /event === "lyrics\.updated"/);
   assert.match(consoleSource, /d\.clientId !== clientID/);
-  assert.match(consoleSource, /isEditing\(musicID\)/);
-  assert.match(consoleSource, /runOrGuard\("同步协作者更新"/);
   assert.match(editor, /selectedMusicIDRef\.current === musicID/);
   assert.match(api, /let clientID = ""/);
   assert.match(api, /if \(!clientID\) clientID = crypto\.randomUUID\(\)/);
   assert.doesNotMatch(api, /sessionStorage/);
   assert.match(consoleSource, /lyricsEditorRef\.current\?\.reloadCatalog\(\)/);
+  const lyricsUpdatedBranch = consoleSource.slice(
+    consoleSource.indexOf('} else if (event === "lyrics.updated")'),
+    consoleSource.indexOf('} else if (event === "content.restored")'),
+  );
+  assert.doesNotMatch(lyricsUpdatedBranch, /isEditing\(|runOrGuard\(|getLyrics\(|reload\(\)/);
+  assert.match(lyricsUpdatedBranch, /already carried by its Yjs room/);
   assert.match(editor, /reloadCatalog: \(\) =>/);
 });
 

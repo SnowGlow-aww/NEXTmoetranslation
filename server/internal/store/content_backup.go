@@ -725,6 +725,13 @@ func (s *Store) ImportTranslationContentContext(ctx context.Context, entries []E
 		return err
 	}
 	defer tx.Rollback()
+	// Fence every pre-restore Yjs room in the same transaction as the
+	// authoritative replacement. The collaboration table intentionally has no
+	// catalog foreign key: catalog replacement must not erase this generation
+	// ledger and make an old epoch reusable.
+	if _, err := tx.ExecContext(ctx, `UPDATE lyrics_collab_documents SET epoch=epoch+1, updated_at=?`, time.Now().UTC().Unix()); err != nil {
+		return err
+	}
 	if err := importTranslationContentTx(ctx, tx, entries, events, lyrics); err != nil {
 		return err
 	}
@@ -2082,6 +2089,12 @@ func (s *Store) RestoreBackupContext(ctx context.Context, categories map[string]
 		return err
 	}
 	defer tx.Rollback()
+	// Fence pre-restore collaboration rooms in the same transaction as the
+	// authoritative replacement. Waiting persistence writers resume only after
+	// commit and then fail their epoch predicate.
+	if _, err := tx.ExecContext(ctx, `UPDATE lyrics_collab_documents SET epoch=epoch+1, updated_at=?`, time.Now().UTC().Unix()); err != nil {
+		return err
+	}
 	for _, category := range model.SupportedCategories {
 		if err := ctx.Err(); err != nil {
 			return err

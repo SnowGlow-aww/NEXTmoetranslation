@@ -178,7 +178,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const savingRef = useRef(false);
   const loadGenerationRef = useRef(0);
   const contextGenerationRef = useRef(0);
-  const [restoreGeneration, setRestoreGeneration] = useState(0);
+  const restoreGeneration = 0;
   const [writesLocked, setWritesLocked] = useState(true);
   const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
   const writeFenceRef = useRef(true);
@@ -508,13 +508,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         runOrGuard("同步协作者更新", loadEntries);
       }
     } else if (event === "lyrics.updated") {
-      const musicID = Number(d.musicId);
       if (isLyrics && d.clientId !== clientID) {
-        if (lyricsEditorRef.current?.isEditing(musicID)) {
-          runOrGuard("同步协作者更新", () => setRestoreGeneration((value) => value + 1));
-        } else {
-          lyricsEditorRef.current?.reloadCatalog();
-        }
+        // The selected document is already carried by its Yjs room. The JSON
+        // notification only refreshes catalog/revision metadata; reloading the
+        // REST document here would overwrite live collaborative state.
+        lyricsEditorRef.current?.reloadCatalog();
       }
     } else if (event === "content.restored") {
       void reconcileContent("restore");
