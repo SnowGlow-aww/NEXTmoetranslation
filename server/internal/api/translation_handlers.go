@@ -139,6 +139,7 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if status == "ok" {
+		s.rebuildCategoryAsset(req.Category)
 		payload := map[string]any{
 			"category": req.Category,
 			"field":    req.Field,

@@ -199,6 +199,7 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 		writeLocaleInternalError(w, explicit, err)
 		return
 	}
+	s.rebuildEventAsset(req.EventID)
 	s.store.NotifyChange() // event story files are regenerated too
 	payload := map[string]any{
 		"eventId":   req.EventID,
@@ -247,6 +248,7 @@ func (s *Server) handlePromoteEventStoryHuman(w http.ResponseWriter, r *http.Req
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.rebuildEventAsset(id)
 	s.store.NotifyChange()
 	s.broadcast(sse.EventStoryUpdated, map[string]any{
 		"eventId": id,

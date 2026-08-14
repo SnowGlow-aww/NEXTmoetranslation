@@ -788,7 +788,7 @@ func TestPublishedLyricsFilesAndAtomicRebuild(t *testing.T) {
 
 func TestRebuildWaitsForContentBoundary(t *testing.T) {
 	svc := setupLegacyFileService(t)
-	release := svc.store.LockContentShared()
+	release := svc.store.LockContentExclusive()
 	done := make(chan struct{})
 	go func() {
 		svc.Rebuild()
@@ -796,7 +796,7 @@ func TestRebuildWaitsForContentBoundary(t *testing.T) {
 	}()
 	select {
 	case <-done:
-		t.Fatal("rebuild crossed an active content operation")
+		t.Fatal("rebuild crossed an active exclusive operation")
 	case <-time.After(30 * time.Millisecond):
 	}
 	release()
@@ -804,5 +804,112 @@ func TestRebuildWaitsForContentBoundary(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("rebuild did not resume after content operation")
+	}
+}
+
+func TestIncrementalEventRebuild(t *testing.T) {
+	svc := setupLegacyFileService(t)
+
+	// Update event 42
+	if err := svc.events.UpdateLine(42, "1", "zebra", "新斑马", model.SourceHuman, "talk"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.RebuildEvent(42); err != nil {
+		t.Fatalf("RebuildEvent failed: %v", err)
+	}
+
+	read := func(path string) ([]byte, int) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		svc.Handler().ServeHTTP(rec, req)
+		return rec.Body.Bytes(), rec.Code
+	}
+
+	canonical, status := read("/files/translation/eventStory/event_42.json")
+	if status != http.StatusOK {
+		t.Fatalf("Get event_42.json status=%d", status)
+	}
+	if !strings.Contains(string(canonical), "新斑马") {
+		t.Fatalf("expected '新斑马' in event_42.json, got: %s", string(canonical))
+	}
+
+	localized, status := read("/files/v2/zh-CN/translation/eventStory/event_42.json")
+	if status != http.StatusOK {
+		t.Fatalf("Get v2 zh-CN event_42.json status=%d", status)
+	}
+	if !strings.Contains(string(localized), "新斑马") {
+		t.Fatalf("expected '新斑马' in localized event_42.json, got: %s", string(localized))
+	}
+}
+
+func TestIncrementalCategoryRebuild(t *testing.T) {
+	svc := setupLegacyFileService(t)
+
+	// Update category cards
+	if _, err := svc.store.UpdateEntry("cards", "prefix", "こんにちは", "您好呀", model.SourceHuman, "test-user"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.RebuildCategory("cards"); err != nil {
+		t.Fatalf("RebuildCategory failed: %v", err)
+	}
+
+	read := func(path string) ([]byte, int) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		svc.Handler().ServeHTTP(rec, req)
+		return rec.Body.Bytes(), rec.Code
+	}
+
+	flat, status := read("/files/translation/cards.json")
+	if status != http.StatusOK {
+		t.Fatalf("Get cards.json status=%d", status)
+	}
+	if !strings.Contains(string(flat), "您好呀") {
+		t.Fatalf("expected '您好呀' in cards.json, got: %s", string(flat))
+	}
+
+	full, status := read("/files/translation/cards.full.json")
+	if status != http.StatusOK {
+		t.Fatalf("Get cards.full.json status=%d", status)
+	}
+	if !strings.Contains(string(full), "您好呀") {
+		t.Fatalf("expected '您好呀' in cards.full.json, got: %s", string(full))
+	}
+}
+
+func TestPublishNowBypassesDebounce(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "publish-now.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.SetDebounce(time.Hour) // very long debounce
+	svc.Start()
+	defer func() {
+		svc.Stop()
+		svc.Wait()
+	}()
+
+	// Wait for initial generation 1
+	deadline := time.Now().Add(time.Second)
+	for svc.Status().Generation == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+
+	// Trigger PublishNow immediately
+	svc.PublishNow()
+
+	deadline = time.Now().Add(time.Second)
+	for svc.Status().Generation < 2 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+
+	if gen := svc.Status().Generation; gen < 2 {
+		t.Fatalf("expected generation >= 2 after PublishNow with 1h debounce, got %d", gen)
 	}
 }

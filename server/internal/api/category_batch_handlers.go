@@ -108,6 +108,9 @@ func (s *Server) handleCategoryBatch(w http.ResponseWriter, r *http.Request) {
 		}
 		s.broadcast(event, payload)
 	}
+	if len(result.Changed) > 0 {
+		s.rebuildCategoryAsset(req.Category)
+	}
 	type categoryBatchResponse struct {
 		model.CategoryLocaleSnapshot
 		Updated int `json:"updated"`
@@ -123,6 +126,23 @@ func (s *Server) handleProjectionStatus(w http.ResponseWriter, r *http.Request) 
 	if s.projection == nil {
 		writeContractError(w, http.StatusServiceUnavailable, "projection_unavailable", nil, nil)
 		return
+	}
+	writeJSON(w, http.StatusOK, s.projection.Status())
+}
+
+func (s *Server) handleProjectionPublish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if s.projection == nil {
+		writeContractError(w, http.StatusServiceUnavailable, "projection_unavailable", nil, nil)
+		return
+	}
+	if s.fileService != nil {
+		s.fileService.PublishNow()
+	} else if publisher, ok := s.projection.(interface{ PublishNow() }); ok {
+		publisher.PublishNow()
 	}
 	writeJSON(w, http.StatusOK, s.projection.Status())
 }

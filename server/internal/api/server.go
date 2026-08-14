@@ -86,6 +86,12 @@ type Server struct {
 	projection              interface {
 		Status() filesvc.ProjectionStatus
 	}
+	fileService interface {
+		RebuildEvent(eventID int) error
+		RebuildCategory(category string) error
+		PublishNow()
+		Status() filesvc.ProjectionStatus
+	}
 	search interface {
 		Status() searchindex.Status
 	}
@@ -119,6 +125,40 @@ func (s *Server) SetProjectionStatus(provider interface {
 	Status() filesvc.ProjectionStatus
 }) {
 	s.projection = provider
+	if fs, ok := provider.(interface {
+		RebuildEvent(eventID int) error
+		RebuildCategory(category string) error
+		PublishNow()
+		Status() filesvc.ProjectionStatus
+	}); ok {
+		s.fileService = fs
+	}
+}
+
+func (s *Server) SetFileService(fs interface {
+	RebuildEvent(eventID int) error
+	RebuildCategory(category string) error
+	PublishNow()
+	Status() filesvc.ProjectionStatus
+}) {
+	s.fileService = fs
+	s.projection = fs
+}
+
+func (s *Server) rebuildEventAsset(eventID int) {
+	if s.fileService != nil {
+		if err := s.fileService.RebuildEvent(eventID); err != nil {
+			log.Printf("[filesvc] rebuild event %d failed: %v", eventID, err)
+		}
+	}
+}
+
+func (s *Server) rebuildCategoryAsset(category string) {
+	if s.fileService != nil {
+		if err := s.fileService.RebuildCategory(category); err != nil {
+			log.Printf("[filesvc] rebuild category %s failed: %v", category, err)
+		}
+	}
 }
 
 func NewServer(s *store.Store, es *store.EventStore, a *auth.Auth, cfg *config.Config, hub *sse.Hub, tr *translator.Translator, up *upstream.Watcher, bk *backup.Manager, gates ...*editorgate.Gate) *Server {

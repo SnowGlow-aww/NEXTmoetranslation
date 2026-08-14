@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
-  APIError, BackupStatus, UpstreamStatus, User,
-  checkUpstream, clearSession, createUser, deleteUser, getBackupStatus, getSettings,
-  getUpstreamStatus, getUsername, listUsers, pushBackup, restoreBackup,
+  APIError, BackupStatus, ProjectionStatus, UpstreamStatus, User,
+  checkUpstream, clearSession, createUser, deleteUser, getBackupStatus, getProjectionStatus, getSettings,
+  getUpstreamStatus, getUsername, listUsers, publishProjection, pushBackup, restoreBackup,
   updateSettings, updateUser,
 } from "@/lib/api";
 
@@ -89,6 +89,7 @@ export function AdminModal({ open, onClose, guardProducerMutation }: {
   return (
     <Modal open={open} onClose={onClose} title="管理设置">
       <div className="modal-cards">
+        <ProjectionCard show={show} />
         <UsersCard show={show} />
         <SettingsCard title="LLM 翻译" keys={LLM_KEYS} show={show} />
         <UpstreamCard show={show} guardProducerMutation={guardProducerMutation} />
@@ -334,6 +335,59 @@ function BackupCard({ show, guardProducerMutation }: { show: ShowFn; guardProduc
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---- Public Projections ----
+
+function ProjectionCard({ show }: { show: ShowFn }) {
+  const [status, setStatus] = useState<ProjectionStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const reload = useCallback(() => {
+    getProjectionStatus().then(setStatus).catch(() => setStatus(null));
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const doPublish = async () => {
+    setBusy(true);
+    try {
+      const next = await publishProjection();
+      setStatus(next);
+      show(`已触发全量公开文件发布 (generation ${next.generation})`, "ok");
+    } catch (e) {
+      show(e instanceof Error ? e.message : "发布失败", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h3>公开文件发布 (Public Projections)</h3>
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+        单条编辑会自动毫秒级增量更新；全量文件构建每 5 分钟自动防抖合并。您也可以随时在此处手动触发全量发布。
+      </p>
+      {status && (
+        <table className="data-table" style={{ marginBottom: 12 }}>
+          <tbody>
+            <tr><th>当前版本 (Generation)</th><td>{status.generation}</td></tr>
+            <tr><th>构建状态</th><td>{status.pending ? "正在构建/等待中…" : "已就绪"}</td></tr>
+            <tr><th>上次成功时间</th><td>{status.lastSuccessAt || "—"}</td></tr>
+            {status.lastError && <tr><th>错误</th><td style={{ color: "var(--err)" }}>{status.lastError}</td></tr>}
+          </tbody>
+        </table>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button className="btn btn-primary" onClick={doPublish} disabled={busy}>
+          {busy ? "发布中…" : "立即全量发布"}
+        </button>
+        <button className="btn btn-secondary" onClick={reload} disabled={busy}>
+          刷新状态
+        </button>
+      </div>
     </div>
   );
 }

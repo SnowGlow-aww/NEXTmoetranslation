@@ -862,6 +862,7 @@ export const getCategories = (locale?: Locale) => {
 };
 export const getEditorGateStatus = () => apiFetch<EditorGateStatus>("/editor-gate/status");
 export const getProjectionStatus = () => apiFetch<ProjectionStatus>("/projection/status");
+export const publishProjection = () => apiFetch<ProjectionStatus>("/projection/publish", { method: "POST" });
 export const getEntries = (category: string, field: string, source?: string, locale?: Locale) => {
   const p = new URLSearchParams({ category, field });
   if (source) p.set("source", source);

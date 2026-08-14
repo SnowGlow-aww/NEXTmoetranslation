@@ -12,7 +12,7 @@ import {
   CategoryInfo, EditorGateStatus, EventStorySummary, Locale, TranslationEntry,
   acceptLoadedProducerState, clearLoadedProducerState, clearSession,
   getCategories, getEditorGateStatus, getEntries, getEventStories, getEventStory,
-  getClientID, getRole, getUsername, triggerAIStory,
+  getClientID, getRole, getUsername, publishProjection, triggerAIStory,
   subscribeProducerProofInvalidated,
   updateEntry, updateEventStoryLine, promoteEventStoryHuman, retryEventStory, reorderEventStory,
 } from "@/lib/api";
@@ -153,6 +153,9 @@ const IconChevronLeft = () => (
 const IconExternalLink = () => (
   <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
 );
+const IconGlobe = () => (
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+);
 
 export function Console({ onLogout }: { onLogout: () => void }) {
   const { show } = useToast();
@@ -166,6 +169,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [showAdmin, setShowAdmin] = useState(false);
   const [locale, setLocale] = useState<Locale>("zh-CN");
   const [lyricsDirty, setLyricsDirty] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [pendingActionLabel, setPendingActionLabel] = useState("");
   const [pendingActionBusy, setPendingActionBusy] = useState(false);
   const pendingActionBusyRef = useRef(false);
@@ -203,7 +207,6 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [writesLocked, setWritesLocked] = useState(true);
   const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [initialHTMLTag, setInitialHTMLTag] = useState("");
   const initialHTMLTagRef = useRef<string | null>(null);
   const writeFenceRef = useRef(true);
   const reconciliationGenerationRef = useRef(0);
@@ -703,7 +706,6 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         if (initialHTMLTagRef.current === null) {
           initialHTMLTagRef.current = etag;
           window.sessionStorage.setItem("nexttrans-html-etag", etag);
-          setInitialHTMLTag(etag);
         } else if (etag !== initialHTMLTagRef.current) {
           setUpdateAvailable(true);
         }
@@ -1067,6 +1069,19 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     }
   }, true);
 
+  const doPublish = async () => {
+    if (publishing || writesLocked) return;
+    setPublishing(true);
+    try {
+      const status = await publishProjection();
+      show(`已触发全量公开文件发布 (generation ${status.generation})`, "ok");
+    } catch (e) {
+      show(e instanceof Error ? e.message : "发布失败", "err");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const currentField = categories.find((c) => c.name === category)?.fields?.find((f) => f.name === field);
   const currentStory = isEventStory ? eventStories.find((s) => String(s.eventId) === field) : undefined;
   const visibleEventStoryCount = eventStories.filter((story) => !story.allOfficialTagged).length;
@@ -1092,6 +1107,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               <span className="sub">{username}{role === "admin" ? " · 管理员" : ""}</span>
             </div>
             <div className="sidebar-icon-row">
+              <button className="icon-btn" onClick={() => void doPublish()} aria-label="立即发布全量公开文件" title={publishing ? "正在全量发布…" : "立即发布公开文件（全量构建最新 JSON）"} disabled={publishing || writesLocked}><IconGlobe /></button>
               <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="用户设置" title="用户设置"><IconSettings /></button>
               {role === "admin" && <button className="icon-btn" onClick={() => setShowAdmin(true)} aria-label="管理设置" title="管理设置"><IconShield /></button>}
               <button className="icon-btn" onClick={() => runOrGuard("退出登录", () => {

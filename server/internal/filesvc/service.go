@@ -61,6 +61,7 @@ type Service struct {
 	running   bool
 
 	rebuildCh       chan struct{}
+	immediateCh     chan struct{}
 	rebuildAssetsFn func() error
 	retryMin        time.Duration
 	retryMax        time.Duration
@@ -82,9 +83,10 @@ func New(s *store.Store, es *store.EventStore, gen *files.Generator) *Service {
 		publicLyricsErr: publicLyricsErr,
 		maxAge:          5 * time.Minute,
 		swr:             time.Hour,
-		debounce:        2 * time.Second,
+		debounce:        5 * time.Minute,
 		assets:          map[string]asset{},
 		rebuildCh:       make(chan struct{}, 1),
+		immediateCh:     make(chan struct{}, 1),
 		retryMin:        time.Second,
 		retryMax:        30 * time.Second,
 		ctx:             ctx,
@@ -120,6 +122,13 @@ func (svc *Service) Stop() { svc.stopOnce.Do(svc.cancel) }
 
 func (svc *Service) Wait() { svc.wg.Wait() }
 
+// SetDebounce updates the debounce duration for publication runs.
+func (svc *Service) SetDebounce(d time.Duration) {
+	svc.statusMu.Lock()
+	svc.debounce = d
+	svc.statusMu.Unlock()
+}
+
 // Trigger schedules a debounced rebuild (safe to call from DB change hooks).
 func (svc *Service) Trigger() {
 	if svc.ctx.Err() != nil {
@@ -128,6 +137,24 @@ func (svc *Service) Trigger() {
 	svc.statusMu.Lock()
 	svc.requested++
 	svc.statusMu.Unlock()
+	select {
+	case svc.rebuildCh <- struct{}{}:
+	default:
+	}
+}
+
+// PublishNow bypasses the debounce window and immediately requests a full rebuild.
+func (svc *Service) PublishNow() {
+	if svc.ctx.Err() != nil {
+		return
+	}
+	svc.statusMu.Lock()
+	svc.requested++
+	svc.statusMu.Unlock()
+	select {
+	case svc.immediateCh <- struct{}{}:
+	default:
+	}
 	select {
 	case svc.rebuildCh <- struct{}{}:
 	default:
@@ -153,7 +180,7 @@ func (svc *Service) loop() {
 		if svc.ctx.Err() != nil {
 			return
 		}
-		svc.drainRebuildNotifications()
+		immediate := svc.drainRebuildNotifications()
 		pending := svc.hasPendingPublication()
 		switch {
 		case err != nil && pending:
@@ -167,7 +194,7 @@ func (svc *Service) loop() {
 			}
 		case pending:
 			retryDelay = retryMin
-			if !svc.waitForDebounce() {
+			if !immediate && !svc.waitForDebounce() {
 				return
 			}
 		default:
@@ -175,9 +202,11 @@ func (svc *Service) loop() {
 			select {
 			case <-svc.ctx.Done():
 				return
+			case <-svc.immediateCh:
+				immediate = true
 			case <-svc.rebuildCh:
 			}
-			if !svc.waitForDebounce() {
+			if !immediate && !svc.waitForDebounce() {
 				return
 			}
 		}
@@ -219,6 +248,8 @@ func (svc *Service) waitForDebounce() bool {
 		select {
 		case <-svc.ctx.Done():
 			return false
+		case <-svc.immediateCh:
+			return true
 		case <-svc.rebuildCh:
 			if !timer.Stop() {
 				select {
@@ -233,12 +264,15 @@ func (svc *Service) waitForDebounce() bool {
 	}
 }
 
-func (svc *Service) drainRebuildNotifications() {
+func (svc *Service) drainRebuildNotifications() bool {
+	immediate := false
 	for {
 		select {
+		case <-svc.immediateCh:
+			immediate = true
 		case <-svc.rebuildCh:
 		default:
-			return
+			return immediate
 		}
 	}
 }
@@ -264,6 +298,95 @@ func (svc *Service) Rebuild() {
 		default:
 		}
 	}
+}
+
+// RebuildEvent incrementally updates in-memory public assets for a single event story.
+func (svc *Service) RebuildEvent(eventID int) error {
+	return svc.RebuildEventContext(svc.ctx, eventID)
+}
+
+// RebuildEventContext incrementally updates in-memory public assets for a single event story with context.
+func (svc *Service) RebuildEventContext(ctx context.Context, eventID int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	releaseContent, err := svc.store.LockContentSharedContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer releaseContent()
+
+	now := time.Now()
+	b, err := svc.gen.EventStoryJSON(eventID)
+	if err != nil {
+		return fmt.Errorf("event %d: %w", eventID, err)
+	}
+	updates := make(map[string]asset, 1+len(model.SupportedLocales))
+	updates[fmt.Sprintf("translation/eventStory/event_%d.json", eventID)] = makeAsset(b, "application/json; charset=utf-8", now)
+	for _, locale := range model.SupportedLocales {
+		lb, err := svc.gen.EventStoryLocaleJSON(eventID, locale)
+		if err != nil {
+			return fmt.Errorf("locale event %s/%d: %w", locale, eventID, err)
+		}
+		updates[fmt.Sprintf("v2/%s/translation/eventStory/event_%d.json", locale, eventID)] = makeAsset(lb, "application/json; charset=utf-8", now)
+	}
+
+	svc.mu.Lock()
+	for k, v := range updates {
+		svc.assets[k] = v
+	}
+	svc.mu.Unlock()
+	return nil
+}
+
+// RebuildCategory incrementally updates in-memory public assets for a single category.
+func (svc *Service) RebuildCategory(category string) error {
+	return svc.RebuildCategoryContext(svc.ctx, category)
+}
+
+// RebuildCategoryContext incrementally updates in-memory public assets for a single category with context.
+func (svc *Service) RebuildCategoryContext(ctx context.Context, category string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	releaseContent, err := svc.store.LockContentSharedContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer releaseContent()
+
+	now := time.Now()
+	updates := make(map[string]asset, 2+2*len(model.SupportedLocales))
+	flat, err := svc.gen.CategoryFlatJSON(category)
+	if err != nil {
+		return fmt.Errorf("flat %s: %w", category, err)
+	}
+	updates["translation/"+category+".json"] = makeAsset(flat, "application/json; charset=utf-8", now)
+	full, err := svc.gen.CategoryFullJSON(category)
+	if err != nil {
+		return fmt.Errorf("full %s: %w", category, err)
+	}
+	updates["translation/"+category+".full.json"] = makeAsset(full, "application/json; charset=utf-8", now)
+
+	for _, locale := range model.SupportedLocales {
+		lflat, err := svc.gen.CategoryLocaleFlatJSON(category, locale)
+		if err != nil {
+			return fmt.Errorf("locale flat %s/%s: %w", locale, category, err)
+		}
+		updates[fmt.Sprintf("v2/%s/translation/%s.json", locale, category)] = makeAsset(lflat, "application/json; charset=utf-8", now)
+		lfull, err := svc.gen.CategoryLocaleFullJSON(category, locale)
+		if err != nil {
+			return fmt.Errorf("locale full %s/%s: %w", locale, category, err)
+		}
+		updates[fmt.Sprintf("v2/%s/translation/%s.full.json", locale, category)] = makeAsset(lfull, "application/json; charset=utf-8", now)
+	}
+
+	svc.mu.Lock()
+	for k, v := range updates {
+		svc.assets[k] = v
+	}
+	svc.mu.Unlock()
+	return nil
 }
 
 func (svc *Service) rebuild(ctx context.Context) error {
@@ -308,7 +431,7 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 	if svc.publicLyricsErr != nil {
 		return fmt.Errorf("public lyrics bundle: %w", svc.publicLyricsErr)
 	}
-	releaseContent, err := svc.store.LockContentExclusiveContext(ctx)
+	releaseContent, err := svc.store.LockContentSharedContext(ctx)
 	if err != nil {
 		return err
 	}

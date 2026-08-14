@@ -249,6 +249,11 @@ func main() {
 	gen := files.NewGenerator(st, es, dataDir)
 
 	fileService := filesvc.New(st, es, gen)
+	filesDebounce, err := durationEnvMs("FILES_REBUILD_DEBOUNCE_MS", 5*time.Minute, 100*time.Millisecond, 24*time.Hour)
+	if err != nil {
+		fatal("FILES_REBUILD_DEBOUNCE_MS", err)
+	}
+	fileService.SetDebounce(filesDebounce)
 	// Regenerate public files whenever the DB changes (debounced inside).
 	st.OnChange(fileService.Trigger)
 
@@ -331,7 +336,7 @@ func main() {
 	apiServer := api.NewServer(st, es, authSvc, cfg, hub, tr, watcher, backupMgr, editorGate)
 	apiServer.SetWsHub(wsHub)
 	apiServer.SetCollab(collabService)
-	apiServer.SetProjectionStatus(fileService)
+	apiServer.SetFileService(fileService)
 	apiServer.SetSearchStatus(idx)
 
 	mux := http.NewServeMux()

@@ -26,6 +26,7 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/category/snapshot", s.auth.RequireAuth(s.handleCategorySnapshot))
 	mux.HandleFunc("/api/category/batch", s.auth.RequireAuth(s.contentMutation(s.handleCategoryBatch)))
 	mux.HandleFunc("/api/projection/status", s.auth.RequireAuth(s.handleProjectionStatus))
+	mux.HandleFunc("/api/projection/publish", s.auth.RequireAuth(s.handleProjectionPublish))
 	mux.HandleFunc("/api/search/status", s.auth.RequireAuth(s.handleSearchStatus))
 
 	// Stable masterdata catalog and manual lyrics workflow.
