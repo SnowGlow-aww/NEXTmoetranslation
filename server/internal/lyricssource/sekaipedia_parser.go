@@ -194,6 +194,8 @@ var sekaipediaSingers = []sekaipediaSinger{
 	{id: "sena_izumi", persistedID: "外部歌唱者-23", name: "Sena Izumi", order: 49, aliases: []string{"Sena Izumi", "Izumi"}},
 	{id: "morisawa_chiaki", persistedID: "外部歌唱者-24", name: "Morisawa Chiaki", order: 50, aliases: []string{"Morisawa Chiaki", "Chiaki"}},
 	{id: "sakasaki_natsume", persistedID: "外部歌唱者-25", name: "Sakasaki Natsume", order: 51, aliases: []string{"Sakasaki Natsume", "Natsume"}},
+	{id: "natsuki_karin", persistedID: "外部歌唱者-26", name: "Natsuki Karin", order: 52, virtual: true, aliases: []string{"Natsuki Karin"}},
+	{id: "otomachi_una", persistedID: "外部歌唱者-27", name: "Otomachi Una", order: 53, virtual: true, aliases: []string{"Otomachi Una", "Una"}},
 }
 
 func parseSekaipediaListAuthority(content string) ([]sekaipediaListTarget, error) {

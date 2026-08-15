@@ -619,6 +619,7 @@ func (s *Server) lyricsSourceIdentity(w http.ResponseWriter, musicID int) (lyric
 		MusicID: identity.MusicID, JapaneseTitle: identity.JapaneseTitle,
 		ProducerMetadata: identity.ProducerMetadata, Lyricist: identity.Lyricist,
 		Composer: identity.Composer, Arranger: identity.Arranger,
+		PerformerSegmentationPolicy: lyricssource.PerformerSegmentationPolicyFromCatalogVocals(identity.Vocals),
 	}, true
 }
 

@@ -23,6 +23,48 @@ type sekaipediaParsedPrimarySide struct {
 	kind   string
 }
 
+// sekaipediaLyricsSection returns the Lyrics section when it contains a real
+// lyrics layout, and otherwise falls back to the first following top-level
+// section before Versions that does. Some pages (for example Tenbin, Yubisaki
+// de Furete) keep a translation stub under Lyrics and place the actual
+// Game/Full tabber under a later song-title section.
+func sekaipediaLyricsSection(content string) (string, error) {
+	content = strings.ReplaceAll(content, "\r", "")
+	matches, err := sekaipediaActiveTopLevelHeadings(content)
+	if err != nil {
+		return "", err
+	}
+	lyricsIndex := -1
+	for index, match := range matches {
+		if strings.TrimSpace(content[match[2]:match[3]]) == "Lyrics" {
+			if lyricsIndex >= 0 {
+				return "", ErrAmbiguous
+			}
+			lyricsIndex = index
+		}
+	}
+	if lyricsIndex < 0 {
+		return "", ErrMissingLyrics
+	}
+	sectionAt := func(index int) string {
+		end := len(content)
+		if index+1 < len(matches) {
+			end = matches[index+1][0]
+		}
+		return content[matches[index][1]:end]
+	}
+	for index := lyricsIndex; index < len(matches); index++ {
+		if index > lyricsIndex && strings.TrimSpace(content[matches[index][2]:matches[index][3]]) == "Versions" {
+			break
+		}
+		section := sectionAt(index)
+		if _, _, parseErr := parseSekaipediaLyricsLayout(section); parseErr == nil {
+			return section, nil
+		}
+	}
+	return sectionAt(lyricsIndex), nil
+}
+
 // parseSekaipediaSong first closes the fixed Versions rows and exact tab tree.
 // Catalog policy is consulted only for a singular compatibility view after all
 // source-evidenced peer renditions have been retained.
@@ -33,7 +75,7 @@ func parseSekaipediaSong(content string, policy PerformerSegmentationPolicy) (se
 	if policy != PerformerSegmentationDisabled && policy != PerformerSegmentationSekaiEligible {
 		return sekaipediaSongExtraction{}, ErrMalformedResponse
 	}
-	lyricsSection, err := sekaipediaTopLevelSection(content, "Lyrics")
+	lyricsSection, err := sekaipediaLyricsSection(content)
 	if err != nil {
 		return sekaipediaSongExtraction{}, err
 	}
@@ -145,11 +187,28 @@ func sekaipediaPrimarySourceSides(tabs map[string]string) ([]sekaipediaPrimarySo
 	return sides, nil
 }
 
-func sekaipediaPrimaryLabelKind(label string) string {
-	switch strings.TrimSpace(label) {
-	case "SEKAI":
+// sekaipediaPrimaryNestedLabelKey maps a nested rendition tab label to the
+// closed primary-label key. The source pages contain a small number of
+// misspelled or pluralized vocaloid labels (VRITUAL SINGER, VIRTUAL SINGERS);
+// those still select the same VIRTUAL SINGER rendition rather than being
+// treated as unknown alternate tabs.
+func sekaipediaPrimaryNestedLabelKey(label string) string {
+	label = strings.ToLower(strings.Join(strings.Fields(label), " "))
+	switch label {
+	case "sekai":
 		return "sekai"
-	case "VIRTUAL SINGER":
+	case "virtual singer", "virtual singers", "vritual singer":
+		return "virtual singer"
+	default:
+		return label
+	}
+}
+
+func sekaipediaPrimaryLabelKind(label string) string {
+	switch sekaipediaPrimaryNestedLabelKey(label) {
+	case "sekai":
+		return "sekai"
+	case "virtual singer":
 		return "vocaloid"
 	default:
 		return ""
@@ -630,7 +689,7 @@ func parseSekaipediaSongLegacy(content string, policy PerformerSegmentationPolic
 	if !utf8ValidBounded(content, maxResponseBytes) {
 		return sekaipediaSongExtraction{}, ErrMalformedResponse
 	}
-	lyricsSection, err := sekaipediaTopLevelSection(content, "Lyrics")
+	lyricsSection, err := sekaipediaLyricsSection(content)
 	if err != nil {
 		return sekaipediaSongExtraction{}, err
 	}
@@ -1485,6 +1544,31 @@ func parseSekaipediaReadingColumnPrefix(
 	return retained, true
 }
 
+// trimSekaipediaLeadingLyricsProse skips editorial prose lines that appear
+// before the first Lyrics head template inside one rendition tab. Some pages
+// leave short notes about ambiguous singers directly above the table.
+func trimSekaipediaLeadingLyricsProse(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\r", ""))
+	for value != "" {
+		newline := strings.IndexByte(value, '\n')
+		line := value
+		rest := ""
+		if newline >= 0 {
+			line, rest = value[:newline], value[newline+1:]
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			value = strings.TrimSpace(rest)
+			continue
+		}
+		if strings.HasPrefix(line, "{{") {
+			return value
+		}
+		value = strings.TrimSpace(rest)
+	}
+	return value
+}
+
 func parseSekaipediaRenditionWithSet(
 	body, kind string,
 	set sekaipediaSingerSet,
@@ -1494,6 +1578,7 @@ func parseSekaipediaRenditionWithSet(
 	if err != nil {
 		return sekaipediaRenditionExtraction{}, err
 	}
+	body = trimSekaipediaLeadingLyricsProse(body)
 	templates, err := parseSekaipediaTemplateSequence(body)
 	if err == nil {
 		templates, err = stripSekaipediaLeadingLyricStubs(templates)

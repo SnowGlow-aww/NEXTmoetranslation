@@ -397,6 +397,33 @@ func DefaultProviderConfigs() []ProviderConfig {
 	}
 }
 
+// ReviewedSekaipediaProviderConfig returns the currently reviewed Sekaipedia
+// authority: the fixed "List of songs" revision plus optional exact, reviewed
+// music-ID-to-page-title and contributor-alias maps. The target map lets
+// ordinary discovery resolve a catalog song to its romanized Sekaipedia page;
+// the alias map lets the romanized provider credits match the Japanese catalog
+// credits. Songs absent from the maps fall through to the legacy fallback
+// providers. Empty maps are valid.
+func ReviewedSekaipediaProviderConfig(targets []SekaipediaPageTarget, aliases []ProviderContributorAlias) ProviderConfig {
+	return ProviderConfig{
+		Provider: ProviderSekaipedia, Enabled: true,
+		Origin: OriginSekaipedia, APIEndpoint: sekaipediaAPI,
+		RightsText: sekaipediaRightsText,
+		Indexes: []FixedIndex{{
+			PageID:            268,
+			RevisionID:        340860,
+			RevisionTimestamp: "2026-08-14T16:09:47Z",
+			SHA1:              "1c6a0edcf6b63222f5f947e5bd30147ebe8e4a4b",
+			ContentSHA256:     "f8ea893f3bb9d5928f87c664ceeb74d187fe19b0820edc2b3fa604093e0e27d7",
+			RawSHA256:         "b381f24fa9d584d1aa58ab9a33030e7a557293beb77e145823505ab14a86cc88",
+			Title:             "List of songs",
+		}},
+		SekaipediaTargets:   cloneSekaipediaPageTargets(targets),
+		ContributorAliases:  cloneProviderContributorAliases(aliases),
+		CrawlDelay:          defaultProviderCrawlDelay, CacheTTL: defaultProviderCacheTTL,
+	}
+}
+
 func (config ProviderConfig) validate() error {
 	if !model.IsValidLyricsSourceProvider(config.Provider) {
 		return fmt.Errorf("unsupported lyrics source provider %q", config.Provider)

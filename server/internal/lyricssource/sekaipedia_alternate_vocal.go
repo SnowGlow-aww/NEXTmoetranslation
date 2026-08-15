@@ -513,7 +513,7 @@ func sekaipediaPrimaryNestedRenditionLabels(records []sekaipediaVersionRecord) m
 }
 
 func sekaipediaNestedLabelIsPrimary(label string, primary map[string]struct{}) bool {
-	_, ok := primary[strings.ToLower(strings.Join(strings.Fields(label), " "))]
+	_, ok := primary[sekaipediaPrimaryNestedLabelKey(label)]
 	return ok
 }
 

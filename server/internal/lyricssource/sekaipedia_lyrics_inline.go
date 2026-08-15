@@ -160,12 +160,8 @@ func parseSekaipediaExplicitRubyEvents(
 				complete = false
 				break
 			}
-			kana := canonicalizeSekaipediaSourceKana(readingEvents[index].text)
-			spans, ok := rubySpansFromKanaReading(baseEvents[index].text, kana)
+			spans, ok := sekaipediaExplicitRubySpans(baseEvents[index].text, readingEvents[index].text)
 			if !ok {
-				spans, ok = rubySpansFromSourceKanaReading(baseEvents[index].text, kana)
-			}
-			if !ok || !sekaipediaSourceRubyPlausible(spans) {
 				complete = false
 				break
 			}
@@ -188,12 +184,8 @@ func parseSekaipediaExplicitRubyEvents(
 	for _, event := range readingEvents {
 		combinedReading.WriteString(event.text)
 	}
-	kana := canonicalizeSekaipediaSourceKana(combinedReading.String())
-	spans, ok := rubySpansFromKanaReading(combinedBase.String(), kana)
+	spans, ok := sekaipediaExplicitRubySpans(combinedBase.String(), combinedReading.String())
 	if !ok {
-		spans, ok = rubySpansFromSourceKanaReading(combinedBase.String(), kana)
-	}
-	if !ok || !sekaipediaSourceRubyPlausible(spans) {
 		return nil, ErrUnsupportedTable
 	}
 	spans = markRubyReadingEvidence(

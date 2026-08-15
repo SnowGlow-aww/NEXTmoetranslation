@@ -321,15 +321,16 @@ func unwrapSekaipediaNestedRendition(body, kind string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	label := "SEKAI"
+	wanted := "sekai"
 	if kind == "vocaloid" {
-		label = "VIRTUAL SINGER"
+		wanted = "virtual singer"
 	}
-	selected := tabs[label]
-	if selected == "" {
-		return "", ErrMissingLyrics
+	for label, body := range tabs {
+		if sekaipediaPrimaryNestedLabelKey(label) == wanted {
+			return body, nil
+		}
 	}
-	return selected, nil
+	return "", ErrMissingLyrics
 }
 
 func stripSekaipediaLeadingLyricStubs(templates []sekaipediaTemplate) ([]sekaipediaTemplate, error) {

@@ -639,6 +639,88 @@ func rubySpansFromSourceKanaReading(japanese string, targetRunes []rune) ([]Ruby
 	return result, true
 }
 
+// sekaipediaExplicitRubySpans aligns one explicit source reading against one
+// visible base. Whole-string alignment fails when the source page separates
+// kana tokens with the same punctuation as the base, because the punctuation
+// is stripped from the canonical kana; the punctuated fallback restores those
+// token boundaries and keeps the shared punctuation as unannotated text.
+func sekaipediaExplicitRubySpans(base, reading string) ([]RubySpan, bool) {
+	kana := canonicalizeSekaipediaSourceKana(reading)
+	spans, ok := rubySpansFromKanaReading(base, kana)
+	if !ok {
+		spans, ok = rubySpansFromSourceKanaReading(base, kana)
+	}
+	if ok && sekaipediaSourceRubyPlausible(spans) {
+		return spans, true
+	}
+	spans, ok = rubySpansFromPunctuatedSourceReading(base, reading)
+	if !ok || !sekaipediaSourceRubyPlausible(spans) {
+		return nil, false
+	}
+	return spans, true
+}
+
+func rubySpansFromPunctuatedSourceReading(japanese, reading string) ([]RubySpan, bool) {
+	japaneseTokens, japaneseSeparators, ok := splitSekaipediaPunctuatedReading(japanese)
+	if !ok || len(japaneseTokens) < 2 {
+		return nil, false
+	}
+	readingTokens, readingSeparators, ok := splitSekaipediaPunctuatedReading(reading)
+	if !ok || len(readingTokens) != len(japaneseTokens) || !stringSlicesEqual(japaneseSeparators, readingSeparators) {
+		return nil, false
+	}
+	spans := make([]RubySpan, 0, len(japaneseTokens)*2)
+	for index, japaneseToken := range japaneseTokens {
+		kana := canonicalizeSekaipediaSourceKana(readingTokens[index])
+		tokenSpans, aligned := rubySpansFromKanaReading(japaneseToken, kana)
+		if !aligned {
+			tokenSpans, aligned = rubySpansFromSourceKanaReading(japaneseToken, kana)
+		}
+		if !aligned || !sekaipediaSourceRubyPlausible(tokenSpans) {
+			return nil, false
+		}
+		spans = append(spans, tokenSpans...)
+		if index < len(japaneseSeparators) {
+			spans = append(spans, RubySpan{Text: japaneseSeparators[index]})
+		}
+	}
+	if !rubySpansValidForText(japanese, spans) {
+		return nil, false
+	}
+	return spans, true
+}
+
+func splitSekaipediaPunctuatedReading(value string) ([]string, []string, bool) {
+	tokens := []string{}
+	separators := []string{}
+	var current strings.Builder
+	for _, currentRune := range value {
+		if sekaipediaRubySeparator(currentRune) {
+			if current.Len() == 0 {
+				return nil, nil, false
+			}
+			tokens = append(tokens, current.String())
+			current.Reset()
+			separators = append(separators, string(currentRune))
+			continue
+		}
+		current.WriteRune(currentRune)
+	}
+	if current.Len() == 0 {
+		return nil, nil, false
+	}
+	tokens = append(tokens, current.String())
+	return tokens, separators, true
+}
+
+func sekaipediaRubySeparator(current rune) bool {
+	switch current {
+	case '、', '，', ',', '・', '。', '！', '？', '!', '?', '.', '‥', '…':
+		return true
+	}
+	return unicode.Is(unicode.Po, current)
+}
+
 func alignSekaipediaSourceRubyRegions(regions []sekaipediaRubyRegion, target []rune) ([]int, bool) {
 	type state struct {
 		region int
