@@ -178,29 +178,45 @@ func NewServer(s *store.Store, es *store.EventStore, a *auth.Auth, cfg *config.C
 	var lyricsSrc lyricsSourceClient = lyricssource.New()
 	// The online editor tries Sekaipedia first, then the legacy fallback
 	// providers. The reviewed Sekaipedia authority is compiled in, together with
-	// the reviewed music-ID-to-page-title and contributor-alias maps for the nine
-	// missing-original event songs that have a reviewed Sekaipedia page. Music 728
+	// the reviewed music-ID-to-page-title and contributor-alias maps. Music 728
 	// is intentionally absent because Sekaipedia has no page for it.
 	sekaipediaConfigs := []lyricssource.ProviderConfig{
 		lyricssource.ReviewedSekaipediaProviderConfig(
 			[]lyricssource.SekaipediaPageTarget{
+				{MusicID: 148, PageTitle: "Ray"},
+				{MusicID: 245, PageTitle: "Aun no Beats"},
 				{MusicID: 295, PageTitle: "Float Planner"},
 				{MusicID: 353, PageTitle: "Kitty"},
 				{MusicID: 386, PageTitle: "Kirapipi★Kirapika"},
+				{MusicID: 475, PageTitle: "Chigau!!!"},
+				{MusicID: 499, PageTitle: "Konton Boogie"},
 				{MusicID: 560, PageTitle: "Eyelid"},
 				{MusicID: 583, PageTitle: "Accelerate"},
 				{MusicID: 635, PageTitle: "Ari no Mama no Story o"},
 				{MusicID: 649, PageTitle: "Sayonara Tengoku Mata Kite Jigoku"},
+				{MusicID: 750, PageTitle: "Losstime Memory"},
+				{MusicID: 751, PageTitle: "Additional Memory"},
+				{MusicID: 752, PageTitle: "Ayano no Koufuku Riron"},
+				{MusicID: 753, PageTitle: "Kuusou Forest"},
 				{MusicID: 756, PageTitle: "Gimme more!"},
+				{MusicID: 764, PageTitle: "Otsukimi Recital"},
 				{MusicID: 789, PageTitle: "Tenbin, Yubisaki de Furete"},
 			},
 			[]lyricssource.ProviderContributorAlias{
+				{MusicID: 148, CatalogContributor: "藤原 基央", ProviderContributor: "Motoo Fujiwara"},
+				{MusicID: 245, CatalogContributor: "羽生まゐご", ProviderContributor: "Hanyuu Maigo"},
 				{MusicID: 353, CatalogContributor: "ツミキ", ProviderContributor: "Tsumiki"},
 				{MusicID: 386, CatalogContributor: "nyanyannya(大天才P)", ProviderContributor: "nyanyannya"},
+				{MusicID: 475, CatalogContributor: "カルロス袴田(サイゼP)", ProviderContributor: "Carlos Hakamada"},
 				{MusicID: 560, CatalogContributor: "ぬゆり", ProviderContributor: "nulut"},
 				{MusicID: 583, CatalogContributor: "吉田夜世", ProviderContributor: "Yoshida Yasei"},
 				{MusicID: 635, CatalogContributor: "のぼる↑", ProviderContributor: "Noboru↑"},
+				{MusicID: 750, CatalogContributor: "じん", ProviderContributor: "JIN"},
+				{MusicID: 751, CatalogContributor: "じん", ProviderContributor: "JIN"},
+				{MusicID: 752, CatalogContributor: "じん", ProviderContributor: "JIN"},
+				{MusicID: 753, CatalogContributor: "じん", ProviderContributor: "JIN"},
 				{MusicID: 756, CatalogContributor: "めろくる", ProviderContributor: "Mellowcle"},
+				{MusicID: 764, CatalogContributor: "じん", ProviderContributor: "JIN"},
 				{MusicID: 789, CatalogContributor: "卯花ロク", ProviderContributor: "Uka Roku"},
 			},
 		),
