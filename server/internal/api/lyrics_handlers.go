@@ -638,7 +638,8 @@ func writeLyricsSourceError(w http.ResponseWriter, err error) {
 		writeContractError(w, http.StatusUnprocessableEntity, "source_unsupported",
 			[]string{"the source lyrics cannot be extracted safely"}, nil)
 	default:
-		writeContractError(w, http.StatusBadGateway, "source_unavailable", []string{err.Error()}, nil)
+		w.Header().Set("X-Moe-Debug-Error", err.Error())
+		writeContractError(w, http.StatusBadGateway, "source_unavailable", nil, nil)
 	}
 }
 
