@@ -3,6 +3,7 @@ package lyricssource
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -34,7 +35,7 @@ func (registry *Registry) Preview(ctx context.Context, identity MusicIdentity, p
 		}
 	}
 	if matched == nil {
-		return Preview{}, ErrMalformedResponse
+		return Preview{}, fmt.Errorf("preview no matching candidate for page=%d rev=%d: %w", pageID, revisionID, ErrMalformedResponse)
 	}
 	fixed, err := registry.FetchFixedCandidateRevision(ctx, identity, *matched)
 	if err != nil {

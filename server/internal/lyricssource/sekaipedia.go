@@ -325,11 +325,11 @@ func (provider *sekaipediaProvider) FetchFixedCandidateRevision(
 		!validSekaipediaCandidateForAuthority(candidate, provider.config.Indexes[0]) || identity.MusicID <= 0 ||
 		(identity.PerformerSegmentationPolicy != PerformerSegmentationDisabled &&
 			identity.PerformerSegmentationPolicy != PerformerSegmentationSekaiEligible) {
-		return FixedRevision{}, ErrMalformedResponse
+		return FixedRevision{}, fmt.Errorf("sekaipedia fixed revision guard failed: %w", ErrMalformedResponse)
 	}
 	candidatePage, err := sekaipediaCandidateRevisionPage(candidate)
 	if err != nil {
-		return FixedRevision{}, ErrMalformedResponse
+		return FixedRevision{}, fmt.Errorf("sekaipedia candidate revision page parse: %w", ErrMalformedResponse)
 	}
 	page, err := provider.fetchExactRevision(ctx, candidate.RevisionID, false)
 	if err != nil {
