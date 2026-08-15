@@ -208,7 +208,10 @@ func sekaipediaCatalogIdentityMatches(content, pageTitle string, identity MusicI
 	}
 	matchedRoles := 0
 	for _, role := range expectedRoles {
-		if strings.TrimSpace(role.wanted) == "" {
+		wanted := strings.TrimSpace(role.wanted)
+		// Catalog rows use placeholder credits ("-", "N/A", "—") when a role
+		// is genuinely absent; those must not fail the role comparison.
+		if wanted == "" || normalizeTitle(wanted) == "" {
 			continue
 		}
 		actual := identityDisplayText(params[role.field])

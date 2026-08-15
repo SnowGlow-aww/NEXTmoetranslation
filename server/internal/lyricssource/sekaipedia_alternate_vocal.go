@@ -303,9 +303,16 @@ func parseSekaipediaAlternateVocals(
 		entry := entries[key]
 		parseBody := func(body string, requireFull bool) (*sekaipediaRenditionExtraction, error) {
 			if entry.setResolved {
-				return parseSekaipediaAlternateBody(body, entry.set, requireFull)
+				if parsed, err := parseSekaipediaAlternateBody(body, entry.set, requireFull); err == nil {
+					return parsed, nil
+				}
 			}
-			return parseSekaipediaAlternateBodyAgainstSets(body, declaredSets, requireFull)
+			if len(declaredSets) > 0 {
+				if parsed, err := parseSekaipediaAlternateBodyAgainstSets(body, declaredSets, requireFull); err == nil {
+					return parsed, nil
+				}
+			}
+			return parseSekaipediaAlternateBody(body, sekaipediaAllSingerSet(), requireFull)
 		}
 		parsedGame, gameErr := parseBody(entry.gameBody, false)
 		parsedFull, fullErr := parseBody(entry.fullBody, true)

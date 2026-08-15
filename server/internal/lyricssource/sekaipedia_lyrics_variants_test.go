@@ -1790,6 +1790,19 @@ func TestSekaipediaEmptyJapaneseLineTemplateIsOnlyASeparator(t *testing.T) {
 	if _, err := parseSekaipediaRenditionWithSet(invalid, "sekai", set, true); !errors.Is(err, ErrMissingLyrics) {
 		t.Fatalf("empty Japanese with reading error=%v", err)
 	}
+	// A rendition whose Lyrics head declares the romanized column may carry
+	// romaji-only rows (e.g. repeated interjections with no Japanese source
+	// text). Those rows act as stanza separators: no Japanese text is lost
+	// and the following line keeps its stanza break.
+	declaredRomaji := "{{Lyrics head|columns=japanese,romaji|japanese=Japanese lyrics|romaji=Romanized lyrics}}\n" +
+		"{{Lyrics line|japanese=始まり|romaji=hajimari}}\n" +
+		"{{Lyrics line|japanese=|romaji=yu!}}\n" +
+		"{{Lyrics line|japanese=終わり|romaji=owari}}\n" +
+		"{{Lyrics tail}}"
+	parsed, err = parseSekaipediaRenditionWithSet(declaredRomaji, "sekai", set, true)
+	if err != nil || len(parsed.extraction.Lines) != 2 || !parsed.extraction.Lines[1].StanzaBreakBefore {
+		t.Fatalf("declared-romaji separator rendition=%+v err=%v", parsed, err)
+	}
 }
 
 func TestSekaipediaGameRenditionAcceptsExactTabBoundaryWithoutLyricsTail(t *testing.T) {

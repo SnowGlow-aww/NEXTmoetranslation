@@ -189,15 +189,15 @@ func sekaipediaPrimarySourceSides(tabs map[string]string) ([]sekaipediaPrimarySo
 
 // sekaipediaPrimaryNestedLabelKey maps a nested rendition tab label to the
 // closed primary-label key. The source pages contain a small number of
-// misspelled or pluralized vocaloid labels (VRITUAL SINGER, VIRTUAL SINGERS);
-// those still select the same VIRTUAL SINGER rendition rather than being
-// treated as unknown alternate tabs.
+// misspelled or pluralized vocaloid labels (VRITUAL SINGER, VIRTUAL SINGERS,
+// VIRUTAL SINGER); those still select the same VIRTUAL SINGER rendition rather
+// than being treated as unknown alternate tabs.
 func sekaipediaPrimaryNestedLabelKey(label string) string {
 	label = strings.ToLower(strings.Join(strings.Fields(label), " "))
 	switch label {
 	case "sekai":
 		return "sekai"
-	case "virtual singer", "virtual singers", "vritual singer":
+	case "virtual singer", "virtual singers", "vritual singer", "virutal singer":
 		return "virtual singer"
 	default:
 		return label
@@ -1446,7 +1446,8 @@ func isSekaipediaAuxiliaryVersionLabel(value string) bool {
 		"Connect Live (DAY2 first)", "Connect Live (DAY2 second)",
 		"COLORFUL LIVE", "Project SEKAI the Movie",
 		"April Fools' 2022", "April Fools' 2024", "April Fools' 2025", "April Fools' 2026",
-		"[[Project SEKAI×Ensemble Stars!! | Ensemble Stars!! Collab]]":
+		"[[Project SEKAI×Ensemble Stars!! | Ensemble Stars!! Collab]]",
+		"Ensemble Stars!! Collab", "Ensemble Stars!!", "Ensemble Stars":
 		return true
 	default:
 		return false
@@ -1569,6 +1570,21 @@ func trimSekaipediaLeadingLyricsProse(value string) string {
 	return value
 }
 
+func sekaipediaRowContentFullyDeclared(params map[string]string, head sekaipediaLyricsHead) bool {
+	if len(head.declared) == 0 {
+		return false
+	}
+	for name, value := range params {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		if !head.declared[name] {
+			return false
+		}
+	}
+	return true
+}
+
 func parseSekaipediaRenditionWithSet(
 	body, kind string,
 	set sekaipediaSingerSet,
@@ -1622,12 +1638,20 @@ func parseSekaipediaRenditionWithSet(
 			return sekaipediaRenditionExtraction{}, ErrMissingLyrics
 		}
 		sourceValue, hasSource := params[head.sourceColumn]
-		if sourceValue == "" {
+		if strings.TrimSpace(sourceValue) == "" {
 			allEmpty := true
 			for _, value := range params {
-				allEmpty = allEmpty && value == ""
+				allEmpty = allEmpty && strings.TrimSpace(value) == ""
 			}
 			if hasSource && allEmpty {
+				continue
+			}
+			// Rows whose source column is empty but whose other declared
+			// columns carry content (e.g. repeated romaji-only interjections)
+			// act as stanza separators; the Japanese import loses nothing and
+			// the following line keeps its stanza break. Content in a column
+			// the Lyrics head never declared still fails closed.
+			if hasSource && sekaipediaRowContentFullyDeclared(params, head) {
 				continue
 			}
 			return sekaipediaRenditionExtraction{}, ErrMissingLyrics

@@ -89,6 +89,7 @@ type sekaipediaLyricsHead struct {
 	sourceColumn  string
 	hasRomaji     bool
 	englishSource bool
+	declared      map[string]bool
 }
 
 type sekaipediaTemplate struct {
@@ -196,6 +197,18 @@ var sekaipediaSingers = []sekaipediaSinger{
 	{id: "sakasaki_natsume", persistedID: "外部歌唱者-25", name: "Sakasaki Natsume", order: 51, aliases: []string{"Sakasaki Natsume", "Natsume"}},
 	{id: "natsuki_karin", persistedID: "外部歌唱者-26", name: "Natsuki Karin", order: 52, virtual: true, aliases: []string{"Natsuki Karin"}},
 	{id: "otomachi_una", persistedID: "外部歌唱者-27", name: "Otomachi Una", order: 53, virtual: true, aliases: []string{"Otomachi Una", "Una"}},
+	{id: "ia", persistedID: "外部歌唱者-28", name: "IA", order: 54, virtual: true, aliases: []string{"IA"}},
+	{id: "yuzuki_yukari", persistedID: "外部歌唱者-29", name: "Yuzuki Yukari", order: 55, virtual: true, aliases: []string{"Yuzuki Yukari", "Yukari"}},
+	{id: "haru", persistedID: "外部歌唱者-30", name: "HARU", order: 56, virtual: true, aliases: []string{"HARU", "Haru"}},
+	{id: "coko", persistedID: "外部歌唱者-31", name: "COKO", order: 57, virtual: true, aliases: []string{"COKO", "Coko"}},
+	{id: "hiiro_amagi", persistedID: "外部歌唱者-32", name: "Hiiro Amagi", order: 58, aliases: []string{"Hiiro Amagi", "Hiiro"}},
+	{id: "aira_shiratori", persistedID: "外部歌唱者-33", name: "Aira Shiratori", order: 59, aliases: []string{"Aira Shiratori", "Aira"}},
+	{id: "mayoi_ayase", persistedID: "外部歌唱者-34", name: "Mayoi Ayase", order: 60, aliases: []string{"Mayoi Ayase", "Mayoi"}},
+	{id: "tatsumi_kazehaya", persistedID: "外部歌唱者-35", name: "Tatsumi Kazehaya", order: 61, aliases: []string{"Tatsumi Kazehaya", "Tatsumi"}},
+	{id: "rinne_amagi", persistedID: "外部歌唱者-36", name: "Rinne Amagi", order: 62, aliases: []string{"Rinne Amagi", "Rinne"}},
+	{id: "himeru", persistedID: "外部歌唱者-37", name: "Himeru", order: 63, aliases: []string{"Himeru"}},
+	{id: "kohaku_oukawa", persistedID: "外部歌唱者-38", name: "Kohaku Oukawa", order: 64, aliases: []string{"Kohaku Oukawa", "Kohaku"}},
+	{id: "niki_shiina", persistedID: "外部歌唱者-39", name: "Niki Shiina", order: 65, aliases: []string{"Niki Shiina", "Niki"}},
 }
 
 func parseSekaipediaListAuthority(content string) ([]sekaipediaListTarget, error) {

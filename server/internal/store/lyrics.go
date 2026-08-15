@@ -38,6 +38,7 @@ const (
 var managedLyricsSourceHosts = map[string]struct{}{
 	"vocaloid.fandom.com": {},
 	"vocaloid.wikia.com":  {},
+	"www.sekaipedia.org":  {},
 }
 
 type lyricsSaveMode uint8
@@ -1004,10 +1005,11 @@ func ValidateLyricsSourceURL(value string) error {
 	return nil
 }
 
-// ValidateLyricsSourceRevisionURL is the strict boundary for the Vocaloid Wiki
-// source client. It accepts only an exact managed hostname and a single oldid
-// query value matching the verified MediaWiki revision. Other callers may keep
-// using non-managed references, but they cannot receive a Wiki preview grant.
+// ValidateLyricsSourceRevisionURL is the strict boundary for the managed Wiki
+// source clients (Vocaloid Wiki and Sekaipedia). It accepts only an exact
+// managed hostname, the /wiki/ revision path, and a single oldid query value
+// matching the verified MediaWiki revision. Other callers may keep using
+// non-managed references, but they cannot receive a Wiki preview grant.
 func ValidateLyricsSourceRevisionURL(value string, revisionID int) error {
 	if value != strings.TrimSpace(value) {
 		return &LyricsContractError{Code: "source_drift", Details: []string{

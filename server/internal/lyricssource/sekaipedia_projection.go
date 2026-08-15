@@ -271,6 +271,15 @@ func normalizeSekaipediaVersionSingerConjunction(value string) (string, bool) {
 	if value == "" {
 		return "", true
 	}
+	value = strings.ReplaceAll(value, ";", ",")
+	for _, pattern := range []string{
+		"25-ji, Nightcord de.",
+		"25-ji, Nightcord de",
+		"25-ji,Nightcord de.",
+		"25-ji,Nightcord de",
+	} {
+		value = strings.ReplaceAll(value, pattern, "25ji")
+	}
 	const conjunction = " and "
 	if strings.Count(value, conjunction) > 1 {
 		return "", false
@@ -290,7 +299,7 @@ func normalizeSekaipediaVersionSingerConjunction(value string) (string, bool) {
 			part = "VBS"
 		case "wonderlandsshowtime":
 			part = "WxS"
-		case "25jinightcordde", "nightcordat2500", "niigo":
+		case "25jinightcordde", "nightcordat2500", "niigo", "25ji":
 			part = "25ji"
 		}
 		parts[index] = part
@@ -315,10 +324,12 @@ func sekaipediaVersionSets(records []sekaipediaVersionRecord, kind string) ([]se
 			if !normalized {
 				return nil, ErrUnsupportedTable
 			}
-			for _, part := range strings.Split(singers, ",") {
-				switch normalizeSekaipediaSingerAlias(part) {
-				case "vs", "all":
-					return nil, ErrUnsupportedTable
+			if kind != "alternate" {
+				for _, part := range strings.Split(singers, ",") {
+					switch normalizeSekaipediaSingerAlias(part) {
+					case "vs", "all":
+						return nil, ErrUnsupportedTable
+					}
 				}
 			}
 			versionRoster := sekaipediaSingerSet{kind: "alternate", ids: make([]string, 0, len(sekaipediaSingers))}
@@ -331,7 +342,7 @@ func sekaipediaVersionSets(records []sekaipediaVersionRecord, kind string) ([]se
 			}
 		}
 		key := strings.Join(ids, ",")
-		if _, duplicate := seen[key]; duplicate {
+		if _, duplicate := seen[key]; duplicate && kind != "alternate" {
 			return nil, ErrAmbiguous
 		}
 		seen[key] = struct{}{}
@@ -459,11 +470,50 @@ func resolveSekaipediaSingerListWithAliases(
 			if err := appendSekaipediaSingerAggregate(members, set, allowed, appendRosterID); err != nil {
 				return nil, err
 			}
-		case "enstars":
+		case "enstars", "diverse":
 			if !allowAggregates || len(set.ids) == 0 {
 				return nil, ErrUnsupportedTable
 			}
 			members := []string{"sazanami_jun", "sena_izumi", "morisawa_chiaki", "sakasaki_natsume"}
+			for _, id := range members {
+				if _, exists := allowed[id]; !exists {
+					return nil, ErrUnsupportedTable
+				}
+				if err := appendRosterID(id); err != nil {
+					return nil, err
+				}
+			}
+		case "alkaloid":
+			if !allowAggregates || len(set.ids) == 0 {
+				return nil, ErrUnsupportedTable
+			}
+			members := []string{"hiiro_amagi", "aira_shiratori", "mayoi_ayase", "tatsumi_kazehaya"}
+			for _, id := range members {
+				if _, exists := allowed[id]; !exists {
+					return nil, ErrUnsupportedTable
+				}
+				if err := appendRosterID(id); err != nil {
+					return nil, err
+				}
+			}
+		case "crazyb":
+			if !allowAggregates || len(set.ids) == 0 {
+				return nil, ErrUnsupportedTable
+			}
+			members := []string{"rinne_amagi", "himeru", "kohaku_oukawa", "niki_shiina"}
+			for _, id := range members {
+				if _, exists := allowed[id]; !exists {
+					return nil, ErrUnsupportedTable
+				}
+				if err := appendRosterID(id); err != nil {
+					return nil, err
+				}
+			}
+		case "virtualsinger":
+			if !allowAggregates || len(set.ids) == 0 {
+				return nil, ErrUnsupportedTable
+			}
+			members := []string{"miku", "rin", "len", "luka", "meiko", "kaito"}
 			for _, id := range members {
 				if _, exists := allowed[id]; !exists {
 					return nil, ErrUnsupportedTable

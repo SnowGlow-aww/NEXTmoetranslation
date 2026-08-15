@@ -75,12 +75,20 @@ func parseSekaipediaLyricsHead(template sekaipediaTemplate) (sekaipediaLyricsHea
 		return sekaipediaLyricsHead{}, ErrUnsupportedTable
 	}
 	if seen["japanese"] {
-		return sekaipediaLyricsHead{sourceColumn: "japanese", hasRomaji: romajiDeclared}, nil
+		return sekaipediaLyricsHead{sourceColumn: "japanese", hasRomaji: romajiDeclared, declared: cloneDeclaredSekaipediaColumns(seen)}, nil
 	}
 	if len(columns) == 1 && seen["english"] && englishSource && !romajiDeclared && !englishTwoDeclared {
-		return sekaipediaLyricsHead{sourceColumn: "english", englishSource: true}, nil
+		return sekaipediaLyricsHead{sourceColumn: "english", englishSource: true, declared: cloneDeclaredSekaipediaColumns(seen)}, nil
 	}
 	return sekaipediaLyricsHead{}, ErrUnsupportedTable
+}
+
+func cloneDeclaredSekaipediaColumns(seen map[string]bool) map[string]bool {
+	result := make(map[string]bool, len(seen))
+	for column, declared := range seen {
+		result[column] = declared
+	}
+	return result
 }
 
 func parseSekaipediaLyricColumn(value string, set sekaipediaSingerSet) ([]sekaipediaColumnLine, error) {
@@ -922,9 +930,9 @@ func buildSekaipediaStructuredLines(
 				case len(line.rubyFallback) > 0 && rubySpansValidForText(text, line.rubyFallback):
 					if bound, ok := bindSekaipediaRubyToSourceSegments(line.rubyFallback, line.segments); ok {
 						ruby = bound
-					} else {
-						return nil, 0, ErrUnsupportedTable
+						break
 					}
+					fallthrough
 				case len(line.segments) > 0:
 					local, localOK := deriveSekaipediaLocalSegmentRubies(japaneseLines, romajiLines, lineIndex)
 					if localOK {
@@ -934,11 +942,13 @@ func buildSekaipediaStructuredLines(
 							ruby = appendRubySpans(ruby, spans...)
 						}
 					} else if lineRuby, lineOK := deriveSekaipediaLocalLineRuby(japaneseLines, romajiLines, lineIndex); lineOK {
-						bound, boundOK := bindSekaipediaRubyToSourceSegments(lineRuby, line.segments)
-						if !boundOK {
-							return nil, 0, ErrUnsupportedTable
+						if bound, boundOK := bindSekaipediaRubyToSourceSegments(lineRuby, line.segments); boundOK {
+							ruby = bound
+						} else if dictionary, dictionaryErr := generateRubySpans(text); dictionaryErr == nil {
+							ruby = dictionary
+						} else {
+							return nil, 0, dictionaryErr
 						}
-						ruby = bound
 					} else if dictionary, dictionaryErr := generateRubySpans(text); dictionaryErr == nil {
 						ruby = dictionary
 					} else {
