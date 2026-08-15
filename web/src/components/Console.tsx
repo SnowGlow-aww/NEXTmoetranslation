@@ -9,7 +9,7 @@ import { LyricsSourceReview, LyricsSourceReviewHandle } from "@/components/Lyric
 import { EventStoryTxtImport, type EventStoryTxtDraft } from "@/components/EventStoryTxtImport";
 import { Modal } from "@/components/Modal";
 import {
-  CategoryInfo, EditorGateStatus, EventAssociationIndex, EventStorySummary, Locale, TranslationEntry,
+  APIError, CategoryInfo, EditorGateStatus, EventAssociationIndex, EventStorySummary, Locale, TranslationEntry,
   acceptLoadedProducerState, clearLoadedProducerState, clearSession,
   getCategories, getEditorGateStatus, getEntries, getEventAssociations, getEventStories, getEventStory,
   getClientID, getRole, getUsername, publishProjection, triggerAIStory,
@@ -22,6 +22,11 @@ import {
   buildMoesekaiUrl,
 } from "@/lib/labels";
 import {
+  eventStoryEntryHasCanonicalIdentity, eventStoryEntryType, eventStoryEpisodeNo, eventStoryUpdateAffectsLocale,
+  findEventStoryUpdateTarget, listEventStoryEpisodeNos, resolveSelectedEventStoryEpisode,
+  restoreEventStoryDraftEntries,
+} from "@/lib/event-story-console";
+import {
   lyricsUpdateMatchesEditorTarget, lyricsUpdateTargetLabel, normalizeLyricsUpdateEvent,
 } from "@/lib/lyrics-collaboration.mjs";
 import { useSSE } from "@/lib/sse";
@@ -33,6 +38,12 @@ interface ContentConflict {
   draft: string | null;
   reloadFailed: boolean;
   detail?: string;
+  storageKey?: string;
+}
+
+interface EventTxtDraftRecovery {
+  draft: EventStoryTxtDraft | null;
+  conflict: ContentConflict | null;
 }
 
 interface PendingAction {
@@ -41,7 +52,124 @@ interface PendingAction {
   action: () => void;
 }
 
+interface SidebarReloadResult {
+  generation: number;
+  locale: Locale;
+  categories: PromiseSettledResult<CategoryInfo[]>;
+  eventStories: PromiseSettledResult<EventStorySummary[]>;
+}
+
 const EVENT_TXT_DRAFT_STORAGE_PREFIX = "moesekai-event-txt-draft-v1";
+const CONTENT_CONFLICT_STORAGE_PREFIX = "moesekai-content-conflict-v1";
+
+function eventStoryMutationResultIsAmbiguous(reason: unknown): boolean {
+  return !(reason instanceof APIError) || reason.status === 409 || reason.status >= 500;
+}
+
+function contentConflictStoragePrefix(username: string): string {
+  return `${CONTENT_CONFLICT_STORAGE_PREFIX}:${encodeURIComponent(username)}`;
+}
+
+function isContentConflictStorageKey(key: string, prefix: string): boolean {
+  return key === prefix || key.startsWith(`${prefix}:`);
+}
+
+function parsePersistedContentConflict(raw: string, storageKey: string): { conflict: ContentConflict; savedAt: number } | null {
+  try {
+    const value = JSON.parse(raw) as {
+      version?: unknown;
+      savedAt?: unknown;
+      conflict?: Partial<ContentConflict>;
+    };
+    const conflict = value.conflict;
+    if (value.version !== 1 || typeof value.savedAt !== "number" || !Number.isFinite(value.savedAt) || !conflict ||
+        (conflict.reason !== "restore" && conflict.reason !== "gap" && conflict.reason !== "remote") ||
+        typeof conflict.draft !== "string" || !conflict.draft ||
+        (conflict.detail !== undefined && typeof conflict.detail !== "string")) {
+      return null;
+    }
+    return {
+      savedAt: value.savedAt,
+      conflict: {
+        reason: conflict.reason,
+        draft: conflict.draft,
+        reloadFailed: true,
+        detail: conflict.detail || "已恢复上次中断时冻结的本地草稿；请重新载入权威数据后导出或舍弃。",
+        storageKey,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistContentConflict(username: string, conflict: ContentConflict): boolean {
+  if (typeof window === "undefined" || !conflict.draft) return false;
+  try {
+    const prefix = contentConflictStoragePrefix(username);
+    const storageKey = conflict.storageKey && isContentConflictStorageKey(conflict.storageKey, prefix)
+      ? conflict.storageKey
+      : `${prefix}:${crypto.randomUUID()}`;
+    conflict.storageKey = storageKey;
+    localStorage.setItem(storageKey, JSON.stringify({
+      version: 1,
+      savedAt: Date.now(),
+      conflict,
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearPersistedContentConflict(username: string, conflict: ContentConflict): boolean {
+  if (typeof window === "undefined") return true;
+  const prefix = contentConflictStoragePrefix(username);
+  try {
+    if (conflict.storageKey && isContentConflictStorageKey(conflict.storageKey, prefix)) {
+      localStorage.removeItem(conflict.storageKey);
+      return true;
+    }
+    const matchingKeys: string[] = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (!key || !isContentConflictStorageKey(key, prefix)) continue;
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? parsePersistedContentConflict(raw, key) : null;
+      if (parsed?.conflict.draft === conflict.draft) matchingKeys.push(key);
+    }
+    matchingKeys.forEach((key) => localStorage.removeItem(key));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function recoverPersistedContentConflict(username: string): ContentConflict | null {
+  if (typeof window === "undefined") return null;
+  const prefix = contentConflictStoragePrefix(username);
+  try {
+    const recovered: Array<{ conflict: ContentConflict; savedAt: number }> = [];
+    const invalidKeys: string[] = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (!key || !isContentConflictStorageKey(key, prefix)) continue;
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? parsePersistedContentConflict(raw, key) : null;
+      if (parsed) recovered.push(parsed);
+      else invalidKeys.push(key);
+    }
+    invalidKeys.forEach((key) => localStorage.removeItem(key));
+    recovered.sort((a, b) => b.savedAt - a.savedAt);
+    const latest = recovered[0]?.conflict ?? null;
+    if (latest && recovered.length > 1) {
+      latest.detail = `${latest.detail || "已恢复冻结的本地草稿。"} 浏览器中另有 ${recovered.length - 1} 份独立冻结草稿；它们不会被本次操作删除，并可在刷新后继续恢复。`;
+    }
+    return latest;
+  } catch {
+    return null;
+  }
+}
 
 function eventTxtDraftStorageKey(username: string, eventID: number, locale: "zh-CN" | "en-US"): string {
   return `${EVENT_TXT_DRAFT_STORAGE_PREFIX}:${encodeURIComponent(username)}:${eventID}:${locale}`;
@@ -67,19 +195,38 @@ function clearPersistedEventTxtDraft(username: string, eventID: number, locale: 
   }
 }
 
-function recoverEventTxtDraft(username: string, eventID: number, locale: Locale, entries: readonly TranslationEntry[]): EventStoryTxtDraft | null {
-  if (typeof window === "undefined" || locale === "ja-JP") return null;
+function eventTxtDraftIdentityFromConflict(conflict: ContentConflict): { eventId: number; locale: "zh-CN" | "en-US" } | null {
+  if (!conflict.draft) return null;
+  try {
+    const payload = JSON.parse(conflict.draft) as { eventTxtDraft?: Partial<EventStoryTxtDraft> };
+    const draft = payload.eventTxtDraft;
+    if (!draft || !Number.isSafeInteger(draft.eventId) || (draft.eventId ?? 0) <= 0 ||
+        (draft.locale !== "zh-CN" && draft.locale !== "en-US")) {
+      return null;
+    }
+    return { eventId: draft.eventId as number, locale: draft.locale };
+  } catch {
+    return null;
+  }
+}
+
+function clearPersistedEventTxtDraftFromConflict(username: string, conflict: ContentConflict): boolean {
+  const identity = eventTxtDraftIdentityFromConflict(conflict);
+  return !identity || clearPersistedEventTxtDraft(username, identity.eventId, identity.locale);
+}
+
+function recoverEventTxtDraft(username: string, eventID: number, locale: Locale, entries: readonly TranslationEntry[]): EventTxtDraftRecovery {
+  if (typeof window === "undefined" || locale === "ja-JP") return { draft: null, conflict: null };
   const key = eventTxtDraftStorageKey(username, eventID, locale);
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return null;
+    if (!raw) return { draft: null, conflict: null };
     const value = JSON.parse(raw) as Partial<EventStoryTxtDraft>;
     if (value.eventId !== eventID || value.locale !== locale || typeof value.episodeNo !== "string" || !value.episodeNo ||
         typeof value.snapshotRevision !== "string" || !value.snapshotRevision || typeof value.fileName !== "string" ||
         !Array.isArray(value.translations) || value.translations.length === 0 || value.translations.length > 4000) {
       throw new Error("invalid event TXT draft");
     }
-    const bySegment = new Map(entries.flatMap((entry) => entry.segmentId ? [[entry.segmentId, entry] as const] : []));
     const seen = new Set<string>();
     for (const candidate of value.translations) {
       if (!candidate || typeof candidate.segmentId !== "string" || !candidate.segmentId || seen.has(candidate.segmentId) ||
@@ -87,17 +234,41 @@ function recoverEventTxtDraft(username: string, eventID: number, locale: Locale,
           typeof candidate.authoritativeText !== "string" || typeof candidate.text !== "string") {
         throw new Error("invalid event TXT draft row");
       }
-      const entry = bySegment.get(candidate.segmentId);
-      if (!entry || entry.episodeNo !== value.episodeNo || entry.sourceHash !== candidate.sourceHash ||
-          (entry.revision ?? 0) !== candidate.revision || entry.text !== candidate.authoritativeText) {
-        throw new Error("stale event TXT draft row");
-      }
       seen.add(candidate.segmentId);
     }
-    return { ...value, undoAvailable: value.undoAvailable === true } as EventStoryTxtDraft;
+
+    const draft = { ...value, undoAvailable: value.undoAvailable === true } as EventStoryTxtDraft;
+    const bySegment = new Map(entries.flatMap((entry) => entry.segmentId ? [[entry.segmentId, entry] as const] : []));
+    const stale = draft.translations.some((candidate) => {
+      const entry = bySegment.get(candidate.segmentId);
+      return !entry || entry.episodeNo !== draft.episodeNo || entry.sourceHash !== candidate.sourceHash ||
+        (entry.revision ?? 0) !== candidate.revision || entry.text !== candidate.authoritativeText;
+    });
+    if (!stale) return { draft, conflict: null };
+
+    const conflict: ContentConflict = {
+      reason: "remote",
+      draft: JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        kind: "translation",
+        category: "eventStory",
+        field: String(eventID),
+        locale,
+        key: null,
+        staleText: "",
+        previouslyLoadedText: "",
+        eventTxtDraft: draft,
+      }, null, 2),
+      reloadFailed: false,
+      detail: "服务器中的活动剧情 revision 已变化；原 TXT 本地草稿已冻结，未覆盖也未删除。",
+    };
+    if (!persistContentConflict(username, conflict)) {
+      conflict.detail += " 浏览器冲突副本持久化失败，请立即导出且不要关闭页面。";
+    }
+    return { draft: null, conflict };
   } catch {
     try { localStorage.removeItem(key); } catch { /* best effort */ }
-    return null;
+    return { draft: null, conflict: null };
   }
 }
 
@@ -166,6 +337,8 @@ interface EntryRowProps {
   isReadOnly: boolean;
   writesLocked: boolean;
   eventTxtDraftDirty: boolean;
+  hasRemoteConflict: boolean;
+  hasCanonicalIdentity: boolean;
   onSelect: (entry: TranslationEntry) => void;
   onSourceChange: (key: string, source: string) => void;
 }
@@ -179,6 +352,8 @@ const EntryRow = React.memo(function EntryRow({
   isReadOnly,
   writesLocked,
   eventTxtDraftDirty,
+  hasRemoteConflict,
+  hasCanonicalIdentity,
   onSelect,
   onSourceChange,
 }: EntryRowProps) {
@@ -200,8 +375,9 @@ const EntryRow = React.memo(function EntryRow({
           value={entry.source}
           onChange={(e) => onSourceChange(entry.key, e.target.value)}
           className={`source-tag ${entry.source}`}
-          disabled={isReadOnly || writesLocked || eventTxtDraftDirty}
+          disabled={isReadOnly || writesLocked || eventTxtDraftDirty || hasRemoteConflict || (isEventStory && !hasCanonicalIdentity)}
           aria-label={`${isEventStory ? (entry.japanese || eventStoryEntryLabel(entry.key)) : entry.key} 的来源`}
+          title={isEventStory && !hasCanonicalIdentity ? "当前剧情行缺少权威来源身份，请重新获取剧情后再编辑" : undefined}
         >
           {Object.entries(SOURCE_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
@@ -217,16 +393,7 @@ const EntryRow = React.memo(function EntryRow({
       <td><div className="cn">{entry.text}</div></td>
     </tr>
   );
-}, (prev, next) => (
-  prev.entry === next.entry &&
-  prev.isSelected === next.isSelected &&
-  prev.isRemoteHighlighted === next.isRemoteHighlighted &&
-  prev.remoteHighlightUser === next.remoteHighlightUser &&
-  prev.isEventStory === next.isEventStory &&
-  prev.isReadOnly === next.isReadOnly &&
-  prev.writesLocked === next.writesLocked &&
-  prev.eventTxtDraftDirty === next.eventTxtDraftDirty
-));
+});
 
 interface ChapterTab {
   episodeNo: string;
@@ -250,6 +417,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [publishing, setPublishing] = useState(false);
   const [pendingActionLabel, setPendingActionLabel] = useState("");
   const [pendingActionBusy, setPendingActionBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const pendingActionBusyRef = useRef(false);
   const pendingActionTokenRef = useRef(0);
   const pendingActionRef = useRef<PendingAction | null>(null);
@@ -262,7 +430,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [category, setCategory] = useState("");
   const [field, setField] = useState("");
   const [entries, setEntries] = useState<TranslationEntry[]>([]);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
   const [selectedEpisode, setSelectedEpisode] = useState<string>("1");
+  const selectedEpisodeRef = useRef(selectedEpisode);
+  selectedEpisodeRef.current = selectedEpisode;
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<"kana" | "id-desc" | "time-desc">("kana");
@@ -276,7 +448,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const [realtimeState, setRealtimeState] = useState<"connecting" | "connected" | "reconnecting" | "offline">("connecting");
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [remoteHighlights, setRemoteHighlights] = useState<Record<string, { user: string; until: number }>>({});
-  const [remoteConflict, setRemoteConflict] = useState<{ key: string; user: string } | null>(null);
+  const [remoteConflict, setRemoteConflictState] = useState<{ key: string; user: string } | null>(null);
+  const remoteConflictRef = useRef(remoteConflict);
+  const setRemoteConflict = useCallback((next: { key: string; user: string } | null) => {
+    remoteConflictRef.current = next;
+    setRemoteConflictState(next);
+  }, []);
   const remoteHighlightTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const editRef = useRef<HTMLTextAreaElement>(null);
   const translationWorkspaceRef = useRef<HTMLDivElement>(null);
@@ -284,6 +461,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const savingRef = useRef(false);
   const loadGenerationRef = useRef(0);
   const contextGenerationRef = useRef(0);
+  const sidebarReloadGenerationRef = useRef(0);
+  const sidebarAppliedGenerationRef = useRef(0);
+  const sidebarReloadRef = useRef<{ generation: number; promise: Promise<SidebarReloadResult> } | null>(null);
+  const sidebarSnapshotRef = useRef<Map<Locale, { categories: CategoryInfo[]; eventStories: EventStorySummary[] }>>(new Map());
   const restoreGeneration = 0;
   const [writesLocked, setWritesLocked] = useState(true);
   const [contentConflict, setContentConflict] = useState<ContentConflict | null>(null);
@@ -294,9 +475,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const contentEventGenerationRef = useRef(0);
   const sseConnectedRef = useRef(false);
   const preservedConflictDraftRef = useRef<string | null>(null);
+  const preservedConflictStorageKeyRef = useRef<string | null>(null);
   const reconcileContentRef = useRef<(reason: ReconciliationReason, draft?: string | null, detail?: string) => Promise<boolean>>(async () => false);
   const reconcileRetryRef = useRef<{ reason: ReconciliationReason; draft: string | null; detail?: string; attempt: number } | null>(null);
   const reconcileRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const recovered = recoverPersistedContentConflict(username);
+    if (!recovered) return;
+    preservedConflictDraftRef.current = recovered.draft;
+    preservedConflictStorageKeyRef.current = recovered.storageKey ?? null;
+    writeFenceRef.current = true;
+    setWritesLocked(true);
+    setContentConflict(recovered);
+  }, [username]);
 
   // ---- UI prefs ----
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -318,12 +510,50 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- Load categories + event stories ----
   const reloadSidebar = useCallback(async (): Promise<boolean> => {
-    let loaded = true;
-    await Promise.all([
-      getCategories(locale).then(setCategories).catch((e) => { loaded = false; show(e.message, "err"); }),
-      getEventStories(locale).then(setEventStories).catch(() => { loaded = false; setEventStories([]); }),
-    ]);
-    return loaded;
+    const generation = ++sidebarReloadGenerationRef.current;
+    const requestLocale = locale;
+    const promise = Promise.allSettled([
+      getCategories(requestLocale),
+      getEventStories(requestLocale),
+    ]).then(([categories, eventStories]): SidebarReloadResult => ({ generation, locale: requestLocale, categories, eventStories }));
+    sidebarReloadRef.current = { generation, promise };
+
+    while (true) {
+      const latest: { generation: number; promise: Promise<SidebarReloadResult> } | null = sidebarReloadRef.current;
+      if (!latest) return false;
+      const result: SidebarReloadResult = await latest.promise;
+      if (sidebarReloadRef.current?.generation !== result.generation) continue;
+      if (result.locale !== locale) continue;
+
+      const loaded = result.categories.status === "fulfilled" && result.eventStories.status === "fulfilled";
+      if (sidebarAppliedGenerationRef.current < result.generation) {
+        sidebarAppliedGenerationRef.current = result.generation;
+        if (result.categories.status === "fulfilled") {
+          setCategories(result.categories.value);
+          if (result.eventStories.status === "fulfilled") {
+            sidebarSnapshotRef.current.set(result.locale, {
+              categories: result.categories.value,
+              eventStories: result.eventStories.value,
+            });
+          }
+        } else {
+          const snapshot = sidebarSnapshotRef.current.get(result.locale);
+          if (snapshot) {
+            setCategories(snapshot.categories);
+          }
+          show(result.categories.reason instanceof Error ? result.categories.reason.message : "侧栏分类载入失败", "err");
+        }
+        if (result.eventStories.status === "fulfilled") {
+          setEventStories(result.eventStories.value);
+        } else {
+          const snapshot = sidebarSnapshotRef.current.get(result.locale);
+          if (snapshot) {
+            setEventStories(snapshot.eventStories);
+          }
+        }
+      }
+      return loaded;
+    }
   }, [locale, show]);
 
   useEffect(() => { void reloadSidebar(); }, [reloadSidebar]);
@@ -359,12 +589,14 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       setSelectedKey(null);
       setEditValue("");
       setEventTxtDraft(null);
+      setRemoteConflict(null);
       return true;
     }
     setEntries([]);
     setSelectedKey(null);
     setEditValue("");
     setEventTxtDraft(null);
+    setRemoteConflict(null);
     if (isLyrics || isLyricsSourceReview) {
       setLoading(false);
       return true;
@@ -373,23 +605,35 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     try {
       if (isEventStory) {
         const detail = await getEventStory(Number(field), locale);
-        if (loadGenerationRef.current !== generation) return true;
+        if (loadGenerationRef.current !== generation) return false;
         const list = buildEventStoryEntries(detail);
-        const recovered = recoverEventTxtDraft(username, Number(field), locale, list);
-        const visible = recovered ? overlayEventTxtDraft(list, recovered) : list;
-        setEventTxtDraft(recovered);
+        const recovery = recoverEventTxtDraft(username, Number(field), locale, list);
+        const visible = recovery.draft ? overlayEventTxtDraft(list, recovery.draft) : list;
+        setEventTxtDraft(recovery.draft);
+        if (recovery.conflict) {
+          preservedConflictDraftRef.current = recovery.conflict.draft;
+          preservedConflictStorageKeyRef.current = recovery.conflict.storageKey ?? null;
+          setContentConflict(recovery.conflict);
+          writeFenceRef.current = true;
+          setWritesLocked(true);
+        }
         setEntries(visible);
-        const availableEpisodes = [...new Set(visible.flatMap((e) => e.episodeNo ? [e.episodeNo] : []))];
-        const initialEp = availableEpisodes.length > 0 ? (availableEpisodes.includes(selectedEpisode) ? selectedEpisode : availableEpisodes[0]) : "1";
+        const availableEpisodes = listEventStoryEpisodeNos(visible);
+        const initialEp = resolveSelectedEventStoryEpisode(selectedEpisodeRef.current, availableEpisodes);
+        selectedEpisodeRef.current = initialEp;
         setSelectedEpisode(initialEp);
-        const epEntries = initialEp === "all" ? visible : visible.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === initialEp);
+        const epEntries = initialEp === "all" ? visible : visible.filter((entry) => eventStoryEpisodeNo(entry) === initialEp);
         const first = epEntries.length > 0 ? epEntries[0] : visible[0];
         if (first) { setSelectedKey(first.key); setEditValue(first.text); }
-        if (recovered) show(`已恢复 ${recovered.fileName} 的 ${recovered.translations.length} 条 TXT 本地草稿`, "ok");
+        if (recovery.draft) {
+          show(`已恢复 ${recovery.draft.fileName} 的 ${recovery.draft.translations.length} 条 TXT 本地草稿`, "ok");
+        } else if (recovery.conflict) {
+          show("检测到 revision 已变化的 TXT 本地草稿；已冻结并等待导出或舍弃", "err");
+        }
         return true;
       }
       const data = await getEntries(category, field, undefined, locale);
-      if (loadGenerationRef.current !== generation) return true;
+      if (loadGenerationRef.current !== generation) return false;
       setEntries(data);
       const first = [...data].sort((a, b) => {
         const kana = a.key.localeCompare(b.key, "ja", { usage: "sort", sensitivity: "base" });
@@ -403,7 +647,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     } finally {
       if (loadGenerationRef.current === generation) setLoading(false);
     }
-  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, selectedEpisode, show, username]);
+  }, [category, field, isEventStory, isLyrics, isLyricsSourceReview, locale, setRemoteConflict, show, username]);
 
   useEffect(() => { void loadEntries(); }, [loadEntries]);
 
@@ -462,7 +706,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     if (!isEventStory || entries.length === 0) return [];
     const map = new Map<string, { title: string; total: number; untranslated: number }>();
     for (const entry of entries) {
-      const epNo = entry.episodeNo || parseEventStoryEntryKey(entry.key).episodeNo || "1";
+      const epNo = eventStoryEpisodeNo(entry);
       let ep = map.get(epNo);
       if (!ep) {
         ep = { title: "", total: 0, untranslated: 0 };
@@ -471,7 +715,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       ep.total++;
       const isUntranslated = !entry.text || entry.source === "unknown" || entry.source === "llm";
       if (isUntranslated) ep.untranslated++;
-      if (entry.entryType === "title" && !ep.title) {
+      if (eventStoryEntryType(entry) === "title" && !ep.title) {
         ep.title = entry.text || entry.japanese || "";
       }
     }
@@ -479,7 +723,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     for (const [episodeNo, data] of map.entries()) {
       result.push({
         episodeNo,
-        title: data.title || `第 ${episodeNo} 话`,
+        title: data.title,
         total: data.total,
         untranslated: data.untranslated,
       });
@@ -492,7 +736,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const q = query.trim().toLowerCase();
     let source = isEventStory ? entries : sortedEntries;
     if (isEventStory && selectedEpisode !== "all") {
-      source = source.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === selectedEpisode);
+      source = source.filter((entry) => eventStoryEpisodeNo(entry) === selectedEpisode);
     }
     return source.filter((e) => {
       if (relatedEventEntityIDs && !(e.ids || []).some((id) => relatedEventEntityIDs.has(String(id)))) return false;
@@ -508,12 +752,18 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     [selectedKey, filtered],
   );
   const selectedEntry = selectedKey ? entries.find((entry) => entry.key === selectedKey) ?? null : null;
+  const selectedEventStoryIdentityMissing = Boolean(
+    isEventStory && selectedEntry && !eventStoryEntryHasCanonicalIdentity(selectedEntry),
+  );
   const entryDirty = selectedEntry != null && editValue !== selectedEntry.text;
   const eventTxtDraftDirty = isEventStory && (eventTxtDraft?.translations.length ?? 0) > 0;
-  const hasUnsavedChanges = isLyrics ? lyricsDirty : entryDirty || eventTxtDraftDirty;
-  const currentHasUnsavedChanges = () => isLyrics
+  const frozenConflictDraftDirty = Boolean(contentConflict?.draft || preservedConflictDraftRef.current);
+  const hasUnsavedChanges = (isLyrics ? lyricsDirty : entryDirty || eventTxtDraftDirty) || frozenConflictDraftDirty;
+  const currentHasUnsavedChanges = () => (isLyrics
     ? lyricsEditorRef.current?.isDirty() ?? lyricsDirty
-    : entryDirty || eventTxtDraftDirty;
+    : entryDirty || eventTxtDraftDirty) || Boolean(contentConflict?.draft || preservedConflictDraftRef.current);
+  const selectionStateRef = useRef({ selectedKey, entryDirty, eventTxtDraftDirty });
+  selectionStateRef.current = { selectedKey, entryDirty, eventTxtDraftDirty };
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -570,11 +820,33 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       ? (contentConflict?.draft ?? preservedConflictDraftRef.current ?? captureUnsavedDraft())
       : preservedDraft;
     const conflictDetail = detail ?? contentConflict?.detail;
-    if (draft) preservedConflictDraftRef.current = draft;
+    if (draft) {
+      const sameContentConflict = contentConflict?.draft === draft ? contentConflict : null;
+      const conflictStorageKey = sameContentConflict?.storageKey ?? preservedConflictStorageKeyRef.current;
+      const frozenConflict: ContentConflict = {
+        reason,
+        draft,
+        reloadFailed: true,
+        ...(conflictDetail ? { detail: conflictDetail } : {}),
+        ...(conflictStorageKey ? { storageKey: conflictStorageKey } : {}),
+      };
+      preservedConflictDraftRef.current = draft;
+      const persisted = persistContentConflict(username, frozenConflict);
+      preservedConflictStorageKeyRef.current = frozenConflict.storageKey ?? null;
+      if (!persisted) {
+        show("本地草稿已冻结在当前页面，但浏览器持久化失败；请立即导出且不要关闭页面", "err");
+      }
+    }
     contextGenerationRef.current++;
     const failReconcile = (message: string) => {
       if (draft) {
-        setContentConflict({ reason, draft, reloadFailed: true, ...(conflictDetail ? { detail: conflictDetail } : {}) });
+        setContentConflict({
+          reason,
+          draft,
+          reloadFailed: true,
+          ...(conflictDetail ? { detail: conflictDetail } : {}),
+          ...(preservedConflictStorageKeyRef.current ? { storageKey: preservedConflictStorageKeyRef.current } : {}),
+        });
         show(message, "err");
       }
     };
@@ -658,10 +930,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     }
     reconcileRetryRef.current = null;
     if (draft) {
-      setContentConflict({ reason, draft, reloadFailed: false, ...(conflictDetail ? { detail: conflictDetail } : {}) });
+      setContentConflict({
+        reason,
+        draft,
+        reloadFailed: false,
+        ...(conflictDetail ? { detail: conflictDetail } : {}),
+        ...(preservedConflictStorageKeyRef.current ? { storageKey: preservedConflictStorageKeyRef.current } : {}),
+      });
       return true;
     }
     preservedConflictDraftRef.current = null;
+    preservedConflictStorageKeyRef.current = null;
     setContentConflict(null);
     setWriteFence(false);
     return true;
@@ -679,8 +958,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       show("无法清理 TXT 本地草稿，旧缓冲区仍被保留", "err");
       return;
     }
+    if (!clearPersistedEventTxtDraftFromConflict(username, conflict)) {
+      show("无法清理被冻结的 TXT 原始草稿，旧缓冲区仍被保留", "err");
+      return;
+    }
+    if (!clearPersistedContentConflict(username, conflict)) {
+      show("无法清理浏览器中的冻结草稿；为避免下次载入误判，当前操作已取消", "err");
+      return;
+    }
     setEventTxtDraft(null);
     preservedConflictDraftRef.current = null;
+    preservedConflictStorageKeyRef.current = null;
     setContentConflict({ ...conflict, draft: null, reloadFailed: true });
     void reconcileContent(conflict.reason, null, conflict.detail);
   };
@@ -698,6 +986,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const runOrGuard = (label: string, action: () => void) => {
     if (pendingActionBusyRef.current) return;
+    if (savingRef.current) {
+      show("当前保存尚未完成，请等待结果确认后再继续", "err");
+      return;
+    }
     if (!currentHasUnsavedChanges()) {
       action();
       return;
@@ -706,6 +998,8 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     pendingActionRef.current = { token, contextGeneration: contextGenerationRef.current, action };
     setPendingActionLabel(label);
   };
+  const runOrGuardRef = useRef(runOrGuard);
+  runOrGuardRef.current = runOrGuard;
 
   const guardProducerMutation = (label: string, action: () => Promise<void>) => {
     if (writeFenceRef.current) {
@@ -813,61 +1107,65 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         show(`${remoteUser} 修改了一条翻译`, "ok");
       }
     } else if (event === "eventstory.updated" || event === "eventstory.locale.updated") {
-      const updateLocale = String(d.locale || "zh-CN");
-      if (updateLocale === locale && isEventStory && Number(d.eventId) === Number(field) && d.clientId !== clientID) {
+      const action = String(d.action || "");
+      const updateLocale = d.locale == null ? "" : String(d.locale);
+      const isBulkAction = action === "ai-translate" || action === "retry" || action === "reorder";
+      if (eventStoryUpdateAffectsLocale(locale, updateLocale, action) && isEventStory &&
+          Number(d.eventId) === Number(field) && d.clientId !== clientID) {
         const remoteUser = String(d.user || "协作者");
-        const isBulkAction = d.action === "ai-translate" || d.action === "retry" || d.action === "reorder";
-        if (d.promote === "human") {
-          setEntries((prev) => prev.map((e) => ({ ...e, source: "human" })));
-          void reloadSidebar();
-          show(`${remoteUser} 已整篇标记人工`, "ok");
-        } else if (isBulkAction) {
-          runOrGuard("同步协作者更新", loadEntries);
+        if (d.promote === "human" || isBulkAction) {
+          const preservedDraft = captureUnsavedDraft();
+          const actionLabel = d.promote === "human" ? "整篇标记人工" : "批量更新活动剧情";
+          void reconcileContent("remote", preservedDraft, `${remoteUser} 执行了${actionLabel}；已重新载入权威 revision。`).then((reconciled) => {
+            if (reconciled && !preservedDraft) show(`${remoteUser} 已${actionLabel}`, "ok");
+          });
         } else {
-          const segmentId = d.segmentId ? String(d.segmentId) : "";
-          const epNo = d.episodeNo != null ? String(d.episodeNo) : "";
-          const jpKey = d.jpKey != null ? String(d.jpKey) : "";
-          const entryType = d.entryType ? String(d.entryType) : "";
+          const update = {
+            segmentId: d.segmentId ? String(d.segmentId) : "",
+            episodeNo: d.episodeNo != null ? String(d.episodeNo) : "",
+            jpKey: d.jpKey != null ? String(d.jpKey) : "",
+            entryType: d.entryType ? String(d.entryType) : "",
+          };
+          const targetEntry = findEventStoryUpdateTarget(entries, update);
+          if (!targetEntry) {
+            const preservedDraft = captureUnsavedDraft();
+            void reconcileContent("remote", preservedDraft, `${remoteUser} 更新了当前活动剧情；本地未能安全定位目标行。`);
+            return;
+          }
+          if (targetEntry.segmentId && eventTxtDraft?.translations.some((translation) => translation.segmentId === targetEntry.segmentId)) {
+            const preservedDraft = captureUnsavedDraft();
+            void reconcileContent("remote", preservedDraft, `${remoteUser} 更新了 TXT 本地草稿中的同一行；草稿已冻结，禁止静默覆盖。`);
+            return;
+          }
+
+          const targetKey = targetEntry.key;
           const nextText = String(d.cnText ?? d.text ?? "");
           const nextSource = String(d.source || "human");
           const nextRevision = typeof d.revision === "number" ? d.revision : undefined;
-
-          let targetKey: string | null = null;
-          setEntries((prev) => {
-            let found = false;
-            const updated = prev.map((e) => {
-              const matches = (segmentId && (e.segmentId === segmentId || e.key === segmentId)) ||
-                (epNo && e.episodeNo === epNo && (
-                  (entryType === "title" && e.entryType === "title") ||
-                  (jpKey && (e.japanese === jpKey || e.key === `${epNo}|${jpKey}`))
-                ));
-              if (matches && !found) {
-                found = true;
-                targetKey = e.key;
-                return {
-                  ...e,
-                  text: nextText,
-                  source: nextSource,
-                  ...(nextRevision !== undefined ? { revision: nextRevision } : {}),
-                };
-              }
-              return e;
-            });
-            return found ? updated : prev;
-          });
-
-          if (targetKey) {
-            highlightRemoteRow(targetKey, remoteUser);
-            if (targetKey === selectedKey && selectedEntry && entryDirty) {
-              setRemoteConflict({ key: targetKey, user: remoteUser });
-            } else if (targetKey === selectedKey) {
-              setEditValue(nextText);
-              setRemoteConflict(null);
-            }
-            show(`${remoteUser} 修改了第 ${epNo || "1"} 话的一条剧情翻译`, "ok");
-          } else {
-            runOrGuard("同步协作者更新", loadEntries);
+          if (!update.segmentId || !eventStoryEntryHasCanonicalIdentity(targetEntry) || nextRevision === undefined) {
+            const preservedDraft = captureUnsavedDraft();
+            void reconcileContent(
+              "remote",
+              preservedDraft,
+              `${remoteUser} 更新了当前活动剧情，但事件未携带可继续编辑的权威 revision。`,
+            );
+            return;
           }
+          setEntries((prev) => prev.map((entry) => entry.key === targetKey ? {
+            ...entry,
+            text: nextText,
+            source: nextSource,
+            revision: nextRevision,
+          } : entry));
+          highlightRemoteRow(targetKey, remoteUser);
+          if (targetKey === selectedKey && selectedEntry && entryDirty) {
+            setRemoteConflict({ key: targetKey, user: remoteUser });
+          } else if (targetKey === selectedKey) {
+            setEditValue(nextText);
+            setRemoteConflict(null);
+          }
+          void reloadSidebar();
+          show(`${remoteUser} 修改了第 ${update.episodeNo || eventStoryEpisodeNo(targetEntry)} 话的一条剧情翻译`, "ok");
         }
       }
     } else if (event === "lyrics.updated") {
@@ -959,6 +1257,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     contextGenerationRef.current++;
     loadGenerationRef.current++;
     setEventTxtDraft(null);
+    selectedEpisodeRef.current = "1";
     setSelectedEpisode("1");
     setCategory(cat); setField(f); setQuery(""); setSelectedKey(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
@@ -974,8 +1273,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const applyLocale = (next: Locale) => {
     contextGenerationRef.current++;
     loadGenerationRef.current++;
+    sidebarReloadRef.current = null;
     setEventTxtDraft(null);
     setLocale(next);
+    setCategories([]);
+    setEventStories([]);
     setEntries([]);
     setSelectedKey(null);
     setEditValue("");
@@ -1001,10 +1303,11 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const performNavigate = useCallback((dir: 1 | -1) => {
-    if (selectedIndex < 0) return;
+    if (savingRef.current || selectedIndex < 0) return;
     const idx = selectedIndex + dir;
     if (idx < 0 || idx >= filtered.length) return;
-    const next = filtered[idx];
+    const nextKey = filtered[idx].key;
+    const next = entriesRef.current.find((entry) => entry.key === nextKey) ?? filtered[idx];
     setSelectedKey(next.key);
     setEditValue(next.text);
     requestAnimationFrame(() => keepTranslationEntryVisible(next.key));
@@ -1018,10 +1321,12 @@ export function Console({ onLogout }: { onLogout: () => void }) {
   const selectChapter = (epNo: string) => {
     if (epNo === selectedEpisode) return;
     runOrGuard("切换章节", () => {
+      selectedEpisodeRef.current = epNo;
       setSelectedEpisode(epNo);
-      const targetEntries = epNo === "all" ? entries : entries.filter((e) => (e.episodeNo || parseEventStoryEntryKey(e.key).episodeNo) === epNo);
+      const currentEntries = entriesRef.current;
+      const targetEntries = epNo === "all" ? currentEntries : currentEntries.filter((entry) => eventStoryEpisodeNo(entry) === epNo);
       if (targetEntries.length > 0) {
-        const alreadySelected = targetEntries.some((e) => e.key === selectedKey);
+        const alreadySelected = targetEntries.some((entry) => entry.key === selectedKey);
         if (!alreadySelected) {
           setSelectedKey(targetEntries[0].key);
           setEditValue(targetEntries[0].text);
@@ -1030,18 +1335,21 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     });
   };
 
-  const selectEntry = (entry: TranslationEntry) => {
-    if (entry.key === selectedKey) return;
+  const selectEntry = useCallback((entry: TranslationEntry) => {
+    if (savingRef.current) return;
+    const current = selectionStateRef.current;
+    if (entry.key === current.selectedKey) return;
     const action = () => {
-      setSelectedKey(entry.key);
-      setEditValue(entry.text);
+      const latest = entriesRef.current.find((candidate) => candidate.key === entry.key) ?? entry;
+      setSelectedKey(latest.key);
+      setEditValue(latest.text);
     };
-    if (eventTxtDraftDirty && !entryDirty) action();
-    else runOrGuard("切换条目", action);
-  };
+    if (current.eventTxtDraftDirty && !current.entryDirty) action();
+    else runOrGuardRef.current("切换条目", action);
+  }, []);
 
   const applyEventTxtDraft = (draft: EventStoryTxtDraft) => {
-    if (!isEventStory || Number(field) !== draft.eventId || locale !== draft.locale || writeFenceRef.current) return;
+    if (!isEventStory || Number(field) !== draft.eventId || locale !== draft.locale || writeFenceRef.current || savingRef.current) return;
     const bySegment = new Map(entries.flatMap((entry) => entry.segmentId ? [[entry.segmentId, entry] as const] : []));
     for (const translation of draft.translations) {
       const entry = bySegment.get(translation.segmentId);
@@ -1068,7 +1376,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const undoEventTxtDraft = () => {
     const draft = eventTxtDraft;
-    if (!draft?.undoAvailable || entryDirty) return;
+    if (!draft?.undoAvailable || entryDirty || savingRef.current) return;
     if (!clearPersistedEventTxtDraft(username, draft.eventId, draft.locale)) {
       show("无法清理 TXT 本地草稿，撤销已取消", "err");
       return;
@@ -1076,10 +1384,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     const selectedTranslation = selectedEntry?.segmentId
       ? draft.translations.find((translation) => translation.segmentId === selectedEntry.segmentId)
       : undefined;
-    setEntries((current) => current.map((entry) => {
-      const translation = entry.segmentId ? draft.translations.find((candidate) => candidate.segmentId === entry.segmentId) : undefined;
-      return translation ? { ...entry, text: translation.authoritativeText } : entry;
-    }));
+    setEntries((current) => restoreEventStoryDraftEntries(current, draft.translations));
     if (selectedTranslation) setEditValue(selectedTranslation.authoritativeText);
     setEventTxtDraft(null);
     show("已一步撤销本次 TXT 导入，本地译文恢复到导入前的权威内容", "ok");
@@ -1087,7 +1392,16 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   const save = useCallback(async (overrideSource?: string, advance = true) => {
     if (writeFenceRef.current || savingRef.current || !selectedKey || !category || !field || isReadOnly) return false;
+    if (isEventStory && (!selectedEntry || !eventStoryEntryHasCanonicalIdentity(selectedEntry))) {
+      show("当前剧情行缺少权威来源身份，请重新获取剧情后再编辑", "err");
+      return false;
+    }
+    if (remoteConflictRef.current?.key === selectedKey) {
+      show("协作者已更新当前行；请先选择采用远端版本或明确保留本地草稿", "err");
+      return false;
+    }
     savingRef.current = true;
+    setSaving(true);
     const src = overrideSource || "human";
     const generation = contextGenerationRef.current;
     const saveCategory = category;
@@ -1105,6 +1419,15 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         const result = await updateEventStoryLine(Number(saveField), episodeNo, entryType === "title" ? "" : japanese,
           saveValue, src, entryType, saveLocale, saveEntry?.segmentId || "", saveEntry?.sourceHash || "", saveEntry?.revision ?? 0);
         if (contextGenerationRef.current !== generation) return true;
+        const currentEntry = entriesRef.current.find((e) => e.key === saveKey);
+        if (currentEntry && typeof currentEntry.revision === "number" && currentEntry.revision > (saveEntry?.revision ?? -1)) {
+          void reconcileContentRef.current(
+            "remote",
+            null,
+            "保存期间协作者提交了同一行的更高 revision；本地保存响应未应用，正在重新载入权威 revision。",
+          );
+          return true;
+        }
         setEntries((prev) => prev.map((e) =>
           e.key === saveKey
             ? { ...e, key: entryType === "title" && !e.segmentId ? `${episodeNo}|${EVENT_STORY_TITLE_MARKER}|${saveValue}` : e.key,
@@ -1127,6 +1450,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         if (contextGenerationRef.current !== generation) return true;
         setEntries((prev) => prev.map((e) => (e.key === saveKey ? { ...e, text: saveValue, source: src } : e)));
       }
+      if (isEventStory) void reloadSidebar();
       // Advance to next.
       if (advance) {
         const idx = filtered.findIndex((e) => e.key === saveKey);
@@ -1140,20 +1464,40 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       }
       return true;
     } catch (e) {
+      const ambiguousEventStoryFailure = isEventStory && eventStoryMutationResultIsAmbiguous(e);
+      if (ambiguousEventStoryFailure) {
+        const preservedDraft = JSON.stringify({
+          exportedAt: new Date().toISOString(),
+          kind: "translation",
+          category: saveCategory,
+          field: saveField,
+          locale: saveLocale,
+          key: saveKey,
+          staleText: saveValue,
+          previouslyLoadedText: saveEntry?.text ?? "",
+          eventTxtDraft,
+        }, null, 2);
+        void reconcileContentRef.current(
+          "remote",
+          preservedDraft,
+          "剧情保存结果无法确认；本地草稿已冻结，并正在重新载入权威 revision。",
+        );
+      }
       show(e instanceof Error ? e.message : "保存失败", "err");
       return false;
     } finally {
       savingRef.current = false;
+      setSaving(false);
     }
-  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, selectedEpisode, show, username, keepTranslationEntryVisible]);
+  }, [selectedKey, selectedEntry, category, eventTxtDraft, field, editValue, filtered, isEventStory, isReadOnly, locale, selectedEpisode, show, username, keepTranslationEntryVisible, reloadSidebar]);
 
   const closePendingAction = () => {
-    if (pendingActionBusyRef.current) return;
+    if (pendingActionBusyRef.current || savingRef.current) return;
     invalidatePendingAction();
   };
 
   const continuePendingAction = async (saveFirst: boolean) => {
-    if (pendingActionBusyRef.current || (saveFirst && writeFenceRef.current)) return;
+    if (pendingActionBusyRef.current || savingRef.current || (saveFirst && writeFenceRef.current)) return;
     const pending = pendingActionRef.current;
     if (!pending) return;
     pendingActionBusyRef.current = true;
@@ -1163,14 +1507,13 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       contextGenerationRef.current === pending.contextGeneration;
     try {
       if (saveFirst) {
-        if (isEventStory && eventTxtDraftDirty && !entryDirty) {
-          if (!pendingIsCurrent()) return;
-          invalidatePendingAction();
-          pending.action();
-          return;
-        }
         const importedCountBeforeSave = eventTxtDraft?.translations.length ?? 0;
         const selectedImportedBeforeSave = Boolean(selectedEntry?.segmentId && eventTxtDraft?.translations.some((translation) => translation.segmentId === selectedEntry.segmentId));
+        if (isEventStory && eventTxtDraftDirty && !entryDirty && !selectedImportedBeforeSave) {
+          invalidatePendingAction();
+          show("TXT 草稿仍有未保存条目；请先选择一条草稿内容保存，再重试当前操作", "ok");
+          return;
+        }
         const saved = isLyrics ? await lyricsEditorRef.current?.save() : await save(undefined, false);
         if (!saved || !pendingIsCurrent()) return;
         if (isEventStory && importedCountBeforeSave - (selectedImportedBeforeSave ? 1 : 0) > 0) {
@@ -1178,15 +1521,38 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           show("当前条目已保存；TXT 草稿仍有剩余条目，请继续逐条保存，未保存部分不会被丢弃", "ok");
           return;
         }
-      } else if (isLyrics) {
-        if (!lyricsEditorRef.current?.discard()) return;
       } else {
-        if (eventTxtDraft && !clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale)) {
-          show("无法清理 TXT 本地草稿，放弃操作已取消", "err");
-          return;
+        if (isLyrics) {
+          if (!lyricsEditorRef.current?.discard()) return;
+        } else {
+          if (eventTxtDraft && !clearPersistedEventTxtDraft(username, eventTxtDraft.eventId, eventTxtDraft.locale)) {
+            show("无法清理 TXT 本地草稿，放弃操作已取消", "err");
+            return;
+          }
+          if (eventTxtDraft) {
+            const restoredEntries = restoreEventStoryDraftEntries(entriesRef.current, eventTxtDraft.translations);
+            entriesRef.current = restoredEntries;
+            setEntries(restoredEntries);
+            const restoredSelectedEntry = selectedEntry
+              ? restoredEntries.find((entry) => entry.key === selectedEntry.key) ?? selectedEntry
+              : null;
+            if (restoredSelectedEntry) setEditValue(restoredSelectedEntry.text);
+          } else if (selectedEntry) {
+            setEditValue(selectedEntry.text);
+          }
+          setEventTxtDraft(null);
+          setRemoteConflict(null);
         }
-        setEventTxtDraft(null);
-        if (selectedEntry) setEditValue(selectedEntry.text);
+        if (contentConflict?.draft) {
+          if (!clearPersistedEventTxtDraftFromConflict(username, contentConflict) ||
+              !clearPersistedContentConflict(username, contentConflict)) {
+            show("无法清理浏览器中的冻结草稿，放弃操作已取消", "err");
+            return;
+          }
+          preservedConflictDraftRef.current = null;
+          preservedConflictStorageKeyRef.current = null;
+          setContentConflict(null);
+        }
       }
       if (!pendingIsCurrent()) return;
       invalidatePendingAction();
@@ -1228,11 +1594,22 @@ export function Console({ onLogout }: { onLogout: () => void }) {
 
   // ---- Change source for a single entry ----
   const handleSourceChange = useCallback(async (key: string, newSource: string) => {
-    if (writeFenceRef.current || eventTxtDraftDirty || !category || !field) return;
+    if (writeFenceRef.current || savingRef.current || eventTxtDraftDirty || !category || !field) return;
+    if (remoteConflictRef.current?.key === key) {
+      show("协作者已更新当前行；请先明确处理冲突，再修改来源", "err");
+      return;
+    }
     const entry = entries.find((e) => e.key === key);
     if (!entry) return;
+    if (isEventStory && !eventStoryEntryHasCanonicalIdentity(entry)) {
+      show("当前剧情行缺少权威来源身份，请重新获取剧情后再编辑", "err");
+      return;
+    }
     const generation = contextGenerationRef.current;
     let nextRevision = entry.revision;
+    const saveStartRevision = entry.revision;
+    savingRef.current = true;
+    setSaving(true);
     try {
       if (isEventStory) {
         const parsed = parseEventStoryEntryKey(key);
@@ -1248,12 +1625,46 @@ export function Console({ onLogout }: { onLogout: () => void }) {
         await updateEntry(category, field, key, entry.text, newSource, locale);
       }
       if (contextGenerationRef.current !== generation) return;
+      const currentEntry = entriesRef.current.find((e) => e.key === key);
+      if (isEventStory && currentEntry && typeof currentEntry.revision === "number" && typeof saveStartRevision === "number" && currentEntry.revision > saveStartRevision) {
+        void reconcileContentRef.current(
+          "remote",
+          null,
+          "来源修改期间协作者提交了同一行的更高 revision；本地来源修改响应未应用，正在重新载入权威 revision。",
+        );
+        return;
+      }
       setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, source: newSource, ...(nextRevision !== undefined ? { revision: nextRevision } : {}) } : e)));
+      if (isEventStory) void reloadSidebar();
       show(`来源已改为「${SOURCE_LABELS[newSource] || newSource}」`, "ok");
     } catch (err) {
+      if (isEventStory && eventStoryMutationResultIsAmbiguous(err)) {
+        const preservedDraft = JSON.stringify({
+          exportedAt: new Date().toISOString(),
+          kind: "event-story-source",
+          category,
+          field,
+          locale,
+          key,
+          text: entry.text,
+          previouslyLoadedSource: entry.source,
+          attemptedSource: newSource,
+          segmentId: entry.segmentId,
+          sourceHash: entry.sourceHash,
+          revision: entry.revision,
+        }, null, 2);
+        void reconcileContentRef.current(
+          "remote",
+          preservedDraft,
+          "剧情来源修改结果无法确认；修改意图已冻结，并正在重新载入权威 revision。",
+        );
+      }
       show(err instanceof Error ? err.message : "修改失败", "err");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-  }, [category, eventTxtDraftDirty, field, entries, isEventStory, locale, show]);
+  }, [category, eventTxtDraftDirty, field, entries, isEventStory, locale, show, reloadSidebar]);
 
   // Per-story AI gap-fill: translate only the currently open event story.
   const doAIStory = () => withBusy(async () => {
@@ -1274,13 +1685,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
     try {
       await promoteEventStoryHuman(Number(captured.field));
       if (!contextIsCurrent(captured)) return;
-      setEntries((current) => current.map((entry) => ({ ...entry, source: "human" })));
-      reloadSidebar();
+      const [entriesLoaded, sidebarLoaded] = await Promise.all([loadEntries(), reloadSidebar()]);
+      if (!contextIsCurrent(captured)) return;
+      if (!entriesLoaded || !sidebarLoaded) {
+        show("整篇标记人工已完成，但权威 revision 未完整重新载入", "err");
+        return;
+      }
       show("已整篇标记人工", "ok");
     } catch (reason) {
       if (contextIsCurrent(captured)) show(reason instanceof Error ? reason.message : "标记失败", "err");
     }
-  });
+  }, true);
 
   const retryStory = () => withBusy(async () => {
     const captured = captureContext();
@@ -1493,41 +1908,22 @@ export function Console({ onLogout }: { onLogout: () => void }) {
             {isEventStory && (
               <div className="story-toolbar">
                 {chapters.length > 0 ? (
-                  <div className="chapter-nav" role="tablist" aria-label="活动剧情章节切换">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={selectedEpisode === "all"}
-                      className={`chapter-tab ${selectedEpisode === "all" ? "active" : ""}`}
-                      onClick={() => selectChapter("all")}
+                  <label className="chapter-selector">
+                    <span>章节</span>
+                    <select
+                      aria-label="选择活动剧情章节"
+                      value={selectedEpisode}
+                      onChange={(event) => selectChapter(event.target.value)}
+                      disabled={saving}
                     >
-                      <span>全部章节</span>
-                      <span className="chapter-tab-badge count">{entries.length}</span>
-                    </button>
-                    {chapters.map((ch) => {
-                      const active = selectedEpisode === ch.episodeNo;
-                      const done = ch.untranslated === 0;
-                      return (
-                        <button
-                          type="button"
-                          key={ch.episodeNo}
-                          role="tab"
-                          aria-selected={active}
-                          className={`chapter-tab ${active ? "active" : ""}`}
-                          onClick={() => selectChapter(ch.episodeNo)}
-                          title={`第 ${ch.episodeNo} 话: ${ch.title} (${ch.total} 条)`}
-                        >
-                          <span className={`story-dot ${done ? "done" : "pending"}`} aria-hidden="true" />
-                          <span className="chapter-tab-title">第 {ch.episodeNo} 话{ch.title ? ` · ${ch.title}` : ""}</span>
-                          {ch.untranslated > 0 ? (
-                            <span className="chapter-tab-badge work" title="未翻译条数">{ch.untranslated}</span>
-                          ) : (
-                            <span className="chapter-tab-badge ok" title="本章已全部翻译">✓</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                      <option value="all">全部章节 · {entries.length} 条</option>
+                      {chapters.map((chapter) => (
+                        <option key={chapter.episodeNo} value={chapter.episodeNo}>
+                          {`第 ${chapter.episodeNo} 话${chapter.title ? ` · ${chapter.title}` : ""} · ${chapter.untranslated > 0 ? `未翻译 ${chapter.untranslated} 条` : "已完成"}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 ) : (
                   <span className="story-status">
                     {currentStory && currentStory.untranslatedCount > 0
@@ -1541,17 +1937,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       eventId={Number(field)}
                       locale={locale}
                       entries={entries}
-                      defaultEpisodeNo={selectedEpisode !== "all" ? selectedEpisode : selectedEntry?.episodeNo}
-                      disabled={busy || writesLocked || entryDirty || eventTxtDraftDirty}
+                      defaultEpisodeNo={selectedEpisode !== "all" ? selectedEpisode : selectedEntry ? eventStoryEpisodeNo(selectedEntry) : undefined}
+                      disabled={busy || saving || writesLocked || entryDirty || eventTxtDraftDirty}
                       onApply={applyEventTxtDraft}
                     />
                     {eventTxtDraft && <>
                       <span className="event-txt-import-pending" role="status">TXT 本地草稿剩余 {eventTxtDraft.translations.length} 条；只会通过现有保存按钮逐条提交</span>
-                      {eventTxtDraft.undoAvailable && <button type="button" className="btn btn-ghost btn-sm" onClick={undoEventTxtDraft} disabled={busy || writesLocked || entryDirty}>撤销本次导入</button>}
+                      {eventTxtDraft.undoAvailable && <button type="button" className="btn btn-ghost btn-sm" onClick={undoEventTxtDraft} disabled={busy || saving || writesLocked || entryDirty}>撤销本次导入</button>}
                     </>}
                     {role === "admin" && locale === "zh-CN" && <>
                       <button className="btn btn-primary btn-sm" onClick={() => guardProducerMutation("运行 AI 剧情翻译", doAIStory)} disabled={busy}>AI 补充剧情翻译</button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => runOrGuard("整篇标记人工", () => void promoteStory())} disabled={busy}>整篇标记人工</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("整篇标记人工", promoteStory)} disabled={busy}>整篇标记人工</button>
                       <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重新获取剧情", retryStory)} disabled={busy}>重新获取剧情</button>
                       <button className="btn btn-secondary btn-sm" onClick={() => guardProducerMutation("重排序对话", reorderStory)} disabled={busy}>重排序对话</button>
                     </>}
@@ -1591,7 +1987,7 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     <span className="label">日文原文</span>
                     {selectedEntry.speakerName && <div className="speaker">{selectedEntry.speakerName}</div>}
                     <div className="jp-body">{isEventStory ? (selectedEntry.japanese || eventStoryEntryLabel(selectedEntry.key)) : selectedEntry.key}</div>
-                    {isEventStory && <div className="episode">第 {selectedEntry.episodeNo || parseEventStoryEntryKey(selectedEntry.key).episodeNo} 章</div>}
+                    {isEventStory && <div className="episode">第 {eventStoryEpisodeNo(selectedEntry)} 章</div>}
                     {moesekaiUrl && (
                       <a className="moesekai-link" href={moesekaiUrl} target="_blank" rel="noopener noreferrer" title="在 Moesekai 上查看详情">
                         <IconExternalLink /> Moesekai 页面
@@ -1602,17 +1998,25 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                     <div className="proof-edit-head">
                       <span className="label">翻译校对 <span className={`source-tag ${selectedEntry.source}`}>{SOURCE_LABELS[selectedEntry.source] || selectedEntry.source}</span></span>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} disabled={selectedIndex <= 0}>↑ 上一条</button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(1)} disabled={selectedIndex >= filtered.length - 1}>下一条 ↓</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} disabled={saving || selectedIndex <= 0}>↑ 上一条</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(1)} disabled={saving || selectedIndex >= filtered.length - 1}>下一条 ↓</button>
                       </div>
                     </div>
+                    {selectedEventStoryIdentityMissing && (
+                      <div className="remote-conflict-banner" role="alert">
+                        当前剧情行缺少权威来源身份，已保持只读。请由管理员执行“重新获取剧情”后再编辑。
+                      </div>
+                    )}
                     {remoteConflict?.key === selectedEntry.key && (
                       <div className="remote-conflict-banner" role="alert">
                         {remoteConflict.user} 刚刚修改了这一行；已保留你的本地草稿，请确认后再保存。
                         <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
                           setEditValue(selectedEntry.text);
                           setRemoteConflict(null);
-                        }}>采用远端版本</button>
+                        }} disabled={saving}>采用远端版本</button>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRemoteConflict(null)} disabled={saving}>
+                          保留本地并允许覆盖
+                        </button>
                       </div>
                     )}
                     <textarea
@@ -1623,12 +2027,23 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                       onKeyDown={onTextareaKey}
                       placeholder="输入翻译…"
                       rows={3}
-                      readOnly={isReadOnly || writesLocked}
+                      readOnly={isReadOnly || saving || writesLocked || selectedEventStoryIdentityMissing}
                       aria-label="翻译校对内容"
                     />
                     <div className="proof-actions">
-                      <button className="btn btn-primary" onClick={() => save()} disabled={isReadOnly || writesLocked}>保存并下一条</button>
-                      {!isEventStory && <button className="btn btn-secondary" onClick={() => save("pinned")} disabled={isReadOnly || writesLocked}>锁定保存</button>}
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => save()}
+                        disabled={isReadOnly || saving || writesLocked || selectedEventStoryIdentityMissing || remoteConflict?.key === selectedEntry.key}
+                        title={selectedEventStoryIdentityMissing
+                          ? "当前剧情行缺少权威来源身份"
+                          : remoteConflict?.key === selectedEntry.key ? "请先明确处理协作者冲突" : undefined}
+                      >保存并下一条</button>
+                      {!isEventStory && <button
+                        className="btn btn-secondary"
+                        onClick={() => save("pinned")}
+                        disabled={isReadOnly || saving || writesLocked || remoteConflict?.key === selectedEntry.key}
+                      >锁定保存</button>}
                       <button className="btn btn-ghost btn-sm" onClick={() => setEnterSaves(!enterSaves)} title="切换保存快捷键">
                         快捷键: {saveKeyLabel}
                       </button>
@@ -1663,8 +2078,10 @@ export function Console({ onLogout }: { onLogout: () => void }) {
                         remoteHighlightUser={remoteHighlights[entry.key]?.user}
                         isEventStory={isEventStory}
                         isReadOnly={isReadOnly}
-                        writesLocked={writesLocked}
+                        writesLocked={writesLocked || saving}
                         eventTxtDraftDirty={eventTxtDraftDirty}
+                        hasRemoteConflict={remoteConflict?.key === entry.key}
+                        hasCanonicalIdentity={!isEventStory || eventStoryEntryHasCanonicalIdentity(entry)}
                         onSelect={selectEntry}
                         onSourceChange={handleSourceChange}
                       />
@@ -1679,20 +2096,20 @@ export function Console({ onLogout }: { onLogout: () => void }) {
       </main>
 
       {/* Settings & Admin modals */}
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} guardProducerMutation={guardProducerMutation} />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} locale={locale} guardProducerMutation={guardProducerMutation} />
       {role === "admin" && <AdminModal open={showAdmin} onClose={() => setShowAdmin(false)} guardProducerMutation={guardProducerMutation} />}
-      <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460} closeDisabled={pendingActionBusy}>
-        <div aria-busy={pendingActionBusy}>
-          {pendingActionBusy && <p className="dirty-guard-copy" role="status" aria-live="polite">正在保存或放弃本地修改，请等待当前操作完成…</p>}
+      <Modal open={pendingActionLabel !== ""} onClose={closePendingAction} title={pendingActionLabel || "处理未保存修改"} maxWidth={460} closeDisabled={pendingActionBusy || saving}>
+        <div aria-busy={pendingActionBusy || saving}>
+          {(pendingActionBusy || saving) && <p className="dirty-guard-copy" role="status" aria-live="polite">正在保存或放弃本地修改，请等待当前操作完成…</p>}
           <p className="dirty-guard-copy">当前内容有未保存修改。继续前请选择如何处理。</p>
           <div className="dirty-guard-actions">
-            <button className="btn btn-primary" onClick={() => void continuePendingAction(true)} disabled={writesLocked || pendingActionBusy}>保存并继续</button>
-            <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)} disabled={pendingActionBusy}>放弃修改</button>
-            <button className="btn btn-ghost" onClick={closePendingAction} disabled={pendingActionBusy}>取消</button>
+            <button className="btn btn-primary" onClick={() => void continuePendingAction(true)} disabled={writesLocked || pendingActionBusy || saving}>保存并继续</button>
+            <button className="btn btn-secondary" onClick={() => void continuePendingAction(false)} disabled={pendingActionBusy || saving}>放弃修改</button>
+            <button className="btn btn-ghost" onClick={closePendingAction} disabled={pendingActionBusy || saving}>取消</button>
           </div>
         </div>
       </Modal>
-      <Modal open={contentConflict != null} onClose={() => {}} title={contentConflict?.reason === "restore" ? "恢复数据与本地草稿冲突" : contentConflict?.reason === "remote" ? "协作者更新与本地歌词草稿冲突" : "实时事件缺口校对"} maxWidth={560} dismissible={false}>
+      <Modal open={contentConflict != null} onClose={() => {}} title={contentConflict?.reason === "restore" ? "恢复数据与本地草稿冲突" : contentConflict?.reason === "remote" ? "协作者更新与本地草稿冲突" : "实时事件缺口校对"} maxWidth={560} dismissible={false}>
         {contentConflict && <>
           {contentConflict.detail && <p className="dirty-guard-copy">{contentConflict.detail}</p>}
           <p className="dirty-guard-copy">

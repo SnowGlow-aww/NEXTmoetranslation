@@ -234,13 +234,13 @@ func (s *Server) handleUpdateEventStory(w http.ResponseWriter, r *http.Request) 
 
 // handlePromoteEventStoryHuman marks an entire story as human-edited.
 //
-// POST /api/event-story/promote-human {eventId}
+// POST /api/event-story/promote-human {eventId, clientId}
 func (s *Server) handlePromoteEventStoryHuman(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	id, ok := decodeEventID(w, r)
+	id, clientID, ok := decodeEventMutation(w, r)
 	if !ok {
 		return
 	}
@@ -251,9 +251,10 @@ func (s *Server) handlePromoteEventStoryHuman(w http.ResponseWriter, r *http.Req
 	s.rebuildEventAsset(id)
 	s.store.NotifyChange()
 	s.broadcast(sse.EventStoryUpdated, map[string]any{
-		"eventId": id,
-		"promote": "human",
-		"user":    currentUser(r),
+		"eventId":  id,
+		"promote":  "human",
+		"user":     currentUser(r),
+		"clientId": clientID,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -273,17 +274,30 @@ func parseEventID(w http.ResponseWriter, raw string) (int, bool) {
 	return id, true
 }
 
-// decodeEventID reads {eventId} from a JSON body.
-func decodeEventID(w http.ResponseWriter, r *http.Request) (int, bool) {
+// decodeEventMutation reads {eventId, clientId} from a JSON body.
+func decodeEventMutation(w http.ResponseWriter, r *http.Request) (int, string, bool) {
 	var req struct {
-		EventID int `json:"eventId"`
+		EventID  int    `json:"eventId"`
+		ClientID string `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
-		return 0, false
+		return 0, "", false
 	}
 	if req.EventID <= 0 {
 		writeErr(w, http.StatusBadRequest, "eventId required")
-		return 0, false
+		return 0, "", false
 	}
-	return req.EventID, true
+	clientID, ok := validateEventClientID(w, req.ClientID)
+	if !ok {
+		return 0, "", false
+	}
+	return req.EventID, clientID, true
+}
+
+func validateEventClientID(w http.ResponseWriter, clientID string) (string, bool) {
+	if len(clientID) > 128 {
+		writeErr(w, http.StatusBadRequest, "clientId too long")
+		return "", false
+	}
+	return clientID, true
 }

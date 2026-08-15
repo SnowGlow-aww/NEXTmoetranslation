@@ -956,11 +956,17 @@ export const updateEventStoryLine = async (
   return response as EventStoryUpdateResult;
 };
 export const promoteEventStoryHuman = (eventId: number) =>
-  apiFetch<{ status: string }>("/editor/v1/event-story/promote-human", { method: "POST", body: JSON.stringify({ eventId }) }, true);
+  apiFetch<{ status: string }>("/editor/v1/event-story/promote-human", {
+    method: "POST", body: JSON.stringify({ eventId, clientId: getClientID() }),
+  }, true);
 export const retryEventStory = (eventId: number) =>
-  apiFetch<Record<string, unknown>>("/event-story/retry", { method: "POST", body: JSON.stringify({ eventId }) });
+  apiFetch<Record<string, unknown>>("/event-story/retry", {
+    method: "POST", body: JSON.stringify({ eventId, clientId: getClientID() }),
+  });
 export const reorderEventStory = (eventId: number) =>
-  apiFetch<Record<string, unknown>>("/event-story/reorder", { method: "POST", body: JSON.stringify({ eventId }) });
+  apiFetch<Record<string, unknown>>("/event-story/reorder", {
+    method: "POST", body: JSON.stringify({ eventId, clientId: getClientID() }),
+  });
 
 // ---- Translation engine ----
 
@@ -971,7 +977,9 @@ export const triggerAITranslate = (category: string, field: string, provider: "g
 export const triggerAITranslateAll = (provider: "gemini" | "openai") =>
   apiFetch<Record<string, unknown>>("/translate/ai-all", { method: "POST", body: JSON.stringify({ provider }) });
 export const triggerAIStory = (eventId: number, provider: "gemini" | "openai") =>
-  apiFetch<Record<string, unknown>>("/translate/ai-story", { method: "POST", body: JSON.stringify({ eventId, provider }) });
+  apiFetch<Record<string, unknown>>("/translate/ai-story", {
+    method: "POST", body: JSON.stringify({ eventId, provider, clientId: getClientID() }),
+  });
 
 // ---- Admin ----
 

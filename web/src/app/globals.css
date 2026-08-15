@@ -642,7 +642,7 @@ kbd {
   background: var(--surface-2);
 }
 .story-status { font-size: 13px; color: var(--text-secondary); display: inline-flex; align-items: center; flex-shrink: 0; }
-.story-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; flex-shrink: 0; }
+.story-toolbar-actions { min-width: 0; display: flex; gap: 8px; flex: 1 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; margin-left: auto; }
 .event-txt-import-actions { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .event-txt-import-actions label { font-size: 12px; color: var(--text-dim); }
 .event-txt-import-actions select { min-width: 92px; padding: 5px 8px; font-size: 12px; }
@@ -664,70 +664,29 @@ kbd {
 .event-txt-import-selection { margin-right: auto; color: var(--text-secondary); font-size: 12px; }
 
 /* ---- Chapter navigation ---- */
-.chapter-nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  background: transparent;
-  border-bottom: none;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  flex: 1 1 auto;
+.chapter-selector {
   min-width: 0;
-}
-.chapter-tab {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr);
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 500;
+  gap: 8px;
+  flex: 1 1 360px;
   color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.chapter-selector select {
+  width: 100%;
+  min-width: 0;
+  max-width: 520px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 1px solid var(--border);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-  flex-shrink: 0;
-}
-.chapter-tab:hover {
-  background: var(--surface-3);
   color: var(--text);
-  border-color: var(--border-strong);
+  font-size: 12px;
 }
-.chapter-tab.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: var(--accent);
-  font-weight: 600;
-}
-.chapter-tab-title {
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chapter-tab-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 100px;
-}
-.chapter-tab-badge.count {
-  background: var(--surface-3);
-  color: var(--text-dim);
-}
-.chapter-tab-badge.work {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-}
-.chapter-tab-badge.ok {
-  background: color-mix(in srgb, var(--ok) 10%, transparent);
-  color: var(--ok);
-}
+.chapter-selector select:focus { border-color: var(--accent); outline: none; }
 
 /* ---- Moesekai detail link ---- */
 .moesekai-link {
@@ -1304,7 +1263,8 @@ kbd {
 
 /* ---- Responsive: tablet / mobile ---- */
 @media (max-width: 768px) {
-  .app { position: relative; }
+  .app { position: relative; min-height: 100dvh; overflow: visible; }
+  .main { height: auto; min-height: 100dvh; overflow: visible; }
   .translation-workspace { grid-template-rows: auto auto !important; overflow: visible; }
   .translation-editor-pane { max-height: none; overflow-y: visible; }
   .translation-entry-list { overflow-y: visible; }
@@ -1341,7 +1301,11 @@ kbd {
   .main-header h2 { font-size: 16px; }
   .search-bar { padding: 10px 16px; flex-wrap: wrap; }
   .search-bar .related-event-filter { flex: 1 1 100%; }
-  .story-toolbar { padding: 10px 16px; }
+  .story-toolbar { padding: 10px 16px; align-items: stretch; }
+  .chapter-selector { grid-template-columns: 1fr; flex-basis: 100%; gap: 4px; }
+  .chapter-selector select { max-width: none; min-height: 40px; }
+  .story-toolbar-actions { width: 100%; flex-basis: 100%; justify-content: flex-start; margin-left: 0; }
+  .event-txt-import-actions { width: 100%; }
   .proof-panel { margin: 14px 16px; }
   .entry-table .col-source { width: 56px; }
   .entry-row .jp, .entry-row .cn { max-width: 46vw; }

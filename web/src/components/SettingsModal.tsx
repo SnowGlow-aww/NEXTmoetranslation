@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import {
-  APIError, BackupStatus, CategoryInfo, EventStorySummary, UpstreamStatus,
+  APIError, BackupStatus, CategoryInfo, EventStorySummary, Locale, UpstreamStatus,
   getBackupStatus, getCategories, getEventStories,
   getUpstreamStatusPublic, getUsername, getRole,
   pushBackup, runCNSync,
@@ -14,9 +14,10 @@ import { CATEGORY_LABELS, FIELD_LABELS } from "@/lib/labels";
 
 type ShowFn = (msg: string, type?: "ok" | "err") => void;
 
-export function SettingsModal({ open, onClose, guardProducerMutation }: {
+export function SettingsModal({ open, onClose, locale, guardProducerMutation }: {
   open: boolean;
   onClose: () => void;
+  locale: Locale;
   guardProducerMutation: (label: string, action: () => Promise<void>) => void;
 }) {
   const { show } = useToast();
@@ -29,7 +30,7 @@ export function SettingsModal({ open, onClose, guardProducerMutation }: {
         <AccountCard />
         <AppearanceCard />
         <ShortcutCard />
-        <BadgeFilterCard />
+        <BadgeFilterCard locale={locale} />
         <DataManagementCard canMutate={role === "admin"} show={show} guardProducerMutation={guardProducerMutation} onSyncFinished={() => setUpstreamRefreshKey((v) => v + 1)} />
         <UpstreamStatusCard show={show} refreshKey={upstreamRefreshKey} />
       </div>
@@ -124,17 +125,20 @@ function ShortcutCard() {
 
 // ---- Badge filter (per-field hide) ----
 
-function BadgeFilterCard() {
+function BadgeFilterCard({ locale }: { locale: Locale }) {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [eventStories, setEventStories] = useState<EventStorySummary[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
     Promise.all([
-      getCategories().catch(() => [] as CategoryInfo[]),
-      getEventStories().catch(() => [] as EventStorySummary[]),
+      getCategories(locale).catch(() => [] as CategoryInfo[]),
+      getEventStories(locale).catch(() => [] as EventStorySummary[]),
     ]).then(([cats, stories]) => {
+      if (cancelled) return;
       setCategories(cats);
       setEventStories(stories);
       try {
@@ -143,7 +147,8 @@ function BadgeFilterCard() {
       } catch { /* ignore */ }
       setLoaded(true);
     });
-  }, []);
+    return () => { cancelled = true; };
+  }, [locale]);
 
   const persist = useCallback((next: Set<string>) => {
     setHidden(next);

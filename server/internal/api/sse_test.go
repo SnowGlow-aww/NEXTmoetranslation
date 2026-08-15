@@ -281,6 +281,67 @@ func TestLegacySSEEventStoryUpdatePayload(t *testing.T) {
 	}
 }
 
+func TestPromoteEventStoryBroadcastPreservesClientID(t *testing.T) {
+	ts, token := setup(t)
+	request := bearerSSERequest(t, ts.URL, token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	events := make(chan map[string]any, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var event string
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "event: ") {
+				event = strings.TrimPrefix(line, "event: ")
+			}
+			if event == "eventstory.updated" && strings.HasPrefix(line, "data: ") {
+				var data map[string]any
+				if json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &data) == nil {
+					events <- data
+				}
+				return
+			}
+		}
+	}()
+
+	body, err := json.Marshal(map[string]any{"eventId": 1, "clientId": "promote-window"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	promoteRequest, err := http.NewRequest(http.MethodPost, ts.URL+"/api/event-story/promote-human", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	promoteRequest.Header.Set("Authorization", "Bearer "+token)
+	promoteResponse, err := http.DefaultClient.Do(promoteRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	promoteResponse.Body.Close()
+	if promoteResponse.StatusCode != http.StatusOK {
+		t.Fatalf("promote event story status=%d", promoteResponse.StatusCode)
+	}
+
+	select {
+	case data := <-events:
+		if len(data) != 4 || data["eventId"] != float64(1) || data["promote"] != "human" ||
+			data["clientId"] != "promote-window" || data["user"] != "alice" {
+			t.Fatalf("promote eventstory.updated payload=%#v", data)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for promote eventstory.updated SSE event")
+	}
+}
+
 func TestLyricsRenditionBroadcastIncludesOnlyOneActualMutationTarget(t *testing.T) {
 	h := setupLegacyAPI(t)
 	request := bearerSSERequest(t, h.server.URL, h.token)

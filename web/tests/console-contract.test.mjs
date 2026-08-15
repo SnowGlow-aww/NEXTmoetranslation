@@ -96,10 +96,11 @@ test("dirty state survives filtering and event reload tools are guarded", async 
   for (const label of ["运行 AI 剧情翻译", "重新获取剧情", "重排序对话"]) {
     assert.ok(consoleSource.includes(`guardProducerMutation("${label}"`), `unguarded producer action: ${label}`);
   }
-  assert.match(consoleSource, /runOrGuard\("整篇标记人工", \(\) => void promoteStory\(\)\)/);
+  assert.match(consoleSource, /guardProducerMutation\("整篇标记人工", promoteStory\)/);
   assert.match(consoleSource, /saveEntry\?\.sourceHash/);
   assert.match(consoleSource, /event === "eventstory\.updated" \|\| event === "eventstory\.locale\.updated"/);
-  assert.match(consoleSource, /runOrGuard\("同步协作者更新", loadEntries\)/);
+  assert.match(consoleSource, /findEventStoryUpdateTarget\(entries, update\)/);
+  assert.match(consoleSource, /reconcileContent\("remote", preservedDraft/);
 });
 
 test("event story TXT import uses authoritative snapshots, selective local drafts, undo, and the existing save path", async () => {
@@ -124,9 +125,16 @@ test("event story TXT import uses authoritative snapshots, selective local draft
   assert.match(consoleSource, /recoverEventTxtDraft/);
   assert.match(consoleSource, /clearPersistedEventTxtDraft/);
   assert.match(consoleSource, /resolveContentConflict[\s\S]*clearPersistedEventTxtDraft/);
+  assert.match(consoleSource, /persistContentConflict/);
+  assert.match(consoleSource, /recoverPersistedContentConflict/);
+  assert.match(consoleSource, /clearPersistedContentConflict/);
+  assert.match(consoleSource, /contentConflictStoragePrefix[\s\S]*crypto\.randomUUID\(\)/);
+  assert.match(consoleSource, /clearPersistedContentConflict\(username, conflict\)/);
   assert.match(consoleSource, /TXT 草稿仍有剩余条目，请继续逐条保存/);
-  assert.match(consoleSource, /isEventStory && eventTxtDraftDirty && !entryDirty[\s\S]*action\(\)/);
-  assert.match(consoleSource, /disabled={isReadOnly \|\| writesLocked \|\| eventTxtDraftDirty}/);
+  assert.match(consoleSource, /selectedImportedBeforeSave[\s\S]*await save\(undefined, false\)/);
+  assert.doesNotMatch(consoleSource, /isEventStory && eventTxtDraftDirty && !entryDirty\) \{[\s\S]{0,180}pending\.action\(\)/);
+  assert.match(consoleSource, /disabled={isReadOnly \|\| writesLocked \|\| eventTxtDraftDirty \|\| hasRemoteConflict \|\| \(isEventStory && !hasCanonicalIdentity\)}/);
+  assert.match(consoleSource, /const restoredEntries = restoreEventStoryDraftEntries\(entriesRef\.current, eventTxtDraft\.translations\)/);
 });
 
 test("event story segment revisions survive detail flattening and advance from mutation responses", async () => {
@@ -137,6 +145,10 @@ test("event story segment revisions survive detail flattening and advance from m
   assert.match(api, /interface EventStoryUpdateResult[\s\S]*revision: number/);
   assert.match(api, /sourceHash: string, revision: number/);
   assert.match(api, /JSON\.stringify\(\{ eventId, episodeNo, jpKey, cnText, source, entryType, locale, segmentId, sourceHash,[\s\S]*revision, clientId/);
+  assert.match(api, /promote-human[\s\S]*JSON\.stringify\(\{ eventId, clientId: getClientID\(\) \}\)/);
+  assert.match(api, /event-story\/retry[\s\S]*JSON\.stringify\(\{ eventId, clientId: getClientID\(\) \}\)/);
+  assert.match(api, /event-story\/reorder[\s\S]*JSON\.stringify\(\{ eventId, clientId: getClientID\(\) \}\)/);
+  assert.match(api, /translate\/ai-story[\s\S]*JSON\.stringify\(\{ eventId, provider, clientId: getClientID\(\) \}\)/);
   assert.match(api, /status\?: unknown \}\)\.status !== "ok"/);
   assert.match(api, /revision\?: unknown \}\)\.revision !== revision \+ 1/);
   assert.match(api, /invalid_event_story_response/);
@@ -150,12 +162,20 @@ test("event story segment revisions survive detail flattening and advance from m
 test("console generations fence loads and saves while tab identity reconciles realtime edits", async () => {
   const consoleSource = await read("src/components/Console.tsx");
   assert.match(consoleSource, /loadGenerationRef\.current !== generation/);
+  assert.equal((consoleSource.match(/loadGenerationRef\.current !== generation\) return false/g) || []).length, 2);
   assert.match(consoleSource, /contextGenerationRef\.current !== generation/);
   assert.match(consoleSource, /const saveCategory = category/);
   assert.match(consoleSource, /d\.clientId !== clientID/);
   assert.doesNotMatch(consoleSource, /d\.user !== username/);
   assert.match(consoleSource, /selectedEntry && entryDirty/);
   assert.match(consoleSource, /setRemoteConflict/);
+  assert.match(consoleSource, /const setRemoteConflict = useCallback[\s\S]*remoteConflictRef\.current = next/);
+  assert.match(consoleSource, /remoteConflictRef\.current\?\.key === selectedKey[\s\S]*请先选择采用远端版本或明确保留本地草稿/);
+  assert.match(consoleSource, /remoteConflictRef\.current\?\.key === key[\s\S]*请先明确处理冲突，再修改来源/);
+  assert.match(consoleSource, /hasRemoteConflict={remoteConflict\?\.key === entry\.key}/);
+  assert.match(consoleSource, /保留本地并允许覆盖/);
+  assert.match(consoleSource, /setEditValue\(selectedEntry\.text\);\s*setRemoteConflict\(null\);/);
+  assert.match(consoleSource, /frozenConflictDraftDirty[\s\S]*hasUnsavedChanges/);
   assert.match(consoleSource, /highlightRemoteRow/);
   assert.match(consoleSource, /remote-highlight/);
   assert.match(consoleSource, /event === "presence\.snapshot" \|\| event === "presence\.joined" \|\| event === "presence\.left"/);
@@ -191,9 +211,10 @@ test("parent dirty actions stay non-cancelable and generation-fenced while await
   assert.match(consoleSource, /contextGenerationRef\.current === pending\.contextGeneration/);
   assert.match(consoleSource, /if \(!saved \|\| !pendingIsCurrent\(\)\) return/);
   assert.match(consoleSource, /if \(!lyricsEditorRef\.current\?\.discard\(\)\) return/);
-  assert.match(consoleSource, /closeDisabled=\{pendingActionBusy\}/);
-  assert.match(consoleSource, /disabled=\{pendingActionBusy\}>放弃修改/);
-  assert.match(consoleSource, /disabled=\{pendingActionBusy\}>取消/);
+  assert.match(consoleSource, /if \(savingRef\.current\)[\s\S]*当前保存尚未完成/);
+  assert.match(consoleSource, /closeDisabled=\{pendingActionBusy \|\| saving\}/);
+  assert.match(consoleSource, /disabled=\{pendingActionBusy \|\| saving\}>放弃修改/);
+  assert.match(consoleSource, /disabled=\{pendingActionBusy \|\| saving\}>取消/);
 });
 
 test("restore conflicts never offer save-first and stale drafts can only be exported or discarded", async () => {
@@ -283,9 +304,9 @@ test("realtime fence blocks writes without blocking local logout discard or canc
   const localGuard = consoleSource.slice(consoleSource.indexOf("const runOrGuard"), consoleSource.indexOf("const guardProducerMutation"));
   assert.doesNotMatch(localGuard, /writeFenceRef\.current/);
   assert.match(consoleSource, /runOrGuard\("退出登录"/);
-  assert.match(consoleSource, /pendingActionBusyRef\.current \|\| \(saveFirst && writeFenceRef\.current\)/);
-  assert.match(consoleSource, /onClick=\{\(\) => void continuePendingAction\(false\)\} disabled=\{pendingActionBusy\}>放弃修改/);
-  assert.match(consoleSource, /onClick=\{closePendingAction\} disabled=\{pendingActionBusy\}>取消/);
+  assert.match(consoleSource, /pendingActionBusyRef\.current \|\| savingRef\.current \|\| \(saveFirst && writeFenceRef\.current\)/);
+  assert.match(consoleSource, /onClick=\{\(\) => void continuePendingAction\(false\)\} disabled=\{pendingActionBusy \|\| saving\}>放弃修改/);
+  assert.match(consoleSource, /onClick=\{closePendingAction\} disabled=\{pendingActionBusy \|\| saving\}>取消/);
   assert.equal((consoleSource.slice(consoleSource.indexOf("const guardProducerMutation"), consoleSource.indexOf("const highlightRemoteRow")).match(/if \(writeFenceRef\.current\)/g) || []).length, 2);
   assert.match(consoleSource, /保存等待期间实时校对已锁定，上游操作未执行/);
   assert.match(editor, /\(saveFirst \|\| pending\.kind === "publish" \|\| editionTransition\) && writeLockedRef\.current/);
@@ -521,7 +542,10 @@ test("settings and admin upstream producers enter the shared write and dirty fen
   const [consoleSource, admin, settings] = await Promise.all([
     read("src/components/Console.tsx"), read("src/components/AdminModal.tsx"), read("src/components/SettingsModal.tsx"),
   ]);
-  assert.match(consoleSource, /<SettingsModal[\s\S]*guardProducerMutation={guardProducerMutation}/);
+  assert.match(consoleSource, /<SettingsModal[\s\S]*locale={locale}[\s\S]*guardProducerMutation={guardProducerMutation}/);
+  assert.match(settings, /<BadgeFilterCard locale={locale} \/>/);
+  assert.match(settings, /getCategories\(locale\)/);
+  assert.match(settings, /getEventStories\(locale\)/);
   assert.match(consoleSource, /runOrGuard\(label, \(\) => \{[\s\S]*if \(writeFenceRef\.current\)[\s\S]*setWriteFence\(true\)[\s\S]*Promise\.resolve\(\)\.then\(action\)\.finally\(\(\) => reconcileContentRef\.current\("gap"\)\)/);
   assert.match(consoleSource, /guardProducerMutation\("运行 AI 剧情翻译", doAIStory\)/);
   assert.match(consoleSource, /guardProducerMutation\("重新获取剧情", retryStory\)/);
@@ -529,9 +553,10 @@ test("settings and admin upstream producers enter the shared write and dirty fen
   assert.match(consoleSource, /const withBusy = async \(fn: \(\) => Promise<void>, producerOwnsFence = false\)/);
   assert.match(consoleSource, /if \(writeFenceRef\.current && !producerOwnsFence\)/);
   assert.match(consoleSource, /const doAIStory = \(\) => withBusy\([\s\S]*\}, true\);/);
+  assert.match(consoleSource, /const promoteStory = \(\) => withBusy\([\s\S]*\}, true\);/);
   assert.match(consoleSource, /const retryStory = \(\) => withBusy\([\s\S]*\}, true\);/);
   assert.match(consoleSource, /const reorderStory = \(\) => withBusy\([\s\S]*\}, true\);/);
-  assert.match(consoleSource, /runOrGuard\("整篇标记人工", \(\) => void promoteStory\(\)\)/);
+  assert.match(consoleSource, /guardProducerMutation\("整篇标记人工", promoteStory\)/);
   assert.match(settings, /guardProducerMutation\("运行 CN 同步", doSync\)/);
   assert.match(admin, /guardProducerMutation\("检查上游更新", \(\) => check\(false\)\)/);
   assert.match(admin, /guardProducerMutation\("强制同步上游", \(\) => check\(true\)\)/);
