@@ -310,6 +310,7 @@ func TestLyricsSourceDocumentV3AllowsExplicitAlternateArchiveAndAprilFoolsSemant
 		"Alternate Vocal", "Alternate Vocals", "Another Vocal Version", "Another Vocals Version",
 		"Archive Version", "April Fools' Version", "Alt. Group Covers", "Alt. Group Covers (Full)",
 		"COLORFUL LIVE", "Full Version (Movie)", "Game Size",
+		"Project SEKAI the Movie", "Connect Live", "Ensemble Stars!!",
 	} {
 		t.Run(label, func(t *testing.T) {
 			rendering := CloneLyricsSourceRenditions([]LyricsSourceRendition{base})[0]

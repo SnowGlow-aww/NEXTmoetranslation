@@ -213,6 +213,8 @@ func lyricsSourceTabPathsDeclareAlternate(paths []LyricsSourceTabPath) bool {
 				" archive ", " april fools ",
 				" alt group covers ", " colorful live ",
 				" full version movie ", " game size ",
+				" project sekai the movie ", " connect live ",
+				" ensemble stars ",
 			} {
 				if strings.Contains(value, marker) {
 					return true
