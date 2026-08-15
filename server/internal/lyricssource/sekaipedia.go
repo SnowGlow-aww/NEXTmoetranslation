@@ -358,7 +358,7 @@ func (provider *sekaipediaProvider) FetchFixedCandidateRevision(
 	}
 	fixedWikitext := sekaipediaFixedJapaneseWikitext(parsed.Full.Lines)
 	if len(fixedWikitext) == 0 {
-		return FixedRevision{}, ErrMalformedResponse
+		return FixedRevision{}, fmt.Errorf("sekaipedia fixed wikitext empty: %w", ErrMalformedResponse)
 	}
 	return FixedRevision{
 		Provider: ProviderSekaipedia, Origin: OriginSekaipedia,
@@ -447,7 +447,7 @@ func (provider *sekaipediaProvider) fetchPage(ctx context.Context, params url.Va
 	}
 	page, err := parseAcquiredPageResponse(data, fetchedAt)
 	if err != nil || page.revisionTimestamp.IsZero() || page.revisionTimestamp.After(page.fetchedAt) {
-		return wikiPage{}, ErrMalformedResponse
+		return wikiPage{}, fmt.Errorf("sekaipedia fetchPage malformed: %w", ErrMalformedResponse)
 	}
 	if fmt.Sprintf("%x", sha1.Sum([]byte(page.content))) != page.sha1 {
 		return wikiPage{}, ErrRevisionChanged

@@ -802,7 +802,7 @@ func (registry *Registry) FetchFixedCandidateRevision(ctx context.Context, ident
 	}
 	provider := registry.providers[providerID]
 	if provider == nil {
-		return FixedRevision{}, ErrMalformedResponse
+		return FixedRevision{}, fmt.Errorf("registry preview provider %q is not configured: %w", providerID, ErrMalformedResponse)
 	}
 	return provider.FetchFixedCandidateRevision(ctx, identity, candidate)
 }
