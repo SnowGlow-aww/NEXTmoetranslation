@@ -473,7 +473,7 @@ func (s *Server) handleLyricsSourceSearch(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	items, err := s.lyricsSrc.Search(ctx, identity)
 	if err != nil {
@@ -526,7 +526,7 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 			[]string{"the producer must be stopped and fully completed before previewing lyrics"}, nil)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	preview, err := s.lyricsSrc.Preview(ctx, identity, request.PageID, request.RevisionID)
 	if err != nil {
