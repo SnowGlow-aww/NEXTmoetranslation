@@ -784,17 +784,18 @@ func buildSekaipediaDocumentV3(
 			return nil, nil, ErrAmbiguous
 		}
 		seenKeys[peer.RenditionKey] = struct{}{}
+		roster := sekaipediaEvidencedRenditionRoster(peer)
 		rendition := model.LyricsSourceRendition{
 			RenditionKey:       peer.RenditionKey,
 			SourceKind:         model.LyricsSourceRenditionKind(peer.Kind),
 			SourceTabPaths:     cloneSekaipediaTabPaths(peer.SourceTabPaths),
 			ReasonCode:         peer.ReasonCode,
-			SourcePerformerIDs: append([]string(nil), peer.SourcePerformerIDs...),
+			SourcePerformerIDs: append([]string(nil), roster...),
 			FullPerformerEvidence: sekaipediaModelPerformerEvidenceStateForExtraction(
-				peer.FullStructuredEvidence, peer.Full, peer.SourcePerformerIDs,
+				peer.FullStructuredEvidence, peer.Full, roster,
 			),
 			GamePerformerEvidence: sekaipediaModelPerformerEvidenceStateForExtraction(
-				peer.GameStructuredEvidence, peer.Game, peer.SourcePerformerIDs,
+				peer.GameStructuredEvidence, peer.Game, roster,
 			),
 			Relation: model.LyricsSourceRenditionRelation{Kind: model.LyricsSourceRenditionRelationNone},
 			Provenance: model.LyricsSourceRenditionProvenance{
@@ -876,6 +877,36 @@ func cloneSekaipediaTabPaths(input []model.LyricsSourceTabPath) []model.LyricsSo
 		result[index] = append(model.LyricsSourceTabPath{}, path...)
 	}
 	return result
+}
+
+// sekaipediaEvidencedRenditionRoster expands a rendition's declared source
+// roster with the performers its own extracted sides actually evidence. The
+// Versions table occasionally under-declares the full-version roster (e.g.
+// the SEKAI full version adds a virtual singer), and v3 validation must
+// reflect the page rather than the table.
+func sekaipediaEvidencedRenditionRoster(peer sekaipediaPeerRenditionExtraction) []string {
+	// An empty declared roster stays empty: the page declares nothing, so the
+	// evidenced segmentation remains partial rather than fabricating one.
+	if len(peer.SourcePerformerIDs) == 0 {
+		return nil
+	}
+	roster := append([]string(nil), peer.SourcePerformerIDs...)
+	for _, side := range []*Extraction{peer.Full, peer.Game} {
+		if side == nil {
+			continue
+		}
+		for _, performer := range side.Performers {
+			roster = append(roster, performer.PerformerID)
+		}
+	}
+	sort.Strings(roster)
+	unique := roster[:0]
+	for _, id := range roster {
+		if len(unique) == 0 || unique[len(unique)-1] != id {
+			unique = append(unique, id)
+		}
+	}
+	return unique
 }
 
 func cloneSekaipediaComponentRef(reference model.LyricsSourceComponentRef) *model.LyricsSourceComponentRef {

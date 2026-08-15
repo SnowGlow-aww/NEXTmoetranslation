@@ -1775,6 +1775,33 @@ func TestSekaipediaVocaloidLyricsAllowKnownVirtualSingersOutsideVersionSet(t *te
 	}
 }
 
+func TestSekaipediaEvidencedRenditionRosterExpandsDeclaredRoster(t *testing.T) {
+	peer := sekaipediaPeerRenditionExtraction{
+		Kind:               "sekai",
+		SourcePerformerIDs: []string{"歌唱者-01", "歌唱者-05"},
+		Full: &Extraction{Performers: []Performer{
+			{PerformerID: "歌唱者-05"}, {PerformerID: "歌唱者-21"}, {PerformerID: "歌唱者-01"},
+		}},
+	}
+	roster := sekaipediaEvidencedRenditionRoster(peer)
+	want := []string{"歌唱者-01", "歌唱者-05", "歌唱者-21"}
+	if !stringSlicesEqual(roster, want) {
+		t.Fatalf("evidenced roster=%v want %v", roster, want)
+	}
+	untouched := sekaipediaEvidencedRenditionRoster(sekaipediaPeerRenditionExtraction{
+		SourcePerformerIDs: []string{"歌唱者-21"},
+	})
+	if !stringSlicesEqual(untouched, []string{"歌唱者-21"}) {
+		t.Fatalf("evidenced roster without sides=%v", untouched)
+	}
+	emptyDeclared := sekaipediaEvidencedRenditionRoster(sekaipediaPeerRenditionExtraction{
+		Full: &Extraction{Performers: []Performer{{PerformerID: "歌唱者-21"}}},
+	})
+	if emptyDeclared != nil {
+		t.Fatalf("empty declared roster was expanded: %v", emptyDeclared)
+	}
+}
+
 func TestSekaipediaEmptyJapaneseLineTemplateIsOnlyASeparator(t *testing.T) {
 	body := "{{Lyrics head|columns=japanese|japanese=Japanese lyrics}}\n" +
 		"{{Lyrics line|japanese=始まり}}\n" +
