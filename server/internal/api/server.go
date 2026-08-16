@@ -392,8 +392,11 @@ func (s *Server) lyricsImportGrantCatalogCurrent(claim lyricsImportClaim) (bool,
 	if err != nil {
 		return false, false, err
 	}
+	// Compare against the same full identity shape the preview captured; a
+	// partial struct would treat every credited song as permanently drifted.
 	return grant.catalogIdentity == (lyricssource.MusicIdentity{
 		MusicID: current.MusicID, JapaneseTitle: current.JapaneseTitle, ProducerMetadata: current.ProducerMetadata,
+		Lyricist: current.Lyricist, Composer: current.Composer, Arranger: current.Arranger,
 		PerformerSegmentationPolicy: lyricssource.PerformerSegmentationPolicyFromCatalogVocals(current.Vocals),
 	}), true, nil
 }

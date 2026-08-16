@@ -1600,6 +1600,49 @@ func TestLyricsSourceFailureIsSanitized(t *testing.T) {
 	}
 }
 
+func TestLyricsImportGrantCatalogCurrentIncludesCredits(t *testing.T) {
+	const sourceSHA1 = "0123456789abcdef0123456789abcdef01234567"
+	h := setupLegacyAPI(t)
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ProducerMetadata: "producer",
+		Lyricist: "作詞", Composer: "作曲", Arranger: "編曲",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	status := h.api.editorGate.Status()
+	preview := lyricssource.Preview{
+		CanonicalURL: "https://vocaloid.fandom.com/wiki/Song?oldid=34", PageID: 12, RevisionID: 34, SHA1: sourceSHA1,
+		FetchedAt: "2026-07-22T12:00:00Z", Lines: []lyricssource.ExtractedLine{{Japanese: "歌詞"}},
+	}
+	identity := lyricssource.MusicIdentity{
+		MusicID: 10, JapaneseTitle: "新曲", ProducerMetadata: "作詞 | 作曲 | 編曲",
+		Lyricist: "作詞", Composer: "作曲", Arranger: "編曲",
+		PerformerSegmentationPolicy: lyricssource.PerformerSegmentationDisabled,
+	}
+	token, err := h.api.issueLyricsImportGrant("alice", 10, preview, status, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, err := h.api.claimLyricsImportGrant(token, "alice", 10, status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, checked, err := h.api.lyricsImportGrantCatalogCurrent(claim)
+	if err != nil || !checked || !current {
+		t.Fatalf("credited catalog identity drifted: current=%v checked=%v err=%v", current, checked, err)
+	}
+	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{{
+		MusicID: 10, JapaneseTitle: "新曲", ProducerMetadata: "producer",
+		Lyricist: "作詞", Composer: "別人", Arranger: "編曲",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	current, checked, err = h.api.lyricsImportGrantCatalogCurrent(claim)
+	if err != nil || !checked || current {
+		t.Fatalf("composer drift was accepted: current=%v checked=%v err=%v", current, checked, err)
+	}
+}
+
 func TestConsoleJSONPayloadIsBounded(t *testing.T) {
 	h := setupLegacyAPI(t)
 	body := `{"category":"cards","field":"prefix","key":"large","text":"` +
