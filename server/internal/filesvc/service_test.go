@@ -551,9 +551,22 @@ func TestDatabasePublicationsOverlayEmbeddedBundle(t *testing.T) {
 		mergedEntries[song.MusicID] = song
 	}
 	replaced := mergedEntries[307]
-	if replaced.Revision != 2 || replaced.State != "" || replaced.Title.Japanese != "データベース新曲甲" ||
+	if replaced.Revision != 2 || replaced.State != store.PublicLyricsStateComplete ||
+		replaced.Title.Japanese != "データベース新曲甲" ||
 		replaced.Title.Chinese != "数据库新歌甲" || replaced.Title.English != "Database Song Alpha" {
 		t.Fatalf("merged entry for 307 = %+v", replaced)
+	}
+	if !reflect.DeepEqual(replaced.AvailableVersions, []string{"full"}) {
+		t.Fatalf("merged entry for 307 availableVersions = %+v", replaced.AvailableVersions)
+	}
+	if _, err := store.DecodePublicLyricsV3Index(mergedIndex); err != nil {
+		t.Fatalf("merged index must satisfy the strict v3 decoder: %v", err)
+	}
+	for position := 1; position < len(mergedDocument.Songs); position++ {
+		if mergedDocument.Songs[position-1].MusicID >= mergedDocument.Songs[position].MusicID {
+			t.Fatalf("merged index music ids must be strictly increasing at %d: %d >= %d",
+				position, mergedDocument.Songs[position-1].MusicID, mergedDocument.Songs[position].MusicID)
+		}
 	}
 	if !reflect.DeepEqual(mergedEntries[1], bundleEntries[1]) {
 		t.Fatalf("bundle base entry for music 1 changed: %+v", mergedEntries[1])
@@ -605,8 +618,11 @@ func TestDatabasePublicationsOverlayEmbeddedBundle(t *testing.T) {
 	}
 	for _, song := range merged789Document.Songs {
 		if song.MusicID == 789 {
-			if song.Revision != 2 || song.State != "" || song.Title.Japanese != "データベース新曲乙" {
+			if song.Revision != 2 || song.State != store.PublicLyricsStateComplete || song.Title.Japanese != "データベース新曲乙" {
 				t.Fatalf("merged entry for 789 = %+v", song)
+			}
+			if !reflect.DeepEqual(song.AvailableVersions, []string{"full"}) {
+				t.Fatalf("merged entry for 789 availableVersions = %+v", song.AvailableVersions)
 			}
 			break
 		}
@@ -630,9 +646,16 @@ func TestDatabasePublicationsOverlayEmbeddedBundle(t *testing.T) {
 	if len(appendedDocument.Songs) != len(bundleDocument.Songs)+1 {
 		t.Fatalf("merged index songs=%d, want %d", len(appendedDocument.Songs), len(bundleDocument.Songs)+1)
 	}
+	if _, err := store.DecodePublicLyricsV3Index(mergedIndex); err != nil {
+		t.Fatalf("appended merged index must satisfy the strict v3 decoder: %v", err)
+	}
 	added := appendedDocument.Songs[len(appendedDocument.Songs)-1]
-	if added.MusicID != 99003 || added.Revision != 1 || added.Title.Japanese != "バンドル外新曲" {
+	if added.MusicID != 99003 || added.Revision != 1 || added.Title.Japanese != "バンドル外新曲" ||
+		added.State != store.PublicLyricsStateComplete {
 		t.Fatalf("appended index entry = %+v", added)
+	}
+	if !reflect.DeepEqual(added.AvailableVersions, []string{"full"}) {
+		t.Fatalf("appended index entry availableVersions = %+v", added.AvailableVersions)
 	}
 	status, newDetail := read("/files/translation/lyrics/music_99003.json")
 	if status != http.StatusOK || !bytes.Contains(newDetail, []byte(`"musicId": 99003`)) {

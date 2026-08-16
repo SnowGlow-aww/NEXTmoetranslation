@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -585,12 +586,16 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 			continue
 		}
 		dbOwned[databaseSong.MusicID] = true
+		normalized := normalizeDatabaseIndexSong(databaseSong, projected)
 		if position, ok := bundlePosition[databaseSong.MusicID]; ok {
-			songs[position] = databaseSong
+			songs[position] = normalized
 		} else {
-			songs = append(songs, databaseSong)
+			songs = append(songs, normalized)
 		}
 	}
+	sort.Slice(songs, func(left, right int) bool {
+		return songs[left].MusicID < songs[right].MusicID
+	})
 	if len(dbOwned) > 0 {
 		body, err := files.MarshalIndentCompat(store.PublicLyricsIndexDocument{
 			Version: bundleIndex.Version,
@@ -622,6 +627,30 @@ func decodePublicLyricsIndex(body []byte) (store.PublicLyricsIndexDocument, erro
 		return store.PublicLyricsIndexDocument{}, err
 	}
 	return index, nil
+}
+
+// normalizeDatabaseIndexSong upgrades a database-backed index entry to the
+// reviewed bundle schema. Legacy v1 publications omit the state and
+// availableVersions fields, which strict v3 consumers require, so the merged
+// index emits complete/full (plus game when the v1 payload carries a game
+// projection) instead of mixing v1-shaped entries into a v3 index.
+func normalizeDatabaseIndexSong(song store.PublicLyricsIndexSong, projected map[string][]byte) store.PublicLyricsIndexSong {
+	if song.State != "" && len(song.AvailableVersions) > 0 {
+		return song
+	}
+	song.State = store.PublicLyricsStateComplete
+	if len(song.AvailableVersions) == 0 {
+		versions := []string{"full"}
+		key := fmt.Sprintf("translation/lyrics/music_%d.json", song.MusicID)
+		if body, ok := projected[key]; ok {
+			var detail store.PublicLyricsDetailDocument
+			if json.Unmarshal(body, &detail) == nil && detail.GameProjection != nil {
+				versions = []string{"full", "game"}
+			}
+		}
+		song.AvailableVersions = versions
+	}
+	return song
 }
 
 // databasePublicationOwnsEntry decides whether a database publication replaces
