@@ -7,6 +7,14 @@ const CANONICAL_SOURCE_PERFORMERS = Object.freeze({
   miku: 21, hatsunemiku: 21, rin: 22, kagaminerin: 22,
   len: 23, kagaminelen: 23, luka: 24, megurineluka: 24,
   meiko: 25, kaito: 26,
+  // Persisted source performer IDs ("歌唱者-01") normalize to "歌唱者01".
+  歌唱者01: 1, 歌唱者02: 2, 歌唱者03: 3, 歌唱者04: 4,
+  歌唱者05: 5, 歌唱者06: 6, 歌唱者07: 7, 歌唱者08: 8,
+  歌唱者09: 9, 歌唱者10: 10, 歌唱者11: 11, 歌唱者12: 12,
+  歌唱者13: 13, 歌唱者14: 14, 歌唱者15: 15, 歌唱者16: 16,
+  歌唱者17: 17, 歌唱者18: 18, 歌唱者19: 19, 歌唱者20: 20,
+  歌唱者21: 21, 歌唱者22: 22, 歌唱者23: 23, 歌唱者24: 24,
+  歌唱者25: 25, 歌唱者26: 26,
 });
 
 function normalizeAlias(value) {
