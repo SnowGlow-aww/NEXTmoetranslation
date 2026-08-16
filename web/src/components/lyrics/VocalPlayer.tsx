@@ -2,13 +2,37 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  IMusicInfo,
-  IMusicVocalInfo,
   getCharacterIconUrl,
   getCharacterLabel,
   getMusicVocalAudioUrl,
   getMusicVocalDetails,
-} from "@/lib/music-vocals";
+} from "@/lib/music-vocals.mjs";
+
+export interface IMusicInfo {
+  id: number;
+  title: string;
+  fillerSec?: number;
+  assetbundleName?: string;
+}
+
+export interface IMusicVocalCharacter {
+  id: number;
+  musicId: number;
+  musicVocalId: number;
+  characterType: "game_character" | "outside_character" | string;
+  characterId: number;
+  seq: number;
+}
+
+export interface IMusicVocalInfo {
+  id: number;
+  musicId: number;
+  musicVocalType?: string;
+  caption: string;
+  characters?: IMusicVocalCharacter[];
+  assetbundleName: string;
+  archivePublishedAt?: number;
+}
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -159,7 +183,7 @@ function SingleVocalPlayer({
           {/* Character Avatars Row */}
           {vocal.characters && vocal.characters.length > 0 && (
             <div className="vocal-characters-row">
-              {vocal.characters.map((chara) => {
+              {vocal.characters.map((chara: IMusicVocalCharacter) => {
                 const isGameChar = chara.characterType === "game_character";
                 const charName = getCharacterLabel(chara, outsideCharacters);
                 const hasIcon = isGameChar && chara.characterId <= 26;
@@ -229,7 +253,7 @@ export function LyricsVocalCard({ musicId }: LyricsVocalCardProps) {
     setActivePlayingId(null);
 
     getMusicVocalDetails(musicId)
-      .then(({ music: m, vocals: v, outsideChars: oc }) => {
+      .then(({ music: m, vocals: v, outsideChars: oc }: { music: IMusicInfo | null; vocals: IMusicVocalInfo[]; outsideChars: Record<number, string> }) => {
         if (!cancelled) {
           setMusic(m);
           setVocals(v);
@@ -237,7 +261,7 @@ export function LyricsVocalCard({ musicId }: LyricsVocalCardProps) {
           setLoading(false);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (!cancelled) {
           console.warn("Failed to load vocals for music", musicId, err);
           setLoading(false);

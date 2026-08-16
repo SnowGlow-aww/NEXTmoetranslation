@@ -5,7 +5,7 @@ import {
   getCharacterIconUrl,
   getCharacterLabel,
   GAME_CHARACTER_NAMES,
-} from "../src/lib/music-vocals.ts";
+} from "../src/lib/music-vocals.mjs";
 
 test("getMusicVocalAudioUrl constructs exact long audio CDN URL", () => {
   const url = getMusicVocalAudioUrl("0050_01");
