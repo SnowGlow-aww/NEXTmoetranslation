@@ -171,6 +171,12 @@ func (s *Server) handleLyricsSave(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			s.broadcastLyricsRenditionUpdated(result, targets, request.ClientID, currentUser(r))
+			// Localization edits are the live publication path for source-v3
+			// songs; rebuild the public overlay immediately like the legacy
+			// publish route does.
+			if s.fileService != nil {
+				s.fileService.PublishNow()
+			}
 		}
 		writeJSON(w, http.StatusOK, result)
 		return
