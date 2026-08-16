@@ -5,6 +5,7 @@ import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import { LyricsEditionMenu, type LyricsEditionCommand } from "@/components/LyricsEditionMenu";
 import { LyricsLineEditor } from "@/components/lyrics/LyricsLineEditor";
+import { LyricsVocalCard } from "@/components/lyrics/VocalPlayer";
 import { sameImportedLyricsFrozenIdentity } from "@/lib/lyrics-recovery.mjs";
 import { buildLyricsLinesFromSourcePreview } from "@/lib/lyrics-source-import.mjs";
 import { performerRepresentativeColor } from "@/lib/performer-colors.mjs";
@@ -1781,6 +1782,8 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
               {collaborationStructuralConflict && <button type="button" className="btn btn-secondary btn-sm" onClick={() => void performChooseMusic(selectedMusic)} disabled={busy}>重新加载歌词</button>}
               {!collaborationStructuralConflict && !localSourceImportDraft && collaborationStatus === "error" && <button type="button" className="btn btn-secondary btn-sm" onClick={() => collaborationRef.current?.reconnectNow()}>重新连接</button>}
             </div>
+
+            <LyricsVocalCard musicId={selectedMusic.musicId} />
 
             {renditionDocument ? (
               <div className="lyrics-lock-notice locked" role="status">
