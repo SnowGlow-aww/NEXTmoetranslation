@@ -422,6 +422,9 @@ func (s *Server) handleLyricsPublication(w http.ResponseWriter, r *http.Request,
 			}
 		}
 		s.broadcastLyricsUpdated(result, request.ClientID, currentUser(r))
+		if s.fileService != nil {
+			s.fileService.PublishNow()
+		}
 	}
 	writeJSON(w, http.StatusOK, result)
 }

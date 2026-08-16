@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -497,16 +498,22 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 			next[key] = makeAsset(b, "application/json; charset=utf-8", now)
 		}
 	}
-	// The accepted recovery-v3 projection is public, immutable release content.
-	// When present it is the complete lyrics publication source, so malformed or
-	// legacy database publications cannot block or replace the reviewed 700-song
-	// contract. Canonical and locale-mirror paths publish in one asset generation.
+	// The accepted recovery-v3 projection is public, immutable release content
+	// and remains the reviewed base for every rebuild. Database publications
+	// overlay it: newer or bundle-absent database songs replace/add their index
+	// entry and their detail bytes, so newly published lyrics reach the public
+	// site while the reviewed 700-song bundle stays the safety base. A failing
+	// database projection keeps the pure bundle bytes (fail-closed), and a
+	// missing bundle keeps the database-only fallback exactly. Canonical and
+	// locale-mirror paths publish in one asset generation.
 	lyrics := svc.publicLyrics
 	if lyrics == nil {
 		lyrics, err = svc.gen.PublishedLyricsJSON()
 		if err != nil {
 			return fmt.Errorf("lyrics: %w", err)
 		}
+	} else {
+		lyrics = svc.overlayPublishedLyrics(lyrics)
 	}
 	for key, body := range lyrics {
 		next[key] = makeAsset(body, "application/json; charset=utf-8", now)
@@ -527,6 +534,124 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 	svc.assets = next
 	svc.mu.Unlock()
 	return nil
+}
+
+// publicLyricsIndexKey is the canonical lyrics index path shared by the
+// reviewed runtime bundle and the database-backed projection.
+const publicLyricsIndexKey = "translation/lyrics/index.json"
+
+// overlayPublishedLyrics merges the database-backed lyrics projection onto the
+// reviewed runtime bundle. Database songs own the merged index entry when they
+// are complete or game_only and newer than the bundle entry, when the bundle
+// has no entry, or when their revision is newer than the bundle entry and they
+// are not a draft state. Draft and incomplete database states therefore never
+// downgrade a reviewed complete or game_only bundle entry. DB-owned detail
+// bytes replace the bundle detail exactly. Any database projection or index
+// decode failure serves the pure bundle bytes (fail-closed to the reviewed
+// release).
+func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string][]byte {
+	projected, err := svc.gen.PublishedLyricsJSON()
+	if err != nil {
+		log.Printf("[projection] database lyrics publications unavailable; serving reviewed bundle: %v", err)
+		return bundle
+	}
+	bundleIndex, err := decodePublicLyricsIndex(bundle[publicLyricsIndexKey])
+	if err != nil {
+		log.Printf("[projection] reviewed bundle index undecodable; serving reviewed bundle: %v", err)
+		return bundle
+	}
+	databaseIndex, err := decodePublicLyricsIndex(projected[publicLyricsIndexKey])
+	if err != nil {
+		log.Printf("[projection] database lyrics index undecodable; serving reviewed bundle: %v", err)
+		return bundle
+	}
+
+	merged := make(map[string][]byte, len(bundle)+len(projected))
+	for key, body := range bundle {
+		merged[key] = body
+	}
+
+	bundleByID := make(map[int]store.PublicLyricsIndexSong, len(bundleIndex.Songs))
+	bundlePosition := make(map[int]int, len(bundleIndex.Songs))
+	for position, song := range bundleIndex.Songs {
+		bundleByID[song.MusicID] = song
+		bundlePosition[song.MusicID] = position
+	}
+	songs := append([]store.PublicLyricsIndexSong(nil), bundleIndex.Songs...)
+	dbOwned := make(map[int]bool)
+	for _, databaseSong := range databaseIndex.Songs {
+		bundleSong, inBundle := bundleByID[databaseSong.MusicID]
+		if !databasePublicationOwnsEntry(databaseSong, bundleSong, inBundle) {
+			continue
+		}
+		dbOwned[databaseSong.MusicID] = true
+		if position, ok := bundlePosition[databaseSong.MusicID]; ok {
+			songs[position] = databaseSong
+		} else {
+			songs = append(songs, databaseSong)
+		}
+	}
+	if len(dbOwned) > 0 {
+		body, err := files.MarshalIndentCompat(store.PublicLyricsIndexDocument{
+			Version: bundleIndex.Version,
+			Songs:   songs,
+		})
+		if err != nil {
+			log.Printf("[projection] merged lyrics index unmarshalable; serving reviewed bundle: %v", err)
+			return bundle
+		}
+		body = append(body, '\n')
+		merged[publicLyricsIndexKey] = body
+	}
+	for musicID := range dbOwned {
+		key := fmt.Sprintf("translation/lyrics/music_%d.json", musicID)
+		if body, ok := projected[key]; ok {
+			merged[key] = body
+		} else {
+			delete(merged, key)
+		}
+	}
+	return merged
+}
+
+// decodePublicLyricsIndex decodes an index.json document into the exported
+// store read model shared by the legacy generator and the reviewed v3 bundle.
+func decodePublicLyricsIndex(body []byte) (store.PublicLyricsIndexDocument, error) {
+	var index store.PublicLyricsIndexDocument
+	if err := json.Unmarshal(body, &index); err != nil {
+		return store.PublicLyricsIndexDocument{}, err
+	}
+	return index, nil
+}
+
+// databasePublicationOwnsEntry decides whether a database publication replaces
+// or adds the merged index entry for a music ID. The reviewed bundle keeps its
+// entry when the database publication is not strictly newer, and draft database
+// states never replace a reviewed complete or game_only bundle entry.
+func databasePublicationOwnsEntry(databaseSong, bundleSong store.PublicLyricsIndexSong, inBundle bool) bool {
+	if !inBundle {
+		return true
+	}
+	if databaseSong.State == store.PublicLyricsStateComplete || databaseSong.State == store.PublicLyricsStateGameOnly {
+		return databaseSong.Revision > bundleSong.Revision
+	}
+	if databaseLyricsStateIsDraft(databaseSong.State) &&
+		(bundleSong.State == store.PublicLyricsStateComplete || bundleSong.State == store.PublicLyricsStateGameOnly) {
+		return false
+	}
+	return databaseSong.Revision > bundleSong.Revision
+}
+
+// databaseLyricsStateIsDraft reports whether an availability state represents
+// a draft or degraded publication that must never replace reviewed content.
+func databaseLyricsStateIsDraft(state store.PublicLyricsAvailabilityState) bool {
+	switch state {
+	case store.PublicLyricsStateIncomplete, store.PublicLyricsStateFailed,
+		store.PublicLyricsStateAmbiguous, store.PublicLyricsStateMissing:
+		return true
+	default:
+		return false
+	}
 }
 
 // SetAsset stores a pre-rendered asset (e.g. data/search-index.json) under key.

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -431,6 +432,249 @@ func TestEmbeddedPublicLyricsOverlaySurvivesDatabaseRebuild(t *testing.T) {
 	status, rebuiltIndex := read("/files/translation/lyrics/index.json")
 	if status != http.StatusOK || !bytes.Equal(rebuiltIndex, index) {
 		t.Fatalf("database rebuild did not retain immutable public lyrics overlay: status=%d", status)
+	}
+}
+
+func TestDatabasePublicationsOverlayEmbeddedBundle(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "embedded-overlay.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.Rebuild()
+
+	read := func(path string) (int, []byte) {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		resp := httptest.NewRecorder()
+		svc.Handler().ServeHTTP(resp, req)
+		return resp.Code, resp.Body.Bytes()
+	}
+
+	status, bundleIndexBytes := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK {
+		t.Fatalf("embedded lyrics index status=%d", status)
+	}
+	var bundleDocument store.PublicLyricsIndexDocument
+	if err := json.Unmarshal(bundleIndexBytes, &bundleDocument); err != nil {
+		t.Fatal(err)
+	}
+	bundleEntries := make(map[int]store.PublicLyricsIndexSong, len(bundleDocument.Songs))
+	for _, song := range bundleDocument.Songs {
+		bundleEntries[song.MusicID] = song
+	}
+	bundle307Status, bundle307Bytes := read("/files/translation/lyrics/music_307.json")
+	if bundle307Status != http.StatusOK {
+		t.Fatalf("bundle music_307 status=%d", bundle307Status)
+	}
+	bundleOneStatus, bundleOneBytes := read("/files/translation/lyrics/music_1.json")
+	if bundleOneStatus != http.StatusOK {
+		t.Fatalf("bundle music_1 status=%d", bundleOneStatus)
+	}
+
+	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{
+		{MusicID: 307, JapaneseTitle: "データベース新曲甲", ChineseTitle: "数据库新歌甲", EnglishTitle: "Database Song Alpha"},
+		{MusicID: 789, JapaneseTitle: "データベース新曲乙", ChineseTitle: "数据库新歌乙", EnglishTitle: "Database Song Beta"},
+		{MusicID: 99003, JapaneseTitle: "バンドル外新曲", ChineseTitle: "捆绑外新歌", EnglishTitle: "Off-Bundle Song"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 601, JapaneseName: "試験歌唱者"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	save := func(musicID, revision int, translation string) model.SongLyrics {
+		t.Helper()
+		input := model.SongLyrics{
+			MusicID: musicID, Revision: revision, Attribution: "Synthetic overlay publication",
+			SourceURL: fmt.Sprintf("https://source.invalid/wiki/%d", musicID), SourcePageID: musicID, SourceRevisionID: 1,
+			SourceSHA1: "0123456789abcdef0123456789abcdef01234567", SourceFetchedAt: "2026-08-11T00:00:00Z",
+			Lines: []model.LyricLine{{
+				ID: "overlay-line", Order: 0, Japanese: "新しき歌", Chinese: translation,
+				Segments: []model.LyricSegment{{Text: "新しき歌", PerformerIDs: []int{601}}},
+			}},
+		}
+		var saved model.SongLyrics
+		var changed bool
+		var err error
+		if revision == 0 {
+			saved, changed, err = s.SaveImportedLyricsMutation(input, "fixture")
+		} else {
+			saved, changed, err = s.SaveLyricsMutation(input, "fixture")
+		}
+		if err != nil || !changed {
+			t.Fatalf("save lyrics musicId=%d revision=%d changed=%t err=%v", musicID, revision, changed, err)
+		}
+		return saved
+	}
+
+	// A database publication at the bundle revision does not own the entry, so
+	// the reviewed bundle base is preserved byte-for-byte.
+	saved307 := save(307, 0, "数据库甲版一")
+	if _, err := s.PublishLyrics(saved307.MusicID, saved307.Revision); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	if status, mergedIndex := read("/files/translation/lyrics/index.json"); status != http.StatusOK || !bytes.Equal(mergedIndex, bundleIndexBytes) {
+		t.Fatalf("equal-revision database publication changed the reviewed bundle index: status=%d", status)
+	}
+	if status, body := read("/files/translation/lyrics/music_307.json"); status != http.StatusOK || !bytes.Equal(body, bundle307Bytes) {
+		t.Fatalf("equal-revision database publication changed the reviewed bundle detail: status=%d", status)
+	}
+
+	// A newer complete database publication replaces the bundle entry and its
+	// detail, mirrored to every locale.
+	newer307 := save(307, 1, "数据库甲版二")
+	if _, err := s.PublishLyrics(newer307.MusicID, newer307.Revision); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	status, mergedIndex := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK {
+		t.Fatalf("merged lyrics index status=%d", status)
+	}
+	if !bytes.HasSuffix(mergedIndex, []byte("\n")) {
+		t.Fatalf("merged lyrics index lost its trailing newline")
+	}
+	var mergedDocument store.PublicLyricsIndexDocument
+	if err := json.Unmarshal(mergedIndex, &mergedDocument); err != nil {
+		t.Fatal(err)
+	}
+	if mergedDocument.Version != bundleDocument.Version || len(mergedDocument.Songs) != len(bundleDocument.Songs) {
+		t.Fatalf("merged index version=%d songs=%d, bundle version=%d songs=%d",
+			mergedDocument.Version, len(mergedDocument.Songs), bundleDocument.Version, len(bundleDocument.Songs))
+	}
+	mergedEntries := make(map[int]store.PublicLyricsIndexSong, len(mergedDocument.Songs))
+	for _, song := range mergedDocument.Songs {
+		mergedEntries[song.MusicID] = song
+	}
+	replaced := mergedEntries[307]
+	if replaced.Revision != 2 || replaced.State != "" || replaced.Title.Japanese != "データベース新曲甲" ||
+		replaced.Title.Chinese != "数据库新歌甲" || replaced.Title.English != "Database Song Alpha" {
+		t.Fatalf("merged entry for 307 = %+v", replaced)
+	}
+	if !reflect.DeepEqual(mergedEntries[1], bundleEntries[1]) {
+		t.Fatalf("bundle base entry for music 1 changed: %+v", mergedEntries[1])
+	}
+	status, merged307 := read("/files/translation/lyrics/music_307.json")
+	if status != http.StatusOK || bytes.Equal(merged307, bundle307Bytes) {
+		t.Fatalf("merged music_307 status=%d equalsBundle=%v", status, bytes.Equal(merged307, bundle307Bytes))
+	}
+	var mergedDetail struct {
+		MusicID  int `json:"musicId"`
+		Version  int `json:"version"`
+		Revision int `json:"revision"`
+	}
+	if err := json.Unmarshal(merged307, &mergedDetail); err != nil {
+		t.Fatal(err)
+	}
+	if mergedDetail.MusicID != 307 || mergedDetail.Version != 1 || mergedDetail.Revision != 2 {
+		t.Fatalf("merged music_307 detail=%+v", mergedDetail)
+	}
+	for _, locale := range model.SupportedLocales {
+		status, localized := read("/files/v2/" + locale + "/translation/lyrics/music_307.json")
+		if status != http.StatusOK || !bytes.Equal(localized, merged307) {
+			t.Fatalf("localized merged music_307 %s status=%d", locale, status)
+		}
+	}
+	if status, body := read("/files/translation/lyrics/music_1.json"); status != http.StatusOK || !bytes.Equal(body, bundleOneBytes) {
+		t.Fatalf("unrelated bundle detail music_1 changed: status=%d", status)
+	}
+
+	// A newer publication for a bundle-incomplete song replaces its index entry
+	// and adds the detail the bundle never had.
+	save(789, 0, "数据库乙版一")
+	newer789 := save(789, 1, "数据库乙版二")
+	if _, err := s.PublishLyrics(newer789.MusicID, newer789.Revision); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	status, _ = read("/files/translation/lyrics/music_789.json")
+	if status != http.StatusOK {
+		t.Fatalf("merged music_789 status=%d", status)
+	}
+	status, mergedIndex = read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK {
+		t.Fatalf("merged 789 lyrics index status=%d", status)
+	}
+	var merged789Document store.PublicLyricsIndexDocument
+	if err := json.Unmarshal(mergedIndex, &merged789Document); err != nil {
+		t.Fatal(err)
+	}
+	for _, song := range merged789Document.Songs {
+		if song.MusicID == 789 {
+			if song.Revision != 2 || song.State != "" || song.Title.Japanese != "データベース新曲乙" {
+				t.Fatalf("merged entry for 789 = %+v", song)
+			}
+			break
+		}
+	}
+
+	// A database song absent from the bundle is appended to the merged index
+	// and its detail is served.
+	savedNew := save(99003, 0, "捆绑外版本")
+	if _, err := s.PublishLyrics(savedNew.MusicID, savedNew.Revision); err != nil {
+		t.Fatal(err)
+	}
+	svc.Rebuild()
+	status, mergedIndex = read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK {
+		t.Fatalf("appended lyrics index status=%d", status)
+	}
+	var appendedDocument store.PublicLyricsIndexDocument
+	if err := json.Unmarshal(mergedIndex, &appendedDocument); err != nil {
+		t.Fatal(err)
+	}
+	if len(appendedDocument.Songs) != len(bundleDocument.Songs)+1 {
+		t.Fatalf("merged index songs=%d, want %d", len(appendedDocument.Songs), len(bundleDocument.Songs)+1)
+	}
+	added := appendedDocument.Songs[len(appendedDocument.Songs)-1]
+	if added.MusicID != 99003 || added.Revision != 1 || added.Title.Japanese != "バンドル外新曲" {
+		t.Fatalf("appended index entry = %+v", added)
+	}
+	status, newDetail := read("/files/translation/lyrics/music_99003.json")
+	if status != http.StatusOK || !bytes.Contains(newDetail, []byte(`"musicId": 99003`)) {
+		t.Fatalf("appended music_99003 status=%d body=%s", status, newDetail)
+	}
+}
+
+func TestDatabasePublicationOwnsEntry(t *testing.T) {
+	complete := store.PublicLyricsIndexSong{MusicID: 1, Revision: 1, State: store.PublicLyricsStateComplete}
+	gameOnly := store.PublicLyricsIndexSong{MusicID: 1, Revision: 1, State: store.PublicLyricsStateGameOnly}
+	incomplete := store.PublicLyricsIndexSong{MusicID: 1, Revision: 1, State: store.PublicLyricsStateIncomplete}
+	song := func(revision int, state store.PublicLyricsAvailabilityState) store.PublicLyricsIndexSong {
+		return store.PublicLyricsIndexSong{MusicID: 1, Revision: revision, State: state}
+	}
+	tests := []struct {
+		name      string
+		database  store.PublicLyricsIndexSong
+		bundle    store.PublicLyricsIndexSong
+		inBundle  bool
+		wantOwned bool
+	}{
+		{"absent from bundle is owned", incomplete, complete, false, true},
+		{"newer complete replaces complete", song(2, store.PublicLyricsStateComplete), complete, true, true},
+		{"equal complete keeps bundle entry", song(1, store.PublicLyricsStateComplete), complete, true, false},
+		{"older complete keeps bundle entry", song(0, store.PublicLyricsStateComplete), complete, true, false},
+		{"newer game_only replaces incomplete bundle entry", song(2, store.PublicLyricsStateGameOnly), incomplete, true, true},
+		{"newer legacy v1 publication replaces bundle entry", song(2, ""), complete, true, true},
+		{"newer draft never overrides reviewed complete", song(9, store.PublicLyricsStateIncomplete), complete, true, false},
+		{"newer draft never overrides reviewed game_only", song(9, store.PublicLyricsStateIncomplete), gameOnly, true, false},
+		{"newer failed never overrides reviewed complete", song(9, store.PublicLyricsStateFailed), complete, true, false},
+		{"newer missing never overrides reviewed complete", song(9, store.PublicLyricsStateMissing), complete, true, false},
+		{"newer ambiguous never overrides reviewed complete", song(9, store.PublicLyricsStateAmbiguous), complete, true, false},
+		{"newer draft replaces non-complete bundle entry", song(9, store.PublicLyricsStateIncomplete), incomplete, true, true},
+		{"equal draft keeps bundle entry", song(1, store.PublicLyricsStateIncomplete), incomplete, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := databasePublicationOwnsEntry(tt.database, tt.bundle, tt.inBundle); got != tt.wantOwned {
+				t.Fatalf("databasePublicationOwnsEntry(%+v, %+v, %t) = %t, want %t",
+					tt.database, tt.bundle, tt.inBundle, got, tt.wantOwned)
+			}
+		})
 	}
 }
 

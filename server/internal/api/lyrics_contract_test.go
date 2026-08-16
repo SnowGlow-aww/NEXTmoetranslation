@@ -17,6 +17,7 @@ import (
 
 	"moesekai/server/internal/auth"
 	"moesekai/server/internal/editorgate"
+	"moesekai/server/internal/filesvc"
 	"moesekai/server/internal/lyricssource"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/publiclyricsbundle"
@@ -255,6 +256,63 @@ func TestLyricsAPIContractAndRBAC(t *testing.T) {
 	}
 	if len(listed.Items) != 1 || listed.Items[0].Status != "published" {
 		t.Fatalf("lyrics list = %+v", listed)
+	}
+}
+
+type fakeFileService struct {
+	publishNowCalls int
+}
+
+func (f *fakeFileService) RebuildEvent(eventID int) error        { return nil }
+func (f *fakeFileService) RebuildCategory(category string) error { return nil }
+func (f *fakeFileService) PublishNow()                           { f.publishNowCalls++ }
+func (f *fakeFileService) Status() filesvc.ProjectionStatus      { return filesvc.ProjectionStatus{} }
+
+func TestLyricsPublicationTriggersProjectionPublishNow(t *testing.T) {
+	h := setupLegacyAPI(t)
+	seedLyricsCatalog(t, h)
+
+	save := doJSON(t, http.MethodPut, h.server.URL+"/api/lyrics/save", h.token, apiLyrics())
+	save.Body.Close()
+	if save.StatusCode != http.StatusOK {
+		t.Fatalf("save status = %d", save.StatusCode)
+	}
+
+	fake := &fakeFileService{}
+	h.api.SetFileService(fake)
+
+	published := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/publish", map[string]int{
+		"musicId": 10, "revision": 1,
+	})
+	published.Body.Close()
+	if published.StatusCode != http.StatusOK {
+		t.Fatalf("publish status = %d", published.StatusCode)
+	}
+	if fake.publishNowCalls != 1 {
+		t.Fatalf("PublishNow calls after publish = %d, want 1", fake.publishNowCalls)
+	}
+
+	// A no-op publication of the same revision does not request another rebuild.
+	noop := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/publish", map[string]int{
+		"musicId": 10, "revision": 1,
+	})
+	noop.Body.Close()
+	if noop.StatusCode != http.StatusOK {
+		t.Fatalf("noop publish status = %d", noop.StatusCode)
+	}
+	if fake.publishNowCalls != 1 {
+		t.Fatalf("PublishNow calls after noop publish = %d, want 1", fake.publishNowCalls)
+	}
+
+	unpublished := authorizedRequest(t, h, http.MethodPost, "/api/lyrics/unpublish", map[string]int{
+		"musicId": 10, "revision": 1,
+	})
+	unpublished.Body.Close()
+	if unpublished.StatusCode != http.StatusOK {
+		t.Fatalf("unpublish status = %d", unpublished.StatusCode)
+	}
+	if fake.publishNowCalls != 2 {
+		t.Fatalf("PublishNow calls after unpublish = %d, want 2", fake.publishNowCalls)
 	}
 }
 
