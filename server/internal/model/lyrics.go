@@ -117,10 +117,17 @@ type PublicLyricsIndexItem struct {
 }
 
 type PublicSongLyrics struct {
-	Version     int         `json:"version"`
-	MusicID     int         `json:"musicId"`
-	Revision    int         `json:"revision"`
-	UpdatedAt   string      `json:"updatedAt"`
-	Attribution string      `json:"attribution"`
-	Lines       []LyricLine `json:"lines"`
+	Version          int         `json:"version"`
+	MusicID          int         `json:"musicId"`
+	Revision         int         `json:"revision"`
+	UpdatedAt        string      `json:"updatedAt"`
+	Attribution      string      `json:"attribution"`
+	SourceURL        string      `json:"sourceUrl,omitempty"`
+	SourcePageID     int         `json:"sourcePageId,omitempty"`
+	SourceRevisionID int         `json:"sourceRevisionId,omitempty"`
+	SourceSHA1       string      `json:"sourceSha1,omitempty"`
+	SourceFetchedAt  string      `json:"sourceFetchedAt,omitempty"`
+	LicenseName      string      `json:"licenseName,omitempty"`
+	LicenseURL       string      `json:"licenseUrl,omitempty"`
+	Lines            []LyricLine `json:"lines"`
 }

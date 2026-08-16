@@ -2546,7 +2546,9 @@ func canonicalizeRestoredPublicationWithSource(record *LyricsPublicationBackupRe
 			return fmt.Errorf("lyrics publication %d identity does not match its manifest record", record.MusicID)
 		}
 		lyrics := normalizeEditableLyricsRuby(model.SongLyrics{MusicID: public.MusicID, Revision: public.Revision, UpdatedAt: public.UpdatedAt,
-			Attribution: public.Attribution, Lines: public.Lines})
+			Attribution: public.Attribution, SourceURL: public.SourceURL, SourcePageID: public.SourcePageID,
+			SourceRevisionID: public.SourceRevisionID, SourceSHA1: public.SourceSHA1,
+			SourceFetchedAt: public.SourceFetchedAt, Lines: public.Lines})
 		if code, details, _ := validateLyrics(lyrics, performerIDs, true); code != "" {
 			return fmt.Errorf("lyrics publication %d violates %s: %s", record.MusicID, code, strings.Join(details, "; "))
 		}

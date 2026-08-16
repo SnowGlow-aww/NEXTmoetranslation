@@ -194,6 +194,13 @@ func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
 	return assets, nil
 }
 
+// PublishedLyricsLocalizationProjection returns edited source-v3 rendition
+// localizations as validated public v3 index entries and detail documents.
+// The runtime overlay merges them exactly like legacy database publications.
+func (g *Generator) PublishedLyricsLocalizationProjection() ([]store.PublicLyricsIndexSong, map[int]store.PublicLyricsV3DetailDocument, error) {
+	return g.store.PublishedLyricsLocalizationProjection()
+}
+
 // WriteAll regenerates the legacy category/event translation/ projection under
 // outDir. Published lyrics, locale mirrors, and search indexes are materialized
 // by their owning runtime or backup paths rather than changing this legacy

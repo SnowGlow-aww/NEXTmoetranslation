@@ -10,10 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 
 	"moesekai/server/internal/legacy"
 
 	"moesekai/server/internal/model"
+	"strings"
 )
 
 func (s *Store) publishedLyricsSnapshot() (PublicLyricsIndexDocument, map[int]PublicLyricsDetailDocument, error) {
@@ -156,6 +158,37 @@ func publicLyricsPayloadVersion(payload string) (int, error) {
 	return envelope.Version, nil
 }
 
+// publicLyricsV1Attributions derives the public source card from a legacy v1
+// payload that carries extraction-source fields. Sekaipedia sources receive
+// their canonical CC BY-SA 4.0 license pair; unrecognized sources stay
+// unattributed instead of manufacturing provider metadata.
+func publicLyricsV1Attributions(public model.PublicSongLyrics) []PublicLyricsAttribution {
+	if public.SourceURL == "" || public.SourcePageID <= 0 || !strings.Contains(public.SourceURL, "sekaipedia.org/") {
+		return nil
+	}
+	title := ""
+	if path, err := url.Parse(public.SourceURL); err == nil && path.Path != "" {
+		segment := path.Path
+		if index := strings.LastIndex(segment, "/"); index >= 0 {
+			segment = segment[index+1:]
+		}
+		if decoded, err := url.PathUnescape(segment); err == nil {
+			title = strings.TrimSpace(strings.ReplaceAll(decoded, "_", " "))
+		}
+	}
+	if public.LicenseName == "" {
+		return nil
+	}
+	return []PublicLyricsAttribution{{
+		Provider:    model.LyricsSourceProviderSekaipedia,
+		Title:       title,
+		RevisionID:  public.SourceRevisionID,
+		RevisionURL: public.SourceURL,
+		LicenseName: public.LicenseName,
+		LicenseURL:  public.LicenseURL,
+	}}
+}
+
 func publicLyricsDetailFromV1(public model.PublicSongLyrics) PublicLyricsDetailDocument {
 	lines := make([]PublicLyricsLine, len(public.Lines))
 	for lineIndex, source := range public.Lines {
@@ -174,6 +207,7 @@ func publicLyricsDetailFromV1(public model.PublicSongLyrics) PublicLyricsDetailD
 	return PublicLyricsDetailDocument{
 		Version: public.Version, MusicID: public.MusicID, Revision: public.Revision,
 		UpdatedAt: public.UpdatedAt, Attribution: public.Attribution, Lines: lines,
+		Attributions: publicLyricsV1Attributions(public),
 	}
 }
 

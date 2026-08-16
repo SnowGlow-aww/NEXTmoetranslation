@@ -556,12 +556,29 @@ type publicLyricLineV1 struct {
 }
 
 type publicSongLyricsV1 struct {
-	Version     int                 `json:"version"`
-	MusicID     int                 `json:"musicId"`
-	Revision    int                 `json:"revision"`
-	UpdatedAt   string              `json:"updatedAt"`
-	Attribution string              `json:"attribution"`
-	Lines       []publicLyricLineV1 `json:"lines"`
+	Version          int                 `json:"version"`
+	MusicID          int                 `json:"musicId"`
+	Revision         int                 `json:"revision"`
+	UpdatedAt        string              `json:"updatedAt"`
+	Attribution      string              `json:"attribution"`
+	SourceURL        string              `json:"sourceUrl,omitempty"`
+	SourcePageID     int                 `json:"sourcePageId,omitempty"`
+	SourceRevisionID int                 `json:"sourceRevisionId,omitempty"`
+	SourceSHA1       string              `json:"sourceSha1,omitempty"`
+	SourceFetchedAt  string              `json:"sourceFetchedAt,omitempty"`
+	LicenseName      string              `json:"licenseName,omitempty"`
+	LicenseURL       string              `json:"licenseUrl,omitempty"`
+	Lines            []publicLyricLineV1 `json:"lines"`
+}
+
+// publicLyricsV1SourceLicense derives the stable public license pair for the
+// imported extraction source. Sekaipedia pages are published under CC BY-SA
+// 4.0; other legacy sources keep no public license claim.
+func publicLyricsV1SourceLicense(sourceURL string) (string, string) {
+	if !strings.Contains(sourceURL, "sekaipedia.org/") {
+		return "", ""
+	}
+	return "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/"
 }
 
 func publicLyricsV1(lyrics model.SongLyrics) publicSongLyricsV1 {
@@ -569,10 +586,20 @@ func publicLyricsV1(lyrics model.SongLyrics) publicSongLyricsV1 {
 	if translation := strings.TrimSpace(lyrics.TranslationCredit); translation != "" {
 		attribution = translation
 	}
+	licenseName, licenseURL := publicLyricsV1SourceLicense(lyrics.SourceURL)
 	public := publicSongLyricsV1{
 		Version: 1, MusicID: lyrics.MusicID, Revision: lyrics.Revision,
 		UpdatedAt: lyrics.UpdatedAt, Attribution: attribution,
 		Lines: make([]publicLyricLineV1, len(lyrics.Lines)),
+	}
+	if licenseName != "" {
+		public.SourceURL = lyrics.SourceURL
+		public.SourcePageID = lyrics.SourcePageID
+		public.SourceRevisionID = lyrics.SourceRevisionID
+		public.SourceSHA1 = lyrics.SourceSHA1
+		public.SourceFetchedAt = lyrics.SourceFetchedAt
+		public.LicenseName = licenseName
+		public.LicenseURL = licenseURL
 	}
 	for index, line := range lyrics.Lines {
 		public.Lines[index] = publicLyricLineV1{
@@ -805,6 +832,21 @@ func lyricsHasTranslationCredit(lyrics model.SongLyrics) bool {
 	return strings.TrimSpace(lyrics.TranslationCredit) != "" || strings.TrimSpace(lyrics.Attribution) != ""
 }
 
+// lyricsHasSourceAttribution reports whether the extraction source of a
+// legacy document is attributed well enough to publish without a translation
+// credit (source-only publications render the source card with no credit).
+func lyricsHasSourceAttribution(lyrics model.SongLyrics) bool {
+	return strings.TrimSpace(lyrics.SourceURL) != "" && lyrics.SourcePageID > 0 &&
+		strings.TrimSpace(lyrics.SourceSHA1) != ""
+}
+
+// lyricsSourceOnlyPublicationAllowed permits source-only publications when no
+// credit field is filled at all and the extraction source is attributed.
+// Proofreading-only documents keep requiring a translation credit.
+func lyricsSourceOnlyPublicationAllowed(lyrics model.SongLyrics) bool {
+	return strings.TrimSpace(lyrics.ProofreadingCredit) == "" && lyricsHasSourceAttribution(lyrics)
+}
+
 func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing bool) (string, []string, string) {
 	if lyrics.MusicID <= 0 {
 		return "source_drift", []string{"musicId must be positive"}, ""
@@ -822,7 +864,7 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 	totalBytes := len(lyrics.Attribution) + len(lyrics.TranslationCredit) + len(lyrics.ProofreadingCredit) +
 		len(lyrics.SourceNote) + len(lyrics.LicenseNote) + len(lyrics.SourceURL) + len(lyrics.SourceSHA1)
 	var segmentDetails, performerDetails, publicationDetails []string
-	if publishing && !lyricsHasTranslationCredit(lyrics) {
+	if publishing && !lyricsHasTranslationCredit(lyrics) && !lyricsSourceOnlyPublicationAllowed(lyrics) {
 		publicationDetails = append(publicationDetails, "translation credit is required for publication")
 	}
 	lineIDs := map[string]bool{}

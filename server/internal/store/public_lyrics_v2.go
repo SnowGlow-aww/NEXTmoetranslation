@@ -110,7 +110,7 @@ type publicLyricsPublishedRecord struct {
 }
 
 func (s *Store) publicLyricsPublication(q queryRower, lyrics model.SongLyrics, performers map[int]bool) (any, error) {
-	if !lyricsHasTranslationCredit(lyrics) {
+	if !lyricsHasTranslationCredit(lyrics) && !lyricsSourceOnlyPublicationAllowed(lyrics) {
 		return nil, &LyricsContractError{Code: "incomplete_publication", Details: []string{
 			"translation credit is required for publication",
 		}}

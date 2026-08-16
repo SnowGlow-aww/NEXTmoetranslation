@@ -593,6 +593,43 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 			songs = append(songs, normalized)
 		}
 	}
+	// Edited source-v3 rendition localizations overlay exactly like legacy
+	// database publications: newer complete entries own their index slot and
+	// serve their validated v3 detail. Legacy publication rows keep precedence
+	// over localization projection for the same song. A failing localization
+	// projection keeps the reviewed bundle and legacy publications (fail-closed
+	// for the additive layer only).
+	localizationBytes := map[int][]byte{}
+	localizationIndex, localizationDetails, localizationErr := svc.gen.PublishedLyricsLocalizationProjection()
+	if localizationErr != nil {
+		log.Printf("[projection] lyrics localization projection unavailable; serving bundle plus legacy publications: %v", localizationErr)
+	} else {
+		for _, localizationSong := range localizationIndex {
+			if dbOwned[localizationSong.MusicID] {
+				continue
+			}
+			bundleSong, inBundle := bundleByID[localizationSong.MusicID]
+			if !databasePublicationOwnsEntry(localizationSong, bundleSong, inBundle) {
+				continue
+			}
+			detail, ok := localizationDetails[localizationSong.MusicID]
+			if !ok {
+				continue
+			}
+			body, encodeErr := store.EncodePublicLyricsV3Detail(detail)
+			if encodeErr != nil {
+				log.Printf("[projection] lyrics localization %d undecodable; skipping: %v", localizationSong.MusicID, encodeErr)
+				continue
+			}
+			dbOwned[localizationSong.MusicID] = true
+			if position, ok := bundlePosition[localizationSong.MusicID]; ok {
+				songs[position] = localizationSong
+			} else {
+				songs = append(songs, localizationSong)
+			}
+			localizationBytes[localizationSong.MusicID] = append(body, '\n')
+		}
+	}
 	sort.Slice(songs, func(left, right int) bool {
 		return songs[left].MusicID < songs[right].MusicID
 	})
@@ -611,6 +648,8 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 	for musicID := range dbOwned {
 		key := fmt.Sprintf("translation/lyrics/music_%d.json", musicID)
 		if body, ok := projected[key]; ok {
+			merged[key] = body
+		} else if body, ok := localizationBytes[musicID]; ok {
 			merged[key] = body
 		} else {
 			delete(merged, key)
