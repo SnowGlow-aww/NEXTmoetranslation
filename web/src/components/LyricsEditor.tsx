@@ -659,7 +659,6 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       const authoritative = editableLyricsDocument(loaded);
       collaborationAuthoritativeRef.current = authoritative;
       startCollaboration(item.musicId);
-      waitingForCollaboration = true;
       loadedSuccessfully = true;
       loadedSuccessfully = true;
     } catch (reason) {
