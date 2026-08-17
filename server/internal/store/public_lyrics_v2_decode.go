@@ -15,6 +15,7 @@ import (
 	"moesekai/server/internal/legacy"
 
 	"moesekai/server/internal/model"
+	"strconv"
 	"strings"
 )
 
@@ -182,11 +183,20 @@ func publicLyricsV1Attributions(public model.PublicSongLyrics) []PublicLyricsAtt
 			title = strings.TrimSpace(strings.ReplaceAll(decoded, "_", " "))
 		}
 	}
+	revisionURL := public.SourceURL
+	if u, err := url.Parse(public.SourceURL); err == nil && public.SourceRevisionID > 0 {
+		q := u.Query()
+		if q.Get("oldid") == "" {
+			q.Set("oldid", strconv.Itoa(public.SourceRevisionID))
+			u.RawQuery = q.Encode()
+		}
+		revisionURL = u.String()
+	}
 	return []PublicLyricsAttribution{{
 		Provider:    provider,
 		Title:       title,
 		RevisionID:  public.SourceRevisionID,
-		RevisionURL: public.SourceURL,
+		RevisionURL: revisionURL,
 		LicenseName: public.LicenseName,
 		LicenseURL:  public.LicenseURL,
 	}}
