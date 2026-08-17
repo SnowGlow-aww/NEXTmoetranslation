@@ -140,8 +140,10 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 		t.Fatalf("projected detail localization=%+v", detail.Renditions[0])
 	}
 
-	// Without a credit the edited document stays bundle-served.
-	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET translation_credit='', proofreading_credit='' WHERE document_id=?`, documentID); err != nil {
+	// Without a credit the edited document stays bundle-served. Clearing
+	// credits happens through an editor save, which bumps the revision like
+	// every other localization mutation.
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET translation_credit='', proofreading_credit='', revision=3 WHERE document_id=?`, documentID); err != nil {
 		t.Fatal(err)
 	}
 	index, details, err = s.PublishedLyricsLocalizationProjection()

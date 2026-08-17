@@ -38,6 +38,9 @@ type Store struct {
 	changeHooks   []func()
 	contentGate   *semaphore.Weighted
 	lyricsMutexes [lyricsMutexStripeCount]sync.Mutex
+
+	localizationProjectionMu    sync.RWMutex
+	localizationProjectionCache map[int]LyricsRenditionDocument
 }
 
 func New(database *db.DB) *Store {
