@@ -425,10 +425,19 @@ kbd {
 .translation-editor-pane:empty { display: none; }
 .translation-entry-list {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
   border-top: 1px solid var(--border);
   contain: content;
+}
+.translation-entry-list .entry-table {
+  flex: 0 0 auto;
+}
+.translation-entry-list .center-state {
+  flex: 1 1 auto;
+  min-height: 200px;
 }
 
 /* ---- Proof panel ---- */
