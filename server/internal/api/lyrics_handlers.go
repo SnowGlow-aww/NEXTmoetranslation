@@ -517,11 +517,11 @@ func (s *Server) handleLyricsSourcePreview(w http.ResponseWriter, r *http.Reques
 			[]string{"musicId, pageId, and revisionId must be positive integers"}, nil)
 		return
 	}
-	if _, err := s.store.GetLyricsDocument(request.MusicID); err == nil {
+	if existing, err := s.store.GetLyrics(request.MusicID); err == nil && (existing.Status != "draft" || existing.SourceURL != "") {
 		writeContractError(w, http.StatusUnprocessableEntity, "source_drift",
-			[]string{"verified source previews are only available before the first lyrics save"}, nil)
+			[]string{"verified source previews are only available before the first lyrics save or on an unprovenanced draft"}, nil)
 		return
-	} else if !errors.Is(err, store.ErrLyricsNotFound) {
+	} else if err != nil && !errors.Is(err, store.ErrLyricsNotFound) {
 		writeContractError(w, http.StatusInternalServerError, "internal_error", nil, nil)
 		return
 	}

@@ -110,7 +110,6 @@ func setupLyricsStore(t *testing.T) *Store {
 	if err := s.UpsertMusicCatalog([]MusicCatalogRecord{
 		{MusicID: 10, JapaneseTitle: "新曲", ChineseTitle: "新歌", EnglishTitle: "New Song", IsNewlyWrittenMusic: true},
 		{MusicID: 20, JapaneseTitle: "旧曲", IsNewlyWrittenMusic: false},
-		{MusicID: 30, JapaneseTitle: "Fandom曲", IsNewlyWrittenMusic: false},
 	}); err != nil {
 		t.Fatal(err)
 	}

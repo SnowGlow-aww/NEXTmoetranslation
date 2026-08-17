@@ -70,6 +70,9 @@ func TestPublishedSourceOnlyLyricsCarrySekaipediaAttribution(t *testing.T) {
 		t.Fatalf("proofreading-only with source must stay unpublished, err=%v", err)
 	}
 
+	if err := s.UpsertMusicCatalog([]MusicCatalogRecord{{MusicID: 30, JapaneseTitle: "Stardust Rain"}}); err != nil {
+		t.Fatal(err)
+	}
 	fandomInput := validLyrics()
 	fandomInput.Attribution = ""
 	fandomInput.TranslationCredit = ""

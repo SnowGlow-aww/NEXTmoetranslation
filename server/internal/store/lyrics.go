@@ -36,10 +36,9 @@ const (
 )
 
 var managedLyricsSourceHosts = map[string]struct{}{
-	"projectsekai.fandom.com": {},
-	"vocaloid.fandom.com":     {},
-	"vocaloid.wikia.com":      {},
-	"www.sekaipedia.org":      {},
+	"vocaloid.fandom.com": {},
+	"vocaloid.wikia.com":  {},
+	"www.sekaipedia.org":  {},
 }
 
 type lyricsSaveMode uint8
@@ -315,7 +314,7 @@ func (s *Store) saveLyricsMutationLocked(
 				Code: "source_drift", Details: []string{"source page, revision, SHA1, fetched timestamp, and URL are immutable after first save"},
 			}
 		}
-		if lyricsSourceStructureChanged(normalized.Lines, current.lyrics.Lines) || sourceHash != current.sourceHash {
+		if mode == lyricsSaveOrdinary && (lyricsSourceStructureChanged(normalized.Lines, current.lyrics.Lines) || sourceHash != current.sourceHash) {
 			return model.SongLyrics{}, false, &LyricsContractError{
 				Code: "source_drift", Details: []string{"ordered line IDs, numeric order values, or Japanese source text changed"},
 			}
