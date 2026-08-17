@@ -127,7 +127,26 @@ func (s *EventStore) DetailLocale(eventID int, locale string) (model.EventStoryD
 }
 
 func (s *EventStore) ListLocale(locale string) ([]model.EventStorySummary, error) {
-	return s.listSummaries(locale)
+	s.summaryCacheMu.RLock()
+	if cached, ok := s.summaryCache[locale]; ok {
+		s.summaryCacheMu.RUnlock()
+		return cloneEventStorySummaries(cached), nil
+	}
+	s.summaryCacheMu.RUnlock()
+
+	summaries, err := s.listSummaries(locale)
+	if err != nil {
+		return nil, err
+	}
+
+	s.summaryCacheMu.Lock()
+	if s.summaryCache == nil {
+		s.summaryCache = make(map[string][]model.EventStorySummary)
+	}
+	s.summaryCache[locale] = cloneEventStorySummaries(summaries)
+	s.summaryCacheMu.Unlock()
+
+	return summaries, nil
 }
 
 func (s *EventStore) UpdateLineLocale(eventID int, episodeNo, jpKey, segmentID, sourceHash, text, source, entryType, locale, user string) error {
@@ -236,7 +255,11 @@ func (s *EventStore) UpdateLineLocaleRevision(eventID int, episodeNo, jpKey, seg
 		now, user, eventLocaleAuditDetail(locale, eventID, entryType)); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.InvalidateSummaryCache()
+	return nil
 }
 
 func eventLocaleAuditDetail(locale string, eventID int, entryType string) string {

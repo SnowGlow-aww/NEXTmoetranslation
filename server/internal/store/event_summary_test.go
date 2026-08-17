@@ -154,3 +154,48 @@ func TestEventStorySummariesFailOpenWhenCanonicalSegmentsAreMissing(t *testing.T
 		t.Fatalf("missing canonical segments should fail open: %+v", stories)
 	}
 }
+
+func TestEventStorySummariesCacheAndInvalidation(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "event-summary-cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	events := NewEventStore(database)
+	if err := events.ImportOrdered(201, model.EventStoryMeta{Source: model.SourceHuman}, []OrderedEpisode{
+		eventSummaryEpisode(t, "scenario-201", "标题1", "台词1", model.SourceHuman),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	initial, err := events.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(initial) != 1 || initial[0].AllOfficialTagged {
+		t.Fatalf("unexpected initial summaries: %+v", initial)
+	}
+
+	// Direct raw SQL insert bypasses the store; cache should serve old state
+	if _, err := database.Exec(`INSERT INTO event_stories(event_id, source, version, last_updated) VALUES (202, 'human', '1', 100)`); err != nil {
+		t.Fatal(err)
+	}
+	cached, err := events.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cached) != 1 {
+		t.Fatalf("cache was not served: len=%d", len(cached))
+	}
+
+	// Mutating through the store invalidates the cache
+	if err := events.SetStorySource(201, model.SourceCN); err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := events.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refreshed) != 2 {
+		t.Fatalf("cache was not invalidated after store mutation: len=%d", len(refreshed))
+	}
+}

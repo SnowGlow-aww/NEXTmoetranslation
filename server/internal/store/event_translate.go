@@ -230,6 +230,7 @@ func (s *EventStore) applyEventTranslations(eventID int, targets []EventTranslat
 	if err := tx.Commit(); err != nil {
 		return changed, false, err
 	}
+	s.InvalidateSummaryCache()
 	return changed, false, nil
 }
 
@@ -300,6 +301,9 @@ func validateEventTranslationTargetTx(tx *sql.Tx, eventID int, target EventTrans
 func (s *EventStore) SetStorySource(eventID int, source string) error {
 	_, err := s.db.Exec(`UPDATE event_stories SET source=?, last_updated=? WHERE event_id=?`,
 		source, time.Now().Unix(), eventID)
+	if err == nil {
+		s.InvalidateSummaryCache()
+	}
 	return err
 }
 
@@ -325,6 +329,7 @@ func (s *EventStore) SetStorySourceForSync(eventID int, source string) (bool, er
 	if err := tx.Commit(); err != nil {
 		return false, err
 	}
+	s.InvalidateSummaryCache()
 	return true, nil
 }
 
@@ -378,7 +383,11 @@ func (s *EventStore) ReorderEpisodeLines(eventID int, episodeNo string, orderedK
 		}
 		pos++
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.InvalidateSummaryCache()
+	return nil
 }
 
 // EpisodeTalkKeys returns an episode's talk jp keys (for reorder matching).

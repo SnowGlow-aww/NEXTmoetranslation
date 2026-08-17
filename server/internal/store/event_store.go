@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"moesekai/server/internal/db"
@@ -17,11 +18,23 @@ import (
 
 // EventStore provides CRUD over event story data backed by SQLite.
 type EventStore struct {
-	db *db.DB
+	db             *db.DB
+	summaryCacheMu sync.RWMutex
+	summaryCache   map[string][]model.EventStorySummary
 }
 
 func NewEventStore(database *db.DB) *EventStore {
-	return &EventStore{db: database}
+	return &EventStore{
+		db:           database,
+		summaryCache: make(map[string][]model.EventStorySummary),
+	}
+}
+
+// InvalidateSummaryCache clears the cached event story summaries.
+func (s *EventStore) InvalidateSummaryCache() {
+	s.summaryCacheMu.Lock()
+	s.summaryCache = make(map[string][]model.EventStorySummary)
+	s.summaryCacheMu.Unlock()
 }
 
 // OrderedEpisode is an episode with explicit line ordering, used for lossless
@@ -64,7 +77,11 @@ func (s *EventStore) ImportOrderedContext(ctx context.Context, eventID int, meta
 	if err := importOrderedTx(ctx, tx, eventID, meta, episodes, true); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.InvalidateSummaryCache()
+	return nil
 }
 
 // ImportOrderedForSync performs the same replacement as ImportOrdered, but
@@ -92,6 +109,7 @@ func (s *EventStore) ImportOrderedForSyncContext(ctx context.Context, eventID in
 	if err := tx.Commit(); err != nil {
 		return false, err
 	}
+	s.InvalidateSummaryCache()
 	return true, nil
 }
 
@@ -755,7 +773,7 @@ func (s *EventStore) eventOfficialTagState(locale string) (map[int]bool, error) 
 // untranslated count mirrors UntranslatedTargets: talk lines with empty cn_text
 // plus jp-pending titles (non-empty title text whose source is unset/unknown).
 func (s *EventStore) List() ([]model.EventStorySummary, error) {
-	return s.listSummaries(model.LocaleChinese)
+	return s.ListLocale(model.LocaleChinese)
 }
 
 func (s *EventStore) listSummaries(locale string) ([]model.EventStorySummary, error) {
@@ -866,7 +884,11 @@ func (s *EventStore) UpdateLine(eventID int, episodeNo, jpKey, cnText, source, e
 		model.LocaleChinese, cnText, source, now, eventID, episodeNo, kind, jpKey, jpKey); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.InvalidateSummaryCache()
+	return nil
 }
 
 // PromoteHuman marks every title and talk line of an event story as human.
@@ -901,7 +923,11 @@ func (s *EventStore) PromoteHuman(eventID int) error {
 		now, eventID); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.InvalidateSummaryCache()
+	return nil
 }
 
 // Exists reports whether an event story is present.
@@ -909,6 +935,15 @@ func (s *EventStore) Exists(eventID int) (bool, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM event_stories WHERE event_id = ?`, eventID).Scan(&n)
 	return n > 0, err
+}
+
+func cloneEventStorySummaries(src []model.EventStorySummary) []model.EventStorySummary {
+	if src == nil {
+		return nil
+	}
+	dst := make([]model.EventStorySummary, len(src))
+	copy(dst, src)
+	return dst
 }
 
 func eventSegmentID(eventID int, scenarioID, episodeNo, kind string, position int, field ...string) string {

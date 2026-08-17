@@ -305,7 +305,11 @@ func (s *EventStore) BackfillScenarios(eventID int, episodes []OrderedEpisode) e
 			return ErrEventScenarioConflict
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.InvalidateSummaryCache()
+	return nil
 }
 
 type eventSegmentQueryer interface {
