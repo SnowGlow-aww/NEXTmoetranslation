@@ -573,12 +573,16 @@ type publicSongLyricsV1 struct {
 
 // publicLyricsV1SourceLicense derives the stable public license pair for the
 // imported extraction source. Sekaipedia pages are published under CC BY-SA
-// 4.0; other legacy sources keep no public license claim.
+// 4.0; Vocaloid Fandom pages under CC BY-SA 3.0; other legacy sources keep no
+// public license claim.
 func publicLyricsV1SourceLicense(sourceURL string) (string, string) {
-	if !strings.Contains(sourceURL, "sekaipedia.org/") {
-		return "", ""
+	if strings.Contains(sourceURL, "sekaipedia.org/") {
+		return "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/"
 	}
-	return "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/"
+	if strings.Contains(sourceURL, "vocaloid.fandom.com/") || strings.Contains(sourceURL, "vocaloid.wikia.com/") {
+		return "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0/"
+	}
+	return "", ""
 }
 
 func publicLyricsV1(lyrics model.SongLyrics) publicSongLyricsV1 {

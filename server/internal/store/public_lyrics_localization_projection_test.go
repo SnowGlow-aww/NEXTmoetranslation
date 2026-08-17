@@ -69,6 +69,37 @@ func TestPublishedSourceOnlyLyricsCarrySekaipediaAttribution(t *testing.T) {
 	if !errors.As(err, &contractErr) || contractErr.Code != "incomplete_publication" {
 		t.Fatalf("proofreading-only with source must stay unpublished, err=%v", err)
 	}
+
+	fandomInput := validLyrics()
+	fandomInput.Attribution = ""
+	fandomInput.TranslationCredit = ""
+	fandomInput.ProofreadingCredit = ""
+	fandomInput.SourceURL = "https://vocaloid.fandom.com/wiki/Stardust_Rain?oldid=1493252"
+	fandomInput.SourcePageID = 265789
+	fandomInput.SourceRevisionID = 1493252
+	fandomInput.SourceSHA1 = strings.Repeat("f", 40)
+	fandomInput.SourceFetchedAt = "2026-08-17T07:00:00Z"
+	fandomInput.MusicID = 30
+	savedFandom, _, err := s.SaveImportedLyricsMutation(fandomInput, "fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PublishLyrics(savedFandom.MusicID, savedFandom.Revision); err != nil {
+		t.Fatalf("fandom source-only publish failed: %v", err)
+	}
+	_, fandomDetails, err := s.PublishedLyrics()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fandomDetail := fandomDetails[savedFandom.MusicID]
+	if len(fandomDetail.Attributions) != 1 {
+		t.Fatalf("fandom attributions=%+v", fandomDetail.Attributions)
+	}
+	fandomAttr := fandomDetail.Attributions[0]
+	if fandomAttr.Provider != model.LyricsSourceProviderVocaloidFandom ||
+		fandomAttr.LicenseName != "CC BY-SA 3.0" || fandomAttr.LicenseURL != "https://creativecommons.org/licenses/by-sa/3.0/" {
+		t.Fatalf("fandom attribution mismatch=%+v", fandomAttr)
+	}
 }
 
 func TestPublishedLyricsLocalizationProjection(t *testing.T) {

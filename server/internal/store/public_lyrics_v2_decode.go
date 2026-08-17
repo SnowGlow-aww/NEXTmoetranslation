@@ -163,7 +163,13 @@ func publicLyricsPayloadVersion(payload string) (int, error) {
 // their canonical CC BY-SA 4.0 license pair; unrecognized sources stay
 // unattributed instead of manufacturing provider metadata.
 func publicLyricsV1Attributions(public model.PublicSongLyrics) []PublicLyricsAttribution {
-	if public.SourceURL == "" || public.SourcePageID <= 0 || !strings.Contains(public.SourceURL, "sekaipedia.org/") {
+	provider := model.LyricsSourceProvider("")
+	if strings.Contains(public.SourceURL, "sekaipedia.org/") {
+		provider = model.LyricsSourceProviderSekaipedia
+	} else if strings.Contains(public.SourceURL, "vocaloid.fandom.com/") || strings.Contains(public.SourceURL, "vocaloid.wikia.com/") {
+		provider = model.LyricsSourceProviderVocaloidFandom
+	}
+	if provider == "" || public.SourceURL == "" || public.SourcePageID <= 0 || public.LicenseName == "" {
 		return nil
 	}
 	title := ""
@@ -176,11 +182,8 @@ func publicLyricsV1Attributions(public model.PublicSongLyrics) []PublicLyricsAtt
 			title = strings.TrimSpace(strings.ReplaceAll(decoded, "_", " "))
 		}
 	}
-	if public.LicenseName == "" {
-		return nil
-	}
 	return []PublicLyricsAttribution{{
-		Provider:    model.LyricsSourceProviderSekaipedia,
+		Provider:    provider,
 		Title:       title,
 		RevisionID:  public.SourceRevisionID,
 		RevisionURL: public.SourceURL,
