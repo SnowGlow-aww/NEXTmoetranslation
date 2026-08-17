@@ -819,6 +819,9 @@ func (s *Store) exportLyricsContentSnapshot(ctx context.Context, afterDocuments 
 	for _, music := range result.Music {
 		musicIDs[music.MusicID] = true
 	}
+	if err := repairMissingExportArtifactEvidenceLinks(ctx, tx, &result); err != nil {
+		return result, err
+	}
 	if err := validateRestoredLyricsSourceProvenance(result, documentIDs); err != nil {
 		return result, fmt.Errorf("export lyrics source provenance: %w", err)
 	}
@@ -1430,14 +1433,96 @@ func validateEventContentCanonicalCoverage(events EventContentExport) error {
 	return nil
 }
 
+type sourceEvidenceIdentity struct {
+	provider   model.LyricsSourceProvider
+	evidenceID string
+}
+
+type sourceArtifactIdentity struct {
+	documentID   int64
+	renditionKey string
+}
+
+func repairMissingExportArtifactEvidenceLinks(ctx context.Context, tx *sql.Tx, lyrics *LyricsContentExport) error {
+	existingLinks := make(map[sourceArtifactIdentity]map[int]bool)
+	for _, record := range lyrics.SourceArtifactEvidence {
+		id := sourceArtifactIdentity{documentID: record.DocumentID, renditionKey: record.RenditionKey}
+		if existingLinks[id] == nil {
+			existingLinks[id] = make(map[int]bool)
+		}
+		existingLinks[id][record.Position] = true
+	}
+	loadedEvidence := make(map[sourceEvidenceIdentity]bool)
+	for _, ev := range lyrics.SourceIndexEvidence {
+		loadedEvidence[sourceEvidenceIdentity{provider: model.LyricsSourceProvider(ev.Provider), evidenceID: ev.EvidenceID}] = true
+	}
+	for _, artifact := range lyrics.SourceArtifacts {
+		identity, err := model.DecodeLyricsSourceFixedIdentity([]byte(artifact.FixedIdentityJSON))
+		if err != nil {
+			continue
+		}
+		id := sourceArtifactIdentity{documentID: artifact.DocumentID, renditionKey: artifact.RenditionKey}
+		for position, ref := range identity.IndexEvidenceRefs {
+			if existingLinks[id] != nil && existingLinks[id][position] {
+				continue
+			}
+			linkRecord := LyricsSourceArtifactEvidenceBackupRecord{
+				DocumentID:   artifact.DocumentID,
+				RenditionKey: artifact.RenditionKey,
+				Position:     position,
+				Provider:     string(identity.Provider),
+				EvidenceID:   ref.EvidenceID,
+				SHA256:       ref.SHA256,
+			}
+			lyrics.SourceArtifactEvidence = append(lyrics.SourceArtifactEvidence, linkRecord)
+			if existingLinks[id] == nil {
+				existingLinks[id] = make(map[int]bool)
+			}
+			existingLinks[id][position] = true
+
+			if tx != nil {
+				_, _ = tx.ExecContext(ctx, `INSERT OR IGNORE INTO song_lyrics_source_artifact_index_evidence
+					(document_id, rendition_key, position, provider, evidence_id, sha256)
+					VALUES (?, ?, ?, ?, ?, ?)`,
+					linkRecord.DocumentID, linkRecord.RenditionKey, linkRecord.Position,
+					linkRecord.Provider, linkRecord.EvidenceID, linkRecord.SHA256)
+			}
+
+			evID := sourceEvidenceIdentity{provider: identity.Provider, evidenceID: ref.EvidenceID}
+			if !loadedEvidence[evID] && tx != nil {
+				var record LyricsSourceIndexEvidenceBackupRecord
+				var pageID, revisionID sql.NullInt64
+				err := tx.QueryRowContext(ctx, `SELECT provider,evidence_id,sha256,kind,origin,page_id,revision_id,
+					revision_timestamp,mediawiki_sha1,page_title,canonical_revision_url,categories_json,
+					canonical_request_url,fetched_at,raw_bytes,raw_byte_count,raw_sha256,created_at
+					FROM lyrics_source_index_evidence
+					WHERE provider=? AND evidence_id=? AND sha256=?`,
+					linkRecord.Provider, linkRecord.EvidenceID, linkRecord.SHA256).Scan(
+					&record.Provider, &record.EvidenceID, &record.SHA256, &record.Kind, &record.Origin,
+					&pageID, &revisionID, &record.RevisionTimestamp, &record.MediaWikiSHA1, &record.PageTitle,
+					&record.CanonicalRevisionURL, &record.CategoriesJSON, &record.CanonicalRequestURL, &record.FetchedAt,
+					&record.RawBytes, &record.RawByteCount, &record.RawSHA256, &record.CreatedAt)
+				if err == nil {
+					if pageID.Valid {
+						record.PageID = int(pageID.Int64)
+					}
+					if revisionID.Valid {
+						record.RevisionID = int(revisionID.Int64)
+					}
+					record.RawBytes = append([]byte(nil), record.RawBytes...)
+					lyrics.SourceIndexEvidence = append(lyrics.SourceIndexEvidence, record)
+					loadedEvidence[evID] = true
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func validateRestoredLyricsSourceProvenance(lyrics LyricsContentExport, documentIDs map[int]bool) error {
 	recoveryBatches := make(map[string]bool, len(lyrics.RecoveryBatches))
 	for _, batch := range lyrics.RecoveryBatches {
 		recoveryBatches[batch.BatchSHA256] = true
-	}
-	type sourceEvidenceIdentity struct {
-		provider   model.LyricsSourceProvider
-		evidenceID string
 	}
 	evidenceByIdentity := make(map[sourceEvidenceIdentity]lyricssource.IndexEvidence, len(lyrics.SourceIndexEvidence))
 	evidenceCreatedAt := make(map[sourceEvidenceIdentity]int64, len(lyrics.SourceIndexEvidence))
@@ -1508,10 +1593,6 @@ func validateRestoredLyricsSourceProvenance(lyrics LyricsContentExport, document
 	}
 	if err := validateTranslationEditionBackup(lyrics, allSourceDocumentsByID); err != nil {
 		return err
-	}
-	type sourceArtifactIdentity struct {
-		documentID   int64
-		renditionKey string
 	}
 	artifactsByDocument := make(map[int64]map[string]bool, len(provenanceByID))
 	artifactIdentities := make(map[sourceArtifactIdentity]model.LyricsSourceFixedIdentity, len(lyrics.SourceArtifacts))

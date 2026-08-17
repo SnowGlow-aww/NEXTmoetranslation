@@ -670,101 +670,136 @@ func (s *EventStore) eventOfficialTagState(locale string) (map[int]bool, error) 
 	if locale != model.LocaleChinese {
 		return map[int]bool{}, nil
 	}
-	rows, err := s.db.Query(`SELECT event_id FROM event_stories ORDER BY event_id`)
+
+	// 1. Get episode counts per event in a single grouped query
+	epRows, err := s.db.Query(`SELECT event_id, COUNT(*) FROM event_story_episodes GROUP BY event_id`)
 	if err != nil {
 		return nil, err
 	}
+	defer epRows.Close()
+	episodeCounts := make(map[int]int)
+	for epRows.Next() {
+		var eventID, count int
+		if err := epRows.Scan(&eventID, &count); err != nil {
+			return nil, err
+		}
+		episodeCounts[eventID] = count
+	}
+	if err := epRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// 2. Query all event_stories
+	storyRows, err := s.db.Query(`SELECT event_id FROM event_stories ORDER BY event_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer storyRows.Close()
 	var eventIDs []int
-	for rows.Next() {
+	for storyRows.Next() {
 		var eventID int
-		if err := rows.Scan(&eventID); err != nil {
-			rows.Close()
+		if err := storyRows.Scan(&eventID); err != nil {
 			return nil, err
 		}
 		eventIDs = append(eventIDs, eventID)
 	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
+	if err := storyRows.Err(); err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
+
+	// 3. For all events, collect canonical segment IDs
+	type eventCanonicalInfo struct {
+		segmentIDs map[string]bool
+		valid      bool
+	}
+	canonicalInfo := make(map[int]eventCanonicalInfo, len(eventIDs))
+	for _, eventID := range eventIDs {
+		epCount := episodeCounts[eventID]
+		canonical, err := currentEventCanonicalSegmentIDs(s.db, eventID)
+		if err != nil || len(canonical) != epCount {
+			canonicalInfo[eventID] = eventCanonicalInfo{valid: false}
+			continue
+		}
+		ids := make(map[string]bool)
+		for _, segIDs := range canonical {
+			for id := range segIDs {
+				ids[id] = true
+			}
+		}
+		if len(ids) == 0 {
+			canonicalInfo[eventID] = eventCanonicalInfo{valid: false}
+			continue
+		}
+		canonicalInfo[eventID] = eventCanonicalInfo{segmentIDs: ids, valid: true}
+	}
+
+	// 4. In a single bulk query, fetch all segments and their localization source
+	segRows, err := s.db.Query(`SELECT seg.event_id, seg.segment_id, seg.kind, seg.source_text, ep.title_source, localization.source
+		FROM event_story_segments seg
+		JOIN event_story_episodes ep
+		  ON ep.event_id=seg.event_id AND ep.episode_no=seg.episode_no AND ep.scenario_id=seg.scenario_id
+		LEFT JOIN event_story_segment_localizations localization
+		  ON localization.segment_id=seg.segment_id AND localization.locale=?
+		ORDER BY seg.event_id`, model.LocaleChinese)
+	if err != nil {
+		return nil, err
+	}
+	defer segRows.Close()
+
+	type eventAgg struct {
+		matched    int
+		considered int
+		official   int
+	}
+	aggs := make(map[int]*eventAgg, len(eventIDs))
+	for segRows.Next() {
+		var eventID int
+		var segmentID, kind, sourceText string
+		var titleSource, localizedSource sql.NullString
+		if err := segRows.Scan(&eventID, &segmentID, &kind, &sourceText, &titleSource, &localizedSource); err != nil {
+			return nil, err
+		}
+		info := canonicalInfo[eventID]
+		if !info.valid || !info.segmentIDs[segmentID] {
+			continue
+		}
+		agg := aggs[eventID]
+		if agg == nil {
+			agg = &eventAgg{}
+			aggs[eventID] = agg
+		}
+		agg.matched++
+		if strings.TrimSpace(sourceText) == "" {
+			continue
+		}
+		agg.considered++
+		source := "unknown"
+		if kind == "title" && titleSource.Valid {
+			source = titleSource.String
+		} else if kind != "title" && localizedSource.Valid {
+			source = localizedSource.String
+		}
+		if source == model.SourceCN {
+			agg.official++
+		}
+	}
+	if err := segRows.Err(); err != nil {
 		return nil, err
 	}
 
 	result := make(map[int]bool, len(eventIDs))
 	for _, eventID := range eventIDs {
-		var episodeCount int
-		if err := s.db.QueryRow(`SELECT COUNT(*) FROM event_story_episodes WHERE event_id=?`, eventID).Scan(&episodeCount); err != nil {
-			return nil, err
-		}
-		canonical, err := currentEventCanonicalSegmentIDs(s.db, eventID)
-		if err != nil || len(canonical) != episodeCount {
-			// Missing or invalid canonical coverage must fail open: never hide an
-			// event when the source set is incomplete or cannot be verified.
+		info := canonicalInfo[eventID]
+		if !info.valid {
 			result[eventID] = false
 			continue
 		}
-		var segmentIDs []string
-		for _, ids := range canonical {
-			for segmentID := range ids {
-				segmentIDs = append(segmentIDs, segmentID)
-			}
-		}
-		if len(segmentIDs) == 0 {
+		agg := aggs[eventID]
+		if agg == nil {
 			result[eventID] = false
 			continue
 		}
-
-		placeholders := make([]string, len(segmentIDs))
-		args := make([]any, len(segmentIDs))
-		for i, segmentID := range segmentIDs {
-			placeholders[i] = "?"
-			args[i] = segmentID
-		}
-		rows, err := s.db.Query(`SELECT seg.kind, seg.source_text, ep.title_source, localization.source
-			FROM event_story_segments seg
-			JOIN event_story_episodes ep
-			  ON ep.event_id=seg.event_id AND ep.episode_no=seg.episode_no AND ep.scenario_id=seg.scenario_id
-			LEFT JOIN event_story_segment_localizations localization
-			  ON localization.segment_id=seg.segment_id AND localization.locale=?
-			WHERE seg.segment_id IN (`+strings.Join(placeholders, ",")+")", append([]any{model.LocaleChinese}, args...)...)
-		if err != nil {
-			return nil, err
-		}
-		matched, considered, official := 0, 0, 0
-		for rows.Next() {
-			matched++
-			var kind, sourceText string
-			var titleSource, localizedSource sql.NullString
-			if err := rows.Scan(&kind, &sourceText, &titleSource, &localizedSource); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			// Empty body/speaker placeholders are part of canonical scenario
-			// coverage but are not visible translation rows and must not prevent a
-			// fully official story from being hidden.
-			if strings.TrimSpace(sourceText) == "" {
-				continue
-			}
-			considered++
-			source := "unknown"
-			if kind == "title" && titleSource.Valid {
-				source = titleSource.String
-			} else if kind != "title" && localizedSource.Valid {
-				source = localizedSource.String
-			}
-			if source == model.SourceCN {
-				official++
-			}
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		if err := rows.Close(); err != nil {
-			return nil, err
-		}
-		result[eventID] = matched == len(segmentIDs) && considered > 0 && considered == official
+		result[eventID] = agg.matched == len(info.segmentIDs) && agg.considered > 0 && agg.considered == agg.official
 	}
 	return result, nil
 }
