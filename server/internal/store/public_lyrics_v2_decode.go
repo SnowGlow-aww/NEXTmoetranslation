@@ -166,7 +166,7 @@ func publicLyricsV1Attributions(public model.PublicSongLyrics) []PublicLyricsAtt
 	provider := model.LyricsSourceProvider("")
 	if strings.Contains(public.SourceURL, "sekaipedia.org/") {
 		provider = model.LyricsSourceProviderSekaipedia
-	} else if strings.Contains(public.SourceURL, "vocaloid.fandom.com/") || strings.Contains(public.SourceURL, "vocaloid.wikia.com/") {
+	} else if strings.Contains(public.SourceURL, "fandom.com/") || strings.Contains(public.SourceURL, "wikia.com/") {
 		provider = model.LyricsSourceProviderVocaloidFandom
 	}
 	if provider == "" || public.SourceURL == "" || public.SourcePageID <= 0 || public.LicenseName == "" {
