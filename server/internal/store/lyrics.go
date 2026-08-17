@@ -300,7 +300,7 @@ func (s *Store) saveLyricsMutationLocked(
 			}
 		}
 	} else {
-		if mode == lyricsSaveVerifiedImport {
+		if mode == lyricsSaveVerifiedImport && (current.lyrics.Status != "draft" || current.lyrics.SourceURL != "") {
 			return model.SongLyrics{}, false, &LyricsContractError{
 				Code: "source_drift", Details: []string{"verified source previews may only be used for the first save of a new lyrics document"},
 			}
@@ -958,6 +958,9 @@ func validateLyrics(lyrics model.SongLyrics, performers map[int]bool, publishing
 }
 
 func lyricsProvenanceChanged(left, right model.SongLyrics) bool {
+	if right.SourceURL == "" && right.SourcePageID == 0 && right.SourceRevisionID == 0 && right.SourceSHA1 == "" {
+		return false
+	}
 	return left.SourcePageID != right.SourcePageID || left.SourceRevisionID != right.SourceRevisionID ||
 		left.SourceSHA1 != right.SourceSHA1 || left.SourceFetchedAt != right.SourceFetchedAt ||
 		left.SourceURL != right.SourceURL
