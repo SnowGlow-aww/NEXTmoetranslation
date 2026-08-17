@@ -1428,6 +1428,74 @@ func TestRestoreRejectsMalformedLyricsSourceSHA1(t *testing.T) {
 	}
 }
 
+func TestUnprovenancedDraftCanUpdateLinesAndBindProvenance(t *testing.T) {
+	s := setupLyricsStore(t)
+	// Initial unprovenanced draft with 1 line
+	draft := validLyrics()
+	draft.SourceURL = ""
+	draft.SourcePageID = 0
+	draft.SourceRevisionID = 0
+	draft.SourceSHA1 = ""
+	draft.SourceFetchedAt = ""
+	saved, err := s.SaveLyrics(draft, "editor")
+	if err != nil {
+		t.Fatalf("initial draft save failed: %v", err)
+	}
+
+	// Update draft with 2 lines, different text, and bind Fandom source URL
+	updated := saved
+	updated.SourceURL = "https://projectsekai.fandom.com/wiki/Stardust_Rain"
+	updated.SourcePageID = 77201
+	updated.SourceRevisionID = 367044
+	updated.SourceSHA1 = validSourceSHA1
+	updated.SourceFetchedAt = "2026-08-16T12:00:00Z"
+	updated.Lines = []model.LyricLine{
+		{
+			ID:       "1",
+			Order:    0,
+			Japanese: "夢の続きは 月夜に結われて",
+			Chinese:  "梦想的续篇 在月夜下编织相系",
+			Segments: []model.LyricSegment{
+				{
+					Text:         "夢の続きは 月夜に結われて",
+					PerformerIDs: []int{1},
+					Ruby:         []model.LyricRubySpan{{Text: "夢の続きは 月夜に結われて"}},
+				},
+			},
+		},
+		{
+			ID:       "2",
+			Order:    1,
+			Japanese: "零れた帳が 両手に解ける",
+			Chinese:  "垂落的夜幕 在双手中轻柔化解",
+			Segments: []model.LyricSegment{
+				{
+					Text:         "零れた帳が 両手に解ける",
+					PerformerIDs: []int{2},
+					Ruby:         []model.LyricRubySpan{{Text: "零れた帳が 両手に解ける"}},
+				},
+			},
+		},
+	}
+
+	saved2, err := s.SaveLyrics(updated, "editor")
+	if err != nil {
+		t.Fatalf("unprovenanced draft line update failed: %v", err)
+	}
+	if saved2.Revision != saved.Revision+1 || len(saved2.Lines) != 2 || saved2.SourceURL != updated.SourceURL {
+		t.Fatalf("saved2 mismatch: %+v", saved2)
+	}
+
+	// Once provenanced, subsequent line changes without import token must be rejected
+	drift := saved2
+	drift.Lines = []model.LyricLine{saved2.Lines[0]}
+	_, err = s.SaveLyrics(drift, "editor")
+	var contractErr *LyricsContractError
+	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+		t.Fatalf("provenanced line change should fail, got: %v", err)
+	}
+}
+
 func TestLyricsSourceProvenanceRoundTrip(t *testing.T) {
 	s := setupLyricsStore(t)
 	input := validLyrics()

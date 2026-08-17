@@ -315,8 +315,10 @@ func (s *Store) saveLyricsMutationLocked(
 			}
 		}
 		if mode == lyricsSaveOrdinary && (lyricsSourceStructureChanged(normalized.Lines, current.lyrics.Lines) || sourceHash != current.sourceHash) {
-			return model.SongLyrics{}, false, &LyricsContractError{
-				Code: "source_drift", Details: []string{"ordered line IDs, numeric order values, or Japanese source text changed"},
+			if !(current.lyrics.Status == "draft" && current.lyrics.SourceURL == "") {
+				return model.SongLyrics{}, false, &LyricsContractError{
+					Code: "source_drift", Details: []string{"ordered line IDs, numeric order values, or Japanese source text changed"},
+				}
 			}
 		}
 		inheritedRuby, missingRubyDetails := preserveOmittedLyricsRuby(&normalized, requested, current.lyrics)
