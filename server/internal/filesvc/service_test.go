@@ -363,14 +363,14 @@ func TestEmbeddedPublicLyricsOverlaySurvivesDatabaseRebuild(t *testing.T) {
 	if err := json.Unmarshal(index, &document); err != nil {
 		t.Fatal(err)
 	}
-	if document.Version != 3 || len(document.Songs) != 700 {
+	if document.Version != 3 || len(document.Songs) != 705 {
 		t.Fatalf("embedded lyrics index version=%d songs=%d", document.Version, len(document.Songs))
 	}
 	if status, _ := read("/files/translation/lyrics/music_307.json"); status != http.StatusOK {
 		t.Fatalf("embedded music_307 status=%d", status)
 	}
-	if status, _ := read("/files/translation/lyrics/music_789.json"); status != http.StatusNotFound {
-		t.Fatalf("embedded incomplete music_789 status=%d", status)
+	if status, _ := read("/files/translation/lyrics/music_682.json"); status != http.StatusNotFound {
+		t.Fatalf("embedded incomplete music_682 status=%d", status)
 	}
 	for _, locale := range model.SupportedLocales {
 		root := "/files/v2/" + locale + "/translation/lyrics/"
@@ -380,8 +380,8 @@ func TestEmbeddedPublicLyricsOverlaySurvivesDatabaseRebuild(t *testing.T) {
 		if status, _ := read(root + "music_307.json"); status != http.StatusOK {
 			t.Fatalf("embedded locale music_307 %s status=%d", locale, status)
 		}
-		if status, _ := read(root + "music_789.json"); status != http.StatusNotFound {
-			t.Fatalf("embedded locale incomplete music_789 %s status=%d", locale, status)
+		if status, _ := read(root + "music_682.json"); status != http.StatusNotFound {
+			t.Fatalf("embedded locale incomplete music_682 %s status=%d", locale, status)
 		}
 	}
 
@@ -476,7 +476,7 @@ func TestDatabasePublicationsOverlayEmbeddedBundle(t *testing.T) {
 
 	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{
 		{MusicID: 307, JapaneseTitle: "データベース新曲甲", ChineseTitle: "数据库新歌甲", EnglishTitle: "Database Song Alpha"},
-		{MusicID: 789, JapaneseTitle: "データベース新曲乙", ChineseTitle: "数据库新歌乙", EnglishTitle: "Database Song Beta"},
+		{MusicID: 682, JapaneseTitle: "データベース新曲乙", ChineseTitle: "数据库新歌乙", EnglishTitle: "Database Song Beta"},
 		{MusicID: 99003, JapaneseTitle: "バンドル外新曲", ChineseTitle: "捆绑外新歌", EnglishTitle: "Off-Bundle Song"},
 	}); err != nil {
 		t.Fatal(err)
@@ -598,31 +598,31 @@ func TestDatabasePublicationsOverlayEmbeddedBundle(t *testing.T) {
 
 	// A newer publication for a bundle-incomplete song replaces its index entry
 	// and adds the detail the bundle never had.
-	save(789, 0, "数据库乙版一")
-	newer789 := save(789, 1, "数据库乙版二")
-	if _, err := s.PublishLyrics(newer789.MusicID, newer789.Revision); err != nil {
+	save(682, 0, "数据库乙版一")
+	newer682 := save(682, 1, "数据库乙版二")
+	if _, err := s.PublishLyrics(newer682.MusicID, newer682.Revision); err != nil {
 		t.Fatal(err)
 	}
 	svc.Rebuild()
-	status, _ = read("/files/translation/lyrics/music_789.json")
+	status, _ = read("/files/translation/lyrics/music_682.json")
 	if status != http.StatusOK {
-		t.Fatalf("merged music_789 status=%d", status)
+		t.Fatalf("merged music_682 status=%d", status)
 	}
 	status, mergedIndex = read("/files/translation/lyrics/index.json")
 	if status != http.StatusOK {
-		t.Fatalf("merged 789 lyrics index status=%d", status)
+		t.Fatalf("merged 682 lyrics index status=%d", status)
 	}
-	var merged789Document store.PublicLyricsIndexDocument
-	if err := json.Unmarshal(mergedIndex, &merged789Document); err != nil {
+	var merged682Document store.PublicLyricsIndexDocument
+	if err := json.Unmarshal(mergedIndex, &merged682Document); err != nil {
 		t.Fatal(err)
 	}
-	for _, song := range merged789Document.Songs {
-		if song.MusicID == 789 {
+	for _, song := range merged682Document.Songs {
+		if song.MusicID == 682 {
 			if song.Revision != 2 || song.State != store.PublicLyricsStateComplete || song.Title.Japanese != "データベース新曲乙" {
-				t.Fatalf("merged entry for 789 = %+v", song)
+				t.Fatalf("merged entry for 682 = %+v", song)
 			}
 			if !reflect.DeepEqual(song.AvailableVersions, []string{"full"}) {
-				t.Fatalf("merged entry for 789 availableVersions = %+v", song.AvailableVersions)
+				t.Fatalf("merged entry for 682 availableVersions = %+v", song.AvailableVersions)
 			}
 			break
 		}

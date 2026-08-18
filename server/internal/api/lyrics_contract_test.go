@@ -115,7 +115,7 @@ func TestCatalogMusicAddsEmbeddedRuntimeLyricsWithoutChangingDBStatus(t *testing
 	h := setupLegacyAPI(t)
 	if err := h.store.UpsertMusicCatalog([]store.MusicCatalogRecord{
 		{MusicID: 307, JapaneseTitle: "おこちゃま戦争"},
-		{MusicID: 789, JapaneseTitle: "天秤、指先で触れて"},
+		{MusicID: 682, JapaneseTitle: "あなたしか見えないの"},
 		{MusicID: 999999, JapaneseTitle: "Bundle 外の曲"},
 	}); err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestCatalogMusicAddsEmbeddedRuntimeLyricsWithoutChangingDBStatus(t *testing
 		complete.RuntimeLyrics.BatchSHA256 != publiclyricsbundle.BatchSHA256 || complete.RuntimeLyrics.RootSHA256 != publiclyricsbundle.RootSHA256 {
 		t.Fatalf("complete catalog item=%+v", complete)
 	}
-	incomplete := items[789]
+	incomplete := items[682]
 	if incomplete.RuntimeLyrics == nil {
 		t.Fatalf("incomplete catalog item has no runtime metadata: %+v", incomplete)
 	}

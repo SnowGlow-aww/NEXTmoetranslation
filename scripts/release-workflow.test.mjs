@@ -16,7 +16,7 @@ const publicLyricsBundlePath = new URL('server/internal/publiclyricsbundle/publi
 const publicLyricsBundleSource = readFileSync(new URL('server/internal/publiclyricsbundle/bundle.go', root), 'utf8')
 const publicLyricsBundleBuilder = readFileSync(new URL('scripts/build-public-lyrics-v3-bundle.py', root), 'utf8')
 const publicLyricsBundle = readFileSync(publicLyricsBundlePath)
-const expectedPublicLyricsBundleSHA256 = '6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b'
+const expectedPublicLyricsBundleSHA256 = '09137e800b2749ed601ae139ea9dcf59b5ac6768b4c5e1a906e353e4ac85f43b'
 
 function stepSection(source, name, nextName) {
   const start = source.indexOf(`      - name: ${name}\n`)
@@ -44,13 +44,13 @@ test('paired release workflow and runbook are retired by deletion', () => {
 test('the accepted public lyrics bundle is present and content-addressed', () => {
   assert.equal(existsSync(publicLyricsBundlePath), true)
   assert.equal(createHash('sha256').update(publicLyricsBundle).digest('hex'), expectedPublicLyricsBundleSHA256)
-  assert.match(publicLyricsBundleSource, /ExpectedArchiveSHA256\s+=\s+\"6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b\"/)
-  assert.match(publicLyricsBundleSource, /ExpectedInventorySHA256\s+=\s+\"604aae68e3cd6824a8960a3cbbec5e015af48e5fcdd9895f785ff61e019d1f4b\"/)
-  assert.match(publicLyricsBundleSource, /ExpectedTarSHA256\s+=\s+\"c08f53d7ad0dda1e5a32042608d5d7b9d570292c36371f618dec0529f90cac96\"/)
-  assert.match(publicLyricsBundleSource, /ExpectedRuntimeBytes\s+=\s+47561072/)
-  assert.match(publicLyricsBundleSource, /ExpectedAssetCount\s+=\s+654/)
-  assert.match(publicLyricsBundleSource, /ExpectedCatalogCount\s+=\s+700/)
-  assert.match(publicLyricsBundleSource, /ExpectedDetailCount\s+=\s+653/)
+  assert.match(publicLyricsBundleSource, /ExpectedArchiveSHA256\s+=\s+\"09137e800b2749ed601ae139ea9dcf59b5ac6768b4c5e1a906e353e4ac85f43b\"/)
+  assert.match(publicLyricsBundleSource, /ExpectedInventorySHA256\s+=\s+\"f8cb339ee0e998d0bd898b9cd6563167c6bd7083bb1ca9b721c7f113797ddff8\"/)
+  assert.match(publicLyricsBundleSource, /ExpectedTarSHA256\s+=\s+\"d3de3215426bea6ea4556576b7f38fb6b030b5b37d0742360b8b368c1d1e9013\"/)
+  assert.match(publicLyricsBundleSource, /ExpectedRuntimeBytes\s+=\s+48197822/)
+  assert.match(publicLyricsBundleSource, /ExpectedAssetCount\s+=\s+688/)
+  assert.match(publicLyricsBundleSource, /ExpectedCatalogCount\s+=\s+705/)
+  assert.match(publicLyricsBundleSource, /ExpectedDetailCount\s+=\s+687/)
   assert.match(publicLyricsBundleSource, /DecodePublicLyricsV3Index/)
   assert.match(publicLyricsBundleSource, /DecodePublicLyricsV3Detail/)
   assert.match(publicLyricsBundleSource, /go:embed public-v3\.tar\.gz/)

@@ -24,7 +24,7 @@ func TestCatalogRuntimeMetadataSeparatesEmbeddedOverlayFromDatabaseState(t *test
 		complete.BatchSHA256 != BatchSHA256 || complete.RootSHA256 != RootSHA256 {
 		t.Fatalf("complete runtime metadata=%+v", complete)
 	}
-	incomplete := metadata[789]
+	incomplete := metadata[682]
 	if incomplete.ReleaseID != ReleaseID || !incomplete.ImmutableOverlay || incomplete.State != "incomplete" || incomplete.HasDetail ||
 		incomplete.Revision != 1 || incomplete.UpdatedAt != "2026-08-08T13:24:16Z" || incomplete.AvailableVersions == nil ||
 		len(incomplete.AvailableVersions) != 0 {
@@ -62,15 +62,18 @@ func TestBundleIsClosedPublicV3Inventory(t *testing.T) {
 	if document.Version != 3 || len(document.Songs) != ExpectedCatalogCount {
 		t.Fatalf("index version=%d songs=%d", document.Version, len(document.Songs))
 	}
-	for _, musicID := range []int{307, 754, 765, 83} {
+	for _, musicID := range []int{307, 754, 765, 83, 750, 789} {
 		if _, ok := assets["translation/lyrics/music_"+itoa(musicID)+".json"]; !ok {
 			t.Fatalf("missing representative detail musicId=%d", musicID)
 		}
 	}
-	if _, ok := assets["translation/lyrics/music_789.json"]; ok {
-		t.Fatal("incomplete musicId=789 unexpectedly has a public detail")
+	if _, ok := assets["translation/lyrics/music_682.json"]; ok {
+		t.Fatal("incomplete musicId=682 unexpectedly has a public detail")
 	}
-	if got := sha256Hex(index); got != "6fe7261b364cebc5383cf2ab6a784c365606bc5aa97eaea429ecce489b4cd3d4" {
+	if _, ok := assets["translation/lyrics/music_789.json"]; !ok {
+		t.Fatal("restored musicId=789 missing public detail")
+	}
+	if got := sha256Hex(index); got != "ce84fccc35c739c1294518d8426d9359c8f19e8ddd712da69b151e449c6cc350" {
 		t.Fatalf("index hash=%s", got)
 	}
 	for key := range assets {
