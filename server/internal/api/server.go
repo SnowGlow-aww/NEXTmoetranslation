@@ -179,7 +179,8 @@ func NewServer(s *store.Store, es *store.EventStore, a *auth.Auth, cfg *config.C
 	// The online editor tries Sekaipedia first, then the legacy fallback
 	// providers. The reviewed Sekaipedia authority is compiled in, together with
 	// the reviewed music-ID-to-page-title and contributor-alias maps. Music 728
-	// is intentionally absent because Sekaipedia has no page for it.
+	// has a Sekaipedia page, but that revision's lyrics table is empty, so it
+	// stays out of the compiled editor target-map.
 	sekaipediaConfigs := []lyricssource.ProviderConfig{
 		lyricssource.ReviewedSekaipediaProviderConfig(
 			[]lyricssource.SekaipediaPageTarget{

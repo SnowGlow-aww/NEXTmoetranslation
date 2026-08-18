@@ -62,7 +62,7 @@ func TestBundleIsClosedPublicV3Inventory(t *testing.T) {
 	if document.Version != 3 || len(document.Songs) != ExpectedCatalogCount {
 		t.Fatalf("index version=%d songs=%d", document.Version, len(document.Songs))
 	}
-	for _, musicID := range []int{307, 754, 765, 83, 750, 789} {
+	for _, musicID := range []int{307, 728, 754, 765, 83, 750, 789} {
 		if _, ok := assets["translation/lyrics/music_"+itoa(musicID)+".json"]; !ok {
 			t.Fatalf("missing representative detail musicId=%d", musicID)
 		}
@@ -73,7 +73,7 @@ func TestBundleIsClosedPublicV3Inventory(t *testing.T) {
 	if _, ok := assets["translation/lyrics/music_789.json"]; !ok {
 		t.Fatal("restored musicId=789 missing public detail")
 	}
-	if got := sha256Hex(index); got != "ce84fccc35c739c1294518d8426d9359c8f19e8ddd712da69b151e449c6cc350" {
+	if got := sha256Hex(index); got != "1b420cb933be71c08fc2e9b3cde555e03d48cef87c2e247e6e7c3ec76c5455f9" {
 		t.Fatalf("index hash=%s", got)
 	}
 	for key := range assets {

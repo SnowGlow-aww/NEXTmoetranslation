@@ -1,5 +1,5 @@
 // Package publiclyricsbundle exposes the accepted public-only Public Lyrics v3
-// runtime projection (705-song catalog after the Full-only Aug 16-17 ruby restore). It contains no producer database, recovery
+// runtime projection (706-song catalog after the Full-only Aug 16-17 ruby restore). It contains no producer database, recovery
 // evidence, manifest, receipt, or authenticated application state.
 package publiclyricsbundle
 
@@ -24,17 +24,17 @@ import (
 )
 
 const (
-	ReleaseID                = "runtime-ruby-restore-full-aug1617-20260818a"
+	ReleaseID                = "runtime-ruby-restore-full-aug1617-20260818b"
 	BatchSHA256              = "6559b9b21fff20418ec97e1a965cbff3f516f18205e122355e0e96cd19472bd7"
 	RootSHA256               = "fe486efcd029659519b411a88dfe5688d2a67f351bc19bb61fa970784a39b3ad"
-	ExpectedArchiveSHA256    = "09137e800b2749ed601ae139ea9dcf59b5ac6768b4c5e1a906e353e4ac85f43b"
-	ExpectedInventorySHA256  = "f8cb339ee0e998d0bd898b9cd6563167c6bd7083bb1ca9b721c7f113797ddff8"
-	ExpectedTarSHA256        = "d3de3215426bea6ea4556576b7f38fb6b030b5b37d0742360b8b368c1d1e9013"
-	ExpectedTarBytes         = 48725504
-	ExpectedRuntimeBytes     = 48197822
-	ExpectedAssetCount       = 688
-	ExpectedCatalogCount     = 705
-	ExpectedDetailCount      = 687
+	ExpectedArchiveSHA256    = "c6f73b0c285cab43c9edcd49c08e762b9181feeaffbdcc98d36fb5ccbff0bf5f"
+	ExpectedInventorySHA256  = "95d9f69df323bfe7f0c03535c28a052a2a4eeb4fca24596a2170b67f31b988a8"
+	ExpectedTarSHA256        = "abf86130d2e3f2574d2a2fd591d47f50adbf9ed15907de648d846fecded35eab"
+	ExpectedTarBytes         = 48733184
+	ExpectedRuntimeBytes     = 48204602
+	ExpectedAssetCount       = 689
+	ExpectedCatalogCount     = 706
+	ExpectedDetailCount      = 688
 	maxPublicLyricsAssetSize = 2 << 20
 )
 
@@ -290,7 +290,7 @@ func validateDocuments(assets map[string][]byte) error {
 			return fmt.Errorf("public lyrics index contains unexpected state %q", song.State)
 		}
 	}
-	if states["complete"] != 679 || states["game_only"] != 8 || states["satisfied_no_lyrics"] != 15 || states["incomplete"] != 3 || len(expectedDetails) != ExpectedDetailCount {
+	if states["complete"] != 680 || states["game_only"] != 8 || states["satisfied_no_lyrics"] != 15 || states["incomplete"] != 3 || len(expectedDetails) != ExpectedDetailCount {
 		return fmt.Errorf("public lyrics state/detail counts differ")
 	}
 

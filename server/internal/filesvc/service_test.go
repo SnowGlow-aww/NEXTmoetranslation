@@ -363,7 +363,7 @@ func TestEmbeddedPublicLyricsOverlaySurvivesDatabaseRebuild(t *testing.T) {
 	if err := json.Unmarshal(index, &document); err != nil {
 		t.Fatal(err)
 	}
-	if document.Version != 3 || len(document.Songs) != 705 {
+	if document.Version != 3 || len(document.Songs) != 706 {
 		t.Fatalf("embedded lyrics index version=%d songs=%d", document.Version, len(document.Songs))
 	}
 	if status, _ := read("/files/translation/lyrics/music_307.json"); status != http.StatusOK {

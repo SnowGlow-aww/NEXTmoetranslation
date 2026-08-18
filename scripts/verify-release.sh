@@ -4,10 +4,10 @@ set -eu
 expected_index=9a735e96f856da9b94e1362883df13616a8b6e3cd33afce5d5e1468b4784b475
 expected_detail=224a7d34e1d4d551bca21cbe70374f504a781edef90eb644d8d4ec9e5fca064c
 expected_db=2eb61967a5f5b96a4961c0258984d6d5bb2f7b813379872d9d50a427704b8877
-expected_public_lyrics_bundle=09137e800b2749ed601ae139ea9dcf59b5ac6768b4c5e1a906e353e4ac85f43b
+expected_public_lyrics_bundle=c6f73b0c285cab43c9edcd49c08e762b9181feeaffbdcc98d36fb5ccbff0bf5f
 expected_editor_lyrics_seed=a8a2a7c841d0d73e448fd69f9adb236965b3b01a89d2ba58dcc921925e6ea479
-expected_public_lyrics_inventory=f8cb339ee0e998d0bd898b9cd6563167c6bd7083bb1ca9b721c7f113797ddff8
-expected_public_lyrics_tar=d3de3215426bea6ea4556576b7f38fb6b030b5b37d0742360b8b368c1d1e9013
+expected_public_lyrics_inventory=95d9f69df323bfe7f0c03535c28a052a2a4eeb4fca24596a2170b67f31b988a8
+expected_public_lyrics_tar=abf86130d2e3f2574d2a2fd591d47f50adbf9ed15907de648d846fecded35eab
 historical_700_public_lyrics_bundle=6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b
 historical_700_public_lyrics_inventory=604aae68e3cd6824a8960a3cbbec5e015af48e5fcdd9895f785ff61e019d1f4b
 public_lyrics_bundle=server/internal/publiclyricsbundle/public-v3.tar.gz
@@ -42,9 +42,9 @@ test "$(hash_file "$public_lyrics_bundle")" = "$expected_public_lyrics_bundle"
 grep -Fq "ExpectedArchiveSHA256    = \"$expected_public_lyrics_bundle\"" server/internal/publiclyricsbundle/bundle.go
 grep -Fq "ExpectedInventorySHA256  = \"$expected_public_lyrics_inventory\"" server/internal/publiclyricsbundle/bundle.go
 grep -Fq "ExpectedTarSHA256        = \"$expected_public_lyrics_tar\"" server/internal/publiclyricsbundle/bundle.go
-grep -Fq 'ExpectedTarBytes         = 48725504' server/internal/publiclyricsbundle/bundle.go
-grep -Fq 'ExpectedRuntimeBytes     = 48197822' server/internal/publiclyricsbundle/bundle.go
-grep -Fq 'ExpectedAssetCount       = 688' server/internal/publiclyricsbundle/bundle.go
+grep -Fq 'ExpectedTarBytes         = 48733184' server/internal/publiclyricsbundle/bundle.go
+grep -Fq 'ExpectedRuntimeBytes     = 48204602' server/internal/publiclyricsbundle/bundle.go
+grep -Fq 'ExpectedAssetCount       = 689' server/internal/publiclyricsbundle/bundle.go
 grep -Fq '//go:embed public-v3.tar.gz' server/internal/publiclyricsbundle/bundle.go
 grep -Fq "EXPECTED_MANIFEST_SHA256 = \"b88f3076e40a6711b9e6a55321ede9da0aef0b69489a22b5b74fe468f5676d6f\"" scripts/build-public-lyrics-v3-bundle.py
 grep -Fq "EXPECTED_RECEIPT_FILE_SHA256 = \"a4bf207f446feffd71f2e51ab1755ac3c9cd648b34fe72596f85de3c6a559deb\"" scripts/build-public-lyrics-v3-bundle.py
@@ -72,15 +72,15 @@ import tarfile
 
 bundle, expected_inventory, expected_tar = sys.argv[1:]
 raw_tar = gzip.decompress(open(bundle, "rb").read())
-if len(raw_tar) != 48725504 or hashlib.sha256(raw_tar).hexdigest() != expected_tar:
+if len(raw_tar) != 48733184 or hashlib.sha256(raw_tar).hexdigest() != expected_tar:
     raise SystemExit("public lyrics decompressed tar identity differs")
 detail = re.compile(r"music_([1-9][0-9]*)\.json\Z")
 with tarfile.open(fileobj=io.BytesIO(raw_tar), mode="r:") as archive:
     members = archive.getmembers()
     bodies = {member.name: archive.extractfile(member).read() for member in members}
-if len(members) != 688:
-    raise SystemExit(f"public lyrics bundle member count={len(members)}, expected=688")
-if sum(member.size for member in members) != 48197822:
+if len(members) != 689:
+    raise SystemExit(f"public lyrics bundle member count={len(members)}, expected=689")
+if sum(member.size for member in members) != 48204602:
     raise SystemExit("public lyrics bundle runtime byte count differs")
 names = [member.name for member in members]
 if len(names) != len(set(names)) or names.count("index.json") != 1:
@@ -101,7 +101,7 @@ if any(
 ):
     raise SystemExit("public lyrics bundle contains noncanonical metadata")
 detail_ids = [int(match.group(1)) for name in names if (match := detail.fullmatch(name))]
-if len(detail_ids) != 687 or len(detail_ids) != len(set(detail_ids)):
+if len(detail_ids) != 688 or len(detail_ids) != len(set(detail_ids)):
     raise SystemExit("public lyrics bundle detail inventory differs")
 if set(names) != {"index.json", *(f"music_{music_id}.json" for music_id in detail_ids)}:
     raise SystemExit("public lyrics bundle contains a nested, private, or unexpected artifact")
@@ -126,10 +126,10 @@ def reject_duplicates(pairs):
     return result
 
 index = json.loads(bodies["index.json"], object_pairs_hook=reject_duplicates)
-if index.get("version") != 3 or len(index.get("songs", [])) != 705:
+if index.get("version") != 3 or len(index.get("songs", [])) != 706:
     raise SystemExit("public lyrics index contract differs")
 states = collections.Counter(song.get("state") for song in index["songs"])
-if states != {"complete": 679, "game_only": 8, "satisfied_no_lyrics": 15, "incomplete": 3}:
+if states != {"complete": 680, "game_only": 8, "satisfied_no_lyrics": 15, "incomplete": 3}:
     raise SystemExit(f"public lyrics state counts differ: {states}")
 expected_details = {song["musicId"] for song in index["songs"] if song["state"] in {"complete", "game_only"}}
 if expected_details != set(detail_ids):
