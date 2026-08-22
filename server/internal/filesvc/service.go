@@ -50,6 +50,7 @@ type Service struct {
 	publicLyrics    map[string][]byte
 	publicLyricsErr error
 	maxAge          time.Duration
+	lyricsMaxAge    time.Duration
 	swr             time.Duration
 	debounce        time.Duration
 
@@ -84,6 +85,7 @@ func New(s *store.Store, es *store.EventStore, gen *files.Generator) *Service {
 		publicLyrics:    publicLyrics,
 		publicLyricsErr: publicLyricsErr,
 		maxAge:          5 * time.Minute,
+		lyricsMaxAge:    15 * time.Second,
 		swr:             time.Hour,
 		debounce:        5 * time.Minute,
 		assets:          map[string]asset{},
@@ -757,6 +759,20 @@ func isPublicLyricsAssetKey(key string) bool {
 	return false
 }
 
+// cacheControlFor keeps the long CDN TTL for every asset except the lyrics
+// index and details. Those two are read as one consistent pair, and each is
+// evicted on its own timer, so a long TTL lets an edge node answer with a
+// detail that predates the index publication it is validated against. A short
+// TTL bounds that skew; stale-while-revalidate is dropped for them so an edge
+// node cannot keep serving a superseded revision after it expires.
+func (svc *Service) cacheControlFor(key string) string {
+	if isPublicLyricsAssetKey(key) {
+		return fmt.Sprintf("public, max-age=%d, must-revalidate", int(svc.lyricsMaxAge.Seconds()))
+	}
+	return fmt.Sprintf("public, max-age=%d, stale-while-revalidate=%d",
+		int(svc.maxAge.Seconds()), int(svc.swr.Seconds()))
+}
+
 func makeAsset(body []byte, contentType string, t time.Time) asset {
 	sum := sha256.Sum256(body)
 	return asset{
@@ -789,8 +805,7 @@ func (svc *Service) Handler() http.HandlerFunc {
 		h := w.Header()
 		h.Set("Content-Type", a.contentType)
 		h.Set("ETag", a.etag)
-		h.Set("Cache-Control", fmt.Sprintf("public, max-age=%d, stale-while-revalidate=%d",
-			int(svc.maxAge.Seconds()), int(svc.swr.Seconds())))
+		h.Set("Cache-Control", svc.cacheControlFor(key))
 		h.Set("Access-Control-Allow-Origin", "*")
 
 		if match := r.Header.Get("If-None-Match"); match != "" && etagMatch(match, a.etag) {

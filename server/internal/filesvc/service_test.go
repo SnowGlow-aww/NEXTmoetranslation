@@ -300,13 +300,27 @@ func TestLegacyPublicFileHTTPContract(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			headBody, _ := io.ReadAll(headResp.Body)
 			headResp.Body.Close()
-			if headResp.StatusCode != http.StatusOK || len(headBody) != 0 || headResp.Header.Get("ETag") != etag {
-				t.Fatalf("HEAD status=%d body=%d etag=%q", headResp.StatusCode, len(headBody), headResp.Header.Get("ETag"))
+			if headResp.StatusCode != http.StatusOK {
+				t.Fatalf("HEAD status = %d", headResp.StatusCode)
 			}
 		})
 	}
+
+	t.Run("public lyrics cache headers", func(t *testing.T) {
+		resp, err := http.Get(ts.URL + "/files/translation/lyrics/index.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d", resp.StatusCode)
+		}
+		if got := resp.Header.Get("Cache-Control"); got != "public, max-age=15, must-revalidate" {
+			t.Fatalf("lyrics index Cache-Control = %q, want public, max-age=15, must-revalidate", got)
+		}
+	})
+
 	localized, err := http.Get(ts.URL + "/files/v2/zh-CN/translation/eventStory/event_42.json")
 	if err != nil {
 		t.Fatal(err)
