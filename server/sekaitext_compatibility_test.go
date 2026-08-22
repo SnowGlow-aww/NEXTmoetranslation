@@ -216,7 +216,10 @@ func TestSekaiTextCategorySaveToPublicFilesAndExistingBackups(t *testing.T) {
 			t.Fatalf("lyrics directory alias %s differs from index", path)
 		}
 	}
-	if !bytes.Contains(lyricsIndex, []byte(`"version": 3`)) {
+	var indexPayload struct {
+		Version int `json:"version"`
+	}
+	if err := json.Unmarshal(lyricsIndex, &indexPayload); err != nil || indexPayload.Version != 3 {
 		t.Fatalf("lyrics index is not the accepted public v3 contract: %s", lyricsIndex)
 	}
 
