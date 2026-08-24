@@ -137,7 +137,7 @@ function sourceLabel(error: APIError): string {
     revision_conflict: "其他编辑者已保存新版本",
     segment_mismatch: "分段文字与日文原文不一致",
     invalid_performer: "包含无效的演唱者",
-    incomplete_publication: "发布前必须补齐翻译署名、中英翻译及适用的角色分词",
+    incomplete_publication: "发布前必须补齐翻译署名、中文翻译及适用的角色分词",
     admin_required: "仅管理员可以导入外部歌词来源",
     not_found: "服务器上找不到这首曲目或歌词",
     internal_error: "服务器处理失败，请稍后重试",
@@ -187,7 +187,7 @@ function detailLabel(detail: string): string {
   const segment = detail.match(/\.segments\[(\d+)]/);
   const segmentLabel = segment ? `第 ${Number(segment[1]) + 1} 分段` : "";
   if (detail.includes("translation credit is required") || detail.includes("attribution is required")) return "请填写翻译署名";
-  if (detail.includes("requires japanese, zh-CN, and en-US")) return `${lineLabel}缺少日文、简中或英文内容`;
+  if (detail.includes("requires japanese and zh-CN") || detail.includes("requires japanese, zh-CN")) return `${lineLabel}缺少日文或简中内容`;
   if (detail.includes("requires at least one performerId")) return `${lineLabel}${segmentLabel}未指定演唱者`;
   if (detail.includes("invalid performerId")) return `${lineLabel}${segmentLabel}包含无效演唱者`;
   if (detail.includes("duplicate performerId")) return `${lineLabel}${segmentLabel}包含重复演唱者`;
@@ -1640,7 +1640,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       const missing: string[] = [];
       const prefix = `${target.key} ${target.version === "full" ? "Full" : "Game"} 第 ${index + 1} 行`;
       if (!line.japanese.trim()) missing.push(`${prefix}的日文原文`);
-      if (!(line["zh-CN"] || "").trim() || !(line["en-US"] || "").trim()) missing.push(`${prefix}的中英翻译`);
+      if (!(line["zh-CN"] || "").trim()) missing.push(`${prefix}的中文翻译`);
       if (line.segments.map((segment) => segment.text).join("") !== line.japanese) missing.push(`${prefix}的分段文字未完整拼接为日文原文`);
       if (lyricsHasPerformerSegmentation(lyrics, target.key === "legacy-v2" ? undefined : target.key, target.version) &&
           line.segments.some((segment) => segment.performerIds.length === 0)) missing.push(`${prefix}的演唱者`);
@@ -1651,7 +1651,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const publicationChecks = lyrics ? [
     { label: "已保存草稿", complete: lyrics.revision > 0 && !dirty },
     { label: `各 rendition 翻译署名 ${creditTargets.filter((target) => target.complete).length}/${creditTargets.length}`, complete: creditTargets.length > 0 && creditTargets.every((target) => target.complete) },
-    { label: `各 side 中英翻译 ${publicationLines.filter((line) => (line["zh-CN"] || "").trim() && (line["en-US"] || "").trim()).length}/${publicationLines.length}`, complete: publicationLines.length > 0 && publicationLines.every((line) => (line["zh-CN"] || "").trim() && (line["en-US"] || "").trim()) },
+    { label: `各 side 中文翻译 ${publicationLines.filter((line) => (line["zh-CN"] || "").trim()).length}/${publicationLines.length}`, complete: publicationLines.length > 0 && publicationLines.every((line) => (line["zh-CN"] || "").trim()) },
     { label: `各 side 分段与日文一致 ${publicationLines.filter((line) => line.segments.map((segment) => segment.text).join("") === line.japanese).length}/${publicationLines.length}`, complete: publicationLines.length > 0 && publicationLines.every((line) => line.segments.map((segment) => segment.text).join("") === line.japanese) },
   ] : [];
   const publicationComplete = publicationChecks.length > 0 && publicationChecks.every((check) => check.complete);
