@@ -1,11 +1,11 @@
 package db
 
 const migrationV33Song682TranslationQEDCorrectionSQL = `
--- Ensure catalog entry exists for production databases
+-- Ensure catalog entry exists for song 682
 INSERT OR IGNORE INTO catalog_music
 	(music_id, title_ja, title_zh, title_en, jacket_url, newly_written, updated_at)
-SELECT 682, 'あなたしか見えないの', '眼中仅有你一人', 'Anata Shika Mienai no', '', 0, 1724544000
-WHERE EXISTS (SELECT 1 FROM catalog_music WHERE music_id > 100);
+VALUES
+	(682, 'あなたしか見えないの', '眼中仅有你一人', 'Anata Shika Mienai no', '', 0, 1724544000);
 
 -- Ensure song 682 source document exists
 INSERT OR IGNORE INTO song_lyrics_source_documents
@@ -45,7 +45,7 @@ FROM song_lyrics_source_documents WHERE music_id=682;
 INSERT OR IGNORE INTO song_lyrics_rendition_localizations
 	(document_id,rendition_key,locale,translation_credit,proofreading_credit,updated_at,updated_by,revision)
 SELECT
-	document_id,'sekai','zh-CN','@雪莹ちゃん','',1724544000,'system',9
+	document_id,'sekai','zh-CN','@雪莹ちゃん','',1724544000,'system',10
 FROM song_lyrics_source_documents WHERE music_id=682;
 
 INSERT OR IGNORE INTO song_lyrics_rendition_translation_lines
@@ -95,7 +95,7 @@ FROM song_lyrics_source_documents WHERE music_id=682;
 
 INSERT OR IGNORE INTO song_lyrics_translation_edition_state
 	(document_id,default_edition_key,revision,updated_at,updated_by)
-SELECT document_id,'main',9,1724544000,'system'
+SELECT document_id,'main',10,1724544000,'system'
 FROM song_lyrics_source_documents WHERE music_id=682;
 
 INSERT OR IGNORE INTO song_lyrics_translation_edition_localizations
@@ -192,7 +192,11 @@ WHERE rendition_key = 'sekai'
   AND position = 9
   AND document_id IN (SELECT document_id FROM song_lyrics_source_documents WHERE music_id = 682);
 
+UPDATE song_lyrics_rendition_localizations
+SET revision = 10, updated_at = 1724544000
+WHERE document_id IN (SELECT document_id FROM song_lyrics_source_documents WHERE music_id = 682);
+
 UPDATE song_lyrics_translation_edition_state
-SET revision = revision + 1, updated_at = 1724544000
+SET revision = 10, updated_at = 1724544000
 WHERE document_id IN (SELECT document_id FROM song_lyrics_source_documents WHERE music_id = 682);
 `

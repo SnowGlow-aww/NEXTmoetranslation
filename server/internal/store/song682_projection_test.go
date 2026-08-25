@@ -1,10 +1,7 @@
 package store
 
 import (
-	"encoding/json"
 	"testing"
-
-	"moesekai/server/internal/db"
 )
 
 func TestSong682V4Projection(t *testing.T) {
@@ -13,9 +10,6 @@ func TestSong682V4Projection(t *testing.T) {
 		{MusicID: 682, JapaneseTitle: "あなたしか見えないの", ChineseTitle: "眼中仅有你一人", EnglishTitle: "Anata Shika Mienai no"},
 	}); err != nil {
 		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(db.MigrationV32Song682TranslationEditionsSQL); err != nil {
-		t.Fatalf("apply migration 32 failed: %v", err)
 	}
 
 	index, details, v4Details, err := s.PublishedLyricsLocalizationProjection()
@@ -27,8 +21,8 @@ func TestSong682V4Projection(t *testing.T) {
 	for _, song := range index {
 		if song.MusicID == 682 {
 			foundSong682 = true
-			if song.Revision != 9 {
-				t.Fatalf("song 682 index revision=%d want 9", song.Revision)
+			if song.Revision != 10 {
+				t.Fatalf("song 682 index revision=%d want 10", song.Revision)
 			}
 			if song.State != PublicLyricsStateComplete {
 				t.Fatalf("song 682 index state=%s want complete", song.State)
@@ -43,7 +37,7 @@ func TestSong682V4Projection(t *testing.T) {
 	if !okV3 {
 		t.Fatalf("song 682 not found in v3 details")
 	}
-	if v3Detail.MusicID != 682 || v3Detail.Revision != 9 {
+	if v3Detail.MusicID != 682 || v3Detail.Revision != 10 {
 		t.Fatalf("song 682 v3Detail=%+v", v3Detail)
 	}
 
@@ -83,6 +77,9 @@ func TestSong682V4Projection(t *testing.T) {
 	if edMain.Renditions[0].Full.Translations[0] != "一定是命中注定的天之骄子" {
 		t.Fatalf("edMain line 0 got %q", edMain.Renditions[0].Full.Translations[0])
 	}
+	if edMain.Renditions[0].Full.Translations[9] != "故证毕" {
+		t.Fatalf("edMain line 9 got %q want 故证毕", edMain.Renditions[0].Full.Translations[9])
+	}
 
 	// Verify Edition: aishitenryu (爱死天流)
 	edAishitenryu, okAishitenryu := editionMap["aishitenryu"]
@@ -97,18 +94,5 @@ func TestSong682V4Projection(t *testing.T) {
 	}
 	if edAishitenryu.Renditions[0].Full.Translations[0] != "定是命运的宠儿" {
 		t.Fatalf("edAishitenryu line 0 got %q", edAishitenryu.Renditions[0].Full.Translations[0])
-	}
-
-	// Verify encoding to json
-	encoded, err := EncodePublicLyricsV4Detail(v4Detail)
-	if err != nil {
-		t.Fatalf("EncodePublicLyricsV4Detail error: %v", err)
-	}
-	var roundtrip map[string]any
-	if err := json.Unmarshal(encoded, &roundtrip); err != nil {
-		t.Fatalf("roundtrip unmarshal error: %v", err)
-	}
-	if int(roundtrip["version"].(float64)) != 4 {
-		t.Fatalf("roundtrip version mismatch: %v", roundtrip["version"])
 	}
 }

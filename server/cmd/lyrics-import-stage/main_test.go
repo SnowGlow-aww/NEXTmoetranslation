@@ -71,6 +71,10 @@ func writeCommandFixture(t *testing.T) commandFixture {
 		t.Fatal(err)
 	}
 	s := store.New(database)
+	if _, err := database.Exec(`DELETE FROM catalog_music WHERE music_id=682; DELETE FROM song_lyrics_source_documents WHERE music_id=682;`); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
 	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 21, JapaneseName: "初音ミク", EnglishName: "Miku"}}); err != nil {
 		database.Close()
 		t.Fatal(err)
