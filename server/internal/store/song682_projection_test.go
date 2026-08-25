@@ -19,8 +19,8 @@ func TestSong682V4Projection(t *testing.T) {
 	if _, err := s.db.Exec(db.MigrationV33Song682TranslationQEDCorrectionSQL); err != nil {
 		t.Fatalf("apply migration 33 failed: %v", err)
 	}
-	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET revision=10 WHERE document_id=(SELECT document_id FROM song_lyrics_source_documents WHERE music_id=682)`); err != nil {
-		t.Fatal(err)
+	if _, err := s.db.Exec(db.MigrationV34Song682TranslationMirrorSyncSQL); err != nil {
+		t.Fatalf("apply migration 34 failed: %v", err)
 	}
 
 	index, details, v4Details, err := s.PublishedLyricsLocalizationProjection()
