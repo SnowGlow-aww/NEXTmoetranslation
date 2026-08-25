@@ -65,8 +65,10 @@ func (d *DB) ensureRuntimeInvariants(ctx context.Context) error {
 			SET producer_metadata = COALESCE(NULLIF(producer_metadata, ''), 'Guiano'),
 			    lyricist = COALESCE(NULLIF(lyricist, ''), 'Guiano'),
 			    composer = COALESCE(NULLIF(composer, ''), 'Guiano'),
-			    lyrics_evidence_presence_json = COALESCE(NULLIF(lyrics_evidence_presence_json, ''), '{"title":true,"lyricist":true,"composer":true,"arranger":false,"lyricsVersion":false,"vocals":true}'),
-			    vocal_signals_json = COALESCE(NULLIF(vocal_signals_json, ''), '[{"kind":"sekai","performers":["花里みのり","桐谷遥","桃井愛莉","日野森雫","巡音ルカ"]}]')
+			    lyrics_evidence_presence_json = '{"lyricist":true,"composer":true,"arranger":false,"assetbundle":false,"versionHint":false,"lyricsVersion":false,"vocals":false}',
+			    vocal_signals_json = '[]',
+			    lyrics_catalog_fingerprint = '7b45b4b8ddd9cdd710d09a1a8425fb5bd75d9766f3f9a0dca9a0a923825c9b08',
+			    lyrics_catalog_policy_version = 'catalog-identity-v2'
 			WHERE music_id = 682`,
 	}
 	for _, statement := range statements {

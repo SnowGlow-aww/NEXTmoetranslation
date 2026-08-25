@@ -21,45 +21,50 @@ func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV33Contiguously(t *tes
 		mutate    func(*testing.T, *sql.Tx)
 		wantError bool
 	}{
-		{name: "current v33"},
+		{name: "current v34"},
+		{name: "v33 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=34`); err != nil {
+				t.Fatal(err)
+			}
+		}},
 		{name: "v32 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=33`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (33,34)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{name: "v31 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (32,33)`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (32,33,34)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{name: "v30 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (31,32,33)`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (31,32,33,34)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{name: "v29 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (30,31,32,33)`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (30,31,32,33,34)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{name: "v28 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (29,30,31,32,33)`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (29,30,31,32,33,34)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{name: "v27 input runtime", mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (28,29,30,31,32,33)`); err != nil {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version IN (28,29,30,31,32,33,34)`); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{name: "gap before v33", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
-			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=32`); err != nil {
+		{name: "gap before v34", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
+			if _, err := tx.Exec(`DELETE FROM schema_migrations WHERE version=33`); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{name: "unreviewed v34", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
+		{name: "unreviewed v35", wantError: true, mutate: func(t *testing.T, tx *sql.Tx) {
 			if _, err := tx.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
-				VALUES (34,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+				VALUES (35,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -78,7 +83,7 @@ func TestLyricsImportRuntimeSchemasAllowReviewedV27ThroughV33Contiguously(t *tes
 				}
 				err = validate(context.Background(), tx)
 				if test.wantError {
-					if err == nil || !strings.Contains(err.Error(), "contiguous schema-v27 through schema-v33 runtime") {
+					if err == nil || !strings.Contains(err.Error(), "contiguous schema-v27 through schema-v34 runtime") {
 						t.Fatalf("runtime schema gate error=%v", err)
 					}
 					return

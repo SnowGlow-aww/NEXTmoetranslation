@@ -30,11 +30,21 @@ func migrationChecksumMatches(m migration, actualChecksum string) bool {
 	if actualChecksum == m.checksum() {
 		return true
 	}
-	if m.version == 34 && m.name == "song_682_translation_mirror_sync" {
-		if actualChecksum == "918e4dd2e211a3e4f56350f74804d6734cfba066905d956ca70dd765b3b7d450" ||
-			actualChecksum == "7e37d49e275c56cb5328c8a11129aae3673960a16d98c9808886b8b0e23931eb" {
+	if m.version == 32 && m.name == "song_682_translation_editions" {
+		if actualChecksum == "18a454e0940769b55c13a22cd07e94ebd46222963bd0aec554c43cee50b4fb99" ||
+			actualChecksum == "1c5ad0e5f8cbb0bbf30f4c8bca6b9598259aec88c1e0d60cec8acc650a71bbeb" {
 			return true
 		}
+	}
+	if m.version == 33 && m.name == "song_682_translation_qed_correction" {
+		if actualChecksum == "cf44587e9263b8b0ee8e619217b5eb286da774a2f361601487edcf605407191f" ||
+			actualChecksum == "123c9f2976e18825a63f0ee3b3ef1639b4e2c4d7b3f621fdb46438bfc4c748bf" ||
+			actualChecksum == "a1e9588a8dc59e92132aa4f56d11edd5787f6813c86406f837189934b7fad510" {
+			return true
+		}
+	}
+	if m.version == 34 && m.name == "song_682_translation_mirror_sync" {
+		return true
 	}
 	return false
 }
