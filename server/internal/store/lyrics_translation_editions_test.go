@@ -23,7 +23,7 @@ func TestLyricsTranslationEditionsLazyMaterializationCASSaveAndDefaultMirror(t *
 		t.Fatalf("virtual main selector=%+v", initial)
 	}
 	var stateRows int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_translation_edition_state`).Scan(&stateRows); err != nil || stateRows != 0 {
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_translation_edition_state WHERE document_id=(SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10)`).Scan(&stateRows); err != nil || stateRows != 0 {
 		t.Fatalf("GET eagerly materialized v30 state=%d err=%v", stateRows, err)
 	}
 
@@ -38,7 +38,7 @@ func TestLyricsTranslationEditionsLazyMaterializationCASSaveAndDefaultMirror(t *
 		t.Fatalf("created edition=%+v", created)
 	}
 	assertLyricsEditionDocumentTranslations(t, created, "")
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_translation_edition_state`).Scan(&stateRows); err != nil || stateRows != 1 {
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_translation_edition_state WHERE document_id=(SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10)`).Scan(&stateRows); err != nil || stateRows != 1 {
 		t.Fatalf("metadata mutation state rows=%d err=%v", stateRows, err)
 	}
 
@@ -94,7 +94,7 @@ func TestLyricsTranslationEditionsLazyMaterializationCASSaveAndDefaultMirror(t *
 	}
 	var mirrored string
 	if err := s.db.QueryRow(`SELECT text FROM song_lyrics_rendition_translation_lines
-		WHERE rendition_key=? AND position=0`, setDefault.Renditions[0].Key).Scan(&mirrored); err != nil {
+		WHERE document_id=(SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10) AND rendition_key=? AND position=0`, setDefault.Renditions[0].Key).Scan(&mirrored); err != nil {
 		t.Fatal(err)
 	}
 	if mirrored != "alternate-full" {
@@ -221,7 +221,7 @@ func TestLyricsTranslationEditionBackupRoundTripAndLegacyRestoreClearsV30(t *tes
 		t.Fatalf("legacy restore retained v30 editions=%+v", legacyRestored.TranslationEditions)
 	}
 	var states int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_translation_edition_state`).Scan(&states); err != nil || states != 0 {
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM song_lyrics_translation_edition_state WHERE document_id=(SELECT document_id FROM song_lyrics_source_documents WHERE music_id=10)`).Scan(&states); err != nil || states != 0 {
 		t.Fatalf("legacy restore v30 state rows=%d err=%v", states, err)
 	}
 }

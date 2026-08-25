@@ -143,8 +143,16 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 0 || len(details) != 0 || len(v4Details) != 0 {
-		t.Fatalf("revision-1 localizations projected: index=%+v details=%d v4=%d", index, len(details), len(v4Details))
+	for _, item := range index {
+		if item.MusicID == 10 {
+			t.Fatalf("revision-1 localization 10 projected in index: %+v", item)
+		}
+	}
+	if _, ok := details[10]; ok {
+		t.Fatalf("revision-1 localization 10 projected in details")
+	}
+	if _, ok := v4Details[10]; ok {
+		t.Fatalf("revision-1 localization 10 projected in v4Details")
 	}
 
 	// An edited localization (revision > 1) with a credit is projected as a
@@ -154,10 +162,18 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 1 || len(details) != 1 || len(v4Details) != 0 {
-		t.Fatalf("edited localization projection index=%+v details=%d v4=%d", index, len(details), len(v4Details))
+	var entry PublicLyricsIndexSong
+	var found10 bool
+	for _, item := range index {
+		if item.MusicID == 10 {
+			entry = item
+			found10 = true
+			break
+		}
 	}
-	entry := index[0]
+	if !found10 || details[10].MusicID != 10 {
+		t.Fatalf("edited localization 10 projection missing: index=%+v details=%+v", index, details[10])
+	}
 	if entry.MusicID != 10 || entry.Revision != 2 || entry.State != PublicLyricsStateComplete ||
 		len(entry.AvailableVersions) != 2 || entry.AvailableVersions[0] != "full" || entry.AvailableVersions[1] != "game" {
 		t.Fatalf("projected index entry=%+v", entry)
@@ -193,12 +209,9 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 1 || len(details) != 1 || len(v4Details) != 1 {
-		t.Fatalf("multi-edition localization projection index=%+v details=%d v4=%d", index, len(details), len(v4Details))
-	}
-	v4Doc := v4Details[10]
-	if v4Doc.Version != 4 || len(v4Doc.TranslationEditions) != 2 {
-		t.Fatalf("projected v4 detail=%+v", v4Doc)
+	v4Doc, hasV4Doc := v4Details[10]
+	if !hasV4Doc || v4Doc.Version != 4 || len(v4Doc.TranslationEditions) != 2 {
+		t.Fatalf("projected v4 detail=%+v (has=%v)", v4Doc, hasV4Doc)
 	}
 
 	// Without a credit the edited document stays bundle-served. Clearing
@@ -211,7 +224,15 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 0 || len(details) != 0 || len(v4Details) != 0 {
-		t.Fatalf("creditless localization projected: index=%+v", index)
+	for _, item := range index {
+		if item.MusicID == 10 {
+			t.Fatalf("creditless localization 10 projected: index=%+v", item)
+		}
+	}
+	if _, ok := details[10]; ok {
+		t.Fatalf("creditless localization 10 projected in details")
+	}
+	if _, ok := v4Details[10]; ok {
+		t.Fatalf("creditless localization 10 projected in v4Details")
 	}
 }

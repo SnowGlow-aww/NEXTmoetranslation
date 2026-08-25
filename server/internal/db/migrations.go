@@ -3231,6 +3231,10 @@ CREATE TABLE lyrics_collab_checkpoints (
 CREATE INDEX idx_lyrics_collab_checkpoints_music
 ON lyrics_collab_checkpoints(music_id,checkpoint_id);
 `,
+}, {
+	version: 32,
+	name:    "song_682_translation_editions",
+	sql:     migrationV32Song682TranslationEditionsSQL,
 }}
 
 func validateLyricsDiscoveryIntegerTypes(tx *sql.Tx) error {
