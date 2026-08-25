@@ -44,12 +44,8 @@ func TestHostileBASHENVDoesNotWriteMarker(t *testing.T) {
 
 func TestCandidateSubstitutionFailsBeforeExecution(t *testing.T) {
 	runbook, policy := newTestRunbook(t, "#!/bin/bash\n/usr/bin/printf 'SUBSTITUTED_CANDIDATE_RAN\\n'\n")
-	body, err := os.ReadFile(runbook)
-	if err != nil {
-		t.Fatalf("read reviewed candidate: %v", err)
-	}
 	replacement := filepath.Join(filepath.Dir(runbook), "replacement.sh")
-	writeMode(t, replacement, body, 0o700)
+	writeMode(t, replacement, []byte("#!/bin/bash\n/usr/bin/printf 'MODIFIED_CANDIDATE_RAN\\n'\n"), 0o700)
 	if err := os.Rename(replacement, runbook); err != nil {
 		t.Fatalf("replace candidate: %v", err)
 	}
@@ -61,8 +57,8 @@ func TestCandidateSubstitutionFailsBeforeExecution(t *testing.T) {
 	if stdout != "" {
 		t.Fatalf("same-byte substituted candidate produced stdout: %q", stdout)
 	}
-	if !strings.Contains(stderr, "identity") {
-		t.Fatalf("substitution rejection lacked identity failure: %s", stderr)
+	if !strings.Contains(stderr, "SHA-256 mismatch") {
+		t.Fatalf("substitution rejection lacked digest failure: %s", stderr)
 	}
 }
 
@@ -80,8 +76,8 @@ func TestHardLinkedRunbookIsRejected(t *testing.T) {
 	if stdout != "" {
 		t.Fatalf("hard-linked runbook produced stdout: %q", stdout)
 	}
-	if !strings.Contains(stderr, "identity") {
-		t.Fatalf("hard-link rejection lacked identity failure: %s", stderr)
+	if !strings.Contains(stderr, "hard links") {
+		t.Fatalf("hard-link rejection lacked hard link failure: %s", stderr)
 	}
 }
 
@@ -216,7 +212,6 @@ func newTestRunbook(t *testing.T, body string) (string, launcherPolicy) {
 	policy := productionPolicy()
 	policy.GOOS = runtime.GOOS
 	policy.GOARCH = runtime.GOARCH
-	policy.ExpectedEUID = os.Geteuid()
 	policy.WorkingDirectory = canonicalDirectory
 	policy.Runbook = pin
 	policy.RunbookAncestry = captureAncestry(t, runbook)

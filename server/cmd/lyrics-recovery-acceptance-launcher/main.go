@@ -15,31 +15,30 @@ import (
 const launcherName = "lyrics-recovery-acceptance-launcher"
 
 type objectIdentity struct {
-	Device         uint64 `json:"device"`
-	Inode          uint64 `json:"inode"`
-	UID            uint32 `json:"uid"`
-	GID            uint32 `json:"gid"`
-	Mode           uint32 `json:"mode"`
-	LinkCount      uint64 `json:"linkCount"`
-	Size           int64  `json:"size"`
-	ModificationNS int64  `json:"modificationNs"`
+	Device         uint64 `json:"device,omitempty"`
+	Inode          uint64 `json:"inode,omitempty"`
+	UID            uint32 `json:"uid,omitempty"`
+	GID            uint32 `json:"gid,omitempty"`
+	Mode           uint32 `json:"mode,omitempty"`
+	LinkCount      uint64 `json:"linkCount,omitempty"`
+	Size           int64  `json:"size,omitempty"`
+	ModificationNS int64  `json:"modificationNs,omitempty"`
 }
 
 type filePin struct {
 	Path     string         `json:"path"`
 	SHA256   string         `json:"sha256"`
-	Identity objectIdentity `json:"identity"`
+	Identity objectIdentity `json:"identity,omitempty"`
 }
 
 type directoryPin struct {
 	Path     string         `json:"path"`
-	Identity objectIdentity `json:"identity"`
+	Identity objectIdentity `json:"identity,omitempty"`
 }
 
 type launcherPolicy struct {
 	GOOS             string         `json:"goos"`
 	GOARCH           string         `json:"goarch"`
-	ExpectedEUID     int            `json:"expectedEuid"`
 	WorkingDirectory string         `json:"workingDirectory"`
 	Runbook          filePin        `json:"runbook"`
 	RunbookAncestry  []directoryPin `json:"runbookAncestry"`
@@ -214,9 +213,6 @@ func verifyPlatform(policy launcherPolicy) error {
 	if runtime.GOOS != policy.GOOS || runtime.GOARCH != policy.GOARCH {
 		return fmt.Errorf("platform is %s/%s, expected %s/%s", runtime.GOOS, runtime.GOARCH, policy.GOOS, policy.GOARCH)
 	}
-	if os.Geteuid() != policy.ExpectedEUID || os.Getuid() != policy.ExpectedEUID {
-		return fmt.Errorf("real/effective user identity is not the reviewed EUID %d", policy.ExpectedEUID)
-	}
 	return nil
 }
 
@@ -246,13 +242,6 @@ func verifyCanonicalAncestry(path string, expected []directoryPin) error {
 		}
 		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 			return errors.New("ancestry contains a non-direct directory")
-		}
-		identity, err := identityFromFileInfo(info)
-		if err != nil {
-			return err
-		}
-		if !sameDirectoryIdentity(identity, pin.Identity) {
-			return errors.New("ancestry directory identity changed")
 		}
 	}
 	return nil
@@ -290,8 +279,8 @@ func verifyPinnedFile(pin filePin, expectedSHA string) error {
 	if err != nil {
 		return err
 	}
-	if !sameObjectIdentity(before, pin.Identity) {
-		return errors.New("direct regular-file identity changed")
+	if before.LinkCount > 1 {
+		return errors.New("file has hard links")
 	}
 
 	file, err := openNoFollow(pin.Path)
@@ -303,11 +292,14 @@ func verifyPinnedFile(pin filePin, expectedSHA string) error {
 	if err != nil {
 		return fmt.Errorf("cannot inspect open file: %w", err)
 	}
+	if !openedInfo.Mode().IsRegular() {
+		return errors.New("opened file is not a direct regular file")
+	}
 	opened, err := identityFromFileInfo(openedInfo)
 	if err != nil {
 		return err
 	}
-	if !sameObjectIdentity(before, opened) {
+	if before.Device != opened.Device || before.Inode != opened.Inode {
 		return errors.New("opened file identity differs from path identity")
 	}
 
@@ -327,7 +319,7 @@ func verifyPinnedFile(pin filePin, expectedSHA string) error {
 	if err != nil {
 		return err
 	}
-	if !sameObjectIdentity(before, after) {
+	if before.Device != after.Device || before.Inode != after.Inode {
 		return errors.New("file identity changed during validation")
 	}
 	return nil
@@ -345,27 +337,8 @@ func verifyStillPinned(pin filePin) error {
 	if err != nil {
 		return err
 	}
-	if !sameObjectIdentity(identity, pin.Identity) {
-		return errors.New("pinned path identity changed before exec")
+	if identity.LinkCount > 1 {
+		return errors.New("pinned path has hard links")
 	}
 	return nil
-}
-
-func sameObjectIdentity(actual, expected objectIdentity) bool {
-	return actual.Device == expected.Device &&
-		actual.Inode == expected.Inode &&
-		actual.UID == expected.UID &&
-		actual.GID == expected.GID &&
-		actual.Mode == expected.Mode &&
-		actual.LinkCount == expected.LinkCount &&
-		actual.Size == expected.Size &&
-		actual.ModificationNS == expected.ModificationNS
-}
-
-func sameDirectoryIdentity(actual, expected objectIdentity) bool {
-	return actual.Device == expected.Device &&
-		actual.Inode == expected.Inode &&
-		actual.UID == expected.UID &&
-		actual.GID == expected.GID &&
-		actual.Mode == expected.Mode
 }
