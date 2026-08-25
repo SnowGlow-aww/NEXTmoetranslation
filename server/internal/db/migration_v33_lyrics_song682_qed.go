@@ -17,3 +17,6 @@ UPDATE song_lyrics_translation_edition_state
 SET revision = revision + 1, updated_at = 1724544000
 WHERE document_id IN (SELECT document_id FROM song_lyrics_source_documents WHERE music_id = 682);
 `
+
+const MigrationV33Song682TranslationQEDCorrectionSQL = migrationV33Song682TranslationQEDCorrectionSQL
+

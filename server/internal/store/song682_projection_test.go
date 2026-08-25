@@ -2,6 +2,8 @@ package store
 
 import (
 	"testing"
+
+	"moesekai/server/internal/db"
 )
 
 func TestSong682V4Projection(t *testing.T) {
@@ -9,6 +11,15 @@ func TestSong682V4Projection(t *testing.T) {
 	if err := s.UpsertMusicCatalog([]MusicCatalogRecord{
 		{MusicID: 682, JapaneseTitle: "あなたしか見えないの", ChineseTitle: "眼中仅有你一人", EnglishTitle: "Anata Shika Mienai no"},
 	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(db.MigrationV32Song682TranslationEditionsSQL); err != nil {
+		t.Fatalf("apply migration 32 failed: %v", err)
+	}
+	if _, err := s.db.Exec(db.MigrationV33Song682TranslationQEDCorrectionSQL); err != nil {
+		t.Fatalf("apply migration 33 failed: %v", err)
+	}
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET revision=10 WHERE document_id=(SELECT document_id FROM song_lyrics_source_documents WHERE music_id=682)`); err != nil {
 		t.Fatal(err)
 	}
 
