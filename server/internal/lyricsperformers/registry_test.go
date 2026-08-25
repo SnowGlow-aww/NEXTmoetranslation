@@ -7,8 +7,8 @@ import (
 
 func TestAuditedExternalRegistryIsStableAndClosed(t *testing.T) {
 	all := All()
-	if len(all) != 17 {
-		t.Fatalf("audited external performer count=%d, want 17", len(all))
+	if len(all) != 19 {
+		t.Fatalf("audited external performer count=%d, want 19", len(all))
 	}
 	colorPattern := regexp.MustCompile(`^#[0-9A-F]{6}$`)
 	seenNumeric := map[int]bool{}
