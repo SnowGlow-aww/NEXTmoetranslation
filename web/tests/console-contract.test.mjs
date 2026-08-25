@@ -14,14 +14,16 @@ test("the full-screen app layout keeps the lyrics workspace stretched with indep
 });
 
 test("translation console exposes deterministic sort modes and activity-name filtering", async () => {
-  const [consoleSource, api, model] = await Promise.all([
-    read("src/components/Console.tsx"), read("src/lib/api.ts"), read("../server/internal/model/model.go"),
+  const [consoleSource, toolbar, api, model] = await Promise.all([
+    read("src/components/Console.tsx"), read("src/components/console/ConsoleToolbar.tsx"),
+    read("src/lib/api.ts"), read("../server/internal/model/model.go"),
   ]);
-  assert.match(consoleSource, /sortMode.*kana.*id-desc.*time-desc/);
-  assert.match(consoleSource, /option value="kana">五十音/);
-  assert.match(consoleSource, /option value="id-desc">编号倒序/);
-  assert.match(consoleSource, /option value="time-desc">更新时间倒序/);
-  assert.match(consoleSource, /按活动名称筛选/);
+  const combined = `${consoleSource}\n${toolbar}`;
+  assert.match(combined, /sortMode.*kana.*id-desc.*time-desc/);
+  assert.match(combined, /option value="kana">五十音/);
+  assert.match(combined, /option value="id-desc">编号倒序/);
+  assert.match(combined, /option value="time-desc">更新时间倒序/);
+  assert.match(combined, /按活动名称筛选/);
   assert.match(consoleSource, /story\.eventName|story\.eventNameJapanese/);
   assert.match(consoleSource, /eventStories\.filter\(\(story\) => !story\.allOfficialTagged\)/);
   assert.match(consoleSource, /filteredEventStories\.map\(\(s\) =>/);
@@ -31,7 +33,7 @@ test("translation console exposes deterministic sort modes and activity-name fil
   assert.match(consoleSource, /timer = setTimeout\(refresh, delay\)/);
   assert.match(consoleSource, /categoryEventAssociations/);
   assert.match(consoleSource, /relatedEventEntityIDs/);
-  assert.match(consoleSource, /aria-label="按活动名称筛选当前分类"/);
+  assert.match(combined, /aria-label="按活动名称筛选当前分类"/);
   assert.match(consoleSource, /aria-expanded=\{eventStoriesExpanded\}/);
   assert.match(consoleSource, /ui\.eventStoriesExpanded/);
   assert.match(api, /eventName\?: string/);
@@ -326,15 +328,19 @@ test("auth initialization preserves shared sessions on transient failures and ex
 });
 
 test("lyrics workspace covers catalog, verified source import, draft, and publication", async () => {
-  const [editor, lineEditor, api, sourceImport] = await Promise.all([
-    read("src/components/LyricsEditor.tsx"), read("src/components/lyrics/LyricsLineEditor.tsx"), read("src/lib/api.ts"),
+  const [editor, lineEditor, sidebar, metadata, projection, api, sourceImport] = await Promise.all([
+    read("src/components/LyricsEditor.tsx"), read("src/components/lyrics/LyricsLineEditor.tsx"),
+    read("src/components/lyrics/LyricsCatalogSidebar.tsx"), read("src/components/lyrics/LyricsMetadataCard.tsx"),
+    read("src/components/lyrics/LyricsProjectionStatusCard.tsx"),
+    read("src/lib/api.ts"),
     read("src/lib/lyrics-source-import.mjs"),
   ]);
+  const combinedEditor = `${editor}\n${sidebar}\n${metadata}\n${projection}`;
   for (const contract of [
     "getCatalogMusic", "保存草稿", "候选来源", "使用此版本", "载入服务器版本", "取消发布",
     "翻译", "校对", "translationCredit", "proofreadingCredit", "attribution",
   ]) {
-    assert.ok(editor.includes(contract), `missing lyrics console contract: ${contract}`);
+    assert.ok(combinedEditor.includes(contract), `missing lyrics console contract: ${contract}`);
   }
   assert.match(editor, /sourceUrl: preview\.canonicalUrl/);
   assert.match(api, /interface LyricsSourcePreview[\s\S]*importToken: string/);
@@ -402,7 +408,7 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.match(editor, /previousProjectionGeneration = status\.generation/);
   assert.match(editor, /void waitForProjection\(previousProjectionGeneration, nextPublished, musicID\)/);
   assert.match(editor, /数据库发布已提交，正在核对公共文件/);
-  assert.match(editor, /重新核对公共文件/);
+  assert.match(combinedEditor, /重新核对公共文件/);
   assert.match(editor, /分段与日文一致/);
   assert.match(editor, /分段文字未完整拼接为日文原文/);
   assert.match(editor, /发布准备/);
@@ -475,7 +481,11 @@ test("editor UI hides mutations while preserving read-only backup status", async
 });
 
 test("lyrics transitions guard dirty publication and ignore stale song loads", async () => {
-  const editor = await read("src/components/LyricsEditor.tsx");
+  const [editor, sidebar] = await Promise.all([
+    read("src/components/LyricsEditor.tsx"),
+    read("src/components/lyrics/LyricsCatalogSidebar.tsx"),
+  ]);
+  const combined = `${editor}\n${sidebar}`;
   assert.match(editor, /requestIsCurrent\(sequence, item\.musicId\)/);
   assert.match(editor, /kind: "publish"/);
   assert.match(editor, /continuePendingTransition\(true\)/);
@@ -488,7 +498,7 @@ test("lyrics transitions guard dirty publication and ignore stale song loads", a
   assert.match(editor, /publicationProblems/);
   assert.match(editor, /event\.key\.toLowerCase\(\) !== "s"/);
   assert.match(editor, /mergedPerformers = Array\.from\(new Set/);
-  assert.match(editor, /aria-current={selectedMusic\?\.musicId === item\.musicId/);
+  assert.match(combined, /aria-current={selectedMusic\?\.musicId === item\.musicId/);
   assert.match(editor, /lyrics-stanza-start/);
   assert.match(editor, /void loadCatalog\(query\)/);
   assert.match(editor, /void loadPerformers\(\)/);

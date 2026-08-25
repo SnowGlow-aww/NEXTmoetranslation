@@ -4,7 +4,11 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { useToast } from "@/app/providers";
 import { Modal } from "@/components/Modal";
 import { LyricsEditionMenu, type LyricsEditionCommand } from "@/components/LyricsEditionMenu";
+import { LyricsCatalogSidebar, runtimeLyricsStateLabel, runtimeLyricsVersionsLabel } from "@/components/lyrics/LyricsCatalogSidebar";
+import { LyricsCollaborationBanner } from "@/components/lyrics/LyricsCollaborationBanner";
 import { LyricsLineEditor } from "@/components/lyrics/LyricsLineEditor";
+import { LyricsMetadataCard } from "@/components/lyrics/LyricsMetadataCard";
+import { LyricsProjectionStatusCard } from "@/components/lyrics/LyricsProjectionStatusCard";
 import { LyricsVocalCard } from "@/components/lyrics/VocalPlayer";
 import { sameImportedLyricsFrozenIdentity } from "@/lib/lyrics-recovery.mjs";
 import { buildLyricsLinesFromSourcePreview } from "@/lib/lyrics-source-import.mjs";
@@ -25,7 +29,7 @@ import {
 import {
   APIError, CatalogMusicItem, CatalogPerformerItem, LyricLine, LyricRubySpan, LyricsEditorLine, LyricsEditorSegment,
   LyricsPerformerID, LyricsRendition, LyricsRenditionPerformer, LyricsRenditionSide, LyricsSourceCandidate,
-  LyricsSourcePreview, ProjectionStatus, RenditionLyricsDocument, SongLyrics, SongProvenance, SongLyricsDocument,
+  LyricsSourcePreview, ProjectionStatus, RenditionLyricsDocument, SongLyrics, SongLyricsDocument,
   checkpointLyrics, getCatalogMusic, getCatalogPerformers, getClientID, getUsername,
   getLyrics, getProjectionStatus, issueLyricsCollabTicket, mutateLyricsTranslationEdition, previewLyricsSource, publishLyrics, saveLyrics,
   searchLyricsSource, subscribeSessionChanged, unpublishLyrics,
@@ -36,47 +40,12 @@ import {
   type LyricsCollaborationStatus,
 } from "@/lib/yjs-lyrics";
 
-function databaseLyricsStatusLabel(item: CatalogMusicItem): string {
-  if (item.lyricsStatus === "published") return "已发布";
-  if (item.lyricsStatus === "draft-published") return "草稿（旧版公开）";
-  if (item.lyricsStatus === "draft") return "草稿";
-  if (item.lyricsAvailabilityState === "satisfied_no_lyrics") return "无需歌词（已记录）";
-  if (item.lyricsAvailabilityState === "incomplete") return "来源未完成（已记录）";
-  if (item.lyricsAvailabilityState === "ambiguous") return "来源有歧义（已记录）";
-  if (item.lyricsAvailabilityState === "missing") return "来源缺失（已记录）";
-  if (item.lyricsAvailabilityState === "failed") return "来源失败（已记录）";
-  return "未录入";
-}
-
-function songProvenanceLabel(provenance: SongProvenance): string {
-  const sourceNames: Record<string, string> = {
-    bundle: "内置发布包",
-    db_publication: "数据库发布",
-    localization_projection: "本地化编辑投影",
-    generated: "动态生成",
-  };
-  const src = sourceNames[provenance.source] || provenance.source;
-  return `当前公开来源：${src} · Revision ${provenance.revision}`;
-}
-
 function databaseAvailabilityDescription(state: NonNullable<CatalogMusicItem["lyricsAvailabilityState"]>): string {
   if (state === "satisfied_no_lyrics") return "目录已审核为无需歌词，因此没有可编辑正文。";
   if (state === "incomplete") return "来源结果尚未形成可编辑正文，系统保持 fail-closed。";
   if (state === "ambiguous") return "来源仍有歧义，系统不会自动选择正文。";
   if (state === "missing") return "尚未找到可验证来源，系统不会生成空白正文冒充导入结果。";
   return "来源处理失败，系统保留数据库状态但不生成可编辑正文。";
-}
-
-function runtimeLyricsStateLabel(state: string): string {
-  if (state === "complete") return "完整公开";
-  if (state === "game_only") return "仅 Game 公开";
-  if (state === "satisfied_no_lyrics") return "无需歌词";
-  if (state === "incomplete") return "未完成";
-  return state;
-}
-
-function runtimeLyricsVersionsLabel(versions: string[]): string {
-  return versions.length > 0 ? versions.map((version) => version === "full" ? "Full" : version === "game" ? "Game" : version).join("/") : "无 detail";
 }
 
 function isLegacyLyricsDocument(document: SongLyricsDocument | null | undefined): document is SongLyrics {
@@ -1698,24 +1667,17 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
 
   return (
     <div className="lyrics-workspace">
-      <aside className="lyrics-catalog">
-        <input aria-label="搜索歌词曲目" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索曲目或 musicId…" disabled={busy} />
-        <div className="lyrics-catalog-list" aria-busy={catalogLoading}>
-          {catalogLoading && catalog.length === 0 ? (
-            <div className="lyrics-inline-state" role="status"><div className="spinner" />正在加载曲目目录…</div>
-          ) : catalogError && catalog.length === 0 ? (
-            <div className="lyrics-inline-state" role="alert"><span>曲目目录加载失败</span><button className="btn btn-secondary btn-sm" onClick={() => void loadCatalog(query)}>重试</button></div>
-          ) : catalog.length === 0 ? (
-            <div className="lyrics-inline-state"><span>{query.trim() ? "没有匹配的曲目" : "暂无可编辑曲目"}</span></div>
-          ) : catalog.map((item) => (
-            <button key={item.musicId} className={selectedMusic?.musicId === item.musicId ? "active" : ""} aria-current={selectedMusic?.musicId === item.musicId ? "page" : undefined} onClick={() => chooseMusic(item)} disabled={busy}>
-              <strong>{item.title["zh-CN"] || item.title["ja-JP"]}</strong>
-              <span>#{item.musicId} · 数据库：{databaseLyricsStatusLabel(item)}</span>
-              {item.runtimeLyrics?.immutableOverlay && <span>公开镜像：{runtimeLyricsStateLabel(item.runtimeLyrics.state)} · {runtimeLyricsVersionsLabel(item.runtimeLyrics.availableVersions)}</span>}
-            </button>
-          ))}
-        </div>
-      </aside>
+      <LyricsCatalogSidebar
+        query={query}
+        onQueryChange={setQuery}
+        catalog={catalog}
+        catalogLoading={catalogLoading}
+        catalogError={catalogError}
+        selectedMusic={selectedMusic}
+        busy={busy}
+        onChooseMusic={chooseMusic}
+        onRetryCatalog={() => void loadCatalog(query)}
+      />
 
       <section className="lyrics-editor">
         {!selectedMusic ? <div className="center-state"><p>从目录选择一首曲目</p></div> : loading ? (
@@ -1766,32 +1728,16 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
               </div>
             </div>
 
-            <div className={`lyrics-collaboration-state ${collaborationStructuralConflict ? "structural-conflict" : collaborationStatus}`} role={collaborationStructuralConflict || collaborationStatus === "error" ? "alert" : "status"} aria-live="polite">
-              <div>
-                <strong>{collaborationStructuralConflict
-                  ? "协作文档发生结构冲突，已切换为只读"
-                  : localSourceImportDraft
-                  ? "固定来源草稿尚未共享"
-                  : collaborationStatus === "synced" ? "协作同步已就绪"
-                  : collaborationStatus === "reconnecting" ? "协作连接正在恢复"
-                  : collaborationStatus === "error" ? "协作连接不可用"
-                  : "正在载入协作文档"}</strong>
-                <span>{collaborationStructuralConflict
-                  ? "Yjs 已完成同步，但歌词的行、分段或注音结构无法安全物化。为避免覆盖协作者内容，编辑与保存已停用。"
-                  : localSourceImportDraft
-                  ? "首次受权保存成功后才会进入共享房间"
-                  : collaborationStatus === "synced" ? "正文由 Yjs 增量同步，保存会创建数据库 checkpoint"
-                  : "首轮远端同步完成前保持只读，避免空草稿覆盖权威内容"}</span>
-                {collaborationStructuralConflict
-                  ? <small>请重新加载当前歌词；若重新加载后仍出现此状态，请联系其他协作者停止编辑，并由管理员检查协作文档。</small>
-                  : collaborationError && <small>{collaborationError}</small>}
-              </div>
-              {!collaborationStructuralConflict && !localSourceImportDraft && collaborationPeers.length > 0 && <ul aria-label="其他在线歌词编辑者">
-                {collaborationPeers.map((peer) => <li key={peer.clientId}><i aria-hidden="true" style={{ backgroundColor: peer.color }} />{peer.username}</li>)}
-              </ul>}
-              {collaborationStructuralConflict && <button type="button" className="btn btn-secondary btn-sm" onClick={() => void performChooseMusic(selectedMusic)} disabled={busy}>重新加载歌词</button>}
-              {!collaborationStructuralConflict && !localSourceImportDraft && collaborationStatus === "error" && <button type="button" className="btn btn-secondary btn-sm" onClick={() => collaborationRef.current?.reconnectNow()}>重新连接</button>}
-            </div>
+            <LyricsCollaborationBanner
+              collaborationStructuralConflict={collaborationStructuralConflict}
+              localSourceImportDraft={localSourceImportDraft}
+              collaborationStatus={collaborationStatus}
+              collaborationError={collaborationError}
+              collaborationPeers={collaborationPeers}
+              busy={busy}
+              onReload={() => void performChooseMusic(selectedMusic)}
+              onReconnect={() => collaborationRef.current?.reconnectNow()}
+            />
 
             <LyricsVocalCard musicId={selectedMusic.musicId} />
 
@@ -1824,24 +1770,13 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
               </div>
             )}
 
-            {projectionState !== "idle" && (
-              <div className={`lyrics-projection-state ${projectionState}`} role={projectionState === "failed" ? "alert" : "status"} aria-live={projectionState === "failed" ? "assertive" : "polite"}>
-                <div>
-                  <strong>公共文件状态</strong>
-                  {projectionStatus && <span>generation {projectionStatus.generation}{projectionStatus.pending ? " · 生成中" : ""}</span>}
-                </div>
-                <p>{projectionMessage}</p>
-                {projectionStatus?.song && (
-                  <p className="lyrics-provenance-info">{songProvenanceLabel(projectionStatus.song)}</p>
-                )}
-                {projectionStatus?.lyricsSummary?.degraded && (
-                  <p className="lyrics-degraded-warning">
-                    ⚠️ 歌词公共文件处于降级服务状态{projectionStatus.lyricsSummary.degradedReason ? `（${projectionStatus.lyricsSummary.degradedReason}）` : ""}，当前由基础发布包供内容。
-                  </p>
-                )}
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => void refreshProjectionStatus()} disabled={busy || projectionState === "checking"}>重新核对公共文件</button>
-              </div>
-            )}
+            <LyricsProjectionStatusCard
+              projectionState={projectionState}
+              projectionStatus={projectionStatus}
+              projectionMessage={projectionMessage}
+              busy={busy}
+              onRefresh={() => void refreshProjectionStatus()}
+            />
 
             {error && (
               <div className="lyrics-error" role="alert">
@@ -1926,18 +1861,17 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
                   : "singular v2 Game 继续作为同一 Full 的只读行 ID 投影，不做有损 v2 coercion。"}</p>
             </div>
 
-            <div className="lyrics-metadata">
-              <label>翻译<input value={activeTranslationCredit} onChange={(event) => updateActiveCredits("translation", event.target.value)} placeholder="译者名称；将随公开歌词分发" maxLength={activeRendition ? 2048 : undefined} readOnly={writeLocked || (!activeRendition && activeVersion === "game")} /></label>
-              <label>校对<input value={activeProofreadingCredit} onChange={(event) => updateActiveCredits("proofreading", event.target.value)} placeholder="校对者名称；没有可留空" maxLength={activeRendition ? 2048 : undefined} readOnly={writeLocked || (!activeRendition && activeVersion === "game")} /></label>
-              {legacyLyrics ? <>
-                <label>内部来源备注<input value={legacyLyrics.sourceNote || ""} onChange={(event) => updateLyrics({ sourceNote: event.target.value })} readOnly={writeLocked || activeVersion === "game"} /></label>
-                <label>内部授权备注<input value={legacyLyrics.licenseNote || ""} onChange={(event) => updateLyrics({ licenseNote: event.target.value })} readOnly={writeLocked || activeVersion === "game"} /></label>
-                {legacyLyrics.sourceUrl && <a href={legacyLyrics.sourceUrl} target="_blank" rel="noopener noreferrer">已锁定来源修订 {legacyLyrics.sourceRevisionId}</a>}
-              </> : activeRendition && <>
-                <label>Stable key<input value={activeRendition.key} readOnly /></label>
-                <label>Projection relation<input value={projectionKind} readOnly /></label>
-              </>}
-            </div>
+            <LyricsMetadataCard
+              activeTranslationCredit={activeTranslationCredit}
+              activeProofreadingCredit={activeProofreadingCredit}
+              activeRendition={activeRendition}
+              legacyLyrics={legacyLyrics}
+              activeVersion={activeVersion}
+              projectionKind={projectionKind}
+              writeLocked={writeLocked}
+              updateActiveCredits={updateActiveCredits}
+              onUpdateLyrics={updateLyrics}
+            />
 
             <section className="lyrics-component-provenance" aria-labelledby="lyrics-component-provenance-title">
               <div><strong id="lyrics-component-provenance-title">组件 provenance</strong><span>仅认证编辑器显示固定证据；公开输出使用对应版本的严格 attribution contract</span></div>

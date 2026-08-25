@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useToast } from "@/app/providers";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AdminModal } from "@/components/AdminModal";
+import { ConsoleHeader } from "@/components/console/ConsoleHeader";
+import { ConsoleToolbar } from "@/components/console/ConsoleToolbar";
 import { LyricsEditor, LyricsEditorHandle } from "@/components/LyricsEditor";
 import { LyricsSourceReview, LyricsSourceReviewHandle } from "@/components/LyricsSourceReview";
 import { EventStoryTxtImport, type EventStoryTxtDraft } from "@/components/EventStoryTxtImport";
@@ -1885,24 +1887,16 @@ export function Console({ onLogout }: { onLogout: () => void }) {
           </div>
         ) : (
           <>
-            <div className="main-header">
-              <div>
-                <h2>{CATEGORY_LABELS[category] || category} / {isEventStory ? (currentStory?.eventName || currentStory?.eventNameJapanese || `Event #${field}`) : (FIELD_LABELS[field] || field)}</h2>
-                <div className="realtime-meta" role="status" aria-live="polite">
-                  <span className={`realtime-status ${realtimeState}`}>
-                    <span className="realtime-status-dot" aria-hidden="true" />
-                    {realtimeState === "connected" ? "实时已连接" : realtimeState === "reconnecting" ? "实时重连中" : realtimeState === "connecting" ? "正在连接实时服务" : "实时服务离线"}
-                  </span>
-                  <span className="online-users" title={onlineUsers.length ? onlineUsers.join("、") : "当前没有其他在线用户"}>
-                    在线 {onlineUsers.length} 人{onlineUsers.length > 0 && `：${onlineUsers.join("、")}`}
-                  </span>
-                </div>
-              </div>
-              <span className="count">
-                {selectedIndex >= 0 ? `${selectedIndex + 1} / ` : ""}{filtered.length} 条
-                {currentField && ` （共 ${currentField.total}）`}
-              </span>
-            </div>
+            <ConsoleHeader
+              category={category}
+              field={field}
+              currentStory={currentStory}
+              currentField={currentField}
+              realtimeState={realtimeState}
+              onlineUsers={onlineUsers}
+              selectedIndex={selectedIndex}
+              filteredCount={filtered.length}
+            />
 
             {/* Per-story toolbar with integrated Chapter Navigation */}
             {isEventStory && (
@@ -1956,28 +1950,17 @@ export function Console({ onLogout }: { onLogout: () => void }) {
               </div>
             )}
 
-            <div className="search-bar">
-              {relatedEventFilterAvailable && !isEventStory && (
-                <input
-                  className="related-event-filter"
-                  aria-label="按活动名称筛选当前分类"
-                  placeholder="按活动名称筛选…"
-                  value={relatedEventQuery}
-                  onChange={(event) => setRelatedEventQuery(event.target.value)}
-                />
-              )}
-              <input aria-label="搜索当前翻译" placeholder={`搜索日文或${locale === "en-US" ? "英文" : "中文"}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
-              {!isEventStory && (
-                <label className="sort-selector">
-                  <span>排序</span>
-                  <select aria-label="翻译条目排序" value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)}>
-                    <option value="kana">五十音</option>
-                    <option value="id-desc">编号倒序</option>
-                    <option value="time-desc">更新时间倒序</option>
-                  </select>
-                </label>
-              )}
-            </div>
+            <ConsoleToolbar
+              isEventStory={isEventStory}
+              locale={locale}
+              relatedEventFilterAvailable={relatedEventFilterAvailable}
+              relatedEventQuery={relatedEventQuery}
+              onRelatedEventQueryChange={setRelatedEventQuery}
+              query={query}
+              onQueryChange={setQuery}
+              sortMode={sortMode}
+              onSortModeChange={setSortMode}
+            />
 
             <div className="translation-workspace" ref={translationWorkspaceRef}>
               <section className="translation-editor-pane" aria-label="当前翻译编辑区">

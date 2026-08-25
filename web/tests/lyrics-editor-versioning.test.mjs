@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("LyricsEditor selects stable rendition families without merging equal text", async () => {
-  const editor = await readFile(new URL("../src/components/LyricsEditor.tsx", import.meta.url), "utf8");
+  const [editor, metadata] = await Promise.all([
+    readFile(new URL("../src/components/LyricsEditor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/lyrics/LyricsMetadataCard.tsx", import.meta.url), "utf8"),
+  ]);
+  const combined = `${editor}\n${metadata}`;
 
   assert.match(editor, /\[activeRenditionKey, setActiveRenditionKey\] = useState\(""\)/);
   assert.match(editor, /useState<"full" \| "game">\("full"\)/);
@@ -24,9 +28,9 @@ test("LyricsEditor selects stable rendition families without merging equal text"
   assert.match(editor, /projectionKind,/);
   assert.match(editor, /Full <span>\{activeRendition \? "仅简中可编辑" : "可编辑"\}<\/span>/);
   assert.match(editor, /writeLocked \|\| activeSideReadOnly/);
-  assert.match(editor, /value=\{activeTranslationCredit\}[\s\S]*updateActiveCredits\("translation"/);
-  assert.match(editor, /value=\{activeProofreadingCredit\}[\s\S]*updateActiveCredits\("proofreading"/);
-  assert.match(editor, /maxLength=\{activeRendition \? 2048 : undefined\}/);
+  assert.match(combined, /value=\{activeTranslationCredit\}[\s\S]*updateActiveCredits\("translation"/);
+  assert.match(combined, /value=\{activeProofreadingCredit\}[\s\S]*updateActiveCredits\("proofreading"/);
+  assert.match(combined, /maxLength=\{activeRendition \? 2048 : undefined\}/);
   assert.match(editor, /snapshot: \(\) => \(\{/);
   assert.match(editor, /isDirty: \(\) => lyricsRef\.current != null/);
   assert.match(editor, /discard: \(\) => boolean/);
@@ -105,18 +109,20 @@ test("catalog listing requests every song and delegates total size to cursor pag
 });
 
 test("embedded Public Lyrics metadata remains independent from editable SQLite state", async () => {
-  const [editor, api] = await Promise.all([
+  const [editor, sidebar, api] = await Promise.all([
     readFile(new URL("../src/components/LyricsEditor.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/lyrics/LyricsCatalogSidebar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/lib/api.ts", import.meta.url), "utf8"),
   ]);
+  const combined = `${editor}\n${sidebar}`;
 
   assert.match(api, /interface RuntimeLyricsMetadata/);
   assert.match(api, /immutableOverlay: boolean/);
   assert.match(api, /runtimeLyrics\?: RuntimeLyricsMetadata/);
   assert.match(api, /lyricsAvailabilityState\?:/);
-  assert.match(editor, /数据库：\{databaseLyricsStatusLabel\(item\)\}/);
+  assert.match(combined, /数据库：\{databaseLyricsStatusLabel\(item\)\}/);
   assert.match(editor, /数据库已记录歌词可用性，但当前没有可编辑正文/);
-  assert.match(editor, /公开镜像：\{runtimeLyricsStateLabel\(item\.runtimeLyrics\.state\)\}/);
+  assert.match(combined, /公开镜像：\{runtimeLyricsStateLabel\(item\.runtimeLyrics\.state\)\}/);
   assert.match(editor, /reason instanceof APIError && reason\.status === 404 && item\.runtimeLyrics\?\.immutableOverlay/);
   assert.match(editor, /setRuntimeOnlyMissingDatabaseSource\(true\)/);
   assert.match(editor, /公开镜像仍在，后台数据库尚无可编辑源/);
