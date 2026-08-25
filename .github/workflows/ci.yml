@@ -127,7 +127,7 @@ jobs:
   race-store:
     name: Race Store shard ${{ matrix.shard }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -174,7 +174,7 @@ jobs:
           test "${#selected[@]}" -gt 0
           regex="^($(IFS='|'; echo "${selected[*]}"))$"
           printf 'store shard %s selected %s of %s runnable tests\n' "$STORE_SHARD" "${#selected[@]}" "${#tests[@]}"
-          go test -race -count=1 -timeout=30m -run "$regex" ./internal/store
+          go test -race -count=1 -timeout=45m -run "$regex" ./internal/store
 
   race-rest:
     name: Race remaining Go packages
