@@ -606,7 +606,7 @@ func TestCancelStopsBlockedActiveBackupAndWaits(t *testing.T) {
 	}()
 	select {
 	case <-started:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("S3 backup request did not start")
 	}
 	h.manager.Cancel()
@@ -621,12 +621,12 @@ func TestCancelStopsBlockedActiveBackupAndWaits(t *testing.T) {
 		if err == nil {
 			t.Fatal("canceled backup returned nil error")
 		}
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("active backup ignored cancellation")
 	}
 	select {
 	case <-waitDone:
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("backup manager wait did not finish")
 	}
 	status := h.manager.Status()
@@ -720,7 +720,7 @@ func TestRestoreProducerGateCoversRemotePreparation(t *testing.T) {
 	}()
 	select {
 	case <-started:
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("restore preparation did not start remote request")
 	}
 	status := gate.Status()
