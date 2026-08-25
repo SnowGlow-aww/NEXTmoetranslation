@@ -49,6 +49,42 @@ func TestDurableLyricsDiscoveryMigrationChecksumsRemainImmutable(t *testing.T) {
 	}
 }
 
+func TestMigrationsAfterV34MustNotMutateContentTables(t *testing.T) {
+	contentTables := []string{
+		"song_lyrics_translation_edition_lines",
+		"song_lyrics_translation_edition_localizations",
+		"song_lyrics_rendition_translation_lines",
+		"song_lyrics_rendition_localizations",
+		"song_lyric_lines",
+		"song_lyric_segments",
+		"song_lyrics",
+		"song_lyrics_publications",
+		"song_lyrics_source_documents",
+		"catalog_music",
+	}
+
+	for _, m := range migrations {
+		if m.version <= 34 {
+			continue
+		}
+		upper := strings.ToUpper(m.sql)
+		for _, table := range contentTables {
+			tableUpper := strings.ToUpper(table)
+			patterns := []string{
+				"INSERT INTO " + tableUpper,
+				"UPDATE " + tableUpper,
+				"DELETE FROM " + tableUpper,
+			}
+			for _, pattern := range patterns {
+				if strings.Contains(upper, pattern) {
+					t.Fatalf("migration %d (%s) modifies content table %q via %q; content mutations must go through /api/lyrics/save or /api/lyrics/translation-editions, not schema migrations",
+						m.version, m.name, table, pattern)
+				}
+			}
+		}
+	}
+}
+
 func TestMigrationIsTransactionalIdempotentAndBackedUp(t *testing.T) {
 	path := legacyFixtureCopy(t, "production.db")
 	database, err := Open(path)
