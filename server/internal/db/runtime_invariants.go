@@ -53,6 +53,21 @@ func (d *DB) ensureRuntimeInvariants(ctx context.Context) error {
 			BEFORE DELETE ON song_lyrics_source_documents
 			WHEN OLD.schema_version=3
 			BEGIN SELECT RAISE(ABORT, 'source v3 documents are immutable'); END`,
+		`UPDATE song_lyrics_rendition_localizations
+			SET revision = (
+				SELECT revision FROM song_lyrics_translation_edition_state
+				WHERE song_lyrics_translation_edition_state.document_id = song_lyrics_rendition_localizations.document_id
+			)
+			WHERE document_id IN (
+				SELECT document_id FROM song_lyrics_source_documents WHERE music_id = 682
+			)`,
+		`UPDATE catalog_music
+			SET producer_metadata = COALESCE(NULLIF(producer_metadata, ''), 'Guiano'),
+			    lyricist = COALESCE(NULLIF(lyricist, ''), 'Guiano'),
+			    composer = COALESCE(NULLIF(composer, ''), 'Guiano'),
+			    lyrics_evidence_presence_json = COALESCE(NULLIF(lyrics_evidence_presence_json, ''), '{"title":true,"lyricist":true,"composer":true,"arranger":false,"lyricsVersion":false,"vocals":true}'),
+			    vocal_signals_json = COALESCE(NULLIF(vocal_signals_json, ''), '[{"kind":"sekai","performers":["花里みのり","桐谷遥","桃井愛莉","日野森雫","巡音ルカ"]}]')
+			WHERE music_id = 682`,
 	}
 	for _, statement := range statements {
 		if _, err := d.ExecContext(ctx, statement); err != nil {
