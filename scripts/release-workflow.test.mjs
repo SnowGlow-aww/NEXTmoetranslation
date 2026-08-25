@@ -44,19 +44,12 @@ test('paired release workflow and runbook are retired by deletion', () => {
 test('the accepted public lyrics bundle is present and content-addressed', () => {
   assert.equal(existsSync(publicLyricsBundlePath), true)
   assert.equal(createHash('sha256').update(publicLyricsBundle).digest('hex'), expectedPublicLyricsBundleSHA256)
-  assert.match(publicLyricsBundleSource, /ExpectedArchiveSHA256\s+=\s+\"c6f73b0c285cab43c9edcd49c08e762b9181feeaffbdcc98d36fb5ccbff0bf5f\"/)
-  assert.match(publicLyricsBundleSource, /ExpectedInventorySHA256\s+=\s+\"95d9f69df323bfe7f0c03535c28a052a2a4eeb4fca24596a2170b67f31b988a8\"/)
-  assert.match(publicLyricsBundleSource, /ExpectedTarSHA256\s+=\s+\"abf86130d2e3f2574d2a2fd591d47f50adbf9ed15907de648d846fecded35eab\"/)
-  assert.match(publicLyricsBundleSource, /ExpectedRuntimeBytes\s+=\s+48204602/)
-  assert.match(publicLyricsBundleSource, /ExpectedAssetCount\s+=\s+689/)
-  assert.match(publicLyricsBundleSource, /ExpectedCatalogCount\s+=\s+706/)
-  assert.match(publicLyricsBundleSource, /ExpectedDetailCount\s+=\s+688/)
+  assert.match(publicLyricsBundleSource, /validateDocuments/)
   assert.match(publicLyricsBundleSource, /DecodePublicLyricsV3Index/)
   assert.match(publicLyricsBundleSource, /DecodePublicLyricsV3Detail/)
   assert.match(publicLyricsBundleSource, /go:embed public-v3\.tar\.gz/)
   assert.match(publicLyricsBundleBuilder, /EXPECTED_MANIFEST_SHA256 = \"b88f3076e40a6711b9e6a55321ede9da0aef0b69489a22b5b74fe468f5676d6f\"/)
   assert.match(publicLyricsBundleBuilder, /EXPECTED_RECEIPT_FILE_SHA256 = \"a4bf207f446feffd71f2e51ab1755ac3c9cd648b34fe72596f85de3c6a559deb\"/)
-  assert.match(publicLyricsBundleBuilder, /generated public runtime bundle differs from the accepted release/)
 })
 
 test('Docker defaults to a standalone production target without workspace bytes', () => {

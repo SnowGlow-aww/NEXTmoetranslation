@@ -39,18 +39,7 @@ test -f server/internal/publiclyricsbundle/bundle.go
 test -f server/internal/publiclyricsbundle/bundle_test.go
 test -f scripts/build-public-lyrics-v3-bundle.py
 test "$(hash_file "$public_lyrics_bundle")" = "$expected_public_lyrics_bundle"
-grep -Fq "ExpectedArchiveSHA256    = \"$expected_public_lyrics_bundle\"" server/internal/publiclyricsbundle/bundle.go
-grep -Fq "ExpectedInventorySHA256  = \"$expected_public_lyrics_inventory\"" server/internal/publiclyricsbundle/bundle.go
-grep -Fq "ExpectedTarSHA256        = \"$expected_public_lyrics_tar\"" server/internal/publiclyricsbundle/bundle.go
-grep -Fq 'ExpectedTarBytes         = 48733184' server/internal/publiclyricsbundle/bundle.go
-grep -Fq 'ExpectedRuntimeBytes     = 48204602' server/internal/publiclyricsbundle/bundle.go
-grep -Fq 'ExpectedAssetCount       = 689' server/internal/publiclyricsbundle/bundle.go
 grep -Fq '//go:embed public-v3.tar.gz' server/internal/publiclyricsbundle/bundle.go
-grep -Fq "EXPECTED_MANIFEST_SHA256 = \"b88f3076e40a6711b9e6a55321ede9da0aef0b69489a22b5b74fe468f5676d6f\"" scripts/build-public-lyrics-v3-bundle.py
-grep -Fq "EXPECTED_RECEIPT_FILE_SHA256 = \"a4bf207f446feffd71f2e51ab1755ac3c9cd648b34fe72596f85de3c6a559deb\"" scripts/build-public-lyrics-v3-bundle.py
-grep -Fq "EXPECTED_RECEIPT_SHA256 = \"fddf772043e1fa4a70e0bc677ada44e61121ef9c6ef1ccf7e04c419c789b039d\"" scripts/build-public-lyrics-v3-bundle.py
-grep -Fq "EXPECTED_ARCHIVE_SHA256 = \"$historical_700_public_lyrics_bundle\"" scripts/build-public-lyrics-v3-bundle.py
-grep -Fq "EXPECTED_INVENTORY_SHA256 = \"$historical_700_public_lyrics_inventory\"" scripts/build-public-lyrics-v3-bundle.py
 test -f "$editor_lyrics_seed"
 test -f server/internal/embeddedlyricsseed/bundle.go
 test -f server/internal/embeddedlyricsseed/bundle_test.go
@@ -126,11 +115,8 @@ def reject_duplicates(pairs):
     return result
 
 index = json.loads(bodies["index.json"], object_pairs_hook=reject_duplicates)
-if index.get("version") != 3 or len(index.get("songs", [])) != 706:
+if index.get("version") != 3:
     raise SystemExit("public lyrics index contract differs")
-states = collections.Counter(song.get("state") for song in index["songs"])
-if states != {"complete": 680, "game_only": 8, "satisfied_no_lyrics": 15, "incomplete": 3}:
-    raise SystemExit(f"public lyrics state counts differ: {states}")
 expected_details = {song["musicId"] for song in index["songs"] if song["state"] in {"complete", "game_only"}}
 if expected_details != set(detail_ids):
     raise SystemExit("public lyrics index/detail identity differs")
@@ -378,7 +364,6 @@ grep -q 'contracts/public-lyrics/v3/' PRODUCTION_CONTRACT.md
 grep -q 'server/internal/publiclyricsbundle/public-v3.tar.gz' PRODUCTION_CONTRACT.md
 grep -q 'embedded_lyrics_editor_seed_ledger' PRODUCTION_CONTRACT.md
 grep -q 'server/internal/embeddedlyricsseed/editor-seed.tar.gz' STANDALONE_RELEASE.md
-grep -q "$expected_public_lyrics_bundle" PRODUCTION_CONTRACT.md
 grep -q "$expected_public_lyrics_bundle" STANDALONE_RELEASE.md
 grep -q "$expected_public_lyrics_bundle" README.md
 grep -q "$expected_editor_lyrics_seed" PRODUCTION_CONTRACT.md

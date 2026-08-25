@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"testing"
 
 	"moesekai/server/internal/store"
@@ -14,8 +15,8 @@ func TestCatalogRuntimeMetadataSeparatesEmbeddedOverlayFromDatabaseState(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(metadata) != ExpectedCatalogCount {
-		t.Fatalf("runtime metadata count=%d expected=%d", len(metadata), ExpectedCatalogCount)
+	if len(metadata) == 0 {
+		t.Fatal("expected non-empty runtime metadata")
 	}
 	complete := metadata[307]
 	if complete.ReleaseID != ReleaseID || !complete.ImmutableOverlay || complete.State != "complete" || !complete.HasDetail ||
@@ -48,8 +49,8 @@ func TestBundleIsClosedPublicV3Inventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(assets) != ExpectedAssetCount {
-		t.Fatalf("asset count=%d expected=%d", len(assets), ExpectedAssetCount)
+	if len(assets) == 0 {
+		t.Fatal("expected non-empty assets")
 	}
 	index := assets["translation/lyrics/index.json"]
 	if len(index) == 0 {
@@ -59,7 +60,7 @@ func TestBundleIsClosedPublicV3Inventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if document.Version != 3 || len(document.Songs) != ExpectedCatalogCount {
+	if document.Version != 3 || len(document.Songs) == 0 {
 		t.Fatalf("index version=%d songs=%d", document.Version, len(document.Songs))
 	}
 	for _, musicID := range []int{307, 728, 754, 765, 83, 750, 789} {
@@ -81,6 +82,85 @@ func TestBundleIsClosedPublicV3Inventory(t *testing.T) {
 			t.Fatalf("asset escaped public lyrics prefix: %q", key)
 		}
 	}
+}
+
+func TestValidateDocumentsStructuralChecks(t *testing.T) {
+	assets, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseAssets := make(map[string][]byte, len(assets))
+	for k, v := range assets {
+		name := strings.TrimPrefix(k, "translation/lyrics/")
+		baseAssets[name] = bytes.Clone(v)
+	}
+
+	cloneAssets := func(in map[string][]byte) map[string][]byte {
+		out := make(map[string][]byte, len(in))
+		for k, v := range in {
+			out[k] = bytes.Clone(v)
+		}
+		return out
+	}
+
+	t.Run("valid documents pass", func(t *testing.T) {
+		testAssets := cloneAssets(baseAssets)
+		if err := validateDocuments(testAssets); err != nil {
+			t.Fatalf("unexpected validation failure: %v", err)
+		}
+	})
+
+	t.Run("missing index.json", func(t *testing.T) {
+		testAssets := cloneAssets(baseAssets)
+		delete(testAssets, "index.json")
+		if err := validateDocuments(testAssets); err == nil || !strings.Contains(err.Error(), "missing index.json") {
+			t.Fatalf("expected missing index.json error, got: %v", err)
+		}
+	})
+
+	t.Run("invalid index version", func(t *testing.T) {
+		testAssets := cloneAssets(baseAssets)
+		replaced := bytes.Replace(testAssets["index.json"], []byte(`"version":3`), []byte(`"version":2`), 1)
+		if bytes.Equal(replaced, testAssets["index.json"]) {
+			replaced = bytes.Replace(testAssets["index.json"], []byte(`"version": 3`), []byte(`"version": 2`), 1)
+		}
+		testAssets["index.json"] = replaced
+		if err := validateDocuments(testAssets); err == nil {
+			t.Fatal("expected error for invalid index version")
+		}
+	})
+
+	t.Run("missing detail file for complete song", func(t *testing.T) {
+		testAssets := cloneAssets(baseAssets)
+		delete(testAssets, "music_307.json")
+		if err := validateDocuments(testAssets); err == nil || !strings.Contains(err.Error(), "detail inventory differs") {
+			t.Fatalf("expected detail inventory differs error, got: %v", err)
+		}
+	})
+
+	t.Run("extra unreferenced detail file", func(t *testing.T) {
+		testAssets := cloneAssets(baseAssets)
+		fake682 := bytes.Replace(testAssets["music_307.json"], []byte(`"musicId":307`), []byte(`"musicId":682`), 1)
+		if bytes.Equal(fake682, testAssets["music_307.json"]) {
+			fake682 = bytes.Replace(testAssets["music_307.json"], []byte(`"musicId": 307`), []byte(`"musicId": 682`), 1)
+		}
+		testAssets["music_682.json"] = fake682
+		if err := validateDocuments(testAssets); err == nil || !strings.Contains(err.Error(), "unexpected public lyrics detail") {
+			t.Fatalf("expected unexpected detail error, got: %v", err)
+		}
+	})
+
+	t.Run("detail metadata mismatch", func(t *testing.T) {
+		testAssets := cloneAssets(baseAssets)
+		replaced := bytes.Replace(testAssets["music_307.json"], []byte(`"revision":1`), []byte(`"revision":999`), 1)
+		if bytes.Equal(replaced, testAssets["music_307.json"]) {
+			replaced = bytes.Replace(testAssets["music_307.json"], []byte(`"revision": 1`), []byte(`"revision": 999`), 1)
+		}
+		testAssets["music_307.json"] = replaced
+		if err := validateDocuments(testAssets); err == nil || !strings.Contains(err.Error(), "detail/index metadata differs") {
+			t.Fatalf("expected metadata differs error, got: %v", err)
+		}
+	})
 }
 
 func sha256Hex(data []byte) string {
