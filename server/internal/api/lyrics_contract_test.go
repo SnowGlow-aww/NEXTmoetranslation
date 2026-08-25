@@ -267,6 +267,9 @@ func (f *fakeFileService) RebuildEvent(eventID int) error        { return nil }
 func (f *fakeFileService) RebuildCategory(category string) error { return nil }
 func (f *fakeFileService) PublishNow()                           { f.publishNowCalls++ }
 func (f *fakeFileService) Status() filesvc.ProjectionStatus      { return filesvc.ProjectionStatus{} }
+func (f *fakeFileService) SongProvenance(musicID int) (filesvc.SongProvenance, bool) {
+	return filesvc.SongProvenance{}, false
+}
 
 func TestLyricsPublicationTriggersProjectionPublishNow(t *testing.T) {
 	h := setupLegacyAPI(t)

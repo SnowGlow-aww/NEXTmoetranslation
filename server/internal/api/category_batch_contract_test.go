@@ -21,6 +21,108 @@ type staticSearchStatus struct{ value searchindex.Status }
 
 func (status staticSearchStatus) Status() searchindex.Status { return status.value }
 
+type fakeProjectionWithProvenance struct {
+	status filesvc.ProjectionStatus
+	prov   map[int]filesvc.SongProvenance
+}
+
+func (f fakeProjectionWithProvenance) Status() filesvc.ProjectionStatus { return f.status }
+func (f fakeProjectionWithProvenance) SongProvenance(musicID int) (filesvc.SongProvenance, bool) {
+	p, ok := f.prov[musicID]
+	return p, ok
+}
+
+func TestProjectionStatusMusicIDQueryContract(t *testing.T) {
+	h := setupLegacyAPI(t)
+	fake := fakeProjectionWithProvenance{
+		status: filesvc.ProjectionStatus{
+			Generation: 10,
+			LyricsSummary: filesvc.LyricsProjectionSummary{
+				TotalSongs:         706,
+				BundleSongs:        680,
+				DBPublicationSongs: 25,
+				LocalizationSongs:  1,
+				Degraded:           false,
+				BundleReleaseID:    "test-release",
+			},
+		},
+		prov: map[int]filesvc.SongProvenance{
+			682: {
+				MusicID:           682,
+				Source:            "localization_projection",
+				Revision:          2,
+				State:             "complete",
+				AvailableVersions: []string{"full", "game"},
+				UpdatedAt:         "2026-08-25T14:15:00Z",
+				HasDetail:         true,
+			},
+		},
+	}
+	h.api.SetProjectionStatus(fake)
+
+	t.Run("no musicId param returns status without song field", func(t *testing.T) {
+		resp := authorizedRequest(t, h, http.MethodGet, "/api/projection/status", nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d", resp.StatusCode)
+		}
+		var raw map[string]json.RawMessage
+		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := raw["song"]; ok {
+			t.Fatalf("unexpected song field in response: %v", raw)
+		}
+		if _, ok := raw["lyricsSummary"]; !ok {
+			t.Fatalf("expected lyricsSummary in response: %v", raw)
+		}
+	})
+
+	t.Run("invalid musicId returns 400", func(t *testing.T) {
+		for _, invalid := range []string{"0", "-1", "abc", "null"} {
+			resp := authorizedRequest(t, h, http.MethodGet, "/api/projection/status?musicId="+invalid, nil)
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("musicId=%s status = %d, want 400", invalid, resp.StatusCode)
+			}
+		}
+	})
+
+	t.Run("existing musicId returns song provenance", func(t *testing.T) {
+		resp := authorizedRequest(t, h, http.MethodGet, "/api/projection/status?musicId=682", nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d", resp.StatusCode)
+		}
+		var res struct {
+			filesvc.ProjectionStatus
+			Song *filesvc.SongProvenance `json:"song"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+			t.Fatal(err)
+		}
+		if res.Song == nil || res.Song.MusicID != 682 || res.Song.Source != "localization_projection" || res.Song.Revision != 2 {
+			t.Fatalf("song provenance mismatch: %+v", res.Song)
+		}
+	})
+
+	t.Run("nonexistent musicId returns song null", func(t *testing.T) {
+		resp := authorizedRequest(t, h, http.MethodGet, "/api/projection/status?musicId=999999", nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d", resp.StatusCode)
+		}
+		var raw map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+			t.Fatal(err)
+		}
+		val, exists := raw["song"]
+		if !exists || val != nil {
+			t.Fatalf("expected song: null, got exists=%t val=%v", exists, val)
+		}
+	})
+}
+
 func TestCategorySnapshotBatchAuditSSEAndProjectionContract(t *testing.T) {
 	h := setupLegacyAPI(t)
 	h.api.SetProjectionStatus(staticProjectionStatus{value: filesvc.ProjectionStatus{

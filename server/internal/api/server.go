@@ -91,6 +91,7 @@ type Server struct {
 		RebuildCategory(category string) error
 		PublishNow()
 		Status() filesvc.ProjectionStatus
+		SongProvenance(musicID int) (filesvc.SongProvenance, bool)
 	}
 	search interface {
 		Status() searchindex.Status
@@ -130,6 +131,7 @@ func (s *Server) SetProjectionStatus(provider interface {
 		RebuildCategory(category string) error
 		PublishNow()
 		Status() filesvc.ProjectionStatus
+		SongProvenance(musicID int) (filesvc.SongProvenance, bool)
 	}); ok {
 		s.fileService = fs
 	}
@@ -140,6 +142,7 @@ func (s *Server) SetFileService(fs interface {
 	RebuildCategory(category string) error
 	PublishNow()
 	Status() filesvc.ProjectionStatus
+	SongProvenance(musicID int) (filesvc.SongProvenance, bool)
 }) {
 	s.fileService = fs
 	s.projection = fs

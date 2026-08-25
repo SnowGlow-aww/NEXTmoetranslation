@@ -25,7 +25,7 @@ import {
 import {
   APIError, CatalogMusicItem, CatalogPerformerItem, LyricLine, LyricRubySpan, LyricsEditorLine, LyricsEditorSegment,
   LyricsPerformerID, LyricsRendition, LyricsRenditionPerformer, LyricsRenditionSide, LyricsSourceCandidate,
-  LyricsSourcePreview, ProjectionStatus, RenditionLyricsDocument, SongLyrics, SongLyricsDocument,
+  LyricsSourcePreview, ProjectionStatus, RenditionLyricsDocument, SongLyrics, SongProvenance, SongLyricsDocument,
   checkpointLyrics, getCatalogMusic, getCatalogPerformers, getClientID, getUsername,
   getLyrics, getProjectionStatus, issueLyricsCollabTicket, mutateLyricsTranslationEdition, previewLyricsSource, publishLyrics, saveLyrics,
   searchLyricsSource, subscribeSessionChanged, unpublishLyrics,
@@ -46,6 +46,17 @@ function databaseLyricsStatusLabel(item: CatalogMusicItem): string {
   if (item.lyricsAvailabilityState === "missing") return "来源缺失（已记录）";
   if (item.lyricsAvailabilityState === "failed") return "来源失败（已记录）";
   return "未录入";
+}
+
+function songProvenanceLabel(provenance: SongProvenance): string {
+  const sourceNames: Record<string, string> = {
+    bundle: "内置发布包",
+    db_publication: "数据库发布",
+    localization_projection: "本地化编辑投影",
+    generated: "动态生成",
+  };
+  const src = sourceNames[provenance.source] || provenance.source;
+  return `当前公开来源：${src} · Revision ${provenance.revision}`;
 }
 
 function databaseAvailabilityDescription(state: NonNullable<CatalogMusicItem["lyricsAvailabilityState"]>): string {
@@ -1343,7 +1354,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     setProjectionState("checking");
     setProjectionMessage("正在核对公共文件 generation…");
     try {
-      const status = await getProjectionStatus();
+      const status = await getProjectionStatus(musicID ?? undefined);
       if (projectionSequence.current !== sequence || selectedMusicIDRef.current !== musicID) return;
       setProjectionStatus(status);
       if (status.lastError) {
@@ -1375,7 +1386,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     const deadline = Date.now() + 15_000;
     while (projectionSequence.current === sequence && selectedMusicIDRef.current === musicID && Date.now() < deadline) {
       try {
-        const status = await getProjectionStatus();
+        const status = await getProjectionStatus(musicID);
         if (projectionSequence.current !== sequence || selectedMusicIDRef.current !== musicID) return;
         setProjectionStatus(status);
         if (status.lastError) {
@@ -1427,7 +1438,7 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     let previousProjectionGeneration: number | null = null;
     try {
       try {
-        const status = await getProjectionStatus();
+        const status = await getProjectionStatus(musicID);
         if (!requestIsCurrent(sequence, musicID) || documentGenerationRef.current !== documentGeneration) return;
         setProjectionStatus(status);
         previousProjectionGeneration = status.generation;
@@ -1820,6 +1831,14 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
                   {projectionStatus && <span>generation {projectionStatus.generation}{projectionStatus.pending ? " · 生成中" : ""}</span>}
                 </div>
                 <p>{projectionMessage}</p>
+                {projectionStatus?.song && (
+                  <p className="lyrics-provenance-info">{songProvenanceLabel(projectionStatus.song)}</p>
+                )}
+                {projectionStatus?.lyricsSummary?.degraded && (
+                  <p className="lyrics-degraded-warning">
+                    ⚠️ 歌词公共文件处于降级服务状态{projectionStatus.lyricsSummary.degradedReason ? `（${projectionStatus.lyricsSummary.degradedReason}）` : ""}，当前由基础发布包供内容。
+                  </p>
+                )}
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => void refreshProjectionStatus()} disabled={busy || projectionState === "checking"}>重新核对公共文件</button>
               </div>
             )}

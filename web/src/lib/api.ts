@@ -153,11 +153,33 @@ export interface EditorGateStatus {
   lastRun: string;
 }
 
+export interface SongProvenance {
+  musicId: number;
+  source: string;
+  revision: number;
+  state: string;
+  availableVersions: string[];
+  updatedAt: string;
+  hasDetail: boolean;
+}
+
+export interface LyricsProjectionSummary {
+  totalSongs: number;
+  bundleSongs: number;
+  dbPublicationSongs: number;
+  localizationSongs: number;
+  degraded: boolean;
+  degradedReason?: string;
+  bundleReleaseId?: string;
+}
+
 export interface ProjectionStatus {
   generation: number;
   pending: boolean;
   lastSuccessAt?: string;
   lastError?: string;
+  lyricsSummary?: LyricsProjectionSummary;
+  song?: SongProvenance | null;
 }
 
 export interface LyricsCollaborationTicket {
@@ -865,7 +887,10 @@ export const getCategories = (locale?: Locale) => {
   return apiFetch<CategoryInfo[]>(`/categories${p.size ? `?${p}` : ""}`);
 };
 export const getEditorGateStatus = () => apiFetch<EditorGateStatus>("/editor-gate/status");
-export const getProjectionStatus = () => apiFetch<ProjectionStatus>("/projection/status");
+export const getProjectionStatus = (musicId?: number) => {
+  const p = musicId && musicId > 0 ? `?musicId=${musicId}` : "";
+  return apiFetch<ProjectionStatus>(`/projection/status${p}`);
+};
 export const publishProjection = () => apiFetch<ProjectionStatus>("/projection/publish", { method: "POST" });
 export const getEntries = (category: string, field: string, source?: string, locale?: Locale) => {
   const p = new URLSearchParams({ category, field });

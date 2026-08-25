@@ -26,20 +26,52 @@ import (
 	"moesekai/server/internal/store"
 )
 
+type assetSource string
+
+const (
+	sourceBundle                 assetSource = "bundle"
+	sourceDBPublication          assetSource = "db_publication"
+	sourceLocalizationProjection assetSource = "localization_projection"
+	sourceGenerated              assetSource = "generated"
+)
+
 type asset struct {
 	body        []byte
 	etag        string
 	contentType string
 	modTime     time.Time
+	source      assetSource
+	revision    int
+}
+
+type SongProvenance struct {
+	MusicID           int      `json:"musicId"`
+	Source            string   `json:"source"`
+	Revision          int      `json:"revision"`
+	State             string   `json:"state"`
+	AvailableVersions []string `json:"availableVersions"`
+	UpdatedAt         string   `json:"updatedAt"`
+	HasDetail         bool     `json:"hasDetail"`
+}
+
+type LyricsProjectionSummary struct {
+	TotalSongs         int    `json:"totalSongs"`
+	BundleSongs        int    `json:"bundleSongs"`
+	DBPublicationSongs int    `json:"dbPublicationSongs"`
+	LocalizationSongs  int    `json:"localizationSongs"`
+	Degraded           bool   `json:"degraded"`
+	DegradedReason     string `json:"degradedReason,omitempty"`
+	BundleReleaseID    string `json:"bundleReleaseId,omitempty"`
 }
 
 // ProjectionStatus distinguishes durable database writes from publication of a
 // complete regenerated public asset set.
 type ProjectionStatus struct {
-	Generation    uint64 `json:"generation"`
-	Pending       bool   `json:"pending"`
-	LastSuccessAt string `json:"lastSuccessAt,omitempty"`
-	LastError     string `json:"lastError,omitempty"`
+	Generation    uint64                  `json:"generation"`
+	Pending       bool                    `json:"pending"`
+	LastSuccessAt string                  `json:"lastSuccessAt,omitempty"`
+	LastError     string                  `json:"lastError,omitempty"`
+	LyricsSummary LyricsProjectionSummary `json:"lyricsSummary"`
 }
 
 // Service holds generated assets in memory and serves them.
@@ -54,14 +86,15 @@ type Service struct {
 	swr             time.Duration
 	debounce        time.Duration
 
-	mu        sync.RWMutex
-	assets    map[string]asset // path key e.g. "translation/cards.json"
-	rebuildMu sync.Mutex
-	statusMu  sync.RWMutex
-	status    ProjectionStatus
-	requested uint64
-	published uint64
-	running   bool
+	mu         sync.RWMutex
+	assets     map[string]asset // path key e.g. "translation/cards.json"
+	provenance map[int]SongProvenance
+	rebuildMu  sync.Mutex
+	statusMu   sync.RWMutex
+	status     ProjectionStatus
+	requested  uint64
+	published  uint64
+	running    bool
 
 	rebuildCh       chan struct{}
 	immediateCh     chan struct{}
@@ -78,6 +111,34 @@ type Service struct {
 func New(s *store.Store, es *store.EventStore, gen *files.Generator) *Service {
 	publicLyrics, publicLyricsErr := publiclyricsbundle.Load()
 	ctx, cancel := context.WithCancel(context.Background())
+
+	var initialSummary LyricsProjectionSummary
+	var initialProvenance map[int]SongProvenance
+	if publicLyrics != nil {
+		if bundleIndex, err := decodePublicLyricsIndex(publicLyrics[publicLyricsIndexKey]); err == nil {
+			initialProvenance = make(map[int]SongProvenance, len(bundleIndex.Songs))
+			for _, song := range bundleIndex.Songs {
+				initialProvenance[song.MusicID] = SongProvenance{
+					MusicID:           song.MusicID,
+					Source:            string(sourceBundle),
+					Revision:          song.Revision,
+					State:             string(song.State),
+					AvailableVersions: append([]string(nil), song.AvailableVersions...),
+					UpdatedAt:         song.UpdatedAt,
+					HasDetail:         song.State == store.PublicLyricsStateComplete || song.State == store.PublicLyricsStateGameOnly,
+				}
+			}
+			initialSummary = LyricsProjectionSummary{
+				TotalSongs:         len(bundleIndex.Songs),
+				BundleSongs:        len(bundleIndex.Songs),
+				DBPublicationSongs: 0,
+				LocalizationSongs:  0,
+				Degraded:           false,
+				BundleReleaseID:    publiclyricsbundle.ReleaseID,
+			}
+		}
+	}
+
 	svc := &Service{
 		gen:             gen,
 		store:           s,
@@ -89,12 +150,16 @@ func New(s *store.Store, es *store.EventStore, gen *files.Generator) *Service {
 		swr:             time.Hour,
 		debounce:        5 * time.Minute,
 		assets:          map[string]asset{},
-		rebuildCh:       make(chan struct{}, 1),
-		immediateCh:     make(chan struct{}, 1),
-		retryMin:        time.Second,
-		retryMax:        30 * time.Second,
-		ctx:             ctx,
-		cancel:          cancel,
+		provenance:      initialProvenance,
+		status: ProjectionStatus{
+			LyricsSummary: initialSummary,
+		},
+		rebuildCh:   make(chan struct{}, 1),
+		immediateCh: make(chan struct{}, 1),
+		retryMin:    time.Second,
+		retryMax:    30 * time.Second,
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 	svc.rebuildAssetsFn = svc.rebuildAssets
 	return svc
@@ -173,6 +238,21 @@ func (svc *Service) Status() ProjectionStatus {
 	status.Generation = svc.published
 	status.Pending = svc.running || svc.requested > svc.published
 	return status
+}
+
+// SongProvenance returns the runtime source and revision metadata for a song.
+func (svc *Service) SongProvenance(musicID int) (SongProvenance, bool) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if svc.provenance == nil {
+		return SongProvenance{}, false
+	}
+	p, ok := svc.provenance[musicID]
+	if !ok {
+		return SongProvenance{}, false
+	}
+	p.AvailableVersions = append([]string(nil), p.AvailableVersions...)
+	return p, true
 }
 
 func (svc *Service) loop() {
@@ -428,6 +508,35 @@ func (svc *Service) rebuildAssets() error {
 	return svc.rebuildAssetsContext(svc.ctx)
 }
 
+func (svc *Service) databaseOnlyLyricsSummary(projected map[string][]byte) (LyricsProjectionSummary, map[int]SongProvenance) {
+	index, err := decodePublicLyricsIndex(projected[publicLyricsIndexKey])
+	if err != nil {
+		return LyricsProjectionSummary{
+			Degraded:       true,
+			DegradedReason: "db_only: database lyrics index decode failed",
+		}, nil
+	}
+	provenance := make(map[int]SongProvenance, len(index.Songs))
+	for _, song := range index.Songs {
+		provenance[song.MusicID] = SongProvenance{
+			MusicID:           song.MusicID,
+			Source:            string(sourceDBPublication),
+			Revision:          song.Revision,
+			State:             string(song.State),
+			AvailableVersions: append([]string(nil), song.AvailableVersions...),
+			UpdatedAt:         song.UpdatedAt,
+			HasDetail:         song.State == store.PublicLyricsStateComplete || song.State == store.PublicLyricsStateGameOnly,
+		}
+	}
+	return LyricsProjectionSummary{
+		TotalSongs:         len(index.Songs),
+		BundleSongs:        0,
+		DBPublicationSongs: len(index.Songs),
+		LocalizationSongs:  0,
+		Degraded:           false,
+	}, provenance
+}
+
 func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -497,7 +606,7 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("locale event %s/%d: %w", locale, sum.EventID, err)
 			}
-			key := fmt.Sprintf("v2/%s/translation/eventStory/event_%d.json", locale, sum.EventID)
+			key = fmt.Sprintf("v2/%s/translation/eventStory/event_%d.json", locale, sum.EventID)
 			next[key] = makeAsset(b, "application/json; charset=utf-8", now)
 		}
 	}
@@ -505,24 +614,41 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 	// and remains the reviewed base for every rebuild. Database publications
 	// overlay it: newer or bundle-absent database songs replace/add their index
 	// entry and their detail bytes, so newly published lyrics reach the public
-	// site while the reviewed 700-song bundle stays the safety base. A failing
-	// database projection keeps the pure bundle bytes (fail-closed), and a
+	// site while the reviewed bundle stays the safety base. A failing
+	// database projection keeps the pure bundle bytes (fail-open), and a
 	// missing bundle keeps the database-only fallback exactly. Canonical and
 	// locale-mirror paths publish in one asset generation.
-	lyrics := svc.publicLyrics
-	if lyrics == nil {
+	var lyrics map[string][]byte
+	var lyricsSummary LyricsProjectionSummary
+	var lyricsProvenance map[int]SongProvenance
+
+	if svc.publicLyrics == nil {
 		lyrics, err = svc.gen.PublishedLyricsJSON()
 		if err != nil {
 			return fmt.Errorf("lyrics: %w", err)
 		}
+		lyricsSummary, lyricsProvenance = svc.databaseOnlyLyricsSummary(lyrics)
 	} else {
-		lyrics = svc.overlayPublishedLyrics(lyrics)
+		lyrics, lyricsSummary, lyricsProvenance = svc.overlayPublishedLyrics(svc.publicLyrics)
 	}
 	for key, body := range lyrics {
-		next[key] = makeAsset(body, "application/json; charset=utf-8", now)
+		source := sourceGenerated
+		rev := 0
+		if key == publicLyricsIndexKey {
+			source = sourceGenerated
+		} else if strings.HasPrefix(key, "translation/lyrics/music_") {
+			var musicID int
+			if n, _ := fmt.Sscanf(key, "translation/lyrics/music_%d.json", &musicID); n == 1 {
+				if p, ok := lyricsProvenance[musicID]; ok {
+					source = assetSource(p.Source)
+					rev = p.Revision
+				}
+			}
+		}
+		next[key] = makeAssetWithSource(body, "application/json; charset=utf-8", now, source, rev)
 		for _, locale := range model.SupportedLocales {
 			localizedKey := fmt.Sprintf("v2/%s/%s", locale, key)
-			next[localizedKey] = makeAsset(body, "application/json; charset=utf-8", now)
+			next[localizedKey] = makeAssetWithSource(body, "application/json; charset=utf-8", now, source, rev)
 		}
 	}
 
@@ -535,7 +661,13 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 		}
 	}
 	svc.assets = next
+	svc.provenance = lyricsProvenance
 	svc.mu.Unlock()
+
+	svc.statusMu.Lock()
+	svc.status.LyricsSummary = lyricsSummary
+	svc.statusMu.Unlock()
+
 	return nil
 }
 
@@ -550,23 +682,63 @@ const publicLyricsIndexKey = "translation/lyrics/index.json"
 // are not a draft state. Draft and incomplete database states therefore never
 // downgrade a reviewed complete or game_only bundle entry. DB-owned detail
 // bytes replace the bundle detail exactly. Any database projection or index
-// decode failure serves the pure bundle bytes (fail-closed to the reviewed
-// release).
-func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string][]byte {
-	projected, err := svc.gen.PublishedLyricsJSON()
-	if err != nil {
-		log.Printf("[projection] database lyrics publications unavailable; serving reviewed bundle: %v", err)
-		return bundle
-	}
+// decode failure serves the pure bundle bytes (fail-open to the reviewed
+// release) and marks the summary as degraded.
+func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) (map[string][]byte, LyricsProjectionSummary, map[int]SongProvenance) {
 	bundleIndex, err := decodePublicLyricsIndex(bundle[publicLyricsIndexKey])
 	if err != nil {
 		log.Printf("[projection] reviewed bundle index undecodable; serving reviewed bundle: %v", err)
-		return bundle
+		return bundle, LyricsProjectionSummary{
+			Degraded:        true,
+			DegradedReason:  "layer1: bundle index decode failed",
+			BundleReleaseID: publiclyricsbundle.ReleaseID,
+		}, nil
 	}
+
+	bundleByID := make(map[int]store.PublicLyricsIndexSong, len(bundleIndex.Songs))
+	bundlePosition := make(map[int]int, len(bundleIndex.Songs))
+	bundleProvenance := make(map[int]SongProvenance, len(bundleIndex.Songs))
+	for position, song := range bundleIndex.Songs {
+		bundleByID[song.MusicID] = song
+		bundlePosition[song.MusicID] = position
+		bundleProvenance[song.MusicID] = SongProvenance{
+			MusicID:           song.MusicID,
+			Source:            string(sourceBundle),
+			Revision:          song.Revision,
+			State:             string(song.State),
+			AvailableVersions: append([]string(nil), song.AvailableVersions...),
+			UpdatedAt:         song.UpdatedAt,
+			HasDetail:         song.State == store.PublicLyricsStateComplete || song.State == store.PublicLyricsStateGameOnly,
+		}
+	}
+
+	makeBundleFallbackSummary := func(reason string) LyricsProjectionSummary {
+		return LyricsProjectionSummary{
+			TotalSongs:         len(bundleIndex.Songs),
+			BundleSongs:        len(bundleIndex.Songs),
+			DBPublicationSongs: 0,
+			LocalizationSongs:  0,
+			Degraded:           true,
+			DegradedReason:     reason,
+			BundleReleaseID:    publiclyricsbundle.ReleaseID,
+		}
+	}
+
+	projected, err := svc.gen.PublishedLyricsJSON()
+	if err != nil {
+		log.Printf("[projection] database lyrics publications unavailable; serving reviewed bundle: %v", err)
+		return bundle, makeBundleFallbackSummary("layer2: published lyrics query failed"), bundleProvenance
+	}
+
 	databaseIndex, err := decodePublicLyricsIndex(projected[publicLyricsIndexKey])
 	if err != nil {
 		log.Printf("[projection] database lyrics index undecodable; serving reviewed bundle: %v", err)
-		return bundle
+		return bundle, makeBundleFallbackSummary("layer2: database lyrics index decode failed"), bundleProvenance
+	}
+
+	provenance := make(map[int]SongProvenance, len(bundleProvenance))
+	for k, v := range bundleProvenance {
+		provenance[k] = v
 	}
 
 	merged := make(map[string][]byte, len(bundle)+len(projected))
@@ -574,12 +746,6 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 		merged[key] = body
 	}
 
-	bundleByID := make(map[int]store.PublicLyricsIndexSong, len(bundleIndex.Songs))
-	bundlePosition := make(map[int]int, len(bundleIndex.Songs))
-	for position, song := range bundleIndex.Songs {
-		bundleByID[song.MusicID] = song
-		bundlePosition[song.MusicID] = position
-	}
 	songs := append([]store.PublicLyricsIndexSong(nil), bundleIndex.Songs...)
 	dbOwned := make(map[int]bool)
 	for _, databaseSong := range databaseIndex.Songs {
@@ -594,17 +760,31 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 		} else {
 			songs = append(songs, normalized)
 		}
+		provenance[normalized.MusicID] = SongProvenance{
+			MusicID:           normalized.MusicID,
+			Source:            string(sourceDBPublication),
+			Revision:          normalized.Revision,
+			State:             string(normalized.State),
+			AvailableVersions: append([]string(nil), normalized.AvailableVersions...),
+			UpdatedAt:         normalized.UpdatedAt,
+			HasDetail:         normalized.State == store.PublicLyricsStateComplete || normalized.State == store.PublicLyricsStateGameOnly,
+		}
 	}
+
 	// Edited source-v3 rendition localizations overlay exactly like legacy
 	// database publications: newer complete entries own their index slot and
 	// serve their validated v3 detail. Legacy publication rows keep precedence
 	// over localization projection for the same song. A failing localization
 	// projection keeps the reviewed bundle and legacy publications (fail-closed
-	// for the additive layer only).
+	// for the additive layer only, marking degraded).
+	var degraded bool
+	var degradedReason string
 	localizationBytes := map[int][]byte{}
 	localizationIndex, localizationDetails, localizationV4Details, localizationErr := svc.gen.PublishedLyricsLocalizationProjection()
 	if localizationErr != nil {
 		log.Printf("[projection] lyrics localization projection unavailable; serving bundle plus legacy publications: %v", localizationErr)
+		degraded = true
+		degradedReason = "layer3: localization projection query failed"
 	} else {
 		for _, localizationSong := range localizationIndex {
 			if dbOwned[localizationSong.MusicID] {
@@ -636,6 +816,15 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 				songs = append(songs, localizationSong)
 			}
 			localizationBytes[localizationSong.MusicID] = append(body, '\n')
+			provenance[localizationSong.MusicID] = SongProvenance{
+				MusicID:           localizationSong.MusicID,
+				Source:            string(sourceLocalizationProjection),
+				Revision:          localizationSong.Revision,
+				State:             string(localizationSong.State),
+				AvailableVersions: append([]string(nil), localizationSong.AvailableVersions...),
+				UpdatedAt:         localizationSong.UpdatedAt,
+				HasDetail:         localizationSong.State == store.PublicLyricsStateComplete || localizationSong.State == store.PublicLyricsStateGameOnly,
+			}
 		}
 	}
 	sort.Slice(songs, func(left, right int) bool {
@@ -648,7 +837,7 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 		})
 		if err != nil {
 			log.Printf("[projection] merged lyrics index unmarshalable; serving reviewed bundle: %v", err)
-			return bundle
+			return bundle, makeBundleFallbackSummary("merge: lyrics index marshal failed"), bundleProvenance
 		}
 		body = append(body, '\n')
 		merged[publicLyricsIndexKey] = body
@@ -663,7 +852,36 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 			delete(merged, key)
 		}
 	}
-	return merged
+
+	bundleCount := 0
+	dbCount := 0
+	locCount := 0
+	for _, song := range songs {
+		p, ok := provenance[song.MusicID]
+		if !ok {
+			continue
+		}
+		switch p.Source {
+		case string(sourceBundle):
+			bundleCount++
+		case string(sourceDBPublication):
+			dbCount++
+		case string(sourceLocalizationProjection):
+			locCount++
+		}
+	}
+
+	summary := LyricsProjectionSummary{
+		TotalSongs:         len(songs),
+		BundleSongs:        bundleCount,
+		DBPublicationSongs: dbCount,
+		LocalizationSongs:  locCount,
+		Degraded:           degraded,
+		DegradedReason:     degradedReason,
+		BundleReleaseID:    publiclyricsbundle.ReleaseID,
+	}
+
+	return merged, summary, provenance
 }
 
 // decodePublicLyricsIndex decodes an index.json document into the exported
@@ -780,12 +998,18 @@ func (svc *Service) cacheControlFor(key string) string {
 }
 
 func makeAsset(body []byte, contentType string, t time.Time) asset {
+	return makeAssetWithSource(body, contentType, t, sourceGenerated, 0)
+}
+
+func makeAssetWithSource(body []byte, contentType string, t time.Time, source assetSource, revision int) asset {
 	sum := sha256.Sum256(body)
 	return asset{
 		body:        body,
 		etag:        `"` + hex.EncodeToString(sum[:16]) + `"`,
 		contentType: contentType,
 		modTime:     t,
+		source:      source,
+		revision:    revision,
 	}
 }
 

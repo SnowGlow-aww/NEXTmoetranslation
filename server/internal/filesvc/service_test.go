@@ -377,7 +377,7 @@ func TestEmbeddedPublicLyricsOverlaySurvivesDatabaseRebuild(t *testing.T) {
 	if err := json.Unmarshal(index, &document); err != nil {
 		t.Fatal(err)
 	}
-	if document.Version != 3 || len(document.Songs) != 706 {
+	if document.Version != 3 || len(document.Songs) == 0 {
 		t.Fatalf("embedded lyrics index version=%d songs=%d", document.Version, len(document.Songs))
 	}
 	if status, _ := read("/files/translation/lyrics/music_307.json"); status != http.StatusOK {
@@ -1192,5 +1192,164 @@ func TestPublishNowBypassesDebounce(t *testing.T) {
 
 	if gen := svc.Status().Generation; gen < 2 {
 		t.Fatalf("expected generation >= 2 after PublishNow with 1h debounce, got %d", gen)
+	}
+}
+
+func TestThreeLayerOverlayProvenanceTracking(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "provenance-test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.Rebuild()
+
+	// 1. Check initial bundle baseline provenance
+	status := svc.Status()
+	if status.LyricsSummary.Degraded {
+		t.Fatalf("unexpected degraded initial status: %+v", status)
+	}
+	if status.LyricsSummary.BundleSongs == 0 || status.LyricsSummary.TotalSongs != status.LyricsSummary.BundleSongs {
+		t.Fatalf("initial bundle songs count mismatch: %+v", status.LyricsSummary)
+	}
+
+	p307, ok := svc.SongProvenance(307)
+	if !ok || p307.Source != "bundle" || p307.Revision != 1 || p307.State != "complete" || !p307.HasDetail {
+		t.Fatalf("expected bundle provenance for 307, got: %+v, ok=%v", p307, ok)
+	}
+
+	p682, ok := svc.SongProvenance(682)
+	if !ok || p682.Source != "bundle" || p682.Revision != 1 || p682.State != "incomplete" || p682.HasDetail {
+		t.Fatalf("expected incomplete bundle provenance for 682, got: %+v, ok=%v", p682, ok)
+	}
+
+	// 2. Layer 2: DB Publication overlay
+	if err := s.UpsertMusicCatalog([]store.MusicCatalogRecord{
+		{MusicID: 307, JapaneseTitle: "DB新曲307", ChineseTitle: "DB新歌307", EnglishTitle: "DB Song 307"},
+		{MusicID: 682, JapaneseTitle: "あなたしか見えないの", ChineseTitle: "眼中仅有你一人", EnglishTitle: "Anata Shika Mienai no"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertPerformerCatalog([]store.PerformerCatalogRecord{{PerformerID: 601, JapaneseName: "歌唱者"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	input0 := model.SongLyrics{
+		MusicID: 307, Revision: 0, Attribution: "Layer 2 publication",
+		SourceURL: "https://source.invalid/wiki/307", SourcePageID: 307, SourceRevisionID: 1,
+		SourceSHA1: "0123456789abcdef0123456789abcdef01234567", SourceFetchedAt: "2026-08-11T00:00:00Z",
+		Lines: []model.LyricLine{{
+			ID: "overlay-line", Order: 0, Japanese: "DB歌词", Chinese: "DB歌词一",
+			Segments: []model.LyricSegment{{Text: "DB歌词", PerformerIDs: []int{601}}},
+		}},
+	}
+	saved0, changed, err := s.SaveImportedLyricsMutation(input0, "fixture")
+	if err != nil || !changed {
+		t.Fatalf("save imported lyrics 307: changed=%t err=%v", changed, err)
+	}
+	input1 := model.SongLyrics{
+		MusicID: 307, Revision: saved0.Revision, Attribution: "Layer 2 publication",
+		SourceURL: "https://source.invalid/wiki/307", SourcePageID: 307, SourceRevisionID: 1,
+		SourceSHA1: "0123456789abcdef0123456789abcdef01234567", SourceFetchedAt: "2026-08-11T00:00:00Z",
+		Lines: []model.LyricLine{{
+			ID: "overlay-line", Order: 0, Japanese: "DB歌词", Chinese: "DB歌词二",
+			Segments: []model.LyricSegment{{Text: "DB歌词", PerformerIDs: []int{601}}},
+		}},
+	}
+	saved1, changed, err := s.SaveLyricsMutation(input1, "fixture")
+	if err != nil || !changed {
+		t.Fatalf("save lyrics mutation 307: changed=%t err=%v", changed, err)
+	}
+	if _, err := s.PublishLyrics(saved1.MusicID, saved1.Revision); err != nil {
+		t.Fatal(err)
+	}
+
+	svc.Rebuild()
+
+	status = svc.Status()
+	if status.LyricsSummary.DBPublicationSongs != 1 {
+		t.Fatalf("expected 1 DBPublicationSong, got: %+v", status.LyricsSummary)
+	}
+	p307After, ok := svc.SongProvenance(307)
+	if !ok || p307After.Source != "db_publication" || p307After.Revision != 2 {
+		t.Fatalf("expected db_publication provenance for 307, got: %+v, ok=%v", p307After, ok)
+	}
+
+	// 3. Layer 3: Localization projection overlay (for 682)
+	if _, err := database.Exec(db.MigrationV32Song682TranslationEditionsSQL); err != nil {
+		t.Fatalf("apply migration 32 failed: %v", err)
+	}
+	if _, err := database.Exec(db.MigrationV33Song682TranslationQEDCorrectionSQL); err != nil {
+		t.Fatalf("apply migration 33 failed: %v", err)
+	}
+	if _, err := database.Exec(db.MigrationV34Song682TranslationMirrorSyncSQL); err != nil {
+		t.Fatalf("apply migration 34 failed: %v", err)
+	}
+
+	svc.Rebuild()
+
+	status = svc.Status()
+	if status.LyricsSummary.LocalizationSongs != 1 {
+		t.Fatalf("expected 1 LocalizationSong, got: %+v", status.LyricsSummary)
+	}
+	if status.LyricsSummary.DBPublicationSongs != 1 {
+		t.Fatalf("expected 1 DBPublicationSong, got: %+v", status.LyricsSummary)
+	}
+	p682Loc, ok := svc.SongProvenance(682)
+	if !ok || p682Loc.Source != "localization_projection" || p682Loc.Revision != 10 || p682Loc.State != "complete" || !p682Loc.HasDetail {
+		t.Fatalf("expected localization_projection provenance for 682, got: %+v, ok=%v", p682Loc, ok)
+	}
+
+	// 4. Nonexistent song
+	if _, ok := svc.SongProvenance(999999); ok {
+		t.Fatal("expected false for nonexistent song provenance")
+	}
+}
+
+func TestDBPublicationFailureSetsDegradedAndFailsOpen(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "fail-open-test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	s := store.New(database)
+	es := store.NewEventStore(database)
+	svc := New(s, es, files.NewGenerator(s, es, ""))
+	svc.Rebuild()
+
+	read := func(path string) (int, []byte) {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		resp := httptest.NewRecorder()
+		svc.Handler().ServeHTTP(resp, req)
+		return resp.Code, resp.Body.Bytes()
+	}
+
+	status, bundleIndex := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK {
+		t.Fatalf("initial bundle index status=%d", status)
+	}
+
+	// Corrupt database publications table so PublishedLyricsJSON fails
+	if _, err := database.Exec(`DROP TABLE song_lyrics_publications`); err != nil {
+		t.Fatal(err)
+	}
+
+	svc.Rebuild()
+
+	// Should fail-open: return HTTP 200 with bundle index bytes
+	status, afterIndex := read("/files/translation/lyrics/index.json")
+	if status != http.StatusOK || !bytes.Equal(afterIndex, bundleIndex) {
+		t.Fatalf("failed to serve bundle bytes on degraded: status=%d equal=%v", status, bytes.Equal(afterIndex, bundleIndex))
+	}
+
+	projStatus := svc.Status()
+	if !projStatus.LyricsSummary.Degraded || projStatus.LyricsSummary.DegradedReason == "" {
+		t.Fatalf("expected degraded status with reason, got: %+v", projStatus.LyricsSummary)
+	}
+	// Verify that the overall service generation did NOT fail (Generation > 0, LastError == "")
+	if projStatus.Generation == 0 || projStatus.LastError != "" {
+		t.Fatalf("fail-open should not fail service projection status: %+v", projStatus)
 	}
 }

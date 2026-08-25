@@ -398,7 +398,7 @@ test("lyrics workspace covers catalog, verified source import, draft, and public
   assert.match(editor, /const patch: Partial<LyricsEditorLine> = \{ segments \} as Partial<LyricsEditorLine>;[\s\S]*if \(sourceMayChange\) patch\.japanese/);
   assert.match(editor, /setSegments\(lineIndex, segments, lyrics\.revision === 0\)/);
   assert.match(editor, /publicationChecks/);
-  assert.match(api, /getProjectionStatus = \(\) => apiFetch<ProjectionStatus>\("\/projection\/status"\)/);
+  assert.match(api, /getProjectionStatus = \(musicId\?: number\) =>/);
   assert.match(editor, /previousProjectionGeneration = status\.generation/);
   assert.match(editor, /void waitForProjection\(previousProjectionGeneration, nextPublished, musicID\)/);
   assert.match(editor, /数据库发布已提交，正在核对公共文件/);

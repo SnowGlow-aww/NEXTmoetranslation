@@ -3,8 +3,10 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"moesekai/server/internal/filesvc"
 	"moesekai/server/internal/model"
 	"moesekai/server/internal/sse"
 	"moesekai/server/internal/store"
@@ -118,6 +120,11 @@ func (s *Server) handleCategoryBatch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, categoryBatchResponse{CategoryLocaleSnapshot: result.Snapshot, Updated: len(result.Changed)})
 }
 
+type projectionStatusWithSongResponse struct {
+	filesvc.ProjectionStatus
+	Song *filesvc.SongProvenance `json:"song"`
+}
+
 func (s *Server) handleProjectionStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -127,7 +134,37 @@ func (s *Server) handleProjectionStatus(w http.ResponseWriter, r *http.Request) 
 		writeContractError(w, http.StatusServiceUnavailable, "projection_unavailable", nil, nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.projection.Status())
+
+	musicIDStr := r.URL.Query().Get("musicId")
+	if musicIDStr == "" {
+		writeJSON(w, http.StatusOK, s.projection.Status())
+		return
+	}
+
+	musicID, err := strconv.Atoi(musicIDStr)
+	if err != nil || musicID <= 0 {
+		writeErr(w, http.StatusBadRequest, "invalid musicId")
+		return
+	}
+
+	status := s.projection.Status()
+	var song *filesvc.SongProvenance
+	if s.fileService != nil {
+		if p, ok := s.fileService.SongProvenance(musicID); ok {
+			song = &p
+		}
+	} else if prov, ok := s.projection.(interface {
+		SongProvenance(int) (filesvc.SongProvenance, bool)
+	}); ok {
+		if p, ok := prov.SongProvenance(musicID); ok {
+			song = &p
+		}
+	}
+
+	writeJSON(w, http.StatusOK, projectionStatusWithSongResponse{
+		ProjectionStatus: status,
+		Song:             song,
+	})
 }
 
 func (s *Server) handleProjectionPublish(w http.ResponseWriter, r *http.Request) {
