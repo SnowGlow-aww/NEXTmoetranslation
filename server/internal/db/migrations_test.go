@@ -67,16 +67,32 @@ func TestMigrationsAfterV34MustNotMutateContentTables(t *testing.T) {
 		if m.version <= 34 {
 			continue
 		}
+		// A before/after hook runs arbitrary Go against the same transaction, so
+		// the SQL scan below cannot see what it writes. Require review instead.
+		if m.before != nil || m.after != nil {
+			t.Fatalf("migration %d (%s) carries a Go hook that this guard cannot inspect; keep post-v34 migrations pure DDL or move the logic behind an API handler",
+				m.version, m.name)
+		}
 		upper := strings.ToUpper(m.sql)
+		normalized := strings.Join(strings.Fields(upper), " ")
 		for _, table := range contentTables {
 			tableUpper := strings.ToUpper(table)
 			patterns := []string{
 				"INSERT INTO " + tableUpper,
+				"INSERT OR REPLACE INTO " + tableUpper,
+				"INSERT OR IGNORE INTO " + tableUpper,
+				"INSERT OR ABORT INTO " + tableUpper,
+				"INSERT OR FAIL INTO " + tableUpper,
+				"INSERT OR ROLLBACK INTO " + tableUpper,
+				"REPLACE INTO " + tableUpper,
 				"UPDATE " + tableUpper,
+				"UPDATE OR REPLACE " + tableUpper,
+				"UPDATE OR IGNORE " + tableUpper,
 				"DELETE FROM " + tableUpper,
+				"DROP TABLE " + tableUpper,
 			}
 			for _, pattern := range patterns {
-				if strings.Contains(upper, pattern) {
+				if strings.Contains(normalized, pattern) {
 					t.Fatalf("migration %d (%s) modifies content table %q via %q; content mutations must go through /api/lyrics/save or /api/lyrics/translation-editions, not schema migrations",
 						m.version, m.name, table, pattern)
 				}

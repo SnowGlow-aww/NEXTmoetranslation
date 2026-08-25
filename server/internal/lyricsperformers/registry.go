@@ -18,7 +18,7 @@ type External struct {
 	Aliases   []string
 }
 
-// The fixed 700-song v14 replay currently encounters exactly these seventeen
+// The fixed 700-song v14 replay currently encounters exactly these audited
 // external Sekaipedia singers in successfully built source documents. Keep the
 // sparse numeric IDs aligned with their fixed 外部歌唱者-NN source identities so
 // later additions do not renumber published payloads. A color remains empty
