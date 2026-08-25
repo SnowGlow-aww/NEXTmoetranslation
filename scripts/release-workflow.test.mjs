@@ -110,7 +110,7 @@ test('CI builds and characterizes only the standalone production image', () => {
   assert.match(ciWorkflow, /shard: \[0, 1, 2, 3\]/)
   assert.match(ciWorkflow, /while IFS= read -r test_name; do/)
   assert.match(ciWorkflow, /index % 4 == STORE_SHARD/)
-  assert.match(ciWorkflow, /go test -race -count=1 -timeout=30m -run "\$regex" \.\/internal\/store/)
+  assert.match(ciWorkflow, /go test -race -count=1 -timeout=45m -run "\$regex" \.\/internal\/store/)
   assert.match(ciWorkflow, /mapfile -t packages/)
   assert.match(ciWorkflow, /grep -Ev '\/internal\/\(api\|store\)\$'/)
   assert.match(ciWorkflow, /go test -race -count=1 -timeout=60m "\$\{packages\[@\]\}"/)

@@ -119,3 +119,33 @@ func TestOpenAcceptsHistoricalMigrationChecksumsAndRepairsCatalogIdentity(t *tes
 		}
 	}
 }
+
+func TestValidateKnownMigrationPrefixAcceptsHistoricalMigrationChecksums(t *testing.T) {
+	for version, checksums := range historicalMigrationChecksums {
+		for index, checksum := range checksums {
+			name := fmt.Sprintf("v%d-variant%d", version, index)
+			t.Run(name, func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "prefix.db")
+				database, err := Open(path)
+				if err != nil {
+					t.Fatalf("initial open: %v", err)
+				}
+				defer database.Close()
+
+				if _, err := database.Exec(`UPDATE schema_migrations SET checksum=? WHERE version=?`,
+					checksum, version); err != nil {
+					t.Fatal(err)
+				}
+
+				actualVersion, err := database.ValidateKnownMigrationPrefix(t.Context(), 27, 34)
+				if err != nil {
+					t.Fatalf("ValidateKnownMigrationPrefix with historical checksum v%d %s: %v", version, checksum[:12], err)
+				}
+				if actualVersion != len(migrations) {
+					t.Fatalf("actualVersion=%d want=%d", actualVersion, len(migrations))
+				}
+			})
+		}
+	}
+}
+

@@ -3359,7 +3359,7 @@ func (d *DB) ValidateKnownMigrationPrefix(ctx context.Context, minimumVersion, m
 			return 0, fmt.Errorf("database migration history is not a contiguous prefix: expected version %d, found %d", expectedVersion, version)
 		}
 		want := migrations[version-1]
-		if name != want.name || checksum != want.checksum() {
+		if name != want.name || !migrationChecksumMatches(want, checksum) {
 			return 0, fmt.Errorf("migration %d checksum mismatch", version)
 		}
 		expectedVersion++
