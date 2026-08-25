@@ -76,11 +76,17 @@ func upsertMusicCatalogTx(tx txExecer, records []MusicCatalogRecord, now int64) 
 			}
 			if err == nil {
 				record.LyricsVersion = lyricsVersion
+				if strings.TrimSpace(presenceJSON) == "" {
+					presenceJSON = "{}"
+				}
 				var presence model.CatalogEvidencePresence
 				if err := json.Unmarshal([]byte(presenceJSON), &presence); err != nil {
 					return changed, fmt.Errorf("catalog music %d evidence presence: %w", record.MusicID, err)
 				}
 				record.LyricsVersionKnown = presence.LyricsVersion
+				if strings.TrimSpace(vocalsJSON) == "" {
+					vocalsJSON = "[]"
+				}
 				if err := json.Unmarshal([]byte(vocalsJSON), &record.Vocals); err != nil {
 					return changed, fmt.Errorf("catalog music %d vocal signals: %w", record.MusicID, err)
 				}
@@ -354,8 +360,14 @@ func (s *Store) LyricsDiscoveryCatalogContext(ctx context.Context) ([]LyricsDisc
 			return nil, err
 		}
 		item.Evidence.Title = item.JapaneseTitle
+		if strings.TrimSpace(presenceJSON) == "" {
+			presenceJSON = "{}"
+		}
 		if err := json.Unmarshal([]byte(presenceJSON), &item.Evidence.Presence); err != nil {
 			return nil, fmt.Errorf("catalog music %d evidence presence: %w", item.MusicID, err)
+		}
+		if strings.TrimSpace(vocalsJSON) == "" {
+			vocalsJSON = "[]"
 		}
 		if err := json.Unmarshal([]byte(vocalsJSON), &item.Evidence.Vocals); err != nil {
 			return nil, fmt.Errorf("catalog music %d vocal signals: %w", item.MusicID, err)
@@ -400,11 +412,17 @@ func loadCatalogMusicIdentityContext(ctx context.Context, query catalogMusicIden
 	if err != nil {
 		return identity, err
 	}
+	if strings.TrimSpace(presenceJSON) == "" {
+		presenceJSON = "{}"
+	}
 	var presence model.CatalogEvidencePresence
 	if err := json.Unmarshal([]byte(presenceJSON), &presence); err != nil {
 		return identity, err
 	}
 	identity.LyricsVersionKnown = presence.LyricsVersion
+	if strings.TrimSpace(vocalsJSON) == "" {
+		vocalsJSON = "[]"
+	}
 	if err := json.Unmarshal([]byte(vocalsJSON), &identity.Vocals); err != nil {
 		return identity, err
 	}
