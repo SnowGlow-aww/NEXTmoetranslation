@@ -448,7 +448,7 @@ func TestMigrationHistoryNewerThanLatestRefusesStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := database.Exec(`INSERT INTO schema_migrations(version,name,checksum,applied_at)
-		VALUES (33,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
+		VALUES (34,'future_migration',?,1)`, strings.Repeat("f", 64)); err != nil {
 		database.Close()
 		t.Fatal(err)
 	}

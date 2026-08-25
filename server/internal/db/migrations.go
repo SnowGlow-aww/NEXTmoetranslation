@@ -3235,6 +3235,10 @@ ON lyrics_collab_checkpoints(music_id,checkpoint_id);
 	version: 32,
 	name:    "song_682_translation_editions",
 	sql:     migrationV32Song682TranslationEditionsSQL,
+}, {
+	version: 33,
+	name:    "song_682_translation_qed_correction",
+	sql:     migrationV33Song682TranslationQEDCorrectionSQL,
 }}
 
 func validateLyricsDiscoveryIntegerTypes(tx *sql.Tx) error {

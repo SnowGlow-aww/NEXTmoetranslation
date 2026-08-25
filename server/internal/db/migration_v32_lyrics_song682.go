@@ -85,7 +85,7 @@ SELECT document_id,'sekai','zh-CN',8,'因为大家全都喜欢你啊'
 FROM song_lyrics_source_documents WHERE music_id=682;
 INSERT INTO song_lyrics_rendition_translation_lines
 	(document_id,rendition_key,locale,position,text)
-SELECT document_id,'sekai','zh-CN',9,'证明完毕 Q.E.D'
+SELECT document_id,'sekai','zh-CN',9,'故证毕'
 FROM song_lyrics_source_documents WHERE music_id=682;
 INSERT INTO song_lyrics_rendition_translation_lines
 	(document_id,rendition_key,locale,position,text)
@@ -239,7 +239,7 @@ SELECT document_id,'main','sekai','full','zh-CN',8,'因为大家全都喜欢你�
 FROM song_lyrics_source_documents WHERE music_id=682;
 INSERT INTO song_lyrics_translation_edition_lines
 	(document_id,edition_key,rendition_key,side,locale,position,text)
-SELECT document_id,'main','sekai','full','zh-CN',9,'证明完毕 Q.E.D'
+SELECT document_id,'main','sekai','full','zh-CN',9,'故证毕'
 FROM song_lyrics_source_documents WHERE music_id=682;
 INSERT INTO song_lyrics_translation_edition_lines
 	(document_id,edition_key,rendition_key,side,locale,position,text)

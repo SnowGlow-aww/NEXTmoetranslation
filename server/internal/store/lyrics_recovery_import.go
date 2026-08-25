@@ -28,11 +28,11 @@ const (
 	// encoded by the existing recovery/staging input contracts. Schema v28 adds
 	// the editor-seed ledger, v29 adds peer-side translation storage, v30 adds
 	// lazily materialized translation editions, v31 adds yjs collaboration,
-	// and v32 adds multi-edition translations for song 682.
+	// and v32-v33 adds multi-edition translations for song 682.
 	// None changes those inputs or their catalog identity, so reviewed imports
-	// may run on any contiguous v27-v32 database.
+	// may run on any contiguous v27-v33 database.
 	lyricsRecoveryImportRuntimeSchema          = 27
-	lyricsImportMaximumCompatibleRuntimeSchema = 32
+	lyricsImportMaximumCompatibleRuntimeSchema = 33
 )
 
 var (
