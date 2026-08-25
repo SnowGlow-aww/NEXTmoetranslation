@@ -602,7 +602,7 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 	// projection keeps the reviewed bundle and legacy publications (fail-closed
 	// for the additive layer only).
 	localizationBytes := map[int][]byte{}
-	localizationIndex, localizationDetails, localizationErr := svc.gen.PublishedLyricsLocalizationProjection()
+	localizationIndex, localizationDetails, localizationV4Details, localizationErr := svc.gen.PublishedLyricsLocalizationProjection()
 	if localizationErr != nil {
 		log.Printf("[projection] lyrics localization projection unavailable; serving bundle plus legacy publications: %v", localizationErr)
 	} else {
@@ -614,11 +614,17 @@ func (svc *Service) overlayPublishedLyrics(bundle map[string][]byte) map[string]
 			if !databasePublicationOwnsEntry(localizationSong, bundleSong, inBundle) {
 				continue
 			}
-			detail, ok := localizationDetails[localizationSong.MusicID]
-			if !ok {
-				continue
+			var body []byte
+			var encodeErr error
+			if v4Detail, hasV4 := localizationV4Details[localizationSong.MusicID]; hasV4 {
+				body, encodeErr = store.EncodePublicLyricsV4Detail(v4Detail)
+			} else {
+				detail, ok := localizationDetails[localizationSong.MusicID]
+				if !ok {
+					continue
+				}
+				body, encodeErr = store.EncodePublicLyricsV3Detail(detail)
 			}
-			body, encodeErr := store.EncodePublicLyricsV3Detail(detail)
 			if encodeErr != nil {
 				log.Printf("[projection] lyrics localization %d undecodable; skipping: %v", localizationSong.MusicID, encodeErr)
 				continue

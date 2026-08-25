@@ -195,9 +195,9 @@ func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
 }
 
 // PublishedLyricsLocalizationProjection returns edited source-v3 rendition
-// localizations as validated public v3 index entries and detail documents.
+// localizations as validated public v3 index entries and detail documents (and v4 detail documents for multi-edition songs).
 // The runtime overlay merges them exactly like legacy database publications.
-func (g *Generator) PublishedLyricsLocalizationProjection() ([]store.PublicLyricsIndexSong, map[int]store.PublicLyricsV3DetailDocument, error) {
+func (g *Generator) PublishedLyricsLocalizationProjection() ([]store.PublicLyricsIndexSong, map[int]store.PublicLyricsV3DetailDocument, map[int]store.PublicLyricsV4DetailDocument, error) {
 	return g.store.PublishedLyricsLocalizationProjection()
 }
 

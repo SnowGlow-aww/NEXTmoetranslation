@@ -139,23 +139,23 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 
 	// Recovery batch state (revision 1) must not be projected.
 	bump(1)
-	index, details, err := s.PublishedLyricsLocalizationProjection()
+	index, details, v4Details, err := s.PublishedLyricsLocalizationProjection()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 0 || len(details) != 0 {
-		t.Fatalf("revision-1 localizations projected: index=%+v details=%d", index, len(details))
+	if len(index) != 0 || len(details) != 0 || len(v4Details) != 0 {
+		t.Fatalf("revision-1 localizations projected: index=%+v details=%d v4=%d", index, len(details), len(v4Details))
 	}
 
 	// An edited localization (revision > 1) with a credit is projected as a
 	// validated public v3 complete entry.
 	bump(2)
-	index, details, err = s.PublishedLyricsLocalizationProjection()
+	index, details, v4Details, err = s.PublishedLyricsLocalizationProjection()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 1 || len(details) != 1 {
-		t.Fatalf("edited localization projection index=%+v details=%d", index, len(details))
+	if len(index) != 1 || len(details) != 1 || len(v4Details) != 0 {
+		t.Fatalf("edited localization projection index=%+v details=%d v4=%d", index, len(details), len(v4Details))
 	}
 	entry := index[0]
 	if entry.MusicID != 10 || entry.Revision != 2 || entry.State != PublicLyricsStateComplete ||
@@ -174,17 +174,44 @@ func TestPublishedLyricsLocalizationProjection(t *testing.T) {
 		t.Fatalf("projected detail localization=%+v", detail.Renditions[0])
 	}
 
-	// Without a credit the edited document stays bundle-served. Clearing
-	// credits happens through an editor save, which bumps the revision like
-	// every other localization mutation.
-	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET translation_credit='', proofreading_credit='', revision=3 WHERE document_id=?`, documentID); err != nil {
-		t.Fatal(err)
-	}
-	index, details, err = s.PublishedLyricsLocalizationProjection()
+	// Create a second edition and save it to test v4 projection
+	created, err := s.MutateLyricsTranslationEdition(LyricsTranslationEditionMutation{
+		MusicID: 10, Revision: 2, Operation: "create", EditionKey: "alternate", Label: "爱死天流",
+	}, "alice")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(index) != 0 || len(details) != 0 {
+	alternateSave := cloneLyricsRenditionEditorDocument(t, created)
+	alternateSave.Renditions[0].Full.Lines[0].Chinese = "爱死天流译文"
+	alternateSave.Renditions[0].TranslationCredits = &PublicLyricsV3TranslationCredits{Translation: "爱死天流"}
+	_, _, err = s.SaveLyricsRenditionMutation(alternateSave, "bob")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	index, details, v4Details, err = s.PublishedLyricsLocalizationProjection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(index) != 1 || len(details) != 1 || len(v4Details) != 1 {
+		t.Fatalf("multi-edition localization projection index=%+v details=%d v4=%d", index, len(details), len(v4Details))
+	}
+	v4Doc := v4Details[10]
+	if v4Doc.Version != 4 || len(v4Doc.TranslationEditions) != 2 {
+		t.Fatalf("projected v4 detail=%+v", v4Doc)
+	}
+
+	// Without a credit the edited document stays bundle-served. Clearing
+	// credits happens through an editor save, which bumps the revision like
+	// every other localization mutation.
+	if _, err := s.db.Exec(`UPDATE song_lyrics_rendition_localizations SET translation_credit='', proofreading_credit='', revision=10 WHERE document_id=?`, documentID); err != nil {
+		t.Fatal(err)
+	}
+	index, details, v4Details, err = s.PublishedLyricsLocalizationProjection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(index) != 0 || len(details) != 0 || len(v4Details) != 0 {
 		t.Fatalf("creditless localization projected: index=%+v", index)
 	}
 }
