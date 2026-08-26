@@ -622,12 +622,23 @@ func publicLyricsV1(lyrics model.SongLyrics) publicSongLyricsV1 {
 	return public
 }
 
+type byteCounter struct {
+	n int64
+}
+
+func (c *byteCounter) Write(p []byte) (int, error) {
+	c.n += int64(len(p))
+	return len(p), nil
+}
+
 func validatePublicLyricsArtifactSize(public any) error {
-	encoded, err := json.MarshalIndent(public, "", "  ")
-	if err != nil {
+	var counter byteCounter
+	enc := json.NewEncoder(&counter)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(public); err != nil {
 		return fmt.Errorf("encode public lyrics document: %w", err)
 	}
-	if len(encoded)+1 > model.PublicLyricsMaxArtifactBytes {
+	if counter.n > int64(model.PublicLyricsMaxArtifactBytes) {
 		return errors.New("encoded public lyrics document exceeds the public artifact size limit")
 	}
 	return nil

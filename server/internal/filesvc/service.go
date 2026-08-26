@@ -645,10 +645,11 @@ func (svc *Service) rebuildAssetsContext(ctx context.Context) error {
 				}
 			}
 		}
-		next[key] = makeAssetWithSource(body, "application/json; charset=utf-8", now, source, rev)
+		lyricsAsset := makeAssetWithSource(body, "application/json; charset=utf-8", now, source, rev)
+		next[key] = lyricsAsset
 		for _, locale := range model.SupportedLocales {
 			localizedKey := fmt.Sprintf("v2/%s/%s", locale, key)
-			next[localizedKey] = makeAssetWithSource(body, "application/json; charset=utf-8", now, source, rev)
+			next[localizedKey] = lyricsAsset
 		}
 	}
 

@@ -4,10 +4,10 @@ set -eu
 expected_index=9a735e96f856da9b94e1362883df13616a8b6e3cd33afce5d5e1468b4784b475
 expected_detail=224a7d34e1d4d551bca21cbe70374f504a781edef90eb644d8d4ec9e5fca064c
 expected_db=2eb61967a5f5b96a4961c0258984d6d5bb2f7b813379872d9d50a427704b8877
-expected_public_lyrics_bundle=b46fe5972a1dbdf11a52c461c13203f68d6e1a10ef4b795620efab815a765fe5
+expected_public_lyrics_bundle=b1dd9acb6685e33b0cadd63827b16f4b1166d58a44fcdea40d2a8bd9c2fdb71b
 expected_editor_lyrics_seed=a8a2a7c841d0d73e448fd69f9adb236965b3b01a89d2ba58dcc921925e6ea479
-expected_public_lyrics_inventory=7b3ba35d9ef98079defdd5579d6f49a6deff46d4acb575fb5a08181bac94df4e
-expected_public_lyrics_tar=4cd769cc07edb641ac790186fc0eb8304322a0ef6e5a658eab771e07c9d8e82c
+expected_public_lyrics_inventory=810f8f0196eae08b0074a62e0953b78fb394576a0e27e522fb01bb2871e43cb5
+expected_public_lyrics_tar=0f26aad64c2c831116dec315df11410bddf1674c0c1d5905e009089dad42bae6
 historical_700_public_lyrics_bundle=6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b
 historical_700_public_lyrics_inventory=604aae68e3cd6824a8960a3cbbec5e015af48e5fcdd9895f785ff61e019d1f4b
 public_lyrics_bundle=server/internal/publiclyricsbundle/public-v3.tar.gz
@@ -61,7 +61,7 @@ import tarfile
 
 bundle, expected_inventory, expected_tar = sys.argv[1:]
 raw_tar = gzip.decompress(open(bundle, "rb").read())
-if len(raw_tar) != 52582400 or hashlib.sha256(raw_tar).hexdigest() != expected_tar:
+if len(raw_tar) != 22394880 or hashlib.sha256(raw_tar).hexdigest() != expected_tar:
     raise SystemExit("public lyrics decompressed tar identity differs")
 detail = re.compile(r"music_([1-9][0-9]*)\.json\Z")
 with tarfile.open(fileobj=io.BytesIO(raw_tar), mode="r:") as archive:
@@ -69,7 +69,7 @@ with tarfile.open(fileobj=io.BytesIO(raw_tar), mode="r:") as archive:
     bodies = {member.name: archive.extractfile(member).read() for member in members}
 if len(members) != 689:
     raise SystemExit(f"public lyrics bundle member count={len(members)}, expected=689")
-if sum(member.size for member in members) != 52041068:
+if sum(member.size for member in members) != 21863411:
     raise SystemExit("public lyrics bundle runtime byte count differs")
 names = [member.name for member in members]
 if len(names) != len(set(names)) or names.count("index.json") != 1:
