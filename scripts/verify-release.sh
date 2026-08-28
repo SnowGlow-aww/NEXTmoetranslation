@@ -4,10 +4,10 @@ set -eu
 expected_index=9a735e96f856da9b94e1362883df13616a8b6e3cd33afce5d5e1468b4784b475
 expected_detail=224a7d34e1d4d551bca21cbe70374f504a781edef90eb644d8d4ec9e5fca064c
 expected_db=2eb61967a5f5b96a4961c0258984d6d5bb2f7b813379872d9d50a427704b8877
-expected_public_lyrics_bundle=7f4502f056964cae61fa87f3cc4a70435980dbcc555696e22a56222c4d781718
+expected_public_lyrics_bundle=e66da1ca2dac25e0499fdbea2ecb2ac83790b00fbc5a397009a26311fdf58e77
 expected_editor_lyrics_seed=a8a2a7c841d0d73e448fd69f9adb236965b3b01a89d2ba58dcc921925e6ea479
-expected_public_lyrics_inventory=a51fd23e3b592acf3842add15870a97b264c574e6c3e7d5ee0de49a9926566f9
-expected_public_lyrics_tar=b3cdc7e73ebef7cded2f71f794d2daaa59fcef02cda3bb9c4c0de27c890f94a8
+expected_public_lyrics_inventory=a3837630bcc25a13a9f9439e5aff878eeec3444f571943aed9078967ad688291
+expected_public_lyrics_tar=97f2f4c5024574667a1fe310ed10dbf6e8c5fbb30a87e00540786e4c44cbc404
 historical_700_public_lyrics_bundle=6a987c5ed796b4609e4bcbc5c67126196eb660258ad19bea672408cb42f9136b
 historical_700_public_lyrics_inventory=604aae68e3cd6824a8960a3cbbec5e015af48e5fcdd9895f785ff61e019d1f4b
 public_lyrics_bundle=server/internal/publiclyricsbundle/public-v3.tar.gz
@@ -69,7 +69,7 @@ with tarfile.open(fileobj=io.BytesIO(raw_tar), mode="r:") as archive:
     bodies = {member.name: archive.extractfile(member).read() for member in members}
 if len(members) != 691:
     raise SystemExit(f"public lyrics bundle member count={len(members)}, expected=691")
-if sum(member.size for member in members) != 21909202:
+if sum(member.size for member in members) != 21909211:
     raise SystemExit("public lyrics bundle runtime byte count differs")
 names = [member.name for member in members]
 if len(names) != len(set(names)) or names.count("index.json") != 1:
