@@ -72,7 +72,9 @@ func trimSekaipediaLeadingLyricStub(value string) (string, bool, error) {
 			break
 		}
 		if len(fields) != 1 && (len(fields) != 2 ||
-			(strings.TrimSpace(fields[1]) != "full" && strings.TrimSpace(fields[1]) != "translation")) {
+			(!strings.EqualFold(strings.TrimSpace(fields[1]), "full") &&
+				!strings.EqualFold(strings.TrimSpace(fields[1]), "translation") &&
+				!strings.EqualFold(strings.TrimSpace(fields[1]), "lyrics"))) {
 			return "", false, ErrUnsupportedTable
 		}
 		matched = true
@@ -338,7 +340,8 @@ func stripSekaipediaLeadingLyricStubs(templates []sekaipediaTemplate) ([]sekaipe
 		fields := templates[0].fields
 		validStub := len(fields) == 1 || len(fields) == 2 &&
 			(strings.EqualFold(strings.TrimSpace(fields[1]), "full") ||
-				strings.EqualFold(strings.TrimSpace(fields[1]), "translation"))
+				strings.EqualFold(strings.TrimSpace(fields[1]), "translation") ||
+				strings.EqualFold(strings.TrimSpace(fields[1]), "lyrics"))
 		if !validStub {
 			return nil, ErrUnsupportedTable
 		}
