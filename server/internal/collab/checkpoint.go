@@ -3,11 +3,9 @@ package collab
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"reflect"
 
 	"github.com/reearth/ygo/crdt"
 	ygws "github.com/reearth/ygo/provider/websocket"
@@ -222,25 +220,30 @@ func validateImmutableDraft(authority, draft any) error {
 		if !ok || requested.MusicID != current.MusicID || requested.Status != "draft" || requested.PublishedRevision != 0 || requested.UpdatedAt != current.UpdatedAt {
 			return &CheckpointConflict{Code: "source_drift", Details: []string{"plural rendition source envelope changed"}, Current: authority}
 		}
-		clearTranslations := func(document store.LyricsRenditionDocument) store.LyricsRenditionDocument {
-			body, _ := json.Marshal(document)
-			var clone store.LyricsRenditionDocument
-			_ = json.Unmarshal(body, &clone)
-			for renditionIndex := range clone.Renditions {
-				clone.Renditions[renditionIndex].TranslationCredits = nil
-				for _, side := range []*store.PublicLyricsV3Side{clone.Renditions[renditionIndex].Full, clone.Renditions[renditionIndex].Game} {
-					if side == nil {
-						continue
-					}
-					for lineIndex := range side.Lines {
-						side.Lines[lineIndex].Chinese = ""
+		if len(requested.Renditions) != len(current.Renditions) {
+			return &CheckpointConflict{Code: "source_drift", Details: []string{"plural rendition count changed"}, Current: authority}
+		}
+		for i := range requested.Renditions {
+			reqRend := requested.Renditions[i]
+			curRend := current.Renditions[i]
+			if reqRend.Key != curRend.Key || reqRend.Kind != curRend.Kind {
+				return &CheckpointConflict{Code: "source_drift", Details: []string{"rendition key or kind changed"}, Current: authority}
+			}
+			if (reqRend.Full == nil) != (curRend.Full == nil) || (reqRend.Game == nil) != (curRend.Game == nil) {
+				return &CheckpointConflict{Code: "source_drift", Details: []string{"rendition sides changed"}, Current: authority}
+			}
+			if reqRend.Full != nil && curRend.Full != nil {
+				if len(reqRend.Full.Lines) != len(curRend.Full.Lines) {
+					return &CheckpointConflict{Code: "source_drift", Details: []string{"rendition line count changed"}, Current: authority}
+				}
+				for lineIdx := range reqRend.Full.Lines {
+					reqLine := reqRend.Full.Lines[lineIdx]
+					curLine := curRend.Full.Lines[lineIdx]
+					if reqLine.ID != curLine.ID || reqLine.Order != curLine.Order || reqLine.Japanese != curLine.Japanese {
+						return &CheckpointConflict{Code: "source_drift", Details: []string{"line IDs, order, and Japanese source text are immutable"}, Current: authority}
 					}
 				}
 			}
-			return clone
-		}
-		if !reflect.DeepEqual(clearTranslations(requested), clearTranslations(current)) {
-			return &CheckpointConflict{Code: "source_drift", Details: []string{"rendition identity, source text, performers, segmentation, ruby, relation, or provenance changed"}, Current: authority}
 		}
 		return nil
 	default:

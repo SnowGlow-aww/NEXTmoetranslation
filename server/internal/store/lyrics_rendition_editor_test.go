@@ -167,11 +167,18 @@ func TestLyricsRenditionEditorLoadSaveConflictAndImmutableFacts(t *testing.T) {
 	}
 
 	tampered := cloneLyricsRenditionEditorDocument(t, saved)
-	tampered.Renditions[0].Performers[0].Name = "tampered performer"
+	tampered.Renditions[0].Full.Lines[0].Japanese = "改ざんされた日本語歌詞"
 	_, _, err = s.SaveLyricsRenditionMutation(tampered, "mallory")
 	var contractErr *LyricsRenditionContractError
 	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
 		t.Fatalf("immutable tamper error=%#v", err)
+	}
+
+	tamperedRuby := cloneLyricsRenditionEditorDocument(t, saved)
+	tamperedRuby.Renditions[0].Full.Lines[0].Segments[0].Ruby[0].Reading = "tampered_reading"
+	_, _, err = s.SaveLyricsRenditionMutation(tamperedRuby, "mallory")
+	if !errors.As(err, &contractErr) || contractErr.Code != "source_drift" {
+		t.Fatalf("immutable ruby tamper error=%#v", err)
 	}
 
 	var localizationCount, revisionTwoCount int
@@ -860,6 +867,52 @@ func TestRecoveryRenditionEditorFailsClosedOnOwnershipMixAndGraphDrift(t *testin
 			t.Fatalf("mixed provenance error=%v", err)
 		}
 	})
+}
+
+func TestLyricsRenditionEditorPerformerUnlockAndSegmentOperations(t *testing.T) {
+	s, _ := setupRenditionV3PersistenceStore(t)
+	current, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	requested := cloneLyricsRenditionEditorDocument(t, current)
+	// Add new performers to rendition (e.g. 歌唱者-01 一歌, 歌唱者-26 KAITO, 外部歌唱者-01 GUMI)
+	newPerformers := []model.LyricsSourcePerformer{
+		{PerformerID: "歌唱者-01", Name: "星乃一歌", Color: "#33AAEE"},
+		{PerformerID: "歌唱者-26", Name: "KAITO", Color: "#3366CC"},
+		{PerformerID: "外部歌唱者-01", Name: "GUMI", Color: "#70B85A"},
+	}
+	requested.Renditions[0].Performers = append(requested.Renditions[0].Performers, newPerformers...)
+
+	// Assign performers to segments and trailing performers
+	requested.Renditions[0].Full.Lines[0].TrailingPerformerIDs = []string{"歌唱者-26"}
+	requested.Renditions[0].Full.Lines[0].Segments[0].PerformerIDs = []string{"歌唱者-21", "歌唱者-26"}
+	requested.Renditions[0].Full.Lines[0].Segments[1].PerformerIDs = []string{"歌唱者-01", "外部歌唱者-01"}
+
+	saved, changed, err := s.SaveLyricsRenditionMutation(requested, "admin")
+	if err != nil {
+		t.Fatalf("save performer update: %v", err)
+	}
+	if !changed || saved.Revision != 2 {
+		t.Fatalf("saved revision=%d changed=%v", saved.Revision, changed)
+	}
+
+	// Verify performers survived and persisted in read-back
+	readBack, err := s.GetLyricsRenditionDocument(10)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if len(readBack.Renditions[0].Full.Lines[0].TrailingPerformerIDs) != 1 ||
+		readBack.Renditions[0].Full.Lines[0].TrailingPerformerIDs[0] != "歌唱者-26" {
+		t.Fatalf("trailing performers=%v", readBack.Renditions[0].Full.Lines[0].TrailingPerformerIDs)
+	}
+	if !reflect.DeepEqual(readBack.Renditions[0].Full.Lines[0].Segments[0].PerformerIDs, []string{"歌唱者-21", "歌唱者-26"}) {
+		t.Fatalf("segment 0 performers=%v", readBack.Renditions[0].Full.Lines[0].Segments[0].PerformerIDs)
+	}
+	if !reflect.DeepEqual(readBack.Renditions[0].Full.Lines[0].Segments[1].PerformerIDs, []string{"歌唱者-01", "外部歌唱者-01"}) {
+		t.Fatalf("segment 1 performers=%v", readBack.Renditions[0].Full.Lines[0].Segments[1].PerformerIDs)
+	}
 }
 
 func setupRecoveryRenditionV3EditorFixture(t *testing.T) recoveryRenditionV3EditorFixture {

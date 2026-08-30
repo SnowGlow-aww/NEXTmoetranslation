@@ -286,8 +286,8 @@ func validateLyricsSourceV3PerformerEvidence(
 			}
 		}
 	}
-	hasSegmentation := lyricsSourceFullHasPerformerSegmentation(full)
-	complete := lyricsSourceFullHasCompletePerformerEvidence(full, sourcePerformerIDs)
+	hasSegmentation := LyricsSourceFullHasPerformerSegmentation(full)
+	complete := LyricsSourceFullHasCompletePerformerEvidence(full, sourcePerformerIDs)
 	switch state {
 	case LyricsSourcePerformerEvidenceNone:
 		if hasSegmentation {
@@ -311,7 +311,7 @@ func validateLyricsSourceV3PerformerEvidence(
 	return nil
 }
 
-func lyricsSourceFullHasCompletePerformerEvidence(
+func LyricsSourceFullHasCompletePerformerEvidence(
 	full LyricsSourceFull,
 	sourcePerformerIDs []string,
 ) bool {
@@ -520,7 +520,7 @@ func lyricsSourceProjectionLineEqual(left, right LyricsSourceFullLine) bool {
 	return left.Text == right.Text
 }
 
-func lyricsSourceFullHasPerformerSegmentation(full LyricsSourceFull) bool {
+func LyricsSourceFullHasPerformerSegmentation(full LyricsSourceFull) bool {
 	if len(full.Performers) != 0 {
 		return true
 	}
@@ -648,10 +648,10 @@ func lyricsSourceV2PerformerEvidenceState(
 	sourcePerformerIDs []string,
 	privateComplete bool,
 ) LyricsSourcePerformerEvidenceState {
-	if !lyricsSourceFullHasPerformerSegmentation(full) {
+	if !LyricsSourceFullHasPerformerSegmentation(full) {
 		return LyricsSourcePerformerEvidenceNone
 	}
-	if privateComplete && lyricsSourceFullHasCompletePerformerEvidence(full, sourcePerformerIDs) {
+	if privateComplete && LyricsSourceFullHasCompletePerformerEvidence(full, sourcePerformerIDs) {
 		return LyricsSourcePerformerEvidenceSourceComplete
 	}
 	return LyricsSourcePerformerEvidenceSourcePartial
@@ -773,7 +773,7 @@ func UpconvertLyricsSourceDocumentV2(document LyricsSourceDocument) (LyricsSourc
 	if hasFull {
 		ref := document.Provenance.FullText
 		rendering.Provenance.FullText = &ref
-		if lyricsSourceFullHasPerformerSegmentation(document.Full) && document.Provenance.PerformerSegmentation != nil {
+		if LyricsSourceFullHasPerformerSegmentation(document.Full) && document.Provenance.PerformerSegmentation != nil {
 			ref := *document.Provenance.PerformerSegmentation
 			rendering.Provenance.FullPerformerSegmentation = &ref
 		}
@@ -795,7 +795,7 @@ func UpconvertLyricsSourceDocumentV2(document LyricsSourceDocument) (LyricsSourc
 				rendering.Provenance.GameRuby = &ref
 			}
 		} else {
-			if lyricsSourceFullHasPerformerSegmentation(*document.Game) {
+			if LyricsSourceFullHasPerformerSegmentation(*document.Game) {
 				ref := *document.Provenance.GameText
 				rendering.Provenance.GamePerformerSegmentation = &ref
 			}

@@ -346,9 +346,12 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
   const activeLines: LyricsEditorLine[] = activeRendition
     ? (activeSide?.lines || [])
     : legacyLyrics?.lines || [];
-  const activePerformerOptions: Array<CatalogPerformerItem | LyricsRenditionPerformer> = activeRendition
-    ? activeRendition.performers
-    : performers;
+  const activePerformerOptions: Array<CatalogPerformerItem | LyricsRenditionPerformer> = useMemo(() => {
+    if (!activeRendition) return performers;
+    const renditionIds = new Set(activeRendition.performers.map((p) => p.performerId));
+    const catalogExtra = performers.filter((p) => !renditionIds.has(p.performerId));
+    return [...activeRendition.performers, ...catalogExtra];
+  }, [activeRendition, performers]);
   const gameSideReadOnlyReason = !activeRendition || activeRendition.relation.kind === "exact_projection"
     ? "exact_projection"
     : null;
@@ -814,21 +817,66 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       return;
     }
     if (!activeRendition || !activeSide) return;
-    updateActiveRendition({
+    const patch: Partial<LyricsRendition> = {
       [activeVersion]: { ...activeSide, lines: ordered },
-    } as Partial<LyricsRendition>);
+    };
+    if (activeVersion === "full" && activeRendition.relation.kind === "exact_projection" && activeRendition.game) {
+      const fullMap = new Map(ordered.map((line) => [line.id, line]));
+      const nextGameLines = activeRendition.game.lines.map((gameLine) => {
+        const fullLine = fullMap.get(gameLine.id);
+        if (!fullLine) return gameLine;
+        return {
+          ...gameLine,
+          segments: fullLine.segments.map((seg) => ({
+            ...seg,
+            performerIds: [...seg.performerIds],
+            ruby: seg.ruby.map((r) => ({ ...r })),
+          })),
+          trailingPerformerIds: [...fullLine.trailingPerformerIds],
+          stanzaBreakBefore: fullLine.stanzaBreakBefore,
+          "zh-CN": fullLine["zh-CN"],
+          "en-US": fullLine["en-US"],
+        };
+      });
+      patch.game = { ...activeRendition.game, lines: nextGameLines };
+    }
+    const usedPerformerIds = new Set<LyricsPerformerID>();
+    for (const line of ordered) {
+      for (const id of line.trailingPerformerIds || []) usedPerformerIds.add(id);
+      for (const seg of line.segments || []) {
+        for (const id of seg.performerIds || []) usedPerformerIds.add(id);
+      }
+    }
+    const currentRenditionIds = new Set(activeRendition.performers.map((p) => p.performerId));
+    const missing = Array.from(usedPerformerIds).filter((id) => !currentRenditionIds.has(id));
+    if (missing.length > 0) {
+      const added: LyricsRenditionPerformer[] = missing.map((id) => {
+        const catalogPerformer = performers.find((p) => p.performerId === id);
+        return {
+          performerId: id,
+          name: typeof catalogPerformer?.name === "string"
+            ? catalogPerformer.name
+            : catalogPerformer?.name?.["zh-CN"] || catalogPerformer?.name?.["ja-JP"] || String(id),
+          color: catalogPerformer?.color,
+        };
+      });
+      patch.performers = [...activeRendition.performers, ...added];
+    }
+    updateActiveRendition(patch);
   };
 
   const updateLine = (index: number, patch: Partial<LyricsEditorLine>) => {
     if (!lyrics || activeSideReadOnly) return;
-    if (activeRendition) {
-      if (!Object.hasOwn(patch, "zh-CN")) return;
-      replaceActiveLines(activeLines.map((line, lineIndex) => lineIndex === index
-        ? { ...line, "zh-CN": patch["zh-CN"] }
-        : line) as LyricsEditorLine[]);
-      return;
-    }
-    replaceActiveLines(activeLines.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line) as LyricsEditorLine[]);
+    replaceActiveLines(activeLines.map((line, lineIndex) => {
+      if (lineIndex !== index) return line;
+      const updated = { ...line };
+      if (patch["zh-CN"] !== undefined) updated["zh-CN"] = patch["zh-CN"];
+      if (patch["en-US"] !== undefined) updated["en-US"] = patch["en-US"];
+      if (patch.stanzaBreakBefore !== undefined) updated.stanzaBreakBefore = patch.stanzaBreakBefore;
+      if (patch.trailingPerformerIds !== undefined) updated.trailingPerformerIds = patch.trailingPerformerIds;
+      if (patch.segments !== undefined) updated.segments = patch.segments;
+      return updated;
+    }) as LyricsEditorLine[]);
   };
 
   const setSegments = (lineIndex: number, segments: LyricsEditorSegment[], sourceMayChange = false) => {

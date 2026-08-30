@@ -203,9 +203,9 @@ func EnumerateLyricsSourceRenditionComponents(
 		return nil
 	}
 	for _, rendition := range renditions {
-		fullSegmentation := rendition.Full != nil && lyricsSourceFullHasPerformerSegmentation(*rendition.Full)
+		fullSegmentation := rendition.Full != nil && LyricsSourceFullHasPerformerSegmentation(*rendition.Full)
 		fullRuby := rendition.Full != nil && lyricsSourceFullHasSourceReadingEvidence(*rendition.Full)
-		gameSegmentation := rendition.Game != nil && lyricsSourceFullHasPerformerSegmentation(*rendition.Game)
+		gameSegmentation := rendition.Game != nil && LyricsSourceFullHasPerformerSegmentation(*rendition.Game)
 		gameRuby := rendition.Game != nil && lyricsSourceFullHasSourceReadingEvidence(*rendition.Game)
 		for _, item := range []struct {
 			component LyricsSourceRenditionComponentKind

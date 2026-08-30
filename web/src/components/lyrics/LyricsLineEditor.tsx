@@ -39,20 +39,20 @@ function LyricRubySpanEditor({
         aria-label={`第 ${lineNumber} 行分段 ${segmentNumber} ruby ${rubyNumber} 原文`}
         lang="ja"
         value={span.text}
-        readOnly={writeLocked}
+        readOnly={true}
         onChange={(event) => onChange({ text: event.target.value })}
       />
       <input
         aria-label={`第 ${lineNumber} 行分段 ${segmentNumber} ruby ${rubyNumber} 注音`}
         lang="ja"
         value={span.reading || ""}
-        readOnly={writeLocked}
-        placeholder="注音（可留空）"
+        readOnly={true}
+        placeholder="注音（已锁死）"
         onChange={(event) => onChange({ reading: event.target.value })}
       />
       <span className="lyric-ruby-actions">
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onSplit} disabled={writeLocked || !lyricSegmentCanSplit(span.text)}>拆分 ruby</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onMergeWithPrevious} disabled={writeLocked || rubyIndex === 0}>与上一 ruby 合并</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onSplit} disabled={true}>拆分 ruby</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onMergeWithPrevious} disabled={true}>与上一 ruby 合并</button>
       </span>
     </div>
   );
@@ -108,7 +108,6 @@ function LyricSegmentEditor({
   const lineNumber = lineIndex + 1;
   const segmentNumber = segmentIndex + 1;
   const canMergePrevious = segmentIndex > 0 && canMergeAdjacentLyricSegments(line.segments, segmentIndex - 1);
-  const structureLocked = writeLocked || sourceLocked;
 
   return (
     <div className="lyric-segment-editor" data-segment-index={segmentIndex}>
@@ -116,7 +115,7 @@ function LyricSegmentEditor({
         aria-label={`第 ${lineNumber} 行分段 ${segmentNumber}`}
         lang="ja"
         value={segment.text}
-        readOnly={structureLocked}
+        readOnly={true}
         onChange={(event) => onChange(event.target.value)}
         ref={registerInput}
       />
@@ -126,7 +125,7 @@ function LyricSegmentEditor({
           id={`performers-${line.id}-${segmentIndex}`}
           aria-label={`第 ${lineNumber} 行分段 ${segmentNumber} 的演唱者`}
           multiple
-          disabled={structureLocked}
+          disabled={writeLocked}
           value={segment.performerIds.map(String)}
           onChange={(event) => onChange(segment.text, Array.from(event.target.selectedOptions, (option) =>
             performers.find((performer) => String(performer.performerId) === option.value)?.performerId
@@ -153,7 +152,7 @@ function LyricSegmentEditor({
             segmentNumber={segmentNumber}
             rubyIndex={rubyIndex}
             span={span}
-            writeLocked={structureLocked}
+            writeLocked={true}
             onChange={(patch) => onRubyChange(rubyIndex, patch)}
             onSplit={() => onSplitRuby(rubyIndex)}
             onMergeWithPrevious={() => onMergeRubyWithPrevious(rubyIndex)}
@@ -162,13 +161,13 @@ function LyricSegmentEditor({
       </div>
 
       {showPerformerSegmentation && <span className="lyric-structure-actions">
-        <button type="button" className="btn btn-ghost btn-sm" aria-label={`在第 ${lineNumber} 行第 ${segmentNumber} 分段后新增分段`} onClick={onAdd} disabled={structureLocked}>新增分段</button>
-        <button type="button" className="btn btn-ghost btn-sm" aria-label={`在第 ${lineNumber} 行第 ${segmentNumber} 分段的光标位置分段`} title="请先把光标放在分段文字中的边界位置" onClick={onSplit} disabled={structureLocked || !lyricSegmentCanSplit(segment.text)}>在光标处分段</button>
-        <button type="button" className="btn btn-ghost btn-sm" aria-label={`将第 ${lineNumber} 行第 ${segmentNumber} 分段与上一分段合并`} title={segmentIndex > 0 && !canMergePrevious ? "演唱者不同，不能直接合并" : undefined} onClick={onMergeWithPrevious} disabled={structureLocked || !canMergePrevious}>与上一段合并</button>
-        <button type="button" className="btn btn-ghost btn-sm" aria-label={`移除第 ${lineNumber} 行第 ${segmentNumber} 分段并合并演唱者`} onClick={onRemove} disabled={structureLocked || line.segments.length <= 1}>移除分段</button>
+        <button type="button" className="btn btn-ghost btn-sm" aria-label={`在第 ${lineNumber} 行第 ${segmentNumber} 分段后新增分段`} onClick={onAdd} disabled={writeLocked}>新增分段</button>
+        <button type="button" className="btn btn-ghost btn-sm" aria-label={`在第 ${lineNumber} 行第 ${segmentNumber} 分段的光标位置分段`} title="请先把光标放在分段文字中的边界位置" onClick={onSplit} disabled={writeLocked || !lyricSegmentCanSplit(segment.text)}>在光标处分段</button>
+        <button type="button" className="btn btn-ghost btn-sm" aria-label={`将第 ${lineNumber} 行第 ${segmentNumber} 分段与上一分段合并`} title={segmentIndex > 0 && !canMergePrevious ? "演唱者不同，不能直接合并" : undefined} onClick={onMergeWithPrevious} disabled={writeLocked || !canMergePrevious}>与上一段合并</button>
+        <button type="button" className="btn btn-ghost btn-sm" aria-label={`移除第 ${lineNumber} 行第 ${segmentNumber} 分段并合并演唱者`} onClick={onRemove} disabled={writeLocked || line.segments.length <= 1}>移除分段</button>
         {sourceMutable && <>
-          <button type="button" className="btn btn-ghost btn-sm" aria-label={`左移第 ${lineNumber} 行第 ${segmentNumber} 分段`} onClick={() => onMove(-1)} disabled={structureLocked || segmentIndex === 0}>左移</button>
-          <button type="button" className="btn btn-ghost btn-sm" aria-label={`右移第 ${lineNumber} 行第 ${segmentNumber} 分段`} onClick={() => onMove(1)} disabled={structureLocked || segmentIndex === line.segments.length - 1}>右移</button>
+          <button type="button" className="btn btn-ghost btn-sm" aria-label={`左移第 ${lineNumber} 行第 ${segmentNumber} 分段`} onClick={() => onMove(-1)} disabled={writeLocked || segmentIndex === 0}>左移</button>
+          <button type="button" className="btn btn-ghost btn-sm" aria-label={`右移第 ${lineNumber} 行第 ${segmentNumber} 分段`} onClick={() => onMove(1)} disabled={writeLocked || segmentIndex === line.segments.length - 1}>右移</button>
         </>}
       </span>}
     </div>
@@ -227,26 +226,25 @@ export function LyricsLineEditor({
   onMoveSegment,
 }: LyricsLineEditorProps) {
   const lineNumber = lineIndex + 1;
-  const structureLocked = writeLocked || sourceLocked;
   return (
     <article className="lyric-line" data-line-index={lineIndex} aria-labelledby={`lyric-line-${line.id}-title`}>
       <span id={`lyric-line-${line.id}-title`} className="sr-only">第 {lineNumber} 行歌词</span>
       <header>
         <strong>{lineNumber}</strong>
         <code>{line.id}</code>
-        <label><input type="checkbox" checked={Boolean(line.stanzaBreakBefore)} disabled={structureLocked} onChange={(event) => onUpdateLine({ stanzaBreakBefore: event.target.checked })} /> 段落前空行</label>
+        <label><input type="checkbox" checked={Boolean(line.stanzaBreakBefore)} disabled={writeLocked} onChange={(event) => onUpdateLine({ stanzaBreakBefore: event.target.checked })} /> 段落前空行</label>
         {sourceMutable && <span className="lyric-structure-actions">
-          <button type="button" className="btn btn-ghost btn-sm" aria-label={`上移第 ${lineNumber} 行`} disabled={structureLocked || lineIndex === 0} onClick={() => onMoveLine(-1)}>上移</button>
-          <button type="button" className="btn btn-ghost btn-sm" aria-label={`下移第 ${lineNumber} 行`} disabled={structureLocked || lineIndex === lineCount - 1} onClick={() => onMoveLine(1)}>下移</button>
-          <button type="button" className="btn btn-ghost btn-sm" aria-label={`删除第 ${lineNumber} 行`} disabled={structureLocked || lineCount <= 1} onClick={onRemoveLine}>删除行</button>
+          <button type="button" className="btn btn-ghost btn-sm" aria-label={`上移第 ${lineNumber} 行`} disabled={writeLocked || lineIndex === 0} onClick={() => onMoveLine(-1)}>上移</button>
+          <button type="button" className="btn btn-ghost btn-sm" aria-label={`下移第 ${lineNumber} 行`} disabled={writeLocked || lineIndex === lineCount - 1} onClick={() => onMoveLine(1)}>下移</button>
+          <button type="button" className="btn btn-ghost btn-sm" aria-label={`删除第 ${lineNumber} 行`} disabled={writeLocked || lineCount <= 1} onClick={onRemoveLine}>删除行</button>
         </span>}
       </header>
 
       <div className="lyric-translations">
         <label>日文<textarea aria-label={`第 ${lineNumber} 行日文原文`} lang="ja" value={line.japanese} readOnly rows={2} /></label>
         <label>简中<textarea aria-label={`第 ${lineNumber} 行简体中文译文`} lang="zh-CN" value={line["zh-CN"] || ""} readOnly={writeLocked} onChange={(event) => onUpdateLine({ "zh-CN": event.target.value })} rows={2} /></label>
-        <label>英文<textarea aria-label={`第 ${lineNumber} 行英文译文`} lang="en" value={line["en-US"] || ""} readOnly={structureLocked} title={sourceLocked ? "当前 plural rendition schema 尚未持久化英文译文" : undefined} onChange={(event) => onUpdateLine({ "en-US": event.target.value })} rows={2} /></label>
-        {showPerformerSegmentation && line.trailingPerformerIds !== undefined && <label>行尾演唱者<select aria-label={`第 ${lineNumber} 行尾演唱者`} multiple disabled={structureLocked} value={line.trailingPerformerIds.map(String)} onChange={(event) => onUpdateLine({ trailingPerformerIds: Array.from(event.target.selectedOptions, (option) => performers.find((performer) => String(performer.performerId) === option.value)?.performerId).filter((id): id is LyricsPerformerID => id !== undefined) } as Partial<LyricsEditorLine>)}>
+        <label>英文<textarea aria-label={`第 ${lineNumber} 行英文译文`} lang="en" value={line["en-US"] || ""} readOnly={writeLocked} onChange={(event) => onUpdateLine({ "en-US": event.target.value })} rows={2} /></label>
+        {showPerformerSegmentation && line.trailingPerformerIds !== undefined && <label>行尾演唱者<select aria-label={`第 ${lineNumber} 行尾演唱者`} multiple disabled={writeLocked} value={line.trailingPerformerIds.map(String)} onChange={(event) => onUpdateLine({ trailingPerformerIds: Array.from(event.target.selectedOptions, (option) => performers.find((performer) => String(performer.performerId) === option.value)?.performerId).filter((id): id is LyricsPerformerID => id !== undefined) } as Partial<LyricsEditorLine>)}>
           {performers.map((performer) => <option key={performer.performerId} value={performer.performerId}>{performerOptionName(performer)}</option>)}
         </select></label>}
       </div>

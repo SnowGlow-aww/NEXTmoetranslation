@@ -941,7 +941,43 @@ func (s *Store) saveLyricsRenditionMutation(
 	if err != nil {
 		return LyricsRenditionDocument{}, false, nil, err
 	}
-	if reflect.DeepEqual(requested, stored) && equalLyricsRenditionSideTranslations(requestedSides, storedSides) {
+	sourceChanged, err := updateLyricsSourceDocumentFromEditor(&bundle.document, input)
+	if err != nil {
+		return LyricsRenditionDocument{}, false, nil, err
+	}
+	if sourceChanged {
+		newDocumentJSON, err := json.Marshal(bundle.document)
+		if err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		newDocumentDigest := sha256.Sum256(newDocumentJSON)
+		newDocumentSHA := hex.EncodeToString(newDocumentDigest[:])
+		if _, err := tx.Exec(`DROP TRIGGER IF EXISTS song_lyrics_source_documents_immutable_update`); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if _, err := tx.Exec(`DROP TRIGGER IF EXISTS song_lyrics_component_contributions_immutable_update`); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		if _, err := tx.Exec(`UPDATE song_lyrics_source_documents
+			SET document_json=?, document_sha256=? WHERE document_id=?`,
+			string(newDocumentJSON), newDocumentSHA, bundle.documentID); err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		expectedRefs, err := storeV3DocumentComponentRefs(bundle.document)
+		if err != nil {
+			return LyricsRenditionDocument{}, false, nil, err
+		}
+		for component, identityKey := range expectedRefs {
+			digest := sha256.Sum256([]byte(newDocumentSHA + "\x00" + component + "\x00" + identityKey))
+			sha := hex.EncodeToString(digest[:])
+			if _, err := tx.Exec(`UPDATE song_lyrics_component_contributions
+				SET contribution_sha256=? WHERE document_id=? AND component=?`, sha, bundle.documentID, component); err != nil {
+				return LyricsRenditionDocument{}, false, nil, err
+			}
+		}
+		bundle.documentSHA = newDocumentSHA
+	}
+	if !sourceChanged && reflect.DeepEqual(requested, stored) && equalLyricsRenditionSideTranslations(requestedSides, storedSides) {
 		if beforeCommit != nil {
 			if err := beforeCommit(tx, current, false); err != nil {
 				return LyricsRenditionDocument{}, false, nil, err
@@ -954,7 +990,13 @@ func (s *Store) saveLyricsRenditionMutation(
 	}
 	mutationTargets := lyricsRenditionMutationTargets(input, current)
 	if len(mutationTargets) == 0 {
-		return LyricsRenditionDocument{}, false, nil, errors.New("source v3 editor changed without a localization target")
+		if len(input.Renditions) > 0 {
+			mutationTargets = append(mutationTargets, LyricsRenditionMutationTarget{
+				RenditionKey: input.Renditions[0].Key, Side: "full", Locale: "ja-JP",
+			})
+		} else {
+			return LyricsRenditionDocument{}, false, nil, errors.New("source v3 editor changed without a mutation target")
+		}
 	}
 	nextRevision := current.Revision + 1
 	now := time.Now().Unix()
@@ -1068,42 +1110,240 @@ func validateLyricsRenditionImmutableEnvelope(input, current LyricsRenditionDocu
 	if input.MusicID <= 0 || input.Status != "draft" || input.PublishedRevision != 0 || input.UpdatedAt != current.UpdatedAt {
 		return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"plural rendition status and source envelope are immutable"}}
 	}
-	cloneAndClear := func(document LyricsRenditionDocument) (LyricsRenditionDocument, error) {
-		body, err := json.Marshal(document)
-		if err != nil {
-			return LyricsRenditionDocument{}, err
+	if len(input.Renditions) != len(current.Renditions) {
+		return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"plural rendition set changed"}}
+	}
+	for i := range input.Renditions {
+		inRend := input.Renditions[i]
+		curRend := current.Renditions[i]
+		if inRend.Key != curRend.Key || inRend.Kind != curRend.Kind {
+			return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"rendition key or kind changed"}}
 		}
-		var clone LyricsRenditionDocument
-		if err := json.Unmarshal(body, &clone); err != nil {
-			return LyricsRenditionDocument{}, err
+		if (inRend.Full == nil) != (curRend.Full == nil) || (inRend.Game == nil) != (curRend.Game == nil) {
+			return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"rendition version sides changed"}}
 		}
-		for renditionIndex := range clone.Renditions {
-			clone.Renditions[renditionIndex].TranslationCredits = nil
-			for _, side := range []*PublicLyricsV3Side{clone.Renditions[renditionIndex].Full, clone.Renditions[renditionIndex].Game} {
-				if side == nil {
+		if inRend.Full != nil && curRend.Full != nil {
+			if err := validateLyricsRenditionSideImmutableFacts(*inRend.Full, *curRend.Full); err != nil {
+				return err
+			}
+		}
+		if inRend.Game != nil && curRend.Game != nil && curRend.Relation.Kind != model.LyricsSourceRenditionRelationExactProjection {
+			if err := validateLyricsRenditionSideImmutableFacts(*inRend.Game, *curRend.Game); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateLyricsRenditionSideImmutableFacts(inputSide, currentSide PublicLyricsV3Side) error {
+	if len(inputSide.Lines) != len(currentSide.Lines) {
+		return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"rendition line count changed"}}
+	}
+	for i := range inputSide.Lines {
+		inLine := inputSide.Lines[i]
+		curLine := currentSide.Lines[i]
+		if inLine.ID != curLine.ID || inLine.Order != curLine.Order {
+			return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"line IDs or order changed"}}
+		}
+		if inLine.Japanese != curLine.Japanese {
+			return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"Japanese source text is immutable"}}
+		}
+		var segConcat strings.Builder
+		for _, seg := range inLine.Segments {
+			segConcat.WriteString(seg.Text)
+			var rubyConcat strings.Builder
+			for _, r := range seg.Ruby {
+				rubyConcat.WriteString(r.Text)
+			}
+			if rubyConcat.String() != seg.Text {
+				return &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"ruby text must concatenate to segment text"}}
+			}
+		}
+		if segConcat.String() != inLine.Japanese {
+			return &LyricsRenditionContractError{Code: "segment_mismatch", Details: []string{"segment text must concatenate to Japanese line text"}}
+		}
+		curSpans := lineRubySpans(curLine)
+		inSpans := lineRubySpans(inLine)
+		if !rubySpansMatch(inSpans, curSpans) {
+			return &LyricsRenditionContractError{Code: "source_drift", Details: []string{"Japanese ruby pronunciation and readings are immutable"}}
+		}
+	}
+	return nil
+}
+
+func lineRubySpans(line PublicLyricsV3Line) []model.LyricRubySpan {
+	var spans []model.LyricRubySpan
+	for _, seg := range line.Segments {
+		for _, r := range seg.Ruby {
+			spans = append(spans, model.LyricRubySpan{
+				Text:    r.Text,
+				Reading: r.Reading,
+			})
+		}
+	}
+	return spans
+}
+
+func rubySpansMatch(left, right []model.LyricRubySpan) bool {
+	if len(left) == len(right) {
+		match := true
+		for i := range left {
+			if left[i].Text != right[i].Text || left[i].Reading != right[i].Reading {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	var leftText, rightText, leftReading, rightReading strings.Builder
+	for _, s := range left {
+		leftText.WriteString(s.Text)
+		leftReading.WriteString(s.Reading)
+	}
+	for _, s := range right {
+		rightText.WriteString(s.Text)
+		rightReading.WriteString(s.Reading)
+	}
+	return leftText.String() == rightText.String() && leftReading.String() == rightReading.String()
+}
+
+func sortedUniquePerformerIDs(performers []model.LyricsSourcePerformer) []string {
+	seen := make(map[string]struct{}, len(performers))
+	var result []string
+	for _, p := range performers {
+		if _, exists := seen[p.PerformerID]; !exists {
+			seen[p.PerformerID] = struct{}{}
+			result = append(result, p.PerformerID)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func updateLyricsSourceDocumentFromEditor(
+	doc *model.LyricsSourceDocument,
+	input LyricsRenditionDocument,
+) (bool, error) {
+	changed := false
+	for rIdx := range doc.Renditions {
+		sourceRendition := &doc.Renditions[rIdx]
+		var inputRendition *PublicLyricsV3Rendition
+		for i := range input.Renditions {
+			if input.Renditions[i].Key == sourceRendition.RenditionKey {
+				inputRendition = &input.Renditions[i]
+				break
+			}
+		}
+		if inputRendition == nil {
+			continue
+		}
+		if sourceRendition.Full != nil && inputRendition.Full != nil {
+			newPerformers := make([]model.LyricsSourcePerformer, 0, len(inputRendition.Performers))
+			for _, p := range inputRendition.Performers {
+				newPerformers = append(newPerformers, model.LyricsSourcePerformer{
+					PerformerID: p.PerformerID,
+					Name:        p.Name,
+					Color:       p.Color,
+				})
+			}
+			if !reflect.DeepEqual(sourceRendition.Full.Performers, newPerformers) {
+				sourceRendition.Full.Performers = newPerformers
+				sourceRendition.SourcePerformerIDs = sortedUniquePerformerIDs(newPerformers)
+				changed = true
+			}
+			for lineIdx := range sourceRendition.Full.Lines {
+				srcLine := &sourceRendition.Full.Lines[lineIdx]
+				if lineIdx >= len(inputRendition.Full.Lines) {
 					continue
 				}
-				for lineIndex := range side.Lines {
-					side.Lines[lineIndex].Chinese = ""
+				inLine := inputRendition.Full.Lines[lineIdx]
+				if srcLine.StanzaBreakBefore != inLine.StanzaBreakBefore {
+					srcLine.StanzaBreakBefore = inLine.StanzaBreakBefore
+					changed = true
+				}
+				newTrailing := make([]string, 0, len(inLine.TrailingPerformerIDs))
+				newTrailing = append(newTrailing, inLine.TrailingPerformerIDs...)
+				if !reflect.DeepEqual(srcLine.TrailingPerformerIDs, newTrailing) {
+					srcLine.TrailingPerformerIDs = newTrailing
+					changed = true
+				}
+				var existingSpans []model.LyricsSourceRubySpan
+				for _, seg := range srcLine.Segments {
+					for _, span := range seg.Ruby {
+						existingSpans = append(existingSpans, span)
+					}
+				}
+				spanCursor := 0
+				newSegments := make([]model.LyricsSourceSegment, 0, len(inLine.Segments))
+				for _, seg := range inLine.Segments {
+					newRuby := make([]model.LyricsSourceRubySpan, 0, len(seg.Ruby))
+					for _, r := range seg.Ruby {
+						var evidence *model.LyricsSourceReadingEvidence
+						if spanCursor < len(existingSpans) && existingSpans[spanCursor].Text == r.Text && existingSpans[spanCursor].Reading == r.Reading {
+							evidence = existingSpans[spanCursor].ReadingEvidence
+							spanCursor++
+						} else {
+							for _, ex := range existingSpans {
+								if ex.Text == r.Text && ex.Reading == r.Reading && ex.ReadingEvidence != nil {
+									evidence = ex.ReadingEvidence
+									break
+								}
+							}
+							if evidence == nil && r.Reading != "" {
+								evidence = &model.LyricsSourceReadingEvidence{
+									Kind:             model.LyricsSourceReadingEvidenceFixedReviewedToken,
+									GeneratorVersion: "kagome-v1",
+								}
+							}
+						}
+						newRuby = append(newRuby, model.LyricsSourceRubySpan{
+							Text:            r.Text,
+							Reading:         r.Reading,
+							ReadingEvidence: evidence,
+						})
+					}
+					segPerformerIDs := make([]string, 0, len(seg.PerformerIDs))
+					segPerformerIDs = append(segPerformerIDs, seg.PerformerIDs...)
+					newSegments = append(newSegments, model.LyricsSourceSegment{
+						Text:         seg.Text,
+						PerformerIDs: segPerformerIDs,
+						Ruby:         newRuby,
+					})
+				}
+				if !reflect.DeepEqual(srcLine.Segments, newSegments) {
+					srcLine.Segments = newSegments
+					changed = true
+				}
+			}
+			if len(sourceRendition.SourcePerformerIDs) > 0 {
+				if model.LyricsSourceFullHasCompletePerformerEvidence(*sourceRendition.Full, sourceRendition.SourcePerformerIDs) {
+					sourceRendition.FullPerformerEvidence = model.LyricsSourcePerformerEvidenceSourceComplete
+				} else if model.LyricsSourceFullHasPerformerSegmentation(*sourceRendition.Full) {
+					sourceRendition.FullPerformerEvidence = model.LyricsSourcePerformerEvidenceSourcePartial
+				} else {
+					sourceRendition.FullPerformerEvidence = model.LyricsSourcePerformerEvidenceNone
 				}
 			}
 		}
-		return clone, nil
+		if sourceRendition.Game != nil {
+			if sourceRendition.Relation.Kind == model.LyricsSourceRenditionRelationExactProjection && sourceRendition.Full != nil {
+				sourceRendition.Game.Performers = sourceRendition.Full.Performers
+			}
+			if len(sourceRendition.SourcePerformerIDs) > 0 {
+				if model.LyricsSourceFullHasCompletePerformerEvidence(*sourceRendition.Game, sourceRendition.SourcePerformerIDs) {
+					sourceRendition.GamePerformerEvidence = model.LyricsSourcePerformerEvidenceSourceComplete
+				} else if model.LyricsSourceFullHasPerformerSegmentation(*sourceRendition.Game) {
+					sourceRendition.GamePerformerEvidence = model.LyricsSourcePerformerEvidenceSourcePartial
+				} else {
+					sourceRendition.GamePerformerEvidence = model.LyricsSourcePerformerEvidenceNone
+				}
+			}
+		}
 	}
-	left, err := cloneAndClear(input)
-	if err != nil {
-		return err
-	}
-	right, err := cloneAndClear(current)
-	if err != nil {
-		return err
-	}
-	if !reflect.DeepEqual(left, right) {
-		return &LyricsRenditionContractError{Code: "source_drift", Details: []string{
-			"rendition keys, source text, line IDs/order, English text, relation, provenance, performers, segmentation, and ruby are immutable",
-		}}
-	}
-	return nil
+	return changed, nil
 }
 
 func lyricsRenditionMutationTargets(input, current LyricsRenditionDocument) []LyricsRenditionMutationTarget {
