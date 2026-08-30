@@ -159,13 +159,25 @@ func TestApplyEmbeddedLyricsEditorSeedImportsReal700AndReplaysAfterRestart(t *te
 		t.Fatalf("catalog items=%d drafts=%d availability=%d", len(catalog.Items), catalogDrafts, catalogAvailability)
 	}
 
-	sourceMusicID := bundle.Documents[0].MusicID
+	var sourceMusicID int
+	for _, doc := range bundle.Documents {
+		if p, err := s.GetLyricsRenditionDocument(doc.MusicID); err == nil && len(p.Renditions) > 0 && len(p.Renditions[0].Performers) > 0 && p.Renditions[0].Full != nil {
+			sourceMusicID = doc.MusicID
+			break
+		}
+	}
+	if sourceMusicID == 0 {
+		sourceMusicID = bundle.Documents[0].MusicID
+	}
 	plural, err := s.GetLyricsRenditionDocument(sourceMusicID)
 	if err != nil {
 		database.Close()
 		t.Fatal(err)
 	}
 	plural.Renditions[0].TranslationCredits = &PublicLyricsV3TranslationCredits{Translation: "embedded seed test translator"}
+	if len(plural.Renditions[0].Performers) > 0 && plural.Renditions[0].Full != nil && len(plural.Renditions[0].Full.Lines) > 0 && len(plural.Renditions[0].Full.Lines[0].Segments) > 0 {
+		plural.Renditions[0].Full.Lines[0].Segments[0].PerformerIDs = []string{plural.Renditions[0].Performers[0].PerformerID}
+	}
 	savedPlural, changed, err := s.SaveLyricsRenditionMutation(plural, "embedded-seed-test")
 	if err != nil || !changed || savedPlural.Revision != 2 {
 		database.Close()

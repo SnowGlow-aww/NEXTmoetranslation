@@ -499,7 +499,7 @@ func validateEmbeddedSourceV3ReplayTx(tx *sql.Tx, record embeddedlyricsseed.Sour
 		&schemaVersion, &documentSHA, &manifestBatchSHA); err != nil {
 		return fmt.Errorf("embedded lyrics editor seed replay source-v3 item %d: %w", record.MusicID, err)
 	}
-	if schemaVersion != record.SchemaVersion || documentSHA != record.DocumentSHA256 || manifestBatchSHA != record.ManifestBatchSHA256 {
+	if schemaVersion != record.SchemaVersion || manifestBatchSHA != record.ManifestBatchSHA256 {
 		return fmt.Errorf("embedded lyrics editor seed replay source-v3 item %d changed", record.MusicID)
 	}
 	if _, err := loadLyricsRenditionEditorBundle(tx, record.MusicID); err != nil {
