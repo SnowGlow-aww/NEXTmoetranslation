@@ -348,8 +348,8 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     : legacyLyrics?.lines || [];
   const activePerformerOptions: Array<CatalogPerformerItem | LyricsRenditionPerformer> = useMemo(() => {
     if (!activeRendition) return performers;
-    const renditionIds = new Set(activeRendition.performers.map((p) => p.performerId));
-    const catalogExtra = performers.filter((p) => !renditionIds.has(p.performerId));
+    const renditionIds = new Set(activeRendition.performers.map((p: LyricsRenditionPerformer) => String(p.performerId)));
+    const catalogExtra = performers.filter((p: CatalogPerformerItem) => !renditionIds.has(String(p.performerId)));
     return [...activeRendition.performers, ...catalogExtra];
   }, [activeRendition, performers]);
   const gameSideReadOnlyReason = !activeRendition || activeRendition.relation.kind === "exact_projection"
@@ -822,17 +822,17 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
     };
     if (activeVersion === "full" && activeRendition.relation.kind === "exact_projection" && activeRendition.game) {
       const fullMap = new Map(ordered.map((line) => [line.id, line]));
-      const nextGameLines = activeRendition.game.lines.map((gameLine) => {
+      const nextGameLines: LyricsEditorLine[] = activeRendition.game.lines.map((gameLine: LyricsEditorLine) => {
         const fullLine = fullMap.get(gameLine.id);
         if (!fullLine) return gameLine;
         return {
           ...gameLine,
           segments: fullLine.segments.map((seg) => ({
             ...seg,
-            performerIds: [...seg.performerIds],
+            performerIds: seg.performerIds ? [...seg.performerIds].map(String) : [],
             ruby: seg.ruby.map((r) => ({ ...r })),
           })),
-          trailingPerformerIds: [...fullLine.trailingPerformerIds],
+          trailingPerformerIds: fullLine.trailingPerformerIds ? [...fullLine.trailingPerformerIds].map(String) : [],
           stanzaBreakBefore: fullLine.stanzaBreakBefore,
           "zh-CN": fullLine["zh-CN"],
           "en-US": fullLine["en-US"],
@@ -840,24 +840,25 @@ export const LyricsEditor = forwardRef<LyricsEditorHandle, LyricsEditorProps>(fu
       });
       patch.game = { ...activeRendition.game, lines: nextGameLines };
     }
-    const usedPerformerIds = new Set<LyricsPerformerID>();
+    const usedPerformerIds = new Set<string>();
     for (const line of ordered) {
-      for (const id of line.trailingPerformerIds || []) usedPerformerIds.add(id);
+      for (const id of (line.trailingPerformerIds || []) as LyricsPerformerID[]) usedPerformerIds.add(String(id));
       for (const seg of line.segments || []) {
-        for (const id of seg.performerIds || []) usedPerformerIds.add(id);
+        for (const id of (seg.performerIds || []) as LyricsPerformerID[]) usedPerformerIds.add(String(id));
       }
     }
-    const currentRenditionIds = new Set(activeRendition.performers.map((p) => p.performerId));
+    const currentRenditionIds = new Set(activeRendition.performers.map((p: LyricsRenditionPerformer) => String(p.performerId)));
     const missing = Array.from(usedPerformerIds).filter((id) => !currentRenditionIds.has(id));
     if (missing.length > 0) {
       const added: LyricsRenditionPerformer[] = missing.map((id) => {
-        const catalogPerformer = performers.find((p) => p.performerId === id);
+        const catalogPerformer = performers.find((p: CatalogPerformerItem) => String(p.performerId) === id);
+        const nameStr = typeof catalogPerformer?.name === "string"
+          ? catalogPerformer.name
+          : (catalogPerformer?.name?.["zh-CN"] || catalogPerformer?.name?.["ja-JP"] || id);
         return {
           performerId: id,
-          name: typeof catalogPerformer?.name === "string"
-            ? catalogPerformer.name
-            : catalogPerformer?.name?.["zh-CN"] || catalogPerformer?.name?.["ja-JP"] || String(id),
-          color: catalogPerformer?.color,
+          name: nameStr,
+          color: performerRepresentativeColor(id, activeRendition?.version.label),
         };
       });
       patch.performers = [...activeRendition.performers, ...added];

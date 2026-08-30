@@ -16,7 +16,6 @@ interface LyricRubySpanEditorProps {
   segmentNumber: number;
   rubyIndex: number;
   span: LyricRubySpan;
-  writeLocked: boolean;
   onChange: (patch: { text?: string; reading?: string }) => void;
   onSplit: () => void;
   onMergeWithPrevious: () => void;
@@ -27,7 +26,6 @@ function LyricRubySpanEditor({
   segmentNumber,
   rubyIndex,
   span,
-  writeLocked,
   onChange,
   onSplit,
   onMergeWithPrevious,
@@ -64,7 +62,6 @@ interface LyricSegmentEditorProps {
   segment: LyricsEditorSegment;
   segmentIndex: number;
   sourceMutable: boolean;
-  sourceLocked: boolean;
   writeLocked: boolean;
   showPerformerSegmentation: boolean;
   performers: LyricsPerformerOption[];
@@ -88,7 +85,6 @@ function LyricSegmentEditor({
   segment,
   segmentIndex,
   sourceMutable,
-  sourceLocked,
   writeLocked,
   showPerformerSegmentation,
   performers,
@@ -152,7 +148,6 @@ function LyricSegmentEditor({
             segmentNumber={segmentNumber}
             rubyIndex={rubyIndex}
             span={span}
-            writeLocked={true}
             onChange={(patch) => onRubyChange(rubyIndex, patch)}
             onSplit={() => onSplitRuby(rubyIndex)}
             onMergeWithPrevious={() => onMergeRubyWithPrevious(rubyIndex)}
@@ -205,7 +200,6 @@ export function LyricsLineEditor({
   lineIndex,
   lineCount,
   sourceMutable,
-  sourceLocked,
   writeLocked,
   showPerformerSegmentation,
   performers,
@@ -258,7 +252,6 @@ export function LyricsLineEditor({
             segment={segment}
             segmentIndex={segmentIndex}
             sourceMutable={sourceMutable}
-            sourceLocked={sourceLocked}
             writeLocked={writeLocked}
             showPerformerSegmentation={showPerformerSegmentation}
             performers={performers}
