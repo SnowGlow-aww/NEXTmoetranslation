@@ -46,10 +46,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /m
 FROM ${RUNTIME_IMAGE}@sha256:${RUNTIME_IMAGE_DIGEST} AS runtime
 ARG VERSION=dev
 ARG VCS_REF=unknown
+ARG IMAGE_SOURCE="https://github.com/StarMoe-org/NEXTmoetranslation"
 LABEL org.opencontainers.image.title="NextTrans" \
       org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.revision=$VCS_REF \
-      org.opencontainers.image.source="https://github.com/StarMoe-org/NEXTmoetranslation" \
+      org.opencontainers.image.source=$IMAGE_SOURCE \
       io.nexttrans.release.mode="standalone" \
       io.nexttrans.release.workflow=".github/workflows/release-next.yml"
 # The approved runtime base must already contain pinned Git, CA certificates,

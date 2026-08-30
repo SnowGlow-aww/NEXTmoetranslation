@@ -271,6 +271,7 @@ jobs:
             --build-arg RUNTIME_IMAGE_DIGEST="$RUNTIME_IMAGE_DIGEST" \
             --build-arg VERSION="$GITHUB_SHA" \
             --build-arg VCS_REF="$GITHUB_SHA" \
+            --build-arg IMAGE_SOURCE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --tag "$CI_IMAGE" .
 
       - name: Inspect standalone production image invariants
