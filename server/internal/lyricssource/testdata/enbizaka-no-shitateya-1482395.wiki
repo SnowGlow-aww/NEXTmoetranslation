@@ -1,0 +1,427 @@
+{{Explicit|Violence, Murder, Gore}}{{Song box 2
+  |color     = black; color: #FF1A00
+  |image     = Enbizaka.png
+  |title     = "'''円尾坂の仕立屋'''"
+* Romaji: Enbizaka no Shitateya
+* Official English: The Tailor of Enbizaka
+  |date      = December 7, 2009
+  |views     = {{v|nn|1,805,869}}, {{v|pp|35,198}} and {{v|yt|1,312,461}}
+  |singers   = [[Megurine Luka]]
+  |producers = [[mothy/2008+|mothy]] (music, lyrics)
+* [[Rgveta]], Jiji Fujimaru, Kurokino, Mizujun, Loft, [[ai (illustrator)|ai]], Yoiyami, Arisa, [[himi]], Nyohonoko., Mikan-fuumi, Coral, [[rakug]] (illustrations)
+  |links     = {{l|nn|sm9032932}} {{l|pp|2LxU}} {{l|yt|etn41n6wtAQ}}
+}}
+
+==Background==
+{{Quote|But I have to keep at my work.}}
+
+'''円尾坂の仕立屋''' ('''The Tailor of Enbizaka''') is mothy's sixteenth original VOCALOID work, and his first using Luka. This song is part of the Seven Deadly Sins series as Envy, as well as mothy's larger world, The Evillious Chronicles.
+
+The song concerns Kayo Sudou (Luka) a tailor in the town of Enbizaka, who is known for her skill. The only thing she thinks about is the fact that her "husband" ([[KAITO]]) is unfaithful and does not come "home". She sees him walking with a woman in a red kimono ([[MEIKO]]), later murdering her with her tailor scissors and takes the kimono. She acts as if nothing happened and is concerned about the rising murder rate. She later sees him with a girl in a green sash ([[Miku]]) and does the same to her, taking the sash, again acting as if is in the unknown. Kayo later sees him with a girl who he buys a yellow hairpin ([[Rin]]), and becomes disgusted when she sees that she's a little child but it doesn't stop her from murdering the girl. The tailor dresses in the personal items of the murdered women, in an attempt to become the ideal woman for her lover. As it turns out, however, her "husband" does not even know her; the three females were his wife (red kimono) and daughters (green sash, yellow hairpin). Offended at this apparent lack of acknowledgment, Kayo murders him, too, and carries on with her work. Its initial phrase is 「さあ、仕立てを始めましょう」(Now, let's begin tailoring).
+
+This song has entered [[Hall of Fame|Hall of Legend]].
+
+{{Main|Seven Deadly Sins|The Evillious Chronicles}}
+
+==Succeeding versions==
+{{Derivative
+|thumb = Enbizakakingdom.png
+|singers = Megurine Luka
+|producers = Akuno-P
+|categories = Succeeding version
+|title = Evils Kingdom version
+|description = The revised version released on the Evils Kingdom album
+|color = black; color: #FF1A00}}
+{{Derivative
+|thumb = Exit_Tunes_Luka.jpg
+|singers = Megurine Luka
+|producers = Akuno-P
+|categories = Succeeding version
+|title = Megurhythm Version
+|description = A revised version of the song on the [[EXIT TUNES PRESENTS Megurhythm feat. 巡音ルカ|Megurhythm]] album
+|color = black; color: #FF1A00}}
+{{Derivative
+|thumb = Seven_Crimes_and_Punishments_album.jpg
+|singers = Megurine Luka
+|producers = Akuno-P
+|categories = Succeeding version
+|title = Seven Crimes and Punishments Version
+|description = A revised version of the song on the [[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Seven Crimes and Punishments]] Album
+|color = black; color: #FF1A00}}
+{{derivative
+  |color       = #68b1dc; color:white
+  |thumb       = 初音ミクシンフォニー ～Miku Symphony 2023 オーケストラ ライブ CD.jpg
+  |title       = Miku Symphony 2023's Version
+  |producers   = Tokyo Philharmonic Orchestra
+  |categories  = Arrangement
+  |description = This version is featured in the album ''Hatsune Miku Symphony ~Miku Symphony 2023~ Orchestra Live CD''.
+  |links       = yt jdy_Fu03OeU
+}}
+{{clr}}
+
+==Lyrics==
+<tabber>
+NicoNico ver = 
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|円尾坂の片隅にある　仕立屋の若き女主人
+|enbizaka no katasumi ni aru shitateya no wakaki onna shujin
+|-
+|気立てのよさと確かな腕で　近所でも評判の娘
+|kidate no yosato tashikana ude de kinjo demo hyouban no musume
+|-
+|<br>
+|-
+|そんな彼女の悩みごとは　愛するあの人の浮気症
+|sonna kanojo no nayami goto wa aisuru ano hito no uwaki shou
+|-
+|「私というものがありながら　家に帰ってきやしない」
+|"watashi to iu mono ga ari nagara ie ni kaette kiyashinai"
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|母の形見の裁縫鋏　研げば研ぐほどよく切れる
+|haha no katami no saihou basami toge ba togu hodo yoku kireru
+|-
+|<br>
+|-
+|今日も町はいつもの通り　嗚呼穏やかで平和な日常
+|kyou mo machi wa itsumo no toori ah odayaka de heiwa na nichijou
+|-
+|大通りであの人を見かけた　隣の女はいったい誰？
+|oodoori de ano hito wo mikaketa tonari no onna wa ittai dare?
+|-
+|<br>
+|-
+|赤い着物がよく似合う　美しい女と仲むつまじく
+|akai kimono ga yoku niau utsukushii onna to naka mutsumajiku
+|-
+|歩くその姿こらえきれず　その場所をすぐ離れたの
+|aruku sono sugata korae kirezu sono basho wo sugu hanareta no
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|頬を涙で濡らしながら　着物の縫直しに精を出す
+|hoho wo namida de nurashi nagara kimono no nui naoshi ni sei wo dasu
+|-
+|<br>
+|-
+|町は何やら不穏な空気　何か事件がおこったらしい
+|machi wa nani yara fuonna kuuki nani ka jiken ga okottarashii
+|-
+|橋の前であの人を見かけた　隣の女はいったい誰？
+|hashi no mae de ano hito wo mikaketa tonari no onna wa ittai dare?
+|-
+|<br>
+|-
+|落ち込んだ様子のあの人に　寄り添う髪のきれいな女
+|ochi konda yousu no ano hito ni yori sou kami no kireina onna
+|-
+|緑の帯がとても似合うわ　ああそんな子が好みなのね
+|midori no obi ga totemo ni auwa ah sonna ko ga konomi nano ne
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|赤く眼(まなこ)をはらしながら　帯の修繕に精を出す
+|akaku manako wo harashi nagara obi no shuuzen ni sei wo dasu
+|-
+|<br>
+|-
+|町はにわかに騒ぎ始めた　再び事件があったらしい
+|machi wa niwaka ni sawagi hajimeta futatabi jiken ga attarashii
+|-
+|かんざし屋であの人を見かけた　隣の女はいったい誰？
+|kanzashi ya de ano hito wo mikaketa tonari no onna wa ittai dare?
+|-
+|<br>
+|-
+|年端もいかぬ女の子に　黄色いかんざし買い与えて
+|toshiha mo ikanu onna no ko ni kiiro i kanzashi kaiataete
+|-
+|一体何をしようというの？　本当に見境がないのね
+|ittai nani wo shiyou to iu no? hontou ni misakai ga nainone
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|鋏の色　こんなだったかしら？　今日も仕事に精を出す
+|hasami no iro konna datta kashira? kyou mo shigoto ni sei wo dasu
+|-
+|<br>
+|-
+|ようやく仕事もひと段落した
+|youyaku shigoto mo hito danraku shita
+|-
+|会いに来てくれないのならば
+|ai ni kitekurenai no naraba
+|-
+|こちらから会いに行きましょう
+|kochira kara ai ni ikimashou
+|-
+|<br>
+|-
+|赤い着物　緑の帯
+|akai kimono midori no obi
+|-
+|黄色いかんざし　髪に挿して
+|kiiro i kanzashi kami ni sashite
+|-
+|あなた好みの女になったわ
+|anata gonomi no onna ni natta wa
+|-
+|どう？わたし綺麗でしょう？
+|dou? watashi kireideshou?
+|-
+|<br>
+|-
+|今日は町中が大騒ぎ　今度は男が殺された
+|kyou wa machi juu ga oosawagi kondo wa otoko ga korosareta
+|-
+|これで家族四人が全て　何者かに殺されたらしい
+|kore de kazoku yonin ga subete nanimono ka ni korosaretarashii
+|-
+|<br>
+|-
+|それにしてもひどい人ね　「はじめましてこんにちは」なんて
+|sore ni shitemo hidoi hito ne "hajimemashite konnichiwa" nante
+|-
+|まるで他人みたいじゃない　まるで他人みたいじゃない
+|marude tanin mitaijanai marude tanin mitaijanai
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|赤く染まった裁縫鋏　研げば研ぐほどよく切れる
+|akaku somatta saihoubasami toge ba togu hodoyoku kireru
+|}
+|-|
+SCP ver = 
+{| style="width:100%"
+|{{shared}}|さあ、仕立てを始めましょう
+|-
+|{{shared}}|Saa, shitate o hajime mashou
+|-
+|<br />
+|-
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|円尾坂の片隅にある　仕立屋の若き女主人
+|enbizaka no katasumi ni aru shitateya no wakaki onna shujin
+|-
+|気立てのよさと確かな腕で　近所でも評判の娘
+|kidate no yosato tashikana ude de kinjo demo hyouban no musume
+|-
+|<br>
+|-
+|そんな彼女の悩みごとは　愛するあの人の浮気症
+|sonna kanojo no nayami goto wa aisuru ano hito no uwaki shou
+|-
+|「私というものがありながら　家に帰ってきやしない」
+|"watashi to iu mono ga ari nagara ie ni kaette kiyashinai"
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|母の形見の裁縫鋏　研げば研ぐほどよく切れる
+|haha no katami no saihou basami toge ba togu hodo yoku kireru
+|-
+|<br>
+|-
+|今日も町はいつもの通り　嗚呼穏やかで平和な日常
+|kyou mo machi wa itsumo no toori ah odayaka de heiwa na nichijou
+|-
+|大通りであの人を見かけた　隣の女はいったい誰？
+|oodoori de ano hito wo mikaketa tonari no onna wa ittai dare?
+|-
+|<br>
+|-
+|赤い着物がよく似合う　美しい女と仲むつまじく
+|akai kimono ga yoku niau utsukushii onna to naka mutsumajiku
+|-
+|歩くその姿こらえきれず　その場所をすぐ離れたの
+|aruku sono sugata korae kirezu sono basho wo sugu hanareta no
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|頬を涙で濡らしながら　着物の縫直しに精を出す
+|hoho wo namida de nurashi nagara kimono no nui naoshi ni sei wo dasu
+|-
+|<br>
+|-
+|町は何やら不穏な空気　何か事件がおこったらしい
+|machi wa nani yara fuonna kuuki nani ka jiken ga okottarashii
+|-
+|橋の前であの人を見かけた　隣の女はいったい誰？
+|hashi no mae de ano hito wo mikaketa tonari no onna wa ittai dare?
+|-
+|<br>
+|-
+|落ち込んだ様子のあの人に　寄り添う髪のきれいな女
+|ochi konda yousu no ano hito ni yori sou kami no kireina onna
+|-
+|緑の帯がとても似合うわ　ああそんな子が好みなのね
+|midori no obi ga totemo ni auwa ah sonna ko ga konomi nano ne
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|赤く眼(まなこ)をはらしながら　帯の修繕に精を出す
+|akaku manako wo harashi nagara obi no shuuzen ni sei wo dasu
+|-
+|<br>
+|-
+|町はにわかに騒ぎ始めた　再び事件があったらしい
+|machi wa niwaka ni sawagi hajimeta futatabi jiken ga attarashii
+|-
+|かんざし屋であの人を見かけた　隣の女はいったい誰？
+|kanzashi ya de ano hito wo mikaketa tonari no onna wa ittai dare?
+|-
+|<br>
+|-
+|年端もいかぬ女の子に　黄色いかんざし買い与えて
+|toshiha mo ikanu onna no ko ni kiiro i kanzashi kaiataete
+|-
+|一体何をしようというの？　本当に見境がないのね
+|ittai nani wo shiyou to iu no? hontou ni misakai ga nainone
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|鋏の色　こんなだったかしら？　今日も仕事に精を出す
+|hasami no iro konna datta kashira? kyou mo shigoto ni sei wo dasu
+|-
+|<br>
+|-
+|ようやく仕事もひと段落した
+|youyaku shigoto mo hito danraku shita
+|-
+|会いに来てくれないのならば
+|ai ni kitekurenai no naraba
+|-
+|こちらから会いに行きましょう
+|kochira kara ai ni ikimashou
+|-
+|<br>
+|-
+|赤い着物　緑の帯
+|akai kimono midori no obi
+|-
+|黄色いかんざし　髪に挿して
+|kiiro i kanzashi kami ni sashite
+|-
+|あなた好みの女になったわ
+|anata gonomi no onna ni natta wa
+|-
+|どう？わたし綺麗でしょう？
+|dou? watashi kireideshou?
+|-
+|<br>
+|-
+|今日は町中が大騒ぎ　今度は男が殺された
+|kyou wa machi juu ga oosawagi kondo wa otoko ga korosareta
+|-
+|これで家族四人が全て　何者かに殺されたらしい
+|kore de kazoku yonin ga subete nanimono ka ni korosaretarashii
+|-
+|<br>
+|-
+|それにしてもひどい人ね　「はじめましてこんにちは」なんて
+|sore ni shitemo hidoi hito ne "hajimemashite konnichiwa" nante
+|-
+|まるで他人みたいじゃない　まるで他人みたいじゃない
+|marude tanin mitaijanai marude tanin mitaijanai
+|-
+|<br>
+|-
+|だけど仕事は頑張らなきゃ　鋏を片手に一生懸命
+|dakedo shigoto wa ganbara nakya hasami wo katate ni isshou kenmei
+|-
+|赤く染まった裁縫鋏　研げば研ぐほどよく切れる
+|akaku somatta saihoubasami toge ba togu hodoyoku kireru
+|}
+</tabber>
+
+==Derivatives==
+{{Derivative
+|links = nn sm10037782
+|singers = Megurine Luka
+|producers = kinu
+|categories = Fanmade PV
+|title = kinu's PV
+|color = black; color: #FF1A00}}
+{{Derivative
+|links = yt Tt31439XObA
+|singers = Megurine Luka
+|producers = Mario GaGabriel
+|categories = Fanmade PV
+|title = Mario GaGabriel's PV
+|color = black; color: #FF1A00}}
+{{clr}}
+
+==Other media appearances==
+===Discography===
+This song is featured in the following albums:
+* [[EVILS FOREST]]
+* [[悪ノ王国〜Evils Kingdom〜 (Aku no Oukoku 〜Evils Kingdom〜)|Evils Kingdom]]
+* [[七つの罪と罰 (Nanatsu no Tsumi to Batsu) (album)|Seven Crimes and Punishments]]
+* [[花楽里漫葉集 feat. 初音ミク (Karakuri Man'yoshu feat. Hatsune Miku)|Karakuri Man'yoshu]]
+* [[EXIT TUNES PRESENTS Megurhythm feat. 巡音ルカ|Megurythm]]
+* ''Saribitotachi no Waltz Aku no Taizai SEKAI EDITION+''
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="black">
+Games - Project SEKAI - 円尾坂の仕立屋.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |web   = [http://piapro.jp/t/szZK Mothy's Piapro]
+  |media = [http://piapro.jp/bookmark/folder_contents/?pid=mothy&view=image&folder_id=104926 PV illustrations]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 7596
+  |nico   = sm9032932
+  |vocadb = 2808
+  |pixiv  = 円尾坂の仕立屋
+  |tag    = 円尾坂の仕立屋
+  |vlw    = 円尾坂の仕立屋 (Enbizaka no Shitateya)
+  |url    = [http://vocalochu.blogspot.com/2009/12/lyricsluka-enbizaka-no-shitateya-tailor.html Vocalochu]
+* {{IW|theevilliouschronicles|The Tailor of Enbizaka|The Evillious Chronicles Wiki}}
+* {{IW|projectsekai|Enbizaka no Shitateya|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Megurine Luka]]
+[[Category:Evillious Chronicles series]]
+[[Category:Mobile game songs]]

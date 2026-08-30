@@ -1,0 +1,61 @@
+{
+  "version": 3,
+  "musicId": 13,
+  "revision": 1,
+  "updatedAt": "2026-07-31T03:00:00Z",
+  "state": "game_only",
+  "renditions": [
+    {
+      "key": "sekai",
+      "kind": "sekai",
+      "label": "Game Version Only",
+      "availableVersions": ["game"],
+      "performers": [],
+      "game": {
+        "version": {"kind": "sekai", "label": "Game Version Only"},
+        "lines": [
+          {
+            "id": "game-000001",
+            "order": 0,
+            "japanese": "ゲームで歌う",
+            "segments": [
+              {"text": "ゲームで歌う", "performerIds": [], "ruby": [{"text": "ゲームで"}, {"text": "歌", "reading": "うた"}, {"text": "う"}]}
+            ],
+            "trailingPerformerIds": []
+          }
+        ]
+      },
+      "relation": {"kind": "none"},
+      "sourceTabPaths": [["Game Version Only"]],
+      "provenance": [
+        {
+          "component": "renditions/sekai/game_text",
+          "provider": "sekaipedia",
+          "title": "Game Version Only",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        {
+          "component": "renditions/sekai/relation",
+          "provider": "sekaipedia",
+          "title": "Game Version Only",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        {
+          "component": "renditions/sekai/version",
+          "provider": "sekaipedia",
+          "title": "Game Version Only",
+          "revisionId": 1202,
+          "revisionUrl": "https://www.sekaipedia.org/wiki/Game_Version_Only?oldid=1202",
+          "licenseName": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ]
+    }
+  ]
+}

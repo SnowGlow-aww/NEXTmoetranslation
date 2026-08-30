@@ -1,0 +1,140 @@
+== Lyrics ==
+<tabber>25-ji, Nightcord de. Version =
+{{lrc legend|linear-gradient(#657268,#4A554D); color: white
+|MEIKO:#DE4444
+|Ena:#CCAA87
+|Mafuyu:#8889CC
+|Kanade:#BB6588
+|Mizuki:#E4A8CA
+|Chorus
+}}
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|{{lrc color|ena|この涙が渇くまで}}
+|{{lrc color|ena|kono namida ga kawaku made}}
+|-
+|{{lrc color|ena|無理に笑う必要はないよ}}
+|{{lrc color|ena|muri ni warau hitsuyou wa nai yo}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|追い続けた夢の途中}}
+|{{lrc color|meiko|oitsuzuketa yume no tochuu}}
+|-
+|{{lrc color|mafuyu|時間だけが迫っていく}}
+|{{lrc color|mafuyu|jikan dake ga sematte iku}}
+|-
+|{{lrc color|kanade|君の声を聞くことも}}
+|{{lrc color|kanade|kimi no koe o kiku koto mo}}
+|-
+|{{lrc color|mizuki|少なくなるのかな}}
+|{{lrc color|mizuki|sukunakunaru no ka na}}
+|-
+|<br>
+|-
+|{{lrc color|ena|今}}この瞬間を {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|{{lrc color|ena|ima}} kono shunkan o {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|-
+|大切に今日も生きている {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|taisetsu ni kyou mo ikiteiru {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|-
+|不器用だから {{lrc color|mafuyu|■}}{{lrc color|kanade|■}}
+|bukiyou dakara {{lrc color|mafuyu|■}}{{lrc color|kanade|■}}
+|-
+|全てが煌めいていた {{lrc color|mafuyu|■}}{{lrc color|kanade|■}}
+|subete ga kirameiteita {{lrc color|mafuyu|■}}{{lrc color|kanade|■}}
+|-
+|<br>
+|-
+|君と居られたら {{lrc color|meiko|■}}{{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|kimi to iraretara {{lrc color|meiko|■}}{{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|-
+|それだけで幸せなんだ {{lrc color|meiko|■}}{{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|sore dake de shiawase nan da {{lrc color|meiko|■}}{{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|-
+|{{lrc color|ena|星空は今日も照らし続ける}}
+|{{lrc color|ena|hoshizora wa kyou mo terashitsuzukeru}}
+|-
+|<br>
+|-
+|{{lrc color|ena|静かな夜の真ん中}}
+|{{lrc color|ena|shizuka na yoru no mannaka}}
+|-
+|{{lrc color|ena|思い出がふと頭をよぎる}}
+|{{lrc color|ena|omoide ga futo atama o yogiru}}
+|-
+|<br>
+|-
+|{{lrc color|mizuki|いつの間にか消えたメロディー}}
+|{{lrc color|mizuki|itsunomanika kieta merodii}}
+|-
+|{{lrc color|meiko|振り切れるほど確認した}}
+|{{lrc color|meiko|furikireru hodo kakunin shita}}
+|-
+|{{lrc color|kanade|君が居ないと何にも}}
+|{{lrc color|kanade|kimi ga inaito nannimo}}
+|-
+|{{lrc color|mafuyu|出来ないくらい辛いよ ああ}}
+|{{lrc color|mafuyu|dekinai kurai tsurai yo aa}}
+|-
+|<br>
+|-
+|見えない未来の中でも {{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|mienai mirai no naka demo {{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|-
+|日々を覚えてる {{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|hibi o oboeteru {{lrc color|ena|■}}{{lrc color|mizuki|■}}
+|-
+|全部宝物だよ {{lrc color|mafuyu|■}}{{lrc color|kanade|■}}
+|zenbu takaramono da yo {{lrc color|mafuyu|■}}{{lrc color|kanade|■}}
+|-
+|<br>
+|-
+|{{lrc color|ena|いつかこの夜が明けて}}
+|{{lrc color|ena|itsuka kono yoru ga akete}}
+|-
+|{{lrc color|meiko|朝日が昇る}}
+|{{lrc color|meiko|asahi ga noboru}}
+|-
+|{{lrc color|ena|僕らは一つだ}}
+|{{lrc color|ena|bokura wa hitotsu da}}
+|-
+|<br>
+|-
+|{{lrc color|meiko|涙が溢れる}}
+|{{lrc color|meiko|namida ga afureru}}
+|-
+|{{lrc color|ena|でも僕らは}}強く生きている
+|{{lrc color|ena|demo bokura wa}} tsuyoku ikiteiru
+|-
+|誰かじゃなくこの歌で {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|dareka janaku kono uta de {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|-
+|明日へ進む {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|asu e susumu {{lrc color|meiko|■}}{{lrc color|ena|■}}
+|-
+|<br>
+|-
+|{{lrc color|ena|君と居られたら}}
+|{{lrc color|ena|kimi to iraretara}}
+|-
+|{{lrc color|ena|それだけで幸せなんだ}}
+|{{lrc color|ena|sore dake de shiawase nan da}}
+|-
+|{{lrc color|ena|その光を見つめて先へ}}
+|{{lrc color|ena|sono hikari o mitsumete saki e}}
+|}
+|-|VOCALOID Version =
+{| style="width:100%"
+! Japanese (日本語歌詞)
+! Romaji
+|-
+|この涙が渇くまで
+|kono namida ga kawaku made
+|-
+|少なくなるのかな今
+|sukunakunaru no ka na ima
+|}
+</tabber>

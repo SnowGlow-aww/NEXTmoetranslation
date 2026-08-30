@@ -5,7 +5,6 @@
 package translator
 
 import (
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,9 +13,11 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"moesekai/server/internal/config"
+	"moesekai/server/internal/httpx"
 )
 
 const (
@@ -32,6 +33,9 @@ const (
 	defaultCNAssetsURL         = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets/ondemand"
 	defaultCNAssetsFallbackURL = ""
 	defaultSourceHedgeDelay    = 2 * time.Second
+	maxMasterdataWireBytes     = 64 << 20
+	maxMasterdataDecodedBytes  = 128 << 20
+	maxMasterdataRecords       = 500_000
 )
 
 type sourceFailure struct {
@@ -41,13 +45,20 @@ type sourceFailure struct {
 
 // fetchMasterdata fetches a masterdata array from the JP or CN source chain.
 func (t *Translator) fetchMasterdata(filename, server string) ([]map[string]any, error) {
-	data, err := t.fetchMasterdataDocument(filename, server)
+	return t.fetchMasterdataContext(t.runContext(), filename, server)
+}
+
+func (t *Translator) fetchMasterdataContext(ctx context.Context, filename, server string) ([]map[string]any, error) {
+	data, err := t.fetchMasterdataDocumentContext(ctx, filename, server)
 	if err != nil {
 		return nil, err
 	}
 	arr, ok := data.([]any)
 	if !ok {
 		return nil, fmt.Errorf("unexpected json type for %s", filename)
+	}
+	if len(arr) > maxMasterdataRecords {
+		return nil, fmt.Errorf("too many records in %s: %d", filename, len(arr))
 	}
 	out := make([]map[string]any, 0, len(arr))
 	for _, item := range arr {
@@ -59,7 +70,11 @@ func (t *Translator) fetchMasterdata(filename, server string) ([]map[string]any,
 }
 
 func (t *Translator) fetchMasterdataDocument(filename, server string) (any, error) {
-	return t.fetchJSONFromBases(t.masterdataBases(server), filename)
+	return t.fetchMasterdataDocumentContext(t.runContext(), filename, server)
+}
+
+func (t *Translator) fetchMasterdataDocumentContext(ctx context.Context, filename, server string) (any, error) {
+	return t.fetchJSONFromBasesContext(ctx, t.masterdataBases(server), filename)
 }
 
 func (t *Translator) masterdataBases(server string) []string {
@@ -143,33 +158,43 @@ func (t *Translator) fetchJSONURL(url string) (any, error) {
 }
 
 func (t *Translator) fetchJSONFromBases(bases []string, path string) (any, error) {
+	return t.fetchJSONFromBasesContext(t.runContext(), bases, path)
+}
+
+func (t *Translator) fetchJSONFromBasesContext(ctx context.Context, bases []string, path string) (any, error) {
 	urls := make([]string, 0, len(bases))
 	for _, base := range bases {
 		urls = append(urls, joinSourceURL(base, path))
 	}
-	return t.fetchJSONURLs(urls)
+	return t.fetchJSONURLsContext(ctx, urls)
 }
 
 func (t *Translator) fetchJSONURLs(urls []string) (any, error) {
+	return t.fetchJSONURLsContext(t.runContext(), urls)
+}
+
+func (t *Translator) fetchJSONURLsContext(ctx context.Context, urls []string) (any, error) {
 	urls = dedupeURLs(urls)
 	if len(urls) == 0 {
 		return nil, fmt.Errorf("no upstream source configured")
 	}
 
-	result, failures, ok := t.fetchJSONRound(urls)
+	result, failures, ok := t.fetchJSONRoundContext(ctx, urls)
 	if ok {
 		return result, nil
 	}
 
 	retryable := make([]string, 0, len(failures))
 	for _, failure := range failures {
-		if isTransientErr(failure.err) {
+		if failure.url != "" && isTransientErr(failure.err) {
 			retryable = append(retryable, failure.url)
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
-		result, retryFailures, ok := t.fetchJSONRound(dedupeURLs(retryable))
+		if err := waitContext(ctx, 500*time.Millisecond); err != nil {
+			return nil, err
+		}
+		result, retryFailures, ok := t.fetchJSONRoundContext(ctx, dedupeURLs(retryable))
 		if ok {
 			return result, nil
 		}
@@ -181,19 +206,41 @@ func (t *Translator) fetchJSONURLs(urls []string) (any, error) {
 	return nil, joinSourceFailures(failures)
 }
 
+func waitContext(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) {
+	return t.fetchJSONRoundContext(t.runContext(), urls)
+}
+
+func (t *Translator) fetchJSONRoundContext(parent context.Context, urls []string) (any, []sourceFailure, bool) {
 	type fetchResult struct {
 		url  string
 		data any
 		err  error
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	results := make(chan fetchResult, len(urls))
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	next, active := 0, 0
 	start := func(url string) {
 		active++
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			data, err := t.fetchJSONURLOnceContext(ctx, url)
 			results <- fetchResult{url: url, data: data, err: err}
 		}()
@@ -237,6 +284,8 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 			continue
 		}
 		select {
+		case <-ctx.Done():
+			return nil, append(failures, sourceFailure{err: ctx.Err()}), false
 		case result := <-results:
 			active--
 			if result.err == nil {
@@ -263,7 +312,7 @@ func (t *Translator) fetchJSONRound(urls []string) (any, []sourceFailure, bool) 
 }
 
 func (t *Translator) fetchJSONURLOnce(url string) (any, error) {
-	return t.fetchJSONURLOnceContext(context.Background(), url)
+	return t.fetchJSONURLOnceContext(t.runContext(), url)
 }
 
 func (t *Translator) fetchJSONURLOnceContext(ctx context.Context, url string) (any, error) {
@@ -283,16 +332,7 @@ func (t *Translator) fetchJSONURLOnceContext(ctx context.Context, url string) (a
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 400))
 		return nil, fmt.Errorf("GET %s: http %d: %s", url, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	var reader io.Reader = resp.Body
-	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
-		zr, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("GET %s: gzip: %w", url, err)
-		}
-		defer zr.Close()
-		reader = zr
-	}
-	raw, err := io.ReadAll(reader)
+	raw, err := httpx.ReadBody(resp, maxMasterdataWireBytes, maxMasterdataDecodedBytes)
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: read: %w", url, err)
 	}
@@ -316,6 +356,9 @@ func (t *Translator) fetchJPScenarioJSON(assetPath string) (any, error) {
 	failures := make([]sourceFailure, 0, len(urls)*2)
 	retryable := make([]string, 0, len(urls))
 	for _, url := range urls {
+		if err := t.runContext().Err(); err != nil {
+			return nil, err
+		}
 		result, err := t.fetchJSONURLOnce(url)
 		if err == nil && scenarioHasTalkData(result) {
 			return result, nil
@@ -330,7 +373,9 @@ func (t *Translator) fetchJPScenarioJSON(assetPath string) (any, error) {
 		}
 	}
 	if len(retryable) > 0 {
-		time.Sleep(500 * time.Millisecond)
+		if err := t.wait(500 * time.Millisecond); err != nil {
+			return nil, err
+		}
 		for _, url := range retryable {
 			result, err := t.fetchJSONURLOnce(url)
 			if err == nil && scenarioHasTalkData(result) {

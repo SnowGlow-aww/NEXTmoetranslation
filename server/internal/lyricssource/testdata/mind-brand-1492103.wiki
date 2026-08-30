@@ -1,0 +1,299 @@
+{{Explicit|Sexual Abuse, Violence and Profanity}}
+{{Song box 2
+  |color     = black; color:white
+  |image     = Mind.png
+  |title     = "'''マインドブランド'''"
+* Romaji: Maindo Burando
+* English: Mind Brand
+  |date      = May 29, 2015
+  |views     = {{v|nn|3,071,830}} and {{v|yt|15,693,401}}
+  |singers   = [[Hatsune Miku]]
+  |producers = [[MARETU]] (music, lyrics)
+  |links     = {{l|nn|sm26364502}} {{l|yt|NIABFcVB3Is|age-restricted}}
+}}
+==Background==
+"'''Mind Brand'''" is an original song by MARETU. The song has many interpretations, some popular ones being a breakup and sexual assault. The meaning is up to the listener. This song has entered the [[Hall of Legend]] and exceeded 15 million views on YouTube. Hence, this is one of MARETU's most notable songs.
+==Succeeding versions==
+{{Derivative
+  |color       = #884499; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - Mind Brand.png
+  |singers     = {{IW|projectsekai|25-ji, Nightcord de.}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Yoisaki Kanade}} (CV: {{IW|projectsekai|Kusunoki Tomori}}), {{IW|projectsekai|Asahina Mafuyu}} (CV: {{IW|projectsekai|Tanabe Rui}}), {{IW|projectsekai|Shinonome Ena}} (CV: {{IW|projectsekai|Suzuki Minori}}), {{IW|projectsekai|Akiyama Mizuki}} (CV: {{IW|projectsekai|Satou Hinata}})
+  |producers   = Matsumoto Nagisa (choreography), Jakko, Kisumi Reika, Momoka, Sakamoto Arisa, akari (motion actor)<br>[https://solidcube.jp/ SOLID CUBE] (motion capture), [https://www.marza.com/ MARZA ANIMATION PLANET] (overall direction, staging, camerawork, animation supervision)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = Piapro Studio Cover; Human Cover; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so44063901; yt 59wGGyaxvtg
+}}
+{{Derivative
+  |color       = #884499; color: white
+  |title       = Project SEKAI Version [SEKAI] (Full)
+  |thumb       = Games - Project SEKAI - Mind Brand.png
+  |singers     = 25-ji, Nightcord de.: Hatsune Miku, Yoisaki Kanade (CV: Kusunoki Tomori), Asahina Mafuyu (CV: Tanabe Rui), Shinonome Ena (CV: Suzuki Minori), Akiyama Mizuki (CV: Satou Hinata)
+  |producers   = SEGA, Colorful Palette, Crypton Future Media, Inc.
+  |categories  = Piapro Studio Cover; Human Cover; Album-exclusive Content
+  |description = Full version, featured in 25-ji, Nightcord de.'s 3rd full album ''25-ji, Nightcord de. SEKAI ALBUM Vol.3'', from the game ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''.
+  |links       = yt zofgUJ6qtkM
+}}
+{{clr}}
+
+==Lyrics==
+{{OmittedLyrics}}
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{Derivative
+  |color       = flower
+  |title       = RO-Z's Cover ft. flower
+  |singers     = [[flower]]
+  |producers   = RO-Z (cover, VSQX)
+  |categories  = VOCALOID Cover
+  |links       = yt lK0LHL2VGlc; sc enigmaticagitator/mind-brand-v4-flower
+}}
+{{Derivative
+  |color       = kagamine rin
+  |title       = Jaspurr's Cover ft. Kagamine Rin
+  |singers     = [[Kagamine Rin]]
+  |producers   = Jaspurr (cover), RyukaMoon (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = sc kodaholic/kagamine-rin-v4xv4xmind-brand-vocaloid4
+}}
+{{Derivative
+  |color       = rana
+  |title       = lynnetami's Cover ft. Rana
+  |singers     = [[Rana]] V4
+  |producers   = lynnetami (cover), RO-Z (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt -fdVIItc8yg
+}}
+{{Derivative
+  |color       = macne nana
+  |title       = Shane ☆'s Cover ft. Macne Nana
+  |singers     = [[Macne Nana]]
+  |producers   = Shane ☆ (cover, mixing, edits), RyukaMoon (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = sc shaneh121/macne-nana-mind-brand-v4
+}}
+{{Derivative
+  |color       = camui gackpo
+  |title       = Lucifer's Cover ft. Camui Gackpo
+  |singers     = [[Camui Gackpo]]
+  |producers   = Lucifer (cover, VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt 1y1efmHoYao
+}}
+{{Derivative
+  |color       = vy1
+  |title       = RyukaMoon's Cover ft. VY1
+  |singers     = [[VY1]]v4
+  |producers   = RyukaMoon (cover, mixing, VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt QGd8ZIPgUa4; sc ryukamoon/vocaloid-4-vy1v4-mind-brand
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = Eaver's Cover ft. KAITO and Hatsune Miku
+  |singers     = [[KAITO]] V3 Straight, [[Hatsune Miku]] Solid
+  |producers   = Eaver (cover), RO-Z (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt q7cRSYY57Vw
+}}
+{{Derivative
+  |color       = seeu
+  |title       = Pioteo's Korean Cover ft. SeeU
+  |singers     = [[SeeU]]
+  |producers   = [[Pioteo]] (cover, PV)
+  |categories  = VOCALOID Cover; Fanmade PV; Alternative Language
+  |links       = yt KeMkoD9PrBQ
+}}
+{{Derivative
+  |color       = megurine luka
+  |title       = Eaver's Cover ft. Megurine Luka [Natanael A's Acoustic Arrangement]
+  |singers     = [[Megurine Luka]]
+  |producers   = Eaver (cover), Natanael A (arrangement), RO-Z (VSQx)
+  |categories  = VOCALOID Cover
+  |links       = yt PlaCCmj6YAs
+}}
+  |utau = 
+{{Derivative
+  |color       = utau|thumb = yt
+  |title       = Kurukuru Suuji's Cover ft. Gekiyaku
+  |singers     = {{UW2.0|Gekiyaku}}
+  |producers   = Kurukuru Suuzi (cover), Yuutori (UST reference)
+  |categories  = UTAU Cover
+  |links       = nn sm32069088; yt bMc9CbNr7WY; sc suujiman/vcvvb-3
+}}
+{{clr}}
+{{Derivative
+  |color       = utau
+  |title       = akem's Cover ft. Suzu
+  |singers     = {{UW2.0|Suzu}} X-Cross
+  |producers   = akem (cover, harms, mixing), Macoron (UST)
+  |categories  = UTAU Cover; Fanmade PV
+  |links       = yt CWyN8XJ4aBw; sc akemiyuyu/utau-mind-brand-xcross
+}}
+{{Derivative
+  |color       = utau
+  |title       = Prisma's Cover ft. Shione Lt
+  |singers     = {{UW2.0|lt-shione|Shione Lt}} virus
+  |producers   = Prisma (cover), Macoron (UST)
+  |categories  = UTAU Cover
+  |links       = sc mr_prism/mind-brand-ft-shione-lt-virus
+}}
+  |human = 
+{{Derivative
+  |color       = black; color:white
+  |title       = JubyPhonic's English Cover
+  |singers     = {{UIW|JubyPhonic}}
+  |producers   = JubyPhonic (English lyrics adaption, mixing), FreedomT1Subs & Hazuki no Yume (translation reference)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt ioS-3wCGu-g; sc jubyphonic-p/mind-brand-english-cover
+  |comments    = ; deleted
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = Kuraiinu and Dr.R's Cover
+  |singers     = {{UIW|Kuraiinu}}, {{UIW|Dr. R}}
+  |producers   = JubyPhonic (lyrics), Dr.R (rap lyrics), Epistafy (artwork)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt REepi10WLGI
+}}
+{{derivative
+  |color       = black; color:white
+  |title       = Kuraiinu and Dr.R's Cover (Dj-Jo Remix)
+  |singers     = {{UIW|Kuraiinu}}, {{UIW|Dr. R}}
+  |producers   = JubyPhonic (lyrics), Dr.R (rap lyrics), Dj-Jo (remix), Kuraiinu (mix), Epistafy (artwork)
+  |categories  = Human Cover; Alternative Language; Remix
+  |links       = yt Z3jI3370BhQ
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = Lollia's English Cover ft. Master Andross
+  |singers     = Lollia
+  |producers   = JubyPhonic (lyrics), Master Andross (mixing, arrangement)
+  |categories  = Human Cover; Alternative Language; Arrangement
+  |links       = yt qg7YHt0xC1Y; sc masterandross/vocaloid-maretu-mind-brand-english-cover-by-lollia-and-master-andross
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = Lollia's English Cover ft. Sleeping Forest
+  |singers     = Lollia
+  |producers   = JubyPhonic (lyrics), Sleeping Forest (arrange, mix) Tara St. Michel (edit), Veto (art), Justbiddy (motion graphics)
+  |categories  = Human Cover; Alternative Language; Arrangement; Fanmade PV
+  |links       = yt Vuq3m5IRfzA
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = Sati Akura's Russian Cover
+  |singers     = {{UIW|Sati Akura}}
+  |producers   = ElliMarshmallow (Russian lyrics adaption, video), Epistafy (video, artwork, mix), Sati Akura (mix)
+  |categories  = Human Cover; Alternative Language; Fanmade PV
+  |links       = yt zcD3DZUxJRI
+  |comments    = 
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = Sati Akura's Russian Cover (Remake ver.)
+  |singers     = {{UIW|Sati Akura}}
+  |producers   = ElliMarshmallow (Russian lyrics adaption), Epistafy (artwork, mix), Billy Raven (inst), Crymon (inst mixing), DeD Vidos (animation)
+  |categories  = Human Cover; Alternative Language; Arrangement; Fanmade PV
+  |links       = yt hVznaI5QVLQ
+  |comments    = 
+}}
+{{derivative
+  |color       = black; color:white
+  |title       = Dima Lancaster's English Metal Cover
+  |singers     = Dima Lancaster
+  |producers   = Dima Lancaster (English lyrics, arrange), Epistafy (artwork), Billy Raven (arrange)
+  |categories  = Human Cover; Alternative Language; Arrangement; Fanmade PV
+  |links       = yt JWu-7FF4GyY
+  |comments    = 
+}}
+{{derivative
+  |color       = black; color:white
+  |title       = LEN's Russian Cover
+  |singers     = {{UIW|Ren Reiss|LEN}}
+  |producers   = Cleo-chan (Russian lyrics), LEN (Russian lyrics, mix), Dr.R (rap lyrics), Gradis (mix), lilyAmaya (illust, video)
+  |categories  = Human Cover; Alternative Language; Fanmade PV
+  |links       = yt fE5x8bRgG-Q
+}}
+{{derivative
+  |color       = black; color:white
+  |title       = GGeery's Hungarian Cover
+  |singers     = GGeery<br><small>Namito, Lisa Eve (backing vocals)</small>
+  |producers   = GGeery (Hungarian lyrics, mastering, video), BURU (rock arrange)
+  |categories  = Human Cover; Alternative Language
+  |links       = yt 8dhlR61NOMY
+  |description = The instrumental is mashed with BURU's rock arrangement and original's.
+}}
+  |arrangement = 
+{{Derivative
+  |color       = black; color:white
+  |title       = Natanael A.'s Acoustic Cover
+  |producers   = Natanael A.
+  |categories  = Arrangement
+  |links       = yt L8OBD1e849w ; sc nathanyster/acoustic-instrumental
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       =  melobunii's BuniiMix
+  |singers     = {{SVW|ANRI|ANRI AI lite}}
+  |producers   = melobunii
+  |categories  = Arrangement
+  |links       = yt 0eD0jCBQhyc; sc melobunii/buniimix-mind-brand-anri-ai-lite
+  |comments    = removed; 
+}}
+{{Derivative
+  |color       = black; color:white
+  |title       = JubyPhonic's English Cover (Revenge Ver)
+  |singers     = JubyPhonic
+  |producers   = JubyPhonic (English translyrics, mixing), Kusabi Delacroix (instrumental), toki (harmonies), Yubbii (illust), NauqyHarith, Hanwyaa (video), FreedomT1Subs (translation reference)
+  |categories  = Human Cover; Arrangement; Alternative Language; Fanmade PV
+  |links       = sp 2BjOKtX5tfoLEApIPcwEXE; 00 https://ffm.to/ymykk0n; yt 6Lr5jb4mSjQ
+  |comments    = ; feature.fm
+}}
+{{derivative
+  |color       = black; color:white
+  |title       = BURU's Rock arrange
+  |singers     = 
+  |producers   = BURU (instrumental cover)
+  |categories  = Arrangement
+  |links       = yt KxpHjEbDr-0
+}}
+|other=}}
+
+==Other media appearances==
+===Discography===
+This song was featured in the album ''[[コインロッカーベイビー (Coin Locker Baby) (album)|Coin Locker Baby]]''.
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'' (Virtual Singer version by Hatsune Miku; SEKAI version by 25-ji, Nightcord de. and Hatsune Miku).
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="black">
+Games - Project SEKAI - Mind Brand.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |dwlds = [https://play.spotify.com/track/2KvhjbZPPtNXTB6wib1rXB Spotify]
+* [http://piapro.jp/t/JyCC Off Vocal & Lyrics] — piapro
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 32143
+  |nico   = sm26364502
+  |vocadb = 89474
+  |mgp    = Mind_Brand
+  |tag    = マインドブランド
+  |vlw    = マインドブランド (Mind Brand)
+  |url    = {{IW|projectsekai|Mind Brand|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Japanese songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Songs featuring Human vocals and voices]]
+[[Category:Mobile game songs]]
+[[es:Mind Brand]]

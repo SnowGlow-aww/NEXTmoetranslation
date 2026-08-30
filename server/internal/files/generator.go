@@ -2,6 +2,7 @@ package files
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -84,6 +85,31 @@ func (g *Generator) CategoryFullJSON(category string) ([]byte, error) {
 	return MarshalIndentCompat(cat)
 }
 
+// CategoryLocaleFlatJSON returns the v2 flat projection for an explicit locale.
+func (g *Generator) CategoryLocaleFlatJSON(category, locale string) ([]byte, error) {
+	categoryData, err := g.store.CategoryDataLocale(category, locale)
+	if err != nil {
+		return nil, err
+	}
+	flat := make(map[string]map[string]string, len(categoryData))
+	for field, entries := range categoryData {
+		flat[field] = make(map[string]string, len(entries))
+		for key, entry := range entries {
+			flat[field][key] = entry.Text
+		}
+	}
+	return MarshalIndentCompat(flat)
+}
+
+// CategoryLocaleFullJSON returns the v2 full projection for an explicit locale.
+func (g *Generator) CategoryLocaleFullJSON(category, locale string) ([]byte, error) {
+	categoryData, err := g.store.CategoryDataLocale(category, locale)
+	if err != nil {
+		return nil, err
+	}
+	return MarshalIndentCompat(categoryData)
+}
+
 // EventStoryJSON returns the event_N.json bytes in the public, seed-compatible
 // shape: meta + episodes (in order), each episode = {scenarioId, title,
 // talkData} with talkData lines in story order. Source/speaker tracking lives
@@ -118,20 +144,92 @@ func (g *Generator) EventStoryJSON(eventID int) ([]byte, error) {
 	return marshalIndentNoEscape(root)
 }
 
-// WriteAll regenerates the full translation/ tree under outDir. Returns the
-// number of files written.
+// EventStoryLocaleJSON returns the additive full-fidelity locale projection.
+// Legacy event files continue to use EventStoryJSON unchanged.
+func (g *Generator) EventStoryLocaleJSON(eventID int, locale string) ([]byte, error) {
+	detail, err := g.eventStore.DetailLocale(eventID, locale)
+	if err != nil {
+		return nil, err
+	}
+	// Translation revisions are an authenticated editing concern. Keep the
+	// existing public v2 projection byte-for-byte stable.
+	for episodeNo, episode := range detail.Episodes {
+		for i := range episode.Segments {
+			episode.Segments[i].Revision = 0
+		}
+		detail.Episodes[episodeNo] = episode
+	}
+	return marshalIndentNoEscape(detail)
+}
+
+// PublishedLyricsJSON builds the complete published lyrics asset set. Callers
+// swap the returned map atomically so a malformed publication cannot expose a
+// partially rebuilt index/detail set.
+func (g *Generator) PublishedLyricsJSON() (map[string][]byte, error) {
+	index, details, err := g.store.PublishedLyrics()
+	if err != nil {
+		return nil, err
+	}
+	assets := map[string][]byte{}
+	indexJSON, err := MarshalIndentCompat(index)
+	if err != nil {
+		return nil, err
+	}
+	indexJSON = append(indexJSON, '\n')
+	if len(index.Songs) > model.PublicLyricsMaxIndexEntries || len(indexJSON) > model.PublicLyricsMaxArtifactBytes {
+		return nil, fmt.Errorf("published lyrics index exceeds the public artifact contract")
+	}
+	assets["translation/lyrics/index.json"] = indexJSON
+	for musicID, detail := range details {
+		body, err := MarshalIndentCompat(detail)
+		if err != nil {
+			return nil, err
+		}
+		body = append(body, '\n')
+		if len(body) > model.PublicLyricsMaxArtifactBytes {
+			return nil, fmt.Errorf("published lyrics detail %d exceeds the public artifact contract", musicID)
+		}
+		assets[fmt.Sprintf("translation/lyrics/music_%d.json", musicID)] = body
+	}
+	return assets, nil
+}
+
+// PublishedLyricsLocalizationProjection returns edited source-v3 rendition
+// localizations as validated public v3 index entries and detail documents (and v4 detail documents for multi-edition songs).
+// The runtime overlay merges them exactly like legacy database publications.
+func (g *Generator) PublishedLyricsLocalizationProjection() ([]store.PublicLyricsIndexSong, map[int]store.PublicLyricsV3DetailDocument, map[int]store.PublicLyricsV4DetailDocument, error) {
+	return g.store.PublishedLyricsLocalizationProjection()
+}
+
+// WriteAll regenerates the legacy category/event translation/ projection under
+// outDir. Published lyrics, locale mirrors, and search indexes are materialized
+// by their owning runtime or backup paths rather than changing this legacy
+// generator contract. Returns the number of files written.
 func (g *Generator) WriteAll() (int, error) {
+	return g.WriteAllContext(context.Background())
+}
+
+func (g *Generator) WriteAllContext(ctx context.Context) (int, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	transDir := filepath.Join(g.outDir, "translation")
 	if err := os.MkdirAll(transDir, 0o755); err != nil {
 		return 0, err
 	}
 	written := 0
 	for _, cat := range model.SupportedCategories {
+		if err := ctx.Err(); err != nil {
+			return written, err
+		}
 		flat, err := g.CategoryFlatJSON(cat)
 		if err != nil {
 			return written, fmt.Errorf("flat %s: %w", cat, err)
 		}
-		if err := writeAtomic(filepath.Join(transDir, cat+".json"), flat); err != nil {
+		if err := writeAtomicContext(ctx, filepath.Join(transDir, cat+".json"), flat); err != nil {
 			return written, err
 		}
 		written++
@@ -139,7 +237,7 @@ func (g *Generator) WriteAll() (int, error) {
 		if err != nil {
 			return written, fmt.Errorf("full %s: %w", cat, err)
 		}
-		if err := writeAtomic(filepath.Join(transDir, cat+".full.json"), full); err != nil {
+		if err := writeAtomicContext(ctx, filepath.Join(transDir, cat+".full.json"), full); err != nil {
 			return written, err
 		}
 		written++
@@ -154,22 +252,37 @@ func (g *Generator) WriteAll() (int, error) {
 		return written, err
 	}
 	for _, sum := range summaries {
+		if err := ctx.Err(); err != nil {
+			return written, err
+		}
 		b, err := g.EventStoryJSON(sum.EventID)
 		if err != nil {
 			return written, fmt.Errorf("event %d: %w", sum.EventID, err)
 		}
 		path := filepath.Join(esDir, "event_"+strconv.Itoa(sum.EventID)+".json")
-		if err := writeAtomic(path, b); err != nil {
+		if err := writeAtomicContext(ctx, path, b); err != nil {
 			return written, err
 		}
 		written++
 	}
+
 	return written, nil
 }
 
 func writeAtomic(path string, data []byte) error {
+	return writeAtomicContext(context.Background(), path, data)
+}
+
+func writeAtomicContext(ctx context.Context, path string, data []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = os.Remove(tmp)
 		return err
 	}
 	return os.Rename(tmp, path)

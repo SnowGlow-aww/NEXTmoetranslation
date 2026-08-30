@@ -1,0 +1,26 @@
+== Lyrics ==
+{|
+! Japanese
+! Romaji
+|-
+| 合成世界一
+| gousei sekai one
+|-
+| <br />
+|
+|-
+| {{Shared}}|Synthetic call
+| Synthetic call
+|-
+| {{shared}} | Change the synthetic world
+| Change the synthetic world
+|-
+| 合成世界二<br />合成世界三
+| gousei sekai two<br />gousei sekai three
+|-
+| <br />
+|
+|-
+| {{Shared}}|Keep testing
+| Keep testing
+|}

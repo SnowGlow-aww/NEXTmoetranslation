@@ -4,8 +4,10 @@
 package legacy
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -25,7 +27,9 @@ func LoadCategory(src, cat string) (model.Category, []string, error) {
 	// Flat text authority (always correct in the legacy data).
 	flatText := map[string]map[string]string{}
 	if data, err := os.ReadFile(filepath.Join(src, cat+".json")); err == nil {
-		_ = json.Unmarshal(data, &flatText)
+		if err := UnmarshalUnique(data, &flatText); err != nil {
+			return nil, warnings, fmt.Errorf("%s.json: %w", cat, err)
+		}
 	}
 
 	fullPath := filepath.Join(src, cat+".full.json")
@@ -48,7 +52,7 @@ func LoadCategory(src, cat string) (model.Category, []string, error) {
 
 	// Decode permissively: each entry is either an object or a (corrupt) string.
 	var rawCat map[string]map[string]json.RawMessage
-	if err := json.Unmarshal(data, &rawCat); err != nil {
+	if err := UnmarshalUnique(data, &rawCat); err != nil {
 		return nil, warnings, fmt.Errorf("%s.full.json: %w", cat, err)
 	}
 
@@ -79,6 +83,81 @@ func LoadCategory(src, cat string) (model.Category, []string, error) {
 		warnings = append(warnings, fmt.Sprintf("%s: recovered %d corrupt entries (text from flat, source/ids from repr)", cat, recovered))
 	}
 	return result, warnings, nil
+}
+
+// UnmarshalUnique rejects duplicate object keys at every nesting level before
+// decoding. encoding/json otherwise silently keeps the final value, which can
+// make a reviewed flat/full backup mean something different after restore.
+func UnmarshalUnique(data []byte, target any) error {
+	if err := ValidateUniqueJSON(data); err != nil {
+		return err
+	}
+	return json.Unmarshal(data, target)
+}
+
+// ValidateUniqueJSON rejects duplicate object keys at every nesting level and
+// rejects additional top-level values without otherwise materializing the JSON.
+func ValidateUniqueJSON(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if err := consumeUniqueJSONValue(decoder); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("multiple JSON values")
+		}
+		return err
+	}
+	return nil
+}
+
+func consumeUniqueJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		seen := map[string]bool{}
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return fmt.Errorf("object key is not a string")
+			}
+			if seen[key] {
+				return fmt.Errorf("duplicate object key %q", key)
+			}
+			seen[key] = true
+			if err := consumeUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil || end != json.Delim('}') {
+			return fmt.Errorf("invalid object")
+		}
+	case '[':
+		for decoder.More() {
+			if err := consumeUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil || end != json.Delim(']') {
+			return fmt.Errorf("invalid array")
+		}
+	default:
+		return fmt.Errorf("unexpected delimiter")
+	}
+	return nil
 }
 
 var (
@@ -126,6 +205,9 @@ type EventEpisode struct {
 func LoadEventStory(path string) (*EventStory, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		return nil, err
+	}
+	if err := ValidateUniqueJSON(raw); err != nil {
 		return nil, err
 	}
 	// First a normal decode for meta + non-ordered fields.

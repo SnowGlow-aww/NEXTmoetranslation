@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -12,9 +13,19 @@ import (
 //
 // GET /api/categories
 func (s *Server) handleCategories(w http.ResponseWriter, r *http.Request) {
-	cats, err := s.store.GetCategories()
+	locale, explicit, ok := requestLocale(w, r, "")
+	if !ok {
+		return
+	}
+	var cats []model.CategoryInfo
+	var err error
+	if explicit {
+		cats, err = s.store.GetCategoriesLocale(locale)
+	} else {
+		cats, err = s.store.GetCategories()
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if cats == nil {
@@ -38,13 +49,28 @@ func (s *Server) handleEntries(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, fmt.Sprintf("unsupported category: %s", category))
 		return
 	}
-	entries, err := s.store.GetEntries(category, field, source)
+	locale, explicit, ok := requestLocale(w, r, "")
+	if !ok {
+		return
+	}
+	var entries []model.EntryWithKey
+	var err error
+	if explicit {
+		entries, err = s.store.GetEntriesLocale(category, field, source, locale)
+	} else {
+		entries, err = s.store.GetEntries(category, field, source)
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if entries == nil {
 		entries = []model.EntryWithKey{}
+	}
+	if !explicit {
+		for i := range entries {
+			entries[i].UpdatedAt = 0
+		}
 	}
 	writeJSON(w, http.StatusOK, entries)
 }
@@ -57,12 +83,22 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	correlatedResponse := false
+	if values, present := r.URL.Query()["response"]; present {
+		if len(values) != 1 || values[0] != "correlated-v1" {
+			writeErr(w, http.StatusBadRequest, "unsupported entry response contract")
+			return
+		}
+		correlatedResponse = true
+	}
 	var req struct {
 		Category string `json:"category"`
 		Field    string `json:"field"`
 		Key      string `json:"key"`
 		Text     string `json:"text"`
 		Source   string `json:"source"`
+		Locale   string `json:"locale"`
+		ClientID string `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -75,20 +111,71 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "field and key required")
 		return
 	}
-	status, err := s.store.UpdateEntry(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r))
+	if !model.IsValidSource(req.Source) {
+		writeErr(w, http.StatusBadRequest, "invalid translation source")
+		return
+	}
+	locale, explicit, ok := requestLocale(w, r, req.Locale)
+	if !ok {
+		return
+	}
+	if locale == model.LocaleJapanese {
+		writeErr(w, http.StatusBadRequest, "locale is read-only")
+		return
+	}
+	var status string
+	var err error
+	if explicit {
+		status, err = s.store.UpdateEntryLocale(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r), locale)
+	} else {
+		status, err = s.store.UpdateEntry(req.Category, req.Field, req.Key, req.Text, req.Source, currentUser(r))
+	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		if err == sql.ErrNoRows {
+			writeErr(w, http.StatusConflict, "entry source identity changed; reload before saving")
+			return
+		}
+		writeLocaleInternalError(w, explicit, err)
 		return
 	}
 	if status == "ok" {
-		s.broadcast(sse.EventEntryUpdated, map[string]any{
+		s.rebuildCategoryAsset(req.Category)
+		payload := map[string]any{
 			"category": req.Category,
 			"field":    req.Field,
 			"key":      req.Key,
 			"text":     req.Text,
 			"source":   req.Source,
 			"user":     currentUser(r),
-		})
+			"clientId": req.ClientID,
+		}
+		if explicit {
+			payload["locale"] = locale
+		}
+		event := sse.EventEntryUpdated
+		if explicit && locale != model.LocaleChinese {
+			event = sse.EventEntryLocaleUpdated
+		}
+		s.broadcast(event, payload)
+	}
+	if correlatedResponse {
+		response := struct {
+			Status   string `json:"status"`
+			Category string `json:"category"`
+			Field    string `json:"field"`
+			Key      string `json:"key"`
+			Text     string `json:"text"`
+			Source   string `json:"source"`
+			Locale   string `json:"locale,omitempty"`
+		}{
+			Status: status, Category: req.Category, Field: req.Field, Key: req.Key,
+			Text: req.Text, Source: req.Source,
+		}
+		if explicit {
+			response.Locale = locale
+		}
+		writeJSON(w, http.StatusOK, response)
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": status})
 }

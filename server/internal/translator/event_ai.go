@@ -1,6 +1,7 @@
 package translator
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -60,6 +61,9 @@ func (t *Translator) translateEventStoryWithMode(eventID int, provider string, a
 	translatedCount := 0
 	t.emit("translate.progress", fmt.Sprintf("AI 剧情翻译准备中 0/%d", total), 0, total)
 	for i := 0; i < total; i += batchSize {
+		if err := t.runContext().Err(); err != nil {
+			return translatedCount, err
+		}
 		end := i + batchSize
 		if end > total {
 			end = total
@@ -87,9 +91,20 @@ func (t *Translator) translateEventStoryWithMode(eventID int, provider string, a
 		for j := range res {
 			res[j] = strings.TrimSpace(res[j])
 		}
-		count, err := t.eventStore.ApplyEventTranslations(eventID, batchTargets, res, model.SourceLLM)
+		count, protected := 0, false
+		if err := t.runContext().Err(); err != nil {
+			return translatedCount, err
+		}
+		if automatic {
+			count, protected, err = t.eventStore.ApplyEventTranslationsForSync(eventID, batchTargets, res, model.SourceLLM)
+		} else {
+			count, err = t.eventStore.ApplyEventTranslations(eventID, batchTargets, res, model.SourceLLM)
+		}
 		if err != nil {
 			return translatedCount, fmt.Errorf("persist event %d batch %d/%d: %w", eventID, batchNo, batchTotal, err)
+		}
+		if protected {
+			return translatedCount, nil
 		}
 		translatedCount += count
 		processed = end
@@ -98,7 +113,9 @@ func (t *Translator) translateEventStoryWithMode(eventID int, provider string, a
 		}
 		t.emit("translate.progress", fmt.Sprintf("AI 剧情翻译已保存 %d/%d", processed, total), processed, total)
 		if end < total {
-			time.Sleep(cfg.RateDelay)
+			if err := t.wait(cfg.RateDelay); err != nil {
+				return translatedCount, err
+			}
 		}
 	}
 
@@ -110,8 +127,10 @@ func (t *Translator) translateEventStoryWithMode(eventID int, provider string, a
 	if len(remaining) == 0 {
 		source = model.SourceLLM
 	}
-	if err := t.eventStore.SetStorySource(eventID, source); err != nil {
+	if updated, err := t.eventStore.SetStorySourceForSync(eventID, source); err != nil {
 		return translatedCount, err
+	} else if !updated {
+		return translatedCount, nil
 	}
 	if t.store != nil {
 		t.store.NotifyChange()
@@ -121,7 +140,11 @@ func (t *Translator) translateEventStoryWithMode(eventID int, provider string, a
 
 // AITranslateAll translates every event story that still has untranslated lines.
 func (t *Translator) AITranslateAll(provider string) (AITranslateAllResult, error) {
-	if err := t.markStart("ai-all"); err != nil {
+	return t.AITranslateAllContext(context.Background(), provider)
+}
+
+func (t *Translator) AITranslateAllContext(ctx context.Context, provider string) (AITranslateAllResult, error) {
+	if err := t.markStart(ctx, "ai-all"); err != nil {
 		return AITranslateAllResult{}, err
 	}
 	var runErr error
@@ -140,6 +163,10 @@ func (t *Translator) AITranslateAll(provider string) (AITranslateAllResult, erro
 		return result, runErr
 	}
 	for _, sum := range summaries {
+		if err := t.runContext().Err(); err != nil {
+			runErr = err
+			return result, runErr
+		}
 		// Skip stories already official/human.
 		src := normalizeStorySource(sum.Source)
 		if src == "official_cn" || src == model.SourceHuman || src == model.SourcePinned {
@@ -170,7 +197,11 @@ func (t *Translator) AITranslateAll(provider string) (AITranslateAllResult, erro
 // AITranslateStory translates a single event story's untranslated lines via the
 // LLM. Used by the per-story "AI 补充翻译" button in the editor.
 func (t *Translator) AITranslateStory(eventID int, provider string) (AITranslateAllResult, error) {
-	if err := t.markStart("ai-story"); err != nil {
+	return t.AITranslateStoryContext(context.Background(), eventID, provider)
+}
+
+func (t *Translator) AITranslateStoryContext(ctx context.Context, eventID int, provider string) (AITranslateAllResult, error) {
+	if err := t.markStart(ctx, "ai-story"); err != nil {
 		return AITranslateAllResult{}, err
 	}
 	var runErr error
@@ -207,7 +238,11 @@ func (t *Translator) AITranslateStory(eventID int, provider string) (AITranslate
 // RetryEventStorySync re-fetches one event story from remote, preferring official
 // CN and falling back to JP-pending + auto LLM. Overwrites local non-edited data.
 func (t *Translator) RetryEventStorySync(eventID int) (map[string]any, error) {
-	if err := t.markStart("retry-event-story"); err != nil {
+	return t.RetryEventStorySyncContext(context.Background(), eventID)
+}
+
+func (t *Translator) RetryEventStorySyncContext(ctx context.Context, eventID int) (map[string]any, error) {
+	if err := t.markStart(ctx, "retry-event-story"); err != nil {
 		return nil, err
 	}
 	var runErr error
@@ -250,11 +285,25 @@ func (t *Translator) RetryEventStorySync(eventID int) (map[string]any, error) {
 
 	if cnEventSet[eventID] && cnStoryByEvent[eventID] != nil {
 		episodes, hasTalk, _, episodeErrors := t.buildOfficialCNEpisodes(jpStory, cnStoryByEvent[eventID])
-		if len(episodeErrors) == 0 && hasTalk {
+		if len(episodeErrors) > 0 {
+			runErr = fmt.Errorf("event %d: incomplete official episode fetch: %w", eventID, summarizeErrors(episodeErrors))
+			return nil, runErr
+		}
+		if hasTalk {
+			runCtx := t.runContext()
+			if err := runCtx.Err(); err != nil {
+				runErr = err
+				return nil, runErr
+			}
 			meta := model.EventStoryMeta{Source: "official_cn", Version: "1.0", LastUpdated: time.Now().Unix()}
-			if err := t.eventStore.ImportOrdered(eventID, meta, toOrderedEpisodes(episodes, "cn")); err != nil {
+			imported, err := t.eventStore.ImportOrderedForSyncContext(runCtx, eventID, meta, toOrderedEpisodes(episodes, "cn"))
+			if err != nil {
 				runErr = err
 				return nil, err
+			}
+			if !imported {
+				result["skipped"] = "protected"
+				return result, nil
 			}
 			t.store.NotifyChange()
 			result["source"] = "official_cn"
@@ -264,37 +313,57 @@ func (t *Translator) RetryEventStorySync(eventID int) (map[string]any, error) {
 	}
 
 	episodes, episodeErrors := t.buildJPPendingEpisodes(jpStory)
+	if len(episodeErrors) > 0 {
+		runErr = fmt.Errorf("event %d: incomplete JP episode fetch: %w", eventID, summarizeErrors(episodeErrors))
+		return nil, runErr
+	}
 	if len(episodes) == 0 {
-		runErr = fmt.Errorf("event %d: no episodes fetched (errors=%d)", eventID, len(episodeErrors))
+		runErr = fmt.Errorf("event %d: no episodes fetched", eventID)
 		return nil, runErr
 	}
 	meta := model.EventStoryMeta{Source: "jp_pending", Version: "1.0", LastUpdated: time.Now().Unix()}
-	if err := t.eventStore.ImportOrdered(eventID, meta, toOrderedEpisodes(episodes, "unknown")); err != nil {
+	runCtx := t.runContext()
+	if err := runCtx.Err(); err != nil {
+		runErr = err
+		return nil, runErr
+	}
+	imported, err := t.eventStore.ImportOrderedForSyncContext(runCtx, eventID, meta, toOrderedEpisodes(episodes, "unknown"))
+	if err != nil {
 		runErr = err
 		return nil, err
+	}
+	if !imported {
+		result["skipped"] = "protected"
+		return result, nil
 	}
 	t.store.NotifyChange()
 	result["source"] = "jp_pending"
 	result["episodes"] = len(episodes)
-	result["fetchErrors"] = len(episodeErrors)
-	if detail := summarizeErrors(episodeErrors); detail != nil {
-		result["fetchErrorDetails"] = detail.Error()
-	}
 
 	translated, autoErr := t.autoTranslateEventStory(eventID)
-	if autoErr != nil {
-		result["translateError"] = autoErr.Error()
-	} else if translated > 0 {
-		result["source"] = "llm"
+	if translated > 0 {
 		result["translated"] = translated
 	}
+	if autoErr != nil {
+		result["translateError"] = autoErr.Error()
+	}
+	detail, err := t.eventStore.Detail(eventID)
+	if err != nil {
+		runErr = fmt.Errorf("read persisted event %d source: %w", eventID, err)
+		return nil, runErr
+	}
+	result["source"] = detail.Meta.Source
 	return result, nil
 }
 
 // ReorderEventStory re-fetches remote scenarios to obtain the original dialogue
 // order and updates stored line positions, without touching translations.
 func (t *Translator) ReorderEventStory(eventID int) (map[string]any, error) {
-	if err := t.markStart("reorder-event-story"); err != nil {
+	return t.ReorderEventStoryContext(context.Background(), eventID)
+}
+
+func (t *Translator) ReorderEventStoryContext(ctx context.Context, eventID int) (map[string]any, error) {
+	if err := t.markStart(ctx, "reorder-event-story"); err != nil {
 		return nil, err
 	}
 	var runErr error
@@ -328,6 +397,10 @@ func (t *Translator) ReorderEventStory(eventID int) (map[string]any, error) {
 	asset := getString(jpStory, "assetbundleName")
 	reordered, fetchErrors := 0, 0
 	for _, ep := range toMapSlice(jpStory["eventStoryEpisodes"]) {
+		if err := t.runContext().Err(); err != nil {
+			runErr = err
+			return nil, runErr
+		}
 		epNo := strconv.Itoa(getInt(ep, "episodeNo"))
 		scenarioID := getString(ep, "scenarioId")
 		if scenarioID == "" {

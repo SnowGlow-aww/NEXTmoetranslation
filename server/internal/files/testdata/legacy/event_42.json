@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "source": "official_cn",
+    "version": "1.0",
+    "last_updated": 1700000000
+  },
+  "episodes": {
+    "1": {
+      "scenarioId": "scenario-1",
+      "title": "标题 & <",
+      "talkData": {
+        "zebra": "斑马",
+        "apple": "苹果",
+        "mango & lime": "芒果 & 青柠 <"
+      }
+    }
+  }
+}

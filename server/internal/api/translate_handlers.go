@@ -27,10 +27,14 @@ func (s *Server) handleCNSync(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	result, err := s.translator.SyncCNOnly()
+	result, err := s.translator.SyncCNOnlyContext(r.Context())
 	if err != nil {
 		if translator.IsAlreadyRunning(err) {
 			writeErr(w, http.StatusConflict, err.Error())
+			return
+		}
+		if translator.IsDraining(err) {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
 		if s.upstream != nil {
@@ -57,10 +61,14 @@ func (s *Server) handleTranslateAI(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	result, err := s.translator.ManualAITranslate(req)
+	result, err := s.translator.ManualAITranslateContext(r.Context(), req)
 	if err != nil {
 		if translator.IsAlreadyRunning(err) {
 			writeErr(w, http.StatusConflict, err.Error())
+			return
+		}
+		if translator.IsDraining(err) {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -83,10 +91,14 @@ func (s *Server) handleTranslateAIAll(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	result, err := s.translator.AITranslateAll(req.Provider)
+	result, err := s.translator.AITranslateAllContext(r.Context(), req.Provider)
 	if err != nil {
 		if translator.IsAlreadyRunning(err) {
 			writeErr(w, http.StatusConflict, err.Error())
+			return
+		}
+		if translator.IsDraining(err) {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
@@ -97,7 +109,7 @@ func (s *Server) handleTranslateAIAll(w http.ResponseWriter, r *http.Request) {
 
 // handleTranslateAIStory fills one event story's untranslated lines via the LLM.
 //
-// POST /api/translate/ai-story {eventId, provider}
+// POST /api/translate/ai-story {eventId, provider, clientId}
 func (s *Server) handleTranslateAIStory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -106,6 +118,7 @@ func (s *Server) handleTranslateAIStory(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		EventID  int    `json:"eventId"`
 		Provider string `json:"provider"`
+		ClientID string `json:"clientId"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -114,65 +127,87 @@ func (s *Server) handleTranslateAIStory(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "eventId required")
 		return
 	}
-	result, err := s.translator.AITranslateStory(req.EventID, req.Provider)
+	clientID, ok := validateEventClientID(w, req.ClientID)
+	if !ok {
+		return
+	}
+	result, err := s.translator.AITranslateStoryContext(r.Context(), req.EventID, req.Provider)
 	if err != nil {
 		if translator.IsAlreadyRunning(err) {
 			writeErr(w, http.StatusConflict, err.Error())
 			return
 		}
+		if translator.IsDraining(err) {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.broadcast(sse.EventStoryUpdated, map[string]any{"eventId": req.EventID, "action": "ai-translate"})
+	s.broadcast(sse.EventStoryUpdated, map[string]any{
+		"eventId": req.EventID, "action": "ai-translate", "clientId": clientID, "user": currentUser(r),
+	})
 	writeJSON(w, http.StatusOK, result)
 }
 
 // handleRetryEventStory re-fetches one event story from remote.
 //
-// POST /api/event-story/retry {eventId}
+// POST /api/event-story/retry {eventId, clientId}
 func (s *Server) handleRetryEventStory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	id, ok := decodeEventID(w, r)
+	id, clientID, ok := decodeEventMutation(w, r)
 	if !ok {
 		return
 	}
-	result, err := s.translator.RetryEventStorySync(id)
+	result, err := s.translator.RetryEventStorySyncContext(r.Context(), id)
 	if err != nil {
 		if translator.IsAlreadyRunning(err) {
 			writeErr(w, http.StatusConflict, err.Error())
 			return
 		}
+		if translator.IsDraining(err) {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.broadcast(sse.EventStoryUpdated, map[string]any{"eventId": id, "action": "retry"})
+	s.broadcast(sse.EventStoryUpdated, map[string]any{
+		"eventId": id, "action": "retry", "clientId": clientID, "user": currentUser(r),
+	})
 	writeJSON(w, http.StatusOK, result)
 }
 
 // handleReorderEventStory re-fetches remote dialogue order for one event story.
 //
-// POST /api/event-story/reorder {eventId}
+// POST /api/event-story/reorder {eventId, clientId}
 func (s *Server) handleReorderEventStory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	id, ok := decodeEventID(w, r)
+	id, clientID, ok := decodeEventMutation(w, r)
 	if !ok {
 		return
 	}
-	result, err := s.translator.ReorderEventStory(id)
+	result, err := s.translator.ReorderEventStoryContext(r.Context(), id)
 	if err != nil {
 		if translator.IsAlreadyRunning(err) {
 			writeErr(w, http.StatusConflict, err.Error())
 			return
 		}
+		if translator.IsDraining(err) {
+			writeErr(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.broadcast(sse.EventStoryUpdated, map[string]any{"eventId": id, "action": "reorder"})
+	s.broadcast(sse.EventStoryUpdated, map[string]any{
+		"eventId": id, "action": "reorder", "clientId": clientID, "user": currentUser(r),
+	})
 	writeJSON(w, http.StatusOK, result)
 }

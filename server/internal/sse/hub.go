@@ -6,8 +6,11 @@ package sse
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,13 +19,18 @@ import (
 // Event types broadcast to clients. Kept as constants so the frontend and
 // backend agree on the wire vocabulary.
 const (
-	EventEntryUpdated      = "entry.updated"
-	EventStoryUpdated      = "eventstory.updated"
-	EventSyncProgress      = "sync.progress"
-	EventTranslateProgress = "translate.progress"
-	EventBackupStatus      = "backup.status"
-	EventUpstreamStatus    = "upstream.status"
-	EventPing              = "ping"
+	EventEntryUpdated       = "entry.updated"
+	EventEntryLocaleUpdated = "entry.locale.updated"
+	EventStoryUpdated       = "eventstory.updated"
+	EventStoryLocaleUpdated = "eventstory.locale.updated"
+	EventLyricsUpdated      = "lyrics.updated"
+	EventSyncProgress       = "sync.progress"
+	EventTranslateProgress  = "translate.progress"
+	EventContentRestored    = "content.restored"
+	EventPresenceSnapshot   = "presence.snapshot"
+	EventPresenceJoined     = "presence.joined"
+	EventPresenceLeft       = "presence.left"
+	EventPing               = "ping"
 )
 
 // Message is a single SSE payload. Data is marshaled to JSON.
@@ -32,34 +40,74 @@ type Message struct {
 }
 
 type client struct {
-	id   uint64
-	user string
-	ch   chan Message
+	id         uint64
+	user       string
+	ch         chan Message
+	done       chan struct{}
+	abortWrite func()
+	closeOnce  sync.Once
+}
+
+const (
+	clientQueueSize          = 32
+	maxHubClients            = 128
+	maxHubClientsPerUser     = 8
+	defaultHeartbeatInterval = 5 * time.Second
+)
+
+var (
+	errHubClosed       = errors.New("SSE hub is closed")
+	errHubCapacity     = errors.New("SSE connection limit reached")
+	errUserHubCapacity = errors.New("SSE per-user connection limit reached")
+)
+
+func (c *client) disconnect() {
+	c.closeOnce.Do(func() {
+		close(c.done)
+		if c.abortWrite != nil {
+			c.abortWrite()
+		}
+		close(c.ch)
+	})
 }
 
 // Hub fans out messages to all connected clients.
 type Hub struct {
-	mu      sync.RWMutex
-	clients map[uint64]*client
-	nextID  atomic.Uint64
+	mu                sync.RWMutex
+	clients           map[uint64]*client
+	nextID            atomic.Uint64
+	closed            bool
+	closeOnce         sync.Once
+	heartbeatInterval time.Duration
 }
 
 func NewHub() *Hub {
-	return &Hub{clients: map[uint64]*client{}}
+	return &Hub{clients: map[uint64]*client{}, heartbeatInterval: defaultHeartbeatInterval}
 }
 
-// Broadcast sends a message to every connected client. Slow clients that cannot
-// keep up are dropped rather than blocking the broadcast.
+// Broadcast sends a message to every connected client. A client whose queue is
+// full is disconnected: silently dropping a mutation hint would let that
+// client continue editing from state it cannot know is stale.
 func (h *Hub) Broadcast(event string, data any) {
-	msg := Message{Event: event, Data: data}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for _, c := range h.clients {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.broadcastLocked(Message{Event: event, Data: data}, 0)
+}
+
+func (h *Hub) broadcastLocked(msg Message, excludeID uint64) {
+	for id, c := range h.clients {
+		if id == excludeID {
+			continue
+		}
+		select {
+		case <-c.done:
+			continue
+		default:
+		}
 		select {
 		case c.ch <- msg:
 		default:
-			// Client buffer full; drop this message for them. The next full
-			// page load reconciles state, so a dropped realtime hint is benign.
+			c.disconnect()
 		}
 	}
 }
@@ -71,61 +119,220 @@ func (h *Hub) ClientCount() int {
 	return len(h.clients)
 }
 
-func (h *Hub) add(user string) *client {
-	c := &client{id: h.nextID.Add(1), user: user, ch: make(chan Message, 32)}
+func (h *Hub) add(user string) (*client, error) {
+	client, _, _, err := h.addWithAbort(user, nil)
+	return client, err
+}
+
+func (h *Hub) addWithAbort(user string, abortWrite func()) (*client, []string, bool, error) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return nil, nil, false, errHubClosed
+	}
+	if len(h.clients) >= maxHubClients {
+		return nil, nil, false, errHubCapacity
+	}
+	userClients := 0
+	for _, existing := range h.clients {
+		if existing.user != user {
+			continue
+		}
+		select {
+		case <-existing.done:
+			continue
+		default:
+		}
+		userClients++
+	}
+	if userClients >= maxHubClientsPerUser {
+		return nil, nil, false, errUserHubCapacity
+	}
+	c := &client{id: h.nextID.Add(1), user: user, ch: make(chan Message, clientQueueSize), done: make(chan struct{}), abortWrite: abortWrite}
 	h.clients[c.id] = c
-	h.mu.Unlock()
-	return c
+	return c, h.onlineUsersLocked(), userClients == 0, nil
+}
+
+func (h *Hub) onlineUsersLocked() []string {
+	seen := make(map[string]struct{}, len(h.clients))
+	users := make([]string, 0, len(h.clients))
+	for _, c := range h.clients {
+		if c.user == "" {
+			continue
+		}
+		select {
+		case <-c.done:
+			continue
+		default:
+		}
+		if _, ok := seen[c.user]; ok {
+			continue
+		}
+		seen[c.user] = struct{}{}
+		users = append(users, c.user)
+	}
+	sort.Strings(users)
+	return users
+}
+
+// Close promptly disconnects all streams and rejects new ones. It is safe to
+// call more than once during overlapping shutdown paths.
+func (h *Hub) Close() {
+	h.closeOnce.Do(func() {
+		h.mu.Lock()
+		h.closed = true
+		for _, c := range h.clients {
+			c.disconnect()
+		}
+		h.mu.Unlock()
+	})
 }
 
 func (h *Hub) remove(id uint64) {
 	h.mu.Lock()
-	if c, ok := h.clients[id]; ok {
+	c, ok := h.clients[id]
+	if ok {
 		delete(h.clients, id)
-		close(c.ch)
+		c.disconnect()
+	}
+	users := h.onlineUsersLocked()
+	closed := h.closed
+	h.mu.Unlock()
+	if ok && c.user != "" && !closed && !containsUser(users, c.user) {
+		h.Broadcast(EventPresenceLeft, map[string]any{"user": c.user, "users": users})
+	}
+}
+
+func containsUser(users []string, user string) bool {
+	for _, candidate := range users {
+		if candidate == user {
+			return true
+		}
+	}
+	return false
+}
+
+// RevokeUser immediately closes every live stream for an account whose token
+// generation or role changed.
+func (h *Hub) RevokeUser(user string) {
+	h.mu.Lock()
+	for _, c := range h.clients {
+		if c.user == user {
+			c.disconnect()
+		}
 	}
 	h.mu.Unlock()
 }
 
 // Handler streams events to one client over SSE. The caller must wrap this with
 // auth middleware (the username is read from the request context if present).
-func (h *Hub) Handler(usernameFn func(*http.Request) string) http.HandlerFunc {
+// The initial roster snapshot is written privately; joined/left notifications
+// are sent only when a username gains or loses its last active connection.
+func (h *Hub) Handler(usernameFn func(*http.Request) string, validFn func(*http.Request) bool, expiresAtFn func(*http.Request) time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 			return
 		}
-		h.setSSEHeaders(w)
-
 		user := ""
 		if usernameFn != nil {
 			user = usernameFn(r)
 		}
-		c := h.add(user)
+		controller := http.NewResponseController(w)
+		c, users, firstForUser, err := h.addWithAbort(user, func() {
+			_ = controller.SetWriteDeadline(time.Now())
+		})
+		if err != nil {
+			if errors.Is(err, errHubCapacity) || errors.Is(err, errUserHubCapacity) {
+				w.Header().Set("Retry-After", "3")
+				http.Error(w, "too many SSE connections", http.StatusTooManyRequests)
+				return
+			}
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		defer h.remove(c.id)
+		h.setSSEHeaders(w)
+
+		// Send a private roster snapshot first. Presence contains usernames only.
+		if user != "" && strings.TrimSpace(r.Header.Get("X-SSE-Presence")) == "1" {
+			if !writeEvent(w, Message{Event: EventPresenceSnapshot, Data: map[string]any{"users": users}}) {
+				return
+			}
+			flusher.Flush()
+		}
 
 		// Initial comment + retry hint so the browser reconnects quickly.
-		fmt.Fprintf(w, ": connected\nretry: 3000\n\n")
+		if _, err := fmt.Fprintf(w, ": connected\nretry: 3000\n\n"); err != nil {
+			return
+		}
 		flusher.Flush()
+		if user != "" && firstForUser {
+			h.mu.Lock()
+			if !h.closed {
+				h.broadcastLocked(Message{Event: EventPresenceJoined, Data: map[string]any{"user": user, "users": h.onlineUsersLocked()}}, c.id)
+			}
+			h.mu.Unlock()
+		}
 
-		// Heartbeat keeps intermediaries from closing an idle connection.
-		ticker := time.NewTicker(25 * time.Second)
+		// Keep the heartbeat below the shortest known 15-second intermediary idle
+		// timeout so quiet streams remain live without a reconciliation cycle.
+		heartbeatInterval := h.heartbeatInterval
+		if heartbeatInterval <= 0 {
+			heartbeatInterval = defaultHeartbeatInterval
+		}
+		ticker := time.NewTicker(heartbeatInterval)
 		defer ticker.Stop()
+		var expiryTimer *time.Timer
+		var expiry <-chan time.Time
+		if expiresAtFn != nil {
+			if expiresAt := expiresAtFn(r); !expiresAt.IsZero() {
+				delay := time.Until(expiresAt)
+				if delay < 0 {
+					delay = 0
+				}
+				expiryTimer = time.NewTimer(delay)
+				expiry = expiryTimer.C
+				defer expiryTimer.Stop()
+			}
+		}
 
 		ctx := r.Context()
 		for {
+			// Prefer disconnect over draining a closed client's buffered queue.
 			select {
 			case <-ctx.Done():
 				return
+			case <-c.done:
+				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-c.done:
+				return
+			case <-expiry:
+				return
 			case <-ticker.C:
+				if validFn != nil && !validFn(r) {
+					return
+				}
 				if !writeEvent(w, Message{Event: EventPing, Data: time.Now().Unix()}) {
 					return
 				}
 				flusher.Flush()
 			case msg, ok := <-c.ch:
 				if !ok {
+					return
+				}
+				select {
+				case <-c.done:
+					return
+				default:
+				}
+				if validFn != nil && !validFn(r) {
 					return
 				}
 				if !writeEvent(w, msg) {
@@ -139,10 +346,12 @@ func (h *Hub) Handler(usernameFn func(*http.Request) string) http.HandlerFunc {
 
 func (h *Hub) setSSEHeaders(w http.ResponseWriter) {
 	hd := w.Header()
-	hd.Set("Content-Type", "text/event-stream")
-	hd.Set("Cache-Control", "no-store")
+	hd.Set("Content-Type", "text/event-stream; charset=utf-8")
+	hd.Set("Cache-Control", "no-cache, no-transform, no-store, must-revalidate")
+	hd.Set("Pragma", "no-cache")
+	hd.Set("Expires", "0")
 	hd.Set("Connection", "keep-alive")
-	// Disable proxy buffering (nginx) so events flush immediately.
+	// Disable proxy buffering (nginx, EdgeOne, etc.) so events flush immediately.
 	hd.Set("X-Accel-Buffering", "no")
 }
 

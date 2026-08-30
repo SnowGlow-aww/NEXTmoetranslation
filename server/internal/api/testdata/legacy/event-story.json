@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "source": "official_cn",
+    "version": "1.0",
+    "last_updated": 1700000000
+  },
+  "episodes": {
+    "1": {
+      "scenarioId": "scenario-1",
+      "title": "标题",
+      "titleSource": "cn",
+      "talkData": {
+        "一 & <": "第一句 & <",
+        "二": "第二句"
+      },
+      "talkSources": {
+        "一 & <": "cn",
+        "二": "human"
+      },
+      "talkOrder": ["二", "一 & <"],
+      "speakerNames": {
+        "二": "角色"
+      }
+    }
+  }
+}

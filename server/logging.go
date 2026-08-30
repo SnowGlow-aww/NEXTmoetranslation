@@ -1,19 +1,36 @@
 package main
 
 import (
+	"bufio"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
+var (
+	httpRequestTotal  atomic.Uint64
+	httpClientErrors  atomic.Uint64
+	httpServerErrors  atomic.Uint64
+	requestIDFallback atomic.Uint64
+)
+
 // loggingResponseWriter wraps http.ResponseWriter to capture the status code
-// while transparently forwarding Flush, so SSE streaming keeps working.
+// while transparently forwarding Flush and Hijack for SSE and WebSocket connections.
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	status      int
 	wroteHeader bool
 }
+
+// Unwrap lets http.ResponseController reach transport controls such as write
+// deadlines through the logging middleware used by SSE responses.
+func (w *loggingResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (w *loggingResponseWriter) WriteHeader(code int) {
 	if !w.wroteHeader {
@@ -39,11 +56,24 @@ func (w *loggingResponseWriter) Flush() {
 	}
 }
 
+// Hijack forwards to the underlying writer when it supports connection hijacking (WebSocket).
+func (w *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("underlying http.ResponseWriter does not implement http.Hijacker")
+}
+
 // loggingMiddleware logs one line per request: method, path, status, duration,
 // client IP. Health checks are skipped to avoid noise; the long-lived SSE
 // stream is logged both on connect and on disconnect.
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+		if !validRequestID(requestID) {
+			requestID = newRequestID()
+		}
+		w.Header().Set("X-Request-ID", requestID)
 		if r.URL.Path == "/healthz" {
 			next.ServeHTTP(w, r)
 			return
@@ -54,9 +84,52 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			log.Printf("[http] %s %s open (client=%s)", r.Method, r.URL.Path, clientIP(r))
 		}
 		next.ServeHTTP(lw, r)
-		log.Printf("[http] %s %s %d %s (client=%s)",
-			r.Method, r.URL.Path, lw.status, time.Since(start).Round(time.Millisecond), clientIP(r))
+		httpRequestTotal.Add(1)
+		if lw.status >= 500 {
+			httpServerErrors.Add(1)
+		} else if lw.status >= 400 {
+			httpClientErrors.Add(1)
+		}
+		log.Printf("[http] %s %s %d %s (client=%s request_id=%s)",
+			r.Method, r.URL.Path, lw.status, time.Since(start).Round(time.Millisecond), clientIP(r), requestID)
 	})
+}
+
+func validRequestID(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || strings.ContainsRune("-_.:", char) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func newRequestID() string {
+	var random [12]byte
+	if _, err := rand.Read(random[:]); err == nil {
+		return hex.EncodeToString(random[:])
+	}
+	return "fallback-" + time.Now().UTC().Format("20060102T150405.000000000") + "-" +
+		fmtUint(requestIDFallback.Add(1))
+}
+
+func fmtUint(value uint64) string {
+	if value == 0 {
+		return "0"
+	}
+	var buffer [20]byte
+	position := len(buffer)
+	for value > 0 {
+		position--
+		buffer[position] = byte('0' + value%10)
+		value /= 10
+	}
+	return string(buffer[position:])
 }
 
 // clientIP extracts the real client address, preferring the headers nginx sets

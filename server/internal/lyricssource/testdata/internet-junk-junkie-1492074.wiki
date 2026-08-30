@@ -1,0 +1,141 @@
+{{Epileptic Warning}}
+{{Song box 2
+  |color     = #E6E6E6; color: indigo
+  |image     = Internet Junk Junkie.jpg
+  |title     = "'''Internet Junk Junkie'''"
+  |date      = September 29, 2025
+  |views     = {{v|nn|3,426}} and {{v|yt|57,508}}
+  |singers   = [[Hatsune Miku V4 English]]
+  |producers = Capchii (music, lyrics)
+* Renkonpanchi (illustration)
+* Taaachan_ (video)
+  |links     = {{l|nn|sm45460917}} {{l|yt|5XI1-JhRCIY}} {{l|bc|capchii internet-junk-junkie}}
+}}
+
+==Background==
+{{Quote|Hyperflip Inspired!!<br><br>
+A high-energy digital anthem exploring our hyperconnected reality through glitchy electronic beats and Hatsune Miku's captivating vocals. This track dives deep into the paradox of modern digital life - where we're more connected yet more isolated than ever.<br><br>
+"Internet Junk Junkie" captures the chaotic essence of internet culture through pulsating electronic production and thought-provoking lyrics. From endless scrolling to dopamine-driven notifications, this track transforms digital exhaustion into an explosive musical experience.|Author's comment}}
+"'''Internet Junk Junkie'''" is an original song by Capchii featuring Hatsune Miku. It was one of two winners in the thirtieth ProSEKA Next Song Contest for the mobile game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}'', with this contest having no set theme.
+
+==Succeeding version==
+{{Derivative
+  |color       = #E6E6E6; color: indigo
+  |title       = Unflipped
+  |thumb       = Capchii - Internet Junk Junkie (single).jpg
+  |singers     = Hatsune Miku
+  |producers   = Capchii (arrange)
+  |categories  = Arrangement
+  |description = Featured exclusively on the single ''Internet Junk Junkie''.
+  |links       = bc capchii internet-junk-junkie-original; yt AMAFDR_5dyQ
+}}
+{{Derivative
+  |color       = #E6E6E6; color: indigo
+  |title       = DJ Genki Remix
+  |singers     = Hatsune Miku
+  |producers   = DJ Genki (arrange)
+  |categories  = Arrangement; Album-exclusive Content
+  |description = Featured exclusively on the album ''We're Junk Junkies!!''
+}}
+{{clr}}
+
+==Lyrics==
+<poem style="margin-left:1em;">
+Wake with screen glow, heartbeats blow
+Crawling through the noise already know
+Plastic dreams are in pixel streams
+Selling lies me in dopamine beams
+
+Notifications like sirens in night
+Dry eyes open but lost my sight
+Identity is "@username"
+Internet Junk Junkie!!
+
+Laughing in chat, but bored in my code.
+Show the emotion with the memes that I've never seen it
+By biting bytes, I lose my real taste
+Chasing clout like it's oxygen right now!
+
+To be burst, To be blast
+Living fast in a digital bygone
+To be worst, To be vast
+Drifting deep in a broadband trance
+To be burst, To be blast
+Signal strong, but the soul won't last
+To be first, To be last
+I’ll be glitches in the system of the world
+
+Umm… Just one more scroll, Just one more video…
+Well… Whaat's!?
+Why my battery dying again??
+
+Wake with screen glow, heartbeats blow
+Crawling through the noise already know
+Plastic dreams are in pixel streams
+Selling lies me in dopamine beams
+
+Notifications like sirens in night
+Dry eyes open but lost my sight
+Identity is "@username"
+I’m wired tightly web of threads
+
+To be burst, To be blast
+Living fast in a digital bygone
+To be worst, To be vast
+Drifting deep in a broadband trance
+To be burst, To be blast
+Signal strong, but the soul won’t last
+To be first, To be last
+I'll be glitches in the system of the world
+</poem>
+
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* ''Internet Junk Junkie (single)''
+* ''We're Junk Junkies!!'' (Original & DJ Genki Remix)
+
+===Video games===
+This song was featured in the video game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="#E6E6E6">
+Capchii - Internet Junk Junkie (single).jpg|Cover art of the digital single<br>''Internet Junk Junkie'', also featured as the music jacket in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |prchs = '''DL & Streaming Platforms:'''
+** [https://www.amazon.co.jp/dp/B0FX4YN5M5 Amazon Music]
+** [https://music.amazon.co.jp/albums/B0FX4YN5M5 Amazon Music Unlimited]
+** [https://music.apple.com/jp/album/internet-junk-junkie-single/1847595817 Apple Music]
+** [https://s.awa.fm/album/decf9263b58e3ffaef02 AWA]
+** [https://capchii.bandcamp.com/album/internet-junk-junkie Bandcamp]
+** [https://karent.jp/album/5225 KARENT]
+** [https://www.kkbox.com/jp/ja/album/Cp0Q0fS0aw7YCVZqZZ KKBOX]
+** [https://music.line.me/webapp/album/mb0000000004c21551 LINE MUSIC]
+** [https://mora.jp/package/43000018/KRHS-61270/ mora]
+** [https://mysound.jp/album/1029377/ mysound]
+** [https://nodee.net/a/ufij1s3mmvuc nodee]
+** [https://music.oricon.co.jp/php/cd/CdTop.php?cd=SPC07061301 Oricon Music Store]
+** [https://open.spotify.com/album/5LGspRHggjCV1aGPPjr9u7 Spotify]
+** [https://music.youtube.com/playlist?list=OLAK5uy_myM5pbyOpuklAhuy0BgfBk7paM3rxJ5hU YouTube Music]
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 68817
+  |nico   = sm45460917
+  |vocadb = 844843
+  |mgp    = Internet_Junk_Junkie
+  |tag    = Internet_Junk_Junkie
+  |vlw    = Internet Junk Junkie
+  |url    = {{IW|projectsekai|Internet Junk Junkie|Project SEKAI Wiki}}
+}}
+
+[[Category:Original songs]]
+[[Category:English songs]]
+[[Category:Songs featuring Hatsune Miku]]
+[[Category:Contest songs]]
+[[Category:Mobile game songs]]

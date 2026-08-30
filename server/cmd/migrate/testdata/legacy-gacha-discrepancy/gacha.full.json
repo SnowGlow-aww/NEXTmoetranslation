@@ -1,0 +1,14 @@
+{
+  "name": {
+    "shared": {
+      "text": "shared text",
+      "source": "human",
+      "ids": ["shared-id"]
+    },
+    "full-only-gacha": {
+      "text": "full-only text",
+      "source": "pinned",
+      "ids": ["full-only-id"]
+    }
+  }
+}

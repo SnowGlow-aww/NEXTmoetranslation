@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "detail.schema.json",
+  "title": "NEXTmoetranslation public lyrics detail v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "musicId", "revision", "updatedAt", "state", "renditions"],
+  "properties": {
+    "version": { "const": 3 },
+    "musicId": { "type": "integer", "minimum": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "state": { "enum": ["complete", "game_only"] },
+    "renditions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/rendition" }
+    }
+  },
+  "$defs": {
+    "performer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performerId", "name"],
+      "properties": {
+        "performerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "color": { "type": "string", "pattern": "^#[0-9A-F]{6}$" }
+      }
+    },
+    "ruby": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "reading": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384,
+          "pattern": "^[\\p{Hiragana}\\p{Katakana}ー・\\p{Mn}\\p{Mc}]+$",
+          "allOf": [{ "pattern": "[\\p{Hiragana}\\p{Katakana}]" }]
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["reading"],
+          "properties": { "text": { "pattern": "^[\\p{Han}々〻]+$" } },
+          "not": { "properties": { "text": { "pattern": "\\p{N}" } } }
+        },
+        {
+          "not": { "required": ["reading"] },
+          "properties": { "text": { "pattern": "^(?:[^\\p{Han}]|\\p{N})+$" } }
+        }
+      ]
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "performerIds", "ruby"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "performerIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "ruby": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8192,
+          "items": { "$ref": "#/$defs/ruby" }
+        }
+      }
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "japanese", "segments", "trailingPerformerIds"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "order": { "type": "integer", "minimum": 0 },
+        "japanese": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "zh-CN": { "type": "string", "maxLength": 16384 },
+        "en-US": { "type": "string", "maxLength": 16384 },
+        "stanzaBreakBefore": { "type": "boolean" },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/segment" }
+        },
+        "trailingPerformerIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        }
+      }
+    },
+    "side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "lines"],
+      "properties": {
+        "version": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "label"],
+          "properties": {
+            "kind": { "enum": ["original", "sekai", "vocaloid", "alternate"] },
+            "label": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          }
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
+          "items": { "$ref": "#/$defs/line" }
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["none", "exact_projection"] },
+        "fullRenditionKey": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "lineIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "none" } }, "required": ["kind"] },
+          "then": { "not": { "anyOf": [{ "required": ["fullRenditionKey"] }, { "required": ["lineIds"] }] } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "exact_projection" } }, "required": ["kind"] },
+          "then": { "required": ["fullRenditionKey", "lineIds"] }
+        }
+      ]
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "provider", "title", "revisionId", "revisionUrl", "licenseName", "licenseUrl"],
+      "properties": {
+        "component": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "provider": { "enum": ["vocaloid_fandom", "moegirl", "moegirl_public_exact", "sekaipedia"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "revisionId": { "type": "integer", "minimum": 1 },
+        "revisionUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "licenseName": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "licenseUrl": { "type": "string", "format": "uri", "pattern": "^https://" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provider": { "const": "vocaloid_fandom" } }, "required": ["provider"] },
+          "then": { "properties": { "revisionUrl": { "pattern": "^https://vocaloid\\.fandom\\.com/wiki/[^?#]+\\?oldid=[1-9][0-9]*$" }, "licenseName": { "const": "CC BY-SA 3.0" }, "licenseUrl": { "const": "https://creativecommons.org/licenses/by-sa/3.0/" } } }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "moegirl" } }, "required": ["provider"] },
+          "then": { "properties": { "revisionUrl": { "pattern": "^https://moegirl\\.icu/(wiki/[^?#]+\\?oldid=[1-9][0-9]*|index\\.php\\?oldid=[1-9][0-9]*&title=[^&#]+)$" }, "licenseName": { "const": "CC BY-NC-SA 3.0" }, "licenseUrl": { "const": "https://creativecommons.org/licenses/by-nc-sa/3.0/" } } }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "moegirl_public_exact" } }, "required": ["provider"] },
+          "then": { "properties": { "revisionUrl": { "pattern": "^https://zh\\.moegirl\\.org\\.cn/[^?#]+$" }, "licenseName": { "const": "CC BY-NC-SA 3.0" }, "licenseUrl": { "const": "https://creativecommons.org/licenses/by-nc-sa/3.0/" } } }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "sekaipedia" } }, "required": ["provider"] },
+          "then": { "properties": { "revisionUrl": { "pattern": "^https://www\\.sekaipedia\\.org/wiki/[^?#]+\\?oldid=[1-9][0-9]*$" }, "licenseName": { "const": "CC BY-SA 4.0" }, "licenseUrl": { "const": "https://creativecommons.org/licenses/by-sa/4.0/" } } }
+        }
+      ]
+    },
+    "rendition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "label", "availableVersions", "performers", "relation", "sourceTabPaths", "provenance"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+        "kind": { "enum": ["original", "sekai", "vocaloid", "alternate"] },
+        "label": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "availableVersions": {
+          "oneOf": [{ "const": ["full"] }, { "const": ["game"] }, { "const": ["full", "game"] }]
+        },
+        "performers": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/performer" } },
+        "full": { "$ref": "#/$defs/side" },
+        "game": { "$ref": "#/$defs/side" },
+        "relation": { "$ref": "#/$defs/relation" },
+        "sourceTabPaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+          }
+        },
+        "provenance": { "type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/attribution" } },
+        "translationCredits": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 2,
+          "properties": {
+            "translation": { "type": "string", "minLength": 1, "maxLength": 2048 },
+            "proofreading": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          },
+          "anyOf": [{ "required": ["translation"] }, { "required": ["proofreading"] }]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "relation": {
+                "properties": { "kind": { "const": "exact_projection" } },
+                "required": ["kind"]
+              }
+            },
+            "required": ["relation"]
+          },
+          "then": { "required": ["full", "game"] }
+        },
+        {
+          "if": { "required": ["full", "game"] },
+          "then": { "properties": { "availableVersions": { "const": ["full", "game"] } } }
+        },
+        {
+          "if": { "required": ["full"] },
+          "then": { "properties": { "availableVersions": { "oneOf": [{ "const": ["full"] }, { "const": ["full", "game"] }] } } }
+        },
+        {
+          "if": { "required": ["game"] },
+          "then": { "properties": { "availableVersions": { "oneOf": [{ "const": ["game"] }, { "const": ["full", "game"] }] } } }
+        },
+        {
+          "if": { "not": { "required": ["full"] } },
+          "then": { "properties": { "availableVersions": { "const": ["game"] } } }
+        },
+        {
+          "if": { "not": { "required": ["game"] } },
+          "then": { "properties": { "availableVersions": { "const": ["full"] } } }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "complete" } }, "required": ["state"] },
+      "then": {
+        "properties": {
+          "renditions": {
+            "contains": { "required": ["full"] },
+            "minContains": 1
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "state": { "const": "game_only" } }, "required": ["state"] },
+      "then": {
+        "properties": {
+          "renditions": {
+            "items": { "not": { "required": ["full"] } }
+          }
+        }
+      }
+    }
+  ]
+}

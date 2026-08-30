@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "index.schema.json",
+  "title": "NEXTmoetranslation public lyrics index v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "songs"],
+  "properties": {
+    "version": { "const": 2 },
+    "songs": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["musicId", "revision", "updatedAt", "state", "title"],
+        "properties": {
+          "musicId": { "type": "integer", "minimum": 1 },
+          "revision": { "type": "integer", "minimum": 1 },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "state": {
+            "enum": [
+              "complete",
+              "game_only",
+              "satisfied_no_lyrics",
+              "ambiguous",
+              "missing",
+              "incomplete",
+              "failed"
+            ]
+          },
+          "title": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ja-JP"],
+            "properties": {
+              "ja-JP": { "type": "string", "minLength": 1, "maxLength": 65536 },
+              "zh-CN": { "type": "string", "maxLength": 65536 },
+              "en-US": { "type": "string", "maxLength": 65536 }
+            }
+          },
+          "availableVersions": {
+            "oneOf": [
+              { "const": ["full"] },
+              { "const": ["full", "game"] },
+              { "const": ["game"] }
+            ]
+          },
+          "noLyricsReason": { "const": "catalog_instrumental" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "state": { "const": "complete" } }, "required": ["state"] },
+            "then": {
+              "required": ["availableVersions"],
+              "properties": {
+                "availableVersions": {
+                  "oneOf": [
+                    { "const": ["full"] },
+                    { "const": ["full", "game"] }
+                  ]
+                }
+              },
+              "not": { "required": ["noLyricsReason"] }
+            }
+          },
+          {
+            "if": { "properties": { "state": { "const": "game_only" } }, "required": ["state"] },
+            "then": {
+              "required": ["availableVersions"],
+              "properties": { "availableVersions": { "const": ["game"] } },
+              "not": { "required": ["noLyricsReason"] }
+            }
+          },
+          {
+            "if": { "properties": { "state": { "const": "satisfied_no_lyrics" } }, "required": ["state"] },
+            "then": {
+              "required": ["noLyricsReason"],
+              "not": { "required": ["availableVersions"] }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "state": { "enum": ["ambiguous", "missing", "incomplete", "failed"] }
+              },
+              "required": ["state"]
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  { "required": ["availableVersions"] },
+                  { "required": ["noLyricsReason"] }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -9,6 +9,32 @@ const (
 	SourceUnknown = "unknown"
 )
 
+func IsValidSource(source string) bool {
+	switch source {
+	case SourceCN, SourceHuman, SourcePinned, SourceLLM, SourceUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	LocaleJapanese = "ja-JP"
+	LocaleChinese  = "zh-CN"
+	LocaleEnglish  = "en-US"
+)
+
+var SupportedLocales = []string{LocaleJapanese, LocaleChinese, LocaleEnglish}
+
+func IsValidLocale(locale string) bool {
+	for _, supported := range SupportedLocales {
+		if locale == supported {
+			return true
+		}
+	}
+	return false
+}
+
 // SupportedCategories are the flat translation categories (event stories
 // are handled separately). Order is preserved for stable category listing.
 var SupportedCategories = []string{
@@ -39,10 +65,28 @@ type Category map[string]map[string]Entry
 
 // EntryWithKey is an entry returned to the console API with its jp key.
 type EntryWithKey struct {
-	Key    string   `json:"key"`
-	Text   string   `json:"text"`
-	Source string   `json:"source"`
-	Ids    []string `json:"ids,omitempty"`
+	Key       string   `json:"key"`
+	Text      string   `json:"text"`
+	Source    string   `json:"source"`
+	Ids       []string `json:"ids,omitempty"`
+	UpdatedAt int64    `json:"updatedAt,omitempty"`
+}
+
+// CategoryLocaleSnapshot is an authenticated, point-in-time editing view of a
+// complete category. Revision is opaque to clients and must be echoed as the
+// baseRevision of a batch mutation.
+type CategoryLocaleSnapshot struct {
+	Category string                    `json:"category"`
+	Locale   string                    `json:"locale"`
+	Revision string                    `json:"revision"`
+	Fields   map[string][]EntryWithKey `json:"fields"`
+}
+
+type CategoryEntryUpdate struct {
+	Field  string `json:"field"`
+	Key    string `json:"key"`
+	Text   string `json:"text"`
+	Source string `json:"source"`
 }
 
 // FieldInfo holds per-field counts for the sidebar.
@@ -70,13 +114,25 @@ type EventStoryMeta struct {
 }
 
 type EventStoryEpisode struct {
-	ScenarioID   string            `json:"scenarioId"`
-	Title        string            `json:"title"`
-	TitleSource  string            `json:"titleSource,omitempty"`
-	TalkData     map[string]string `json:"talkData"`
-	TalkSources  map[string]string `json:"talkSources,omitempty"`
-	TalkOrder    []string          `json:"talkOrder,omitempty"`
-	SpeakerNames map[string]string `json:"speakerNames,omitempty"`
+	ScenarioID   string              `json:"scenarioId"`
+	Title        string              `json:"title"`
+	TitleSource  string              `json:"titleSource,omitempty"`
+	TalkData     map[string]string   `json:"talkData"`
+	TalkSources  map[string]string   `json:"talkSources,omitempty"`
+	TalkOrder    []string            `json:"talkOrder,omitempty"`
+	SpeakerNames map[string]string   `json:"speakerNames,omitempty"`
+	Segments     []EventStorySegment `json:"segments,omitempty"`
+}
+
+type EventStorySegment struct {
+	ID         string `json:"id"`
+	Kind       string `json:"kind"`
+	Position   int    `json:"position"`
+	Japanese   string `json:"japanese"`
+	SourceHash string `json:"sourceHash"`
+	Text       string `json:"text"`
+	Source     string `json:"source"`
+	Revision   int    `json:"revision,omitempty"`
 }
 
 type EventStoryDetail struct {
@@ -86,8 +142,11 @@ type EventStoryDetail struct {
 
 type EventStorySummary struct {
 	EventID           int    `json:"eventId"`
+	EventName         string `json:"eventName,omitempty"`
+	EventNameJapanese string `json:"eventNameJapanese,omitempty"`
 	Source            string `json:"source"`
 	EpisodeCount      int    `json:"episodeCount"`
 	UntranslatedCount int    `json:"untranslatedCount"`
 	LastUpdated       int64  `json:"lastUpdated"`
+	AllOfficialTagged bool   `json:"allOfficialTagged,omitempty"`
 }

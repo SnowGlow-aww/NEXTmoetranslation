@@ -33,15 +33,6 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	n, err := s.auth.CountUsers()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to count users")
-		return
-	}
-	if n > 0 {
-		writeErr(w, http.StatusConflict, "setup already completed")
-		return
-	}
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -49,10 +40,13 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	u, err := s.auth.CreateUser(req.Username, req.Password, auth.RoleAdmin)
+	if !s.allowPublicAuthAttempt(w, r, "setup", req.Username) {
+		return
+	}
+	u, err := s.auth.CreateFirstAdmin(req.Username, req.Password)
 	if err != nil {
-		if err == auth.ErrUserExists {
-			writeErr(w, http.StatusConflict, "user already exists")
+		if err == auth.ErrSetupComplete || err == auth.ErrUserExists {
+			writeErr(w, http.StatusConflict, "setup already completed")
 			return
 		}
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -84,6 +78,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if !decodeBody(w, r, &req) {
+		return
+	}
+	if !s.allowPublicAuthAttempt(w, r, "login", req.Username) {
 		return
 	}
 	u, err := s.auth.Authenticate(req.Username, req.Password)
@@ -123,20 +120,26 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 //
 // POST /api/auth/refresh -> {token, expiresAt}
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
 		writeErr(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	u, err := s.auth.GetUser(claims.Username)
+	token, expiresAt, err := s.auth.RefreshToken(claims)
 	if err != nil {
-		writeErr(w, http.StatusUnauthorized, "user no longer exists")
-		return
-	}
-	token, expiresAt, err := s.auth.IssueToken(u)
-	if err != nil {
+		if err == auth.ErrInvalidCreds {
+			writeErr(w, http.StatusUnauthorized, "session was revoked")
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, "failed to issue token")
 		return
+	}
+	if s.hub != nil {
+		s.hub.RevokeUser(claims.Username)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"token":     token,

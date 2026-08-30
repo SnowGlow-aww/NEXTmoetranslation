@@ -1,0 +1,302 @@
+{{Song box 2
+  |color     = lightgrey; color:black
+  |image     = About me.jpg
+  |title     = "'''About me'''"
+  |date      = February 05, 2014
+  |views     = {{v|nn|2,606,504}}
+  |singers   = [[GUMI]] (English & V3 Whisper)
+  |producers = [[Chouchou-P]] (music, lyrics)
+* toi8 (illustration)
+  |links     = {{l|nn|sm22820339}}
+}}
+
+==Background==
+{{Quote|Hello、Chouchou-P here.
+
+I tried to make a cool song.
+I tried my best with the English lyrics, so please forgive me if it has anything wrong.
+
+「On a rainy day、goodbye.」|Chouchou-P}}
+This is Chouchou-P's first song with [[Megpoid English|GUMI English]]. The song was commissioned for the [[EXIT TUNES]] compilation album ''[[EXIT TUNES PRESENTS Vocalofanatic feat. GUMI、IA、MAYU|Vocalofanatic]]''. The song focuses on a boy who seems to remember a love from his past, with the person who could have been the love of his life and because of his own doubts and insecurities, the relationship ended up failing and he ends up feeling guilty.
+
+This song has reached the ''[[Hall of Legend]]'', and is the second English VOCALOID song to do so.
+
+==Succeeding versions==
+{{Derivative
+  |color       = lightgray; color:black
+  |title       = Chouchou-P's Cover
+  |singers     = Chouchou-P
+  |producers   = Chouchou-P (vocals, music, lyrics), toi8 (illustration), Hiramatsu Keita (bass)
+  |categories  = Human Cover; Self-cover
+  |links       = nn sm30694335
+}}
+{{Derivative
+  |color       = lightgray; color:black
+  |title       = ACTORS Version
+  |singers     = {{IW|actors-songs-connection|Kakeru Iimori}} (CV: {{wp|Shintaro Asanuma}})
+  |producers   = Hinota (illust), Natsu (video)<br>[[EXIT TUNES]]
+  |categories  = Human Cover; Original MV
+  |description = A cover featured in the ACTORS series. Featured on the album ''ACTORS 4'', released by EXIT TUNES.
+  |links       = nn sm35195085; yt gIHqwF57VOo
+}}
+{{Derivative
+  |color       = #EE1166; color: white
+  |title       = Project SEKAI Version [SEKAI] (Game size - 3DMV)
+  |thumb       = Games - Project SEKAI - About me.png
+  |singers     = {{IW|projectsekai|Vivid BAD SQUAD}}: {{IW|projectsekai|Hatsune Miku}}, {{IW|projectsekai|Azusawa Kohane}} (CV: {{IW|projectsekai|Akina}}), {{IW|projectsekai|Shiraishi An}} (CV: {{IW|projectsekai|Sumi Tomomi Jiena}}), {{IW|projectsekai|Shinonome Akito}} (CV: {{IW|projectsekai|Imai Fumiya}}), {{IW|projectsekai|Aoyagi Toya}} (CV: {{IW|projectsekai|Itou Kent}})
+  |producers   = [https://www.marza.com/ MARZA ANIMATION PLANET] (overall direction, staging, camerawork, animation supervision)<br>[[SEGA]], [https://colorfulpalette.co.jp/ Colorful Palette], [[Crypton Future Media, Inc.]]
+  |categories  = VOCALOID Cover; Human Cover; Original MV; In-game Content
+  |description = Featured in the game ''{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}}''.
+  |links       = nn so46039401; yt xFd9M599HZg
+}}
+{{clr}}
+
+==Lyrics==
+<poem style="margin-left:1em;">
+I have a story to tell
+Do you hear me tonight
+It's things about me
+I'll be waiting in bedroom
+But anyway you can't come
+I get it,never mind
+
+Now, it is starting to rain
+I feel you drop tears
+And my heart become heavy
+What's this world coming to?
+There's nothing that can be done
+I couldn't careless
+
+It's wonderful for me that world is moving now
+Some lights turn around and around
+I lost my head again
+And just want to throw everything away
+It's not that easy
+
+Maybe I'm afraid I'm not as tender guy as you think
+Looking your eyes, and I say "love you" with fake smile
+I don't know what to do
+Please tell me what should I do
+Just feel so sad inside, but I kiss you
+Kiss you...
+
+I have a story to tell
+Do you hear me tonight
+It's things about me
+I'll be waiting in bedroom
+But anyway you can't come
+I get it, never mind
+
+I can't get my mind off you
+I'm such an idiot
+Same as usual
+You made me feel so better
+It brings back memories
+It's things about you
+
+My hands can't take back that the time I passed with you
+Some doubts broke me down, broke me down
+If you are still alive, I wanted to say it's not your fault
+But it's too late for us
+
+Maybe I'm afraid I'm not as tender guy as you think
+Looking your eyes, and I say "love you" with fake smile
+I don't know what to do
+Please tell me what should I do
+Just feel so sad inside, but I kiss you
+Kiss you...
+
+It's wonderful for me that world is moving now
+Some lights turn around and around
+I lost my head again
+And just want to throw everything away
+It's not that easy
+</poem>
+
+<br>
+
+{| style="width:100%"
+! align="left" |''Japanese'' (日本語歌詞)
+! align="left" |''Romaji'' (ローマ字)
+|-
+|気付いた時には終わりを告げ
+|kizuita toki ni wa owari o tsuge
+|-
+|全てが僕を笑うんだろう？
+|subete ga boku o waraun darou?
+|-
+|風が冷たいこんな日は
+|kaze ga tsumetai konna hi wa
+|-
+|君を思い出すよ
+|kimi o omoidasu yo
+|}
+<br>
+
+<poem style="margin-left:1em;">
+Maybe I'm afraid I'm not as tender guy as you think
+I close my eyes, and I say "love you" with true smile
+I don't know what to do
+Please tell me what should I do
+Just feel so sad inside, but say good-bye
+Good-bye...
+</poem>
+
+==Derivatives==
+{{Derivatives tabber
+  |vocaloid = 
+{{Derivative
+  |color       = kagamine
+  |title       = Rin's Cover
+  |singers     = [[Kagamine Rin]] V4X (Japanese, English)
+  |producers   = cinar (cover), Sappho (mixing), Saki✿ (encode)
+  |categories  = VOCALOID Cover
+  |links       = nn sm28120914
+}}
+{{Derivative
+  |color       = kaito
+  |title       = KAITO's Cover
+  |singers     = [[KAITO]] V3 (Japanese, English)
+  |producers   = haromori
+  |categories  = VOCALOID Cover
+  |links       = nn sm31913678
+}}
+{{Derivative
+  |color       = dex
+  |title       = DEX's Cover
+  |singers     = [[DEX]]
+  |producers   = Minato (cover, VSQx)
+  |categories  = VOCALOID Cover
+  |links       = nn sm32655732
+}}
+{{Derivative
+  |color       = uni
+  |title       = UNI's Cover
+  |singers     = [[UNI]]
+  |producers   = 또준이 (cover)
+  |categories  = VOCALOID Cover; Alternative Language
+  |links       = yt jwEyIjEOZCw
+  |description = The Japanese lyrics part are replaced and sung in Korean.
+}}
+  |other = 
+{{Derivative
+  |color       = cevio
+  |title       = IA English's Cover
+  |singers     = {{IW|cevio|IA}} English
+  |producers   = Takekinoko (cover)
+  |categories  = CeVIO Cover
+  |links       = nn sm33459004
+}}
+  |human = 
+{{Derivative
+  |color       = lightgrey; color:black
+  |title       = Kancell's Cover
+  |producers   = {{UIW|Kancell}} (vocals), madotsuki_ (mixing, encode)
+  |categories  = Human Cover
+  |links       = nn sm23109627
+}}
+{{Derivative
+  |color       = lightgrey; color:black
+  |title       = Akatin's Cover
+  |producers   = {{UIW|Akatin}} (vocals), U-GIN (encode, smattering)
+  |categories  = Human Cover
+  |links       = nn sm23026644
+}}
+{{Derivative
+  |color       = lightgrey; color:black
+  |title       = Panaman's Cover
+  |producers   = {{UIW|Panaman}} (vocals), Mimii (mixing, encode)
+  |categories  = Human Cover
+  |links       = nn sm22937796
+}}
+{{Derivative
+  |color       = lightgrey; color:black
+  |title       = Light's Cover
+  |producers   = Light (vocals)
+  |categories  = Human Cover
+  |links       = nn sm22836119
+}}
+{{Derivative
+  |color       = lightgrey; color:black
+  |title       = Aru's Cover
+  |producers   = Aru (vocals, mixing)
+  |categories  = Human Cover
+  |links       = yt WDAPP-DOoUQ; sc arutomako/aruabout-me
+}}
+{{Derivative
+  |color       = lightgrey; color:black|thumb = yt
+  |title       = Chalili's Cover
+  |producers   = [[Chalili]] (vocals), 寒雨 (movie), gong骏 (mixing)
+  |categories  = Human Cover
+  |links       = nn sm23197091; yt djM6OTxjVUA; sc chalilili/aboutme
+}}
+{{Derivative
+  |color       = lightgrey; color:black|thumb = yt
+  |title       = Araki's Cover
+  |producers   = {{UIW|Araki}} (vocals), FairyP (special thanks)
+  |categories  = Human Cover
+  |links       = nn sm24498567; yt SYo7GMuUacY
+}}
+  |arrangement = 
+{{Derivative
+  |color       = lightgrey; color:black|thumb = yt
+  |title       = Kancell's Arranged Cover
+  |singers     = Kancell
+  |producers   = Kancell (vocals), Command S.inc (arrangement), Kuro (design), GtoZ (special thanks)
+  |categories  = Human Cover; Arrangement
+  |links       = nn sm34231892; yt 1_mEkBEEMBA
+}}
+  |spinoff = 
+{{Derivative
+  |color       = lightgrey; color:black|thumb = yt
+  |title       = 「About me」- response ver
+  |singers     = {{UIW|Mes}}<br><small>Sisam (guest vocal)</small>
+  |producers   = Mes (vocals, lyrics), [[Rella]] (illust), taramassu (mixing), omu (encode), {{UIW|nqrse}} (special thanks)
+  |categories  = Spin-off
+  |links       = nn sm24274785; yt sTUUq_xyyVU
+}}
+}}
+==Other media appearances==
+===Discography===
+This song was featured on the following albums:
+* ''[[EXIT TUNES PRESENTS Vocalofanatic feat. GUMI、IA、MAYU|Vocalofanatic]]''
+* ''[[End of the World (album)|End of the World]]''
+* ''[[EXIT TUNES PRESENTS GUMissimo from Megpoid ―10th ANNIVERSARY BEST―|GUMissimo]]''
+
+===Video games===
+This song was featured in the following video games:
+*SOUND VOLTEX II -infinite infection-
+*SOUND VOLTEX III GRAVITY WARS
+*{{IW|projectsekai|Project SEKAI COLORFUL STAGE!|Project SEKAI COLORFUL STAGE! feat. Hatsune Miku}} (Virtual Singer version by GUMI; SEKAI version by Vivid BAD SQUAD and Hatsune Miku)
+
+==Gallery==
+<gallery position="center" hideaddbutton="true" bordercolor="lightgrey">
+Games - Project SEKAI - About me.png|Music jacket featured in ''Project SEKAI COLORFUL STAGE! feat. Hatsune Miku''
+</gallery>
+
+==External links==
+===Official===
+{{Official
+  |media = [https://www.pixiv.net/member_illust.php?mode=medium&illust_id=41420482 Illustration] — pixiv
+  |dwlds =  <s>[http://goo.gl/KYlylb Karaoke] — Dropbox</s>
+  |url   = [http://papiyon38.blog54.fc2.com/blog-entry-377.html Blog Post (with Lyrics)] — Chouchou-P's Blog
+}}
+
+===Unofficial===
+{{Unofficial
+  |at     = 28361
+  |nico   = sm22820339
+  |mgp    = About_me
+  |utadb  = 16239
+  |vocadb = 43294
+  |tag    = About me
+  |vlw    = About me
+  |url    = {{IW|projectsekai|About me|Project SEKAI Wiki}}
+}}
+[[Category:Original songs]]
+[[Category:Partially bilingual songs]]
+[[Category:Songs featuring GUMI]]
+[[Category:English songs]]
+[[Category:Video game songs]]
+[[Category:Mobile game songs]]
+[[Category:Self-covers]]

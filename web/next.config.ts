@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 // The console is a fully client-side SPA. In production (the Docker build) it is
-// statically exported (`output: "export"` -> `out/`) and served directly by
-// nginx, which also reverse-proxies /api, /sse, /files to the Go backend. No
-// Node.js runs in production.
+// statically exported (`output: "export"` -> `out/`) and served by the Go
+// backend. No Node.js or reverse proxy is required in production.
 //
 // In dev (`next dev`), we instead proxy those same paths to the backend via
 // rewrites so the browser sees a single same-origin app. The two modes are kept
@@ -12,15 +11,15 @@ const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Don't let lint warnings fail the Docker build; TS type errors still block it.
-  eslint: { ignoreDuringBuilds: true },
   ...(isDev
     ? {
         async rewrites() {
-          const backend = process.env.BACKEND_ORIGIN || "http://localhost:9090";
+          const backend = process.env.BACKEND_ORIGIN || "http://localhost:8080";
           return [
             { source: "/api/:path*", destination: `${backend}/api/:path*` },
             { source: "/sse", destination: `${backend}/sse` },
+            { source: "/ws", destination: `${backend}/ws` },
+            { source: "/yjs/:path*", destination: `${backend}/yjs/:path*` },
             { source: "/files/:path*", destination: `${backend}/files/:path*` },
           ];
         },

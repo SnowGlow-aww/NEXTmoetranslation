@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "detail.schema.json",
+  "title": "NEXTmoetranslation public lyrics detail v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "musicId", "revision", "updatedAt", "attribution", "lines"],
+  "properties": {
+    "version": { "const": 1 },
+    "musicId": { "type": "integer", "minimum": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "attribution": { "type": "string", "minLength": 1, "maxLength": 16384 },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "order", "japanese", "zh-CN", "en-US", "segments"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "order": { "type": "integer", "minimum": 0 },
+          "japanese": { "type": "string", "minLength": 1, "maxLength": 16384 },
+          "zh-CN": { "type": "string", "maxLength": 16384 },
+          "en-US": { "type": "string", "maxLength": 16384 },
+          "stanzaBreakBefore": { "type": "boolean" },
+          "segments": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text", "performerIds"],
+              "properties": {
+                "text": { "type": "string", "maxLength": 16384 },
+                "performerIds": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
