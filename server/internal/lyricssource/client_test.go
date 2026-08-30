@@ -2030,15 +2030,15 @@ func TestRequestBoundsDistinctInflightWorkAndSerializesActualHTTP(t *testing.T) 
 	firstStarted := make(chan struct{})
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if requests.Add(1) == 1 {
-			close(firstStarted)
-		}
 		current := active.Add(1)
 		for {
 			observed := maximumActive.Load()
 			if current <= observed || maximumActive.CompareAndSwap(observed, current) {
 				break
 			}
+		}
+		if requests.Add(1) == 1 {
+			close(firstStarted)
 		}
 		defer active.Add(-1)
 		<-release
@@ -2060,6 +2060,7 @@ func TestRequestBoundsDistinctInflightWorkAndSerializesActualHTTP(t *testing.T) 
 	}
 	awaitSignal(t, firstStarted, "first distinct HTTP request")
 	awaitCondition(t, time.Second, func() bool { return len(client.requestSlots) == maxInflightRequests }, "bounded in-flight work slots")
+	awaitCondition(t, time.Second, func() bool { return requests.Load() == 1 && maximumActive.Load() == 1 }, "serialized upstream request and active count")
 	if got := requests.Load(); got != 1 || maximumActive.Load() != 1 {
 		t.Fatalf("serialized upstream requests=%d maximum active=%d, want 1/1", got, maximumActive.Load())
 	}
